@@ -1,0 +1,5 @@
+data/
+.env
+deploy.log
+.deploy-token
+/index.html

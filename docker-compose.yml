@@ -1,0 +1,13 @@
+services:
+  cadence:
+    build: .
+    container_name: cadence
+    restart: unless-stopped
+    ports:
+      - "8484:8484"
+    volumes:
+      - ./data:/data
+      # the app UI is mounted live: a pushed change to public/ goes live on refresh, no rebuild
+      - ./public:/app/public:ro
+    env_file:
+      - .env
