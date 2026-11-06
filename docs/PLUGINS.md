@@ -27,6 +27,7 @@ Use `api.storage` for anything that should persist.
 | `api.extractors.add({ id, name, available?(), run(text, ctx, api) })` | Meeting-notes importer, returns `[{ title, owner: 'me'\|'client', assignee?, dueDate?, dueTime? }]` |
 | `api.taskActions.add({ label, run(task, api) })` | Button in the task drawer |
 | `api.meetingActions.add({ label, run(meeting, items, api) })` | Button on the meeting review screen and in the meeting log |
+| `api.clientActions.add({ id, label, run(client, api), primary?, where?: ['waiting'], short? })` | Client page: `primary` shows a button in the header, otherwise it goes in the ••• menu. `where: ['waiting']` also adds a small `short` button to that client's group on Waiting on clients |
 | `api.on(event, fn)` | `task:add` `task:update` `task:complete` `task:reopen` `task:remove` `client:add` `meeting:start` `meeting:end` `reminder` `*` |
 
 ## Data and helpers
@@ -34,7 +35,7 @@ Use `api.storage` for anything that should persist.
 ```
 api.tasks.list(filterFn?) / get(id) / add(partial) / update(id, patch) / complete(id) / remove(id) / quickAdd(text, ctx)
 api.clients.list() / get(id) / add(name)
-api.meetings.list() / active() / start(clientId?)
+api.meetings.list() / active() / start(clientId?, notes?)
 api.storage.get(key) / set(key, value)        // namespaced to your plugin, synced with the rest of the data
 api.ui.toast(msg, [{label, run}]) / navigate(route) / refresh() / copy(text) / modal(title, bodyHTML, footHTML, cls) / close() / esc(str) / currentRoute()
 api.ai                                         // async (prompt, opts) => { text }, with .json(prompt); null when AI is off
@@ -48,10 +49,16 @@ Everything returned is a copy. Change data through the API so events fire and th
 
 ```js
 { id, title, clientId, owner: 'me'|'client', assignee, dueDate: 'YYYY-MM-DD'|null, dueTime: 'HH:MM'|null,
-  priority: 0-3, tags: [], notes, remindMode: 'auto'|'at'|'60'|'custom'|'none', remindAt, done, doneAt, createdAt, meetingId }
+  priority: 0-3, tags: [], notes, repeat: { unit: 'day'|'weekday'|'week'|'month', n } | null, order, lastChased, remindMode: 'auto'|'at'|'60'|'custom'|'none', remindAt, done, doneAt, createdAt, meetingId }
 ```
 
 ## Shipping a plugin
 
 Paste it into Settings → Developer to try it out. To ship it to everyone, add it next to the
 built-in plugins in `public/index.html` and push. It goes live on the next deploy, with no rebuild.
+
+## Built-in plugins worth reading
+
+`prep` (client action + modal), `chase` (reuses the recap email via `window.CadenceRecap.open`),
+`templates` (storage-backed editor), `review` (sidebar view), `pulse` (sidebar view),
+`fireflies` / `ai-extract` / `plain-lines` (extractors), `zoho-tags` (parser).

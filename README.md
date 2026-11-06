@@ -12,6 +12,15 @@ deploy.sh           Synology auto-deploy: pulls from GitHub, rebuilds only when 
 docs/PLUGINS.md     plugin API for developers
 ```
 
+## Highlights
+
+- Quick add: `Send SOW @Acme Corp fri 3pm !1 #crm`, `^Sarah share logins tomorrow`, `Weekly report every fri`
+- Meeting Mode: capture items for you and the client, import Fireflies notes, review, then send a formatted recap
+- Client pages: logo, prep sheet, chase email, project templates, status email, pause/resume
+- Keyboard: `?` lists every shortcut (J/K to move, X to complete, S to snooze, E to open, M for a meeting)
+- Drag to reorder, drag between On me / On client, or drop on a client in the sidebar
+- Weekly review, with a nudge on Friday afternoon
+
 ## How changes reach the NAS
 
 ```
