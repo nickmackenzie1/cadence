@@ -86,6 +86,11 @@ kbd{font-family:var(--mono);font-size:10.5px;padding:1px 5px;border-radius:4px;b
 .qa .hint{font-size:11.5px;color:var(--faint);white-space:nowrap;padding-right:6px}
 .qa-chips{display:flex;flex-wrap:wrap;gap:6px;padding:0 0 9px 28px}
 .qa-chips:empty{display:none}
+.ac{position:absolute;left:8px;top:calc(100% + 6px);min-width:260px;max-width:360px;background:var(--panel);border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadow);padding:4px;z-index:15}
+.m-input .ac{top:auto;bottom:calc(100% + 6px)}
+.ac-i{display:flex;align-items:center;gap:10px;padding:7px 10px;border-radius:7px;cursor:pointer;font-size:13.5px}
+.ac-i.on{background:var(--accent-soft)}
+.ac-i .badge{margin-left:auto}
 /* chips */
 .chip{display:inline-flex;align-items:center;gap:5px;font-size:11.5px;padding:2px 8px;border-radius:999px;background:var(--hover);color:var(--muted);font-weight:500;white-space:nowrap}
 .chip.due{background:none;padding-left:0;padding-right:0}
@@ -344,6 +349,8 @@ function save(){ S.updatedAt = Date.now(); persistLocal(); Store.schedule(); }
 
 /* ---------- model ops ---------- */
 const client = id => S.clients.find(c => c.id === id);
+const capFirst = str => { str = String(str || '').trim(); return /^\p{Ll}\p{Lu}/u.test(str) ? str : str.charAt(0).toLocaleUpperCase() + str.slice(1); };   // leaves iOS, eBay alone
+const titleCase = str => /[A-Z]/.test(str) ? str.trim() : String(str).trim().replace(/(^|[\s\-(&/])(\p{Ll})/gu, (m, p, c) => p + c.toLocaleUpperCase());
 function cleanDomain(v){
   v = String(v || '').trim().toLowerCase(); if(!v) return '';
   v = v.replace(/^[a-z]+:\/\//, '').replace(/^www\./, '').split(/[\/?#\s]/)[0].replace(/:\d+$/, '');
@@ -361,6 +368,7 @@ function addClient(name, color, domain){
   name = String(name||'').trim();
   const m = name.match(/^(.*?)\s*[(<\[]\s*([^)>\]]+)\s*[)>\]]\s*$/); if(m && cleanDomain(m[2])){ name = m[1].trim(); domain = domain || m[2]; }
   if(!name) return null;
+  name = titleCase(name);
   const ex = S.clients.find(c => norm(c.name) === norm(name)); if(ex){ ex.archived = false; return ex; }
   const c = { id: uid('c'), name, color: color || COLORS[S.clients.length % COLORS.length], domain: cleanDomain(domain), status:'active', archived:false, createdAt: Date.now() };
   S.clients.push(c); save(); emit('client:add', clone(c)); return c;
@@ -374,6 +382,7 @@ function computeRemind(t){
 }
 function addTask(p){
   const t = Object.assign({ id: uid('t'), title:'', clientId:null, owner:'me', assignee:'', dueDate:null, dueTime:null, priority:0, tags:[], notes:'', remindMode:'auto', remindAt:null, reminded:false, done:false, doneAt:null, createdAt:Date.now(), meetingId:null }, p);
+  t.title = capFirst(t.title);
   t.remindAt = computeRemind(t);
   S.tasks.push(t); save(); emit('task:add', clone(t)); return t;
 }
@@ -399,11 +408,28 @@ function parseQuick(input, ctx = {}){
   const take = (re, fn) => { const m = t.match(re); if(m && fn(m) !== false){ t = t.slice(0, m.index) + ' ' + t.slice(m.index + m[0].length); return m; } return null; };
   const pre = '(?:\\s(?:by|on|due|before|until))?';
   // client  @acme
-  take(/\s@([\w&.+-]+)(?=\s)/, m => {
-    const q = norm(m[1]);
-    const c = S.clients.find(c => norm(c.name) === q) || S.clients.find(c => norm(c.name).startsWith(q)) || S.clients.find(c => norm(c.name).includes(q));
-    if(c) r.clientId = c.id; else r.newClient = m[1];
-  });
+  // multi-word names: @Acme Corp, @"Blue Sky Labs", @Blue_Sky
+  (() => {
+    const at = t.search(/\s@\S/); if(at < 0) return;
+    const rest = t.slice(at + 2);
+    const quoted = rest.match(/^"([^"]+)"/);
+    const cut = len => { t = t.slice(0, at) + ' ' + t.slice(at + 2 + len); };
+    if(quoted){
+      const q = norm(quoted[1]), c = S.clients.find(c => norm(c.name) === q);
+      if(c) r.clientId = c.id; else r.newClient = quoted[1].trim();
+      return cut(quoted[0].length);
+    }
+    const live = S.clients.filter(c => !c.archived);
+    for(let k = 6; k >= 1; k--){                       // longest exact match on existing clients first
+      const m = rest.match(new RegExp('^(\\S+(?:\\s+\\S+){' + (k-1) + '})(?=\\s|$)')); if(!m) continue;
+      const c = live.find(c => norm(c.name) === norm(m[1])) || S.clients.find(c => norm(c.name) === norm(m[1]));
+      if(c){ r.clientId = c.id; return cut(m[1].length); }
+    }
+    const w = rest.match(/^\S+/)[0], q = norm(w);
+    const c = q && (live.find(c => norm(c.name).startsWith(q)) || live.find(c => norm(c.name).includes(q)));
+    if(c) r.clientId = c.id; else r.newClient = w.replace(/[_]+/g, ' ').trim();
+    cut(w.length);
+  })();
   // owner  ^ or ^Name  -> client's action item
   take(/\s\^([\w.'-]*)(?=\s)/, m => { r.owner = 'client'; r.assignee = m[1] || ''; });
   // priority  !1 !2 !3  !high
@@ -558,7 +584,7 @@ function taskRow(t, opts = {}){
 }
 const group = (title, tasks, opts = {}) => tasks.length ? `<div class="group"><div class="group-h ${opts.cls||''}">${title}<span class="c">${tasks.length}</span></div>${sortTasks(tasks).map(t => taskRow(t, opts)).join('')}</div>` : '';
 function quickAdd(placeholder, ctx = {}){
-  return `<div class="qa" data-ctx='${esc(JSON.stringify(ctx))}'><div class="qa-row"><span class="plus">+</span><input id="qa" autocomplete="off" placeholder="${esc(placeholder)}"><span class="hint">@client · ^client owes · fri 3pm · !1 · #tag</span></div><div class="qa-chips" id="qa-chips"></div></div>`;
+  return `<div class="qa" data-ctx='${esc(JSON.stringify(ctx))}'><div class="qa-row"><span class="plus">+</span><input id="qa" autocomplete="off" placeholder="${esc(placeholder)}"><span class="hint">@ client · ^ they owe · fri 3pm · !1 · #tag</span></div><div class="qa-chips" id="qa-chips"></div></div>`;
 }
 function emptyState(icon, title, sub){ return `<div class="empty"><div class="big">${icon}</div><b>${title}</b>${sub||''}</div>`; }
 
@@ -619,9 +645,62 @@ function onboarding(){
     <div class="row"><input class="inp" id="ob-clients" placeholder="Acme Corp (acme.com), Northwind, Globex…"><button class="btn primary" data-act="ob-add">Add</button></div>
     <p class="muted" style="margin-top:22px;font-size:13px">Then try typing in the box above:<br><code>Send proposal @acme fri 3pm !1</code> — a task with client, due time, and priority.<br><code>^ Share API credentials @acme tomorrow</code> — an item the <i>client</i> owes you.</p></div>`;
 }
+/* ---------- @client autocomplete ---------- */
+function attachClientAC(inp, onPick){
+  const host = inp.closest('.qa'); host.style.position = 'relative';
+  const pop = document.createElement('div'); pop.className = 'ac'; pop.hidden = true; host.appendChild(pop);
+  let items = [], sel = 0, tok = null;
+  const token = () => {
+    const v = inp.value, caret = inp.selectionStart ?? v.length, at = v.lastIndexOf('@', caret - 1);
+    if(at < 0 || (at > 0 && !/\s/.test(v[at-1]))) return null;
+    const q = v.slice(at + 1, caret); if(q.startsWith('"')) return null;
+    if((q.match(/\s/g) || []).length > 4) return null;
+    return { at, caret, q };
+  };
+  const draw = () => {
+    tok = token();
+    if(!tok){ pop.hidden = true; return; }
+    const q = norm(tok.q), live = S.clients.filter(c => !c.archived), lower = tok.q.toLowerCase();
+    if(live.some(c => lower.startsWith(c.name.toLowerCase() + ' '))){ pop.hidden = true; return; }   // already picked, typing on
+    items = (q ? live.filter(c => norm(c.name).startsWith(q)).concat(live.filter(c => !norm(c.name).startsWith(q) && norm(c.name).includes(q))) : live.slice().sort((a,b) => (a.status==='paused') - (b.status==='paused') || a.name.localeCompare(b.name))).slice(0, 8);
+    if(/\s$/.test(tok.q) && !items.length){ pop.hidden = true; return; }
+    const createRow = tok.q.trim() && !live.some(c => norm(c.name) === q);
+    const n = items.length + (createRow ? 1 : 0);
+    if(sel >= n) sel = n - 1;
+    if(sel < 0 && items.length && !/\s/.test(tok.q)) sel = 0;   // only pre-select real clients; "New client" must be chosen
+    pop.innerHTML = items.map((c, i) => `<div class="ac-i ${i===sel?'on':''}" data-i="${i}">${avatar(c, 18)}<span>${esc(c.name)}</span>${c.status==='paused'?'<span class="badge">Paused</span>':''}</div>`).join('')
+      + (createRow ? `<div class="ac-i ${sel===items.length?'on':''}" data-i="new"><span class="av" style="--c:var(--faint);width:18px;height:18px;font-size:12px">+</span><span>New client “${esc(tok.q.trim())}”</span></div>` : '');
+    pop.hidden = !pop.innerHTML;
+  };
+  const pick = i => {
+    if(!tok) return;
+    let name;
+    if(i === 'new' || i === items.length){ name = tok.q.trim().replace(/_+/g, ' '); if(!name) return; addClient(name); renderSide(); }
+    else name = items[i].name;
+    const v = inp.value, insert = '@' + name + ' ';
+    inp.value = v.slice(0, tok.at) + insert + v.slice(tok.caret).replace(/^\s+/, '');
+    const pos = tok.at + insert.length; inp.setSelectionRange(pos, pos);
+    pop.hidden = true; sel = 0; onPick && onPick();
+  };
+  inp.addEventListener('input', () => { sel = -1; draw(); });
+  inp.addEventListener('click', draw);
+  inp.addEventListener('blur', () => setTimeout(() => { pop.hidden = true; }, 150));
+  inp.addEventListener('keydown', e => {
+    if(pop.hidden) return;
+    const n = pop.querySelectorAll('.ac-i').length;
+    if(e.key === 'ArrowDown'){ sel = (sel + 1) % n; draw(); }
+    else if(e.key === 'ArrowUp'){ sel = sel <= 0 ? n - 1 : sel - 1; draw(); }
+    else if(e.key === 'Enter' || e.key === 'Tab'){ if(sel < 0){ pop.hidden = true; return; } pick(sel); }
+    else if(e.key === 'Escape'){ pop.hidden = true; }
+    else return;
+    e.preventDefault(); e.stopImmediatePropagation();
+  });
+  pop.addEventListener('mousedown', e => { const it = e.target.closest('.ac-i'); if(!it) return; e.preventDefault(); pick(it.dataset.i === 'new' ? 'new' : +it.dataset.i); inp.focus(); });
+}
 function bindQuickAdd(){
   const inp = $('#qa'); if(!inp) return;
   const box = inp.closest('.qa'), ctx = JSON.parse(box.dataset.ctx || '{}'), chips = $('#qa-chips');
+  attachClientAC(inp, () => { chips.innerHTML = parseChips(parseQuick(inp.value, ctx)); });
   inp.addEventListener('input', () => { chips.innerHTML = inp.value.trim() ? parseChips(parseQuick(inp.value, ctx)) : ''; });
   inp.addEventListener('keydown', e => {
     if(e.key === 'Enter' && inp.value.trim()){
@@ -857,7 +936,7 @@ function addMeetingItem(text){
   const pm = txt.match(/^(me|i|c|client|they|them)\s*[:>]\s*/i); if(pm){ owner = /^(me|i)$/i.test(pm[1]) ? 'me' : 'client'; txt = txt.slice(pm[0].length); }
   const r = parseQuick(txt, { clientId: M.clientId, owner });
   if(!r.title) return;
-  M.items.push({ id: uid('i'), title: r.title, owner: r.owner, assignee: r.assignee, dueDate: r.dueDate, dueTime: r.dueTime, priority: r.priority, tags: r.tags, include: true });
+  M.items.push({ id: uid('i'), title: capFirst(r.title), owner: r.owner, assignee: r.assignee, dueDate: r.dueDate, dueTime: r.dueTime, priority: r.priority, tags: r.tags, include: true });
   save();
 }
 function renderMeeting(){
@@ -925,7 +1004,7 @@ async function runImport(){
     let n = 0;
     for(const it of (items || [])){
       if(!it || !it.title) continue;
-      M.items.push({ id: uid('i'), title: String(it.title).trim(), owner: it.owner === 'client' ? 'client' : 'me', assignee: it.assignee || '', dueDate: /^\d{4}-\d\d-\d\d$/.test(it.dueDate||'') ? it.dueDate : null, dueTime: /^\d\d:\d\d$/.test(it.dueTime||'') ? it.dueTime : null, priority: 0, tags: [], include: true }); n++;
+      M.items.push({ id: uid('i'), title: capFirst(it.title), owner: it.owner === 'client' ? 'client' : 'me', assignee: it.assignee || '', dueDate: /^\d{4}-\d\d-\d\d$/.test(it.dueDate||'') ? it.dueDate : null, dueTime: /^\d\d:\d\d$/.test(it.dueTime||'') ? it.dueTime : null, priority: 0, tags: [], include: true }); n++;
     }
     if($('#imp-notes').checked) M.notes = (M.notes ? M.notes + '\n\n' : '') + text;
     save(); closeModal(); renderMeeting(); toast(n ? `Pulled ${n} action item${n===1?'':'s'} — review them on each side` : 'No action items found in that text');
