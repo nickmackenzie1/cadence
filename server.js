@@ -6,6 +6,8 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
+const dns = require('dns').promises;
+const net = require('net');
 
 const PORT = +process.env.PORT || 8484;
 const DATA_DIR = process.env.DATA_DIR || '/data';
@@ -20,6 +22,10 @@ const KEEP_BACKUPS = +process.env.KEEP_BACKUPS || 30;
 const STATE_FILE = path.join(DATA_DIR, 'state.json');
 const BACKUP_DIR = path.join(DATA_DIR, 'backups');
 const ICON_DIR = path.join(DATA_DIR, 'favicons');
+const BANNER_DIR = path.join(DATA_DIR, 'banners');
+const COMPANY_DIR = path.join(DATA_DIR, 'companies');
+fs.mkdirSync(BANNER_DIR, { recursive: true });
+fs.mkdirSync(COMPANY_DIR, { recursive: true });
 fs.mkdirSync(BACKUP_DIR, { recursive: true });
 fs.mkdirSync(ICON_DIR, { recursive: true });
 
@@ -90,6 +96,107 @@ async function getIcon(domain) {
   return inflight.get(domain);
 }
 
+// ---- safe outbound fetch: public hosts only, redirects checked hop by hop ----
+const DOMAIN_RE = /^(?=.{4,253}$)([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,24}$/;
+function privateIp(ip) {
+  if (net.isIPv4(ip)) {
+    const [a, b] = ip.split('.').map(Number);
+    return a === 10 || a === 127 || a === 0 || (a === 169 && b === 254) || (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168) || (a === 100 && b >= 64 && b <= 127) || a >= 224;
+  }
+  const x = ip.toLowerCase();
+  return x === '::1' || x === '::' || x.startsWith('fc') || x.startsWith('fd') || x.startsWith('fe80') || x.startsWith('::ffff:') && privateIp(x.slice(7));
+}
+async function assertPublic(u) {
+  const url = new URL(u);
+  if (!/^https?:$/.test(url.protocol)) throw new Error('bad protocol');
+  if (net.isIP(url.hostname)) throw new Error('ip literal');
+  const addrs = await dns.lookup(url.hostname, { all: true });
+  if (!addrs.length || addrs.some(a => privateIp(a.address))) throw new Error('private address');
+}
+async function safeFetch(u, opts = {}, max = 2 * 1024 * 1024) {
+  let url = u;
+  for (let hop = 0; hop < 5; hop++) {
+    await assertPublic(url);
+    const r = await fetch(url, { redirect: 'manual', signal: AbortSignal.timeout(8000), headers: { 'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124 Safari/537.36 Cadence', 'Accept-Language': 'en' , ...(opts.headers || {}) } });
+    if (r.status >= 300 && r.status < 400 && r.headers.get('location')) { url = new URL(r.headers.get('location'), url).href; continue; }
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const reader = r.body.getReader(); const chunks = []; let size = 0;
+    for (;;) { const { done, value } = await reader.read(); if (done) break; size += value.length; if (size > max) { reader.cancel(); break; } chunks.push(value); }
+    return { url, type: r.headers.get('content-type') || '', buf: Buffer.concat(chunks.map(c => Buffer.from(c))) };
+  }
+  throw new Error('too many redirects');
+}
+
+// ---- company info: logo, banner, description, industry from the client's website ----
+const INDUSTRIES = {
+  software:      ['software','saas','platform','cloud','app ','apps','api','developer','cybersecurity','it services','managed services','tech'],
+  manufacturing: ['manufactur','factory','industrial','machining','fabrication','oem','production','plant','precision','components'],
+  healthcare:    ['health','medical','clinic','patient','dental','pharma','hospital','care','wellness','therapy'],
+  legal:         ['law firm','legal','attorney','lawyer','litigation','counsel','barrister','solicitor'],
+  finance:       ['accounting','cpa','bookkeeping','financial','wealth','investment','bank','tax','advisory','capital'],
+  insurance:     ['insurance','broker','underwriting','claims','coverage'],
+  realestate:    ['real estate','realty','property','properties','homes','mortgage','realtor','leasing'],
+  construction:  ['construction','contractor','builder','renovation','roofing','hvac','plumbing','electrical','engineering'],
+  retail:        ['shop','store','ecommerce','e-commerce','retail','boutique','buy now','collection','fashion','apparel'],
+  logistics:     ['logistics','shipping','freight','transport','trucking','warehouse','distribution','courier','supply chain'],
+  education:     ['school','education','university','college','learning','training','academy','course','students'],
+  nonprofit:     ['nonprofit','non-profit','charity','foundation','donate','volunteer','mission'],
+  hospitality:   ['hotel','restaurant','resort','travel','tourism','catering','events','hospitality','booking'],
+  marketing:     ['marketing agency','digital agency','branding','seo','advertising','creative agency','design studio','media'],
+  energy:        ['energy','solar','oil','gas','utilities','renewable','power','electric'],
+  automotive:    ['automotive','dealership','auto ','car ','vehicle','motors'],
+};
+const meta = (html, name) => { const re = new RegExp(`<meta[^>]+(?:property|name)=["']${name}["'][^>]*>`, 'i'); const tag = (html.match(re) || [])[0]; if (!tag) return ''; return ((tag.match(/content=["']([^"']*)["']/i) || [])[1] || '').trim(); };
+const decode = s => String(s || '').replace(/&amp;/g, '&').replace(/&quot;/g, '"').replace(/&#39;|&apos;/g, "'").replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&#(\d+);/g, (m, n) => String.fromCharCode(+n)).replace(/\s+/g, ' ').trim();
+function guessIndustry(text) {
+  const t = ' ' + text.toLowerCase() + ' '; let best = null, score = 0;
+  for (const [k, words] of Object.entries(INDUSTRIES)) { const sc = words.reduce((n, w) => n + (t.split(w).length - 1), 0); if (sc > score) { score = sc; best = k; } }
+  return score >= 2 ? best : (score === 1 ? best : '');
+}
+async function fetchImage(u) {
+  try { const r = await safeFetch(u, {}, 3 * 1024 * 1024); return sniff(r.buf) && r.buf.length > 200 ? r.buf : null; } catch { return null; }
+}
+async function companyInfo(domain, refresh) {
+  const jf = path.join(COMPANY_DIR, domain + '.json');
+  if (!refresh && fs.existsSync(jf)) return JSON.parse(fs.readFileSync(jf, 'utf8'));
+  let page = null;
+  for (const u of [`https://${domain}/`, `https://www.${domain}/`, `http://${domain}/`]) { try { page = await safeFetch(u); if (/html/i.test(page.type) || /<html/i.test(page.buf.slice(0, 2000).toString())) break; } catch { page = null; } }
+  const out = { domain, fetchedAt: Date.now(), name: '', description: '', industry: '', themeColor: '', hasLogo: false, hasBanner: false, ok: !!page };
+  if (page) {
+    const html = page.buf.toString('utf8'), base = page.url;
+    const abs = h => { try { return new URL(decode(h), base).href; } catch { return null; } };
+    out.name = decode(meta(html, 'og:site_name')) || decode((html.match(/<title[^>]*>([^<]{1,120})/i) || [])[1] || '').split(/\s[|\-–—:]\s/)[0];
+    out.description = decode(meta(html, 'og:description') || meta(html, 'description') || meta(html, 'twitter:description')).slice(0, 300);
+    out.themeColor = (meta(html, 'theme-color').match(/^#[0-9a-f]{3,8}$/i) || [''])[0];
+    // logo candidates: JSON-LD logo > apple-touch-icon > largest <link rel=icon>
+    const cands = [];
+    for (const m of html.matchAll(/"logo"\s*:\s*(?:\{[^}]*?"url"\s*:\s*)?"([^"]+)"/gi)) cands.push({ u: abs(m[1].replace(/\\\//g, '/')), s: 1000 });
+    for (const m of html.matchAll(/<link[^>]+>/gi)) {
+      const tag = m[0], rel = (tag.match(/rel=["']([^"']+)["']/i) || [])[1] || '', href = (tag.match(/href=["']([^"']+)["']/i) || [])[1];
+      if (!href || !/icon/i.test(rel)) continue;
+      const sz = +((tag.match(/sizes=["'](\d+)x\d+/i) || [])[1] || (/apple-touch/i.test(rel) ? 180 : /\.svg/i.test(href) ? 256 : 32));
+      cands.push({ u: abs(href), s: sz });
+    }
+    cands.sort((a, b) => b.s - a.s);
+    for (const c of cands.filter(c => c.u && c.s >= 64).slice(0, 4)) { const buf = await fetchImage(c.u); if (buf) { fs.writeFileSync(path.join(ICON_DIR, domain + '.img'), buf); try { fs.unlinkSync(path.join(ICON_DIR, domain + '.none')); } catch {} out.hasLogo = true; break; } }
+    const og = meta(html, 'og:image') || meta(html, 'twitter:image');
+    if (og) { const buf = await fetchImage(abs(og)); if (buf && buf.length > 2000) { fs.writeFileSync(path.join(BANNER_DIR, domain + '.img'), buf); out.hasBanner = true; } }
+    const text = [out.name, out.description, meta(html, 'keywords'), decode((html.match(/<h1[^>]*>([\s\S]{0,200}?)<\/h1>/i) || [])[1] || '').replace(/<[^>]+>/g, ' ')].join(' ');
+    out.industry = guessIndustry(text);
+    if (API_KEY && (out.description || out.name)) {
+      try {
+        const ans = await callClaude(`Classify this company into exactly one industry key from: ${Object.keys(INDUSTRIES).join(', ')}, other.\nAlso write a plain one-sentence description (max 20 words) of what they do.\nReturn JSON only: {"industry":"key","description":"..."}\n\nName: ${out.name}\nWebsite text: ${text.slice(0, 1500)}`, 'quick');
+        const j = JSON.parse((ans.match(/\{[\s\S]*\}/) || ['{}'])[0]);
+        if (j.industry && (INDUSTRIES[j.industry] || j.industry === 'other')) out.industry = j.industry === 'other' ? out.industry : j.industry;
+        if (j.description) out.description = String(j.description).slice(0, 200);
+      } catch {}
+    }
+  }
+  if (!out.hasLogo) { try { fs.unlinkSync(path.join(ICON_DIR, domain + '.none')); } catch {} out.hasLogo = !!(await getIcon(domain)); }
+  fs.writeFileSync(jf, JSON.stringify(out));
+  return out;
+}
+
 async function callClaude(prompt, tier) {
   const r = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
@@ -110,7 +217,7 @@ const server = http.createServer(async (req, res) => {
     const url = new URL(req.url, 'http://x');
     const p = url.pathname.replace(/^.*?\/api\//, '/api/'); // works behind a sub-path reverse proxy
 
-    if (p === '/api/health') return send(res, 200, { ok: true, ai: !!API_KEY, version: '0.3.0' });
+    if (p === '/api/health') return send(res, 200, { ok: true, ai: !!API_KEY, version: '0.4.0' });
 
     if (p === '/api/state' && req.method === 'GET') return send(res, 200, readState());
     if (p === '/api/state' && req.method === 'PUT') {
@@ -133,9 +240,26 @@ const server = http.createServer(async (req, res) => {
 
     if (p === '/api/favicon') {
       const d = String(url.searchParams.get('d') || '').toLowerCase();
-      if (!/^[a-z0-9-]+(\.[a-z0-9-]+)+$/.test(d) || d.length > 253) return send(res, 400, { error: 'Bad domain' });
+      if (!DOMAIN_RE.test(d)) return send(res, 400, { error: 'Bad domain' });
       const buf = await getIcon(d);
       if (!buf) { res.writeHead(404, { 'Cache-Control': 'max-age=3600' }); return res.end(); }
+      res.writeHead(200, { 'Content-Type': sniff(buf), 'Cache-Control': 'private, max-age=604800', 'X-Content-Type-Options': 'nosniff', 'Content-Security-Policy': "default-src 'none'; style-src 'unsafe-inline'" });
+      return res.end(buf);
+    }
+
+    if (p === '/api/company') {
+      const d = String(url.searchParams.get('d') || '').toLowerCase();
+      if (!DOMAIN_RE.test(d)) return send(res, 400, { error: 'Bad domain' });
+      const refresh = url.searchParams.get('refresh') === '1';
+      if (refresh) { for (const f of [path.join(ICON_DIR, d + '.img'), path.join(ICON_DIR, d + '.none'), path.join(BANNER_DIR, d + '.img')]) { try { fs.unlinkSync(f); } catch {} } }
+      return send(res, 200, await companyInfo(d, refresh));
+    }
+    if (p === '/api/banner') {
+      const d = String(url.searchParams.get('d') || '').toLowerCase();
+      if (!DOMAIN_RE.test(d)) return send(res, 400, { error: 'Bad domain' });
+      const f = path.join(BANNER_DIR, d + '.img');
+      if (!fs.existsSync(f)) { res.writeHead(404); return res.end(); }
+      const buf = fs.readFileSync(f);
       res.writeHead(200, { 'Content-Type': sniff(buf), 'Cache-Control': 'private, max-age=604800', 'X-Content-Type-Options': 'nosniff', 'Content-Security-Policy': "default-src 'none'; style-src 'unsafe-inline'" });
       return res.end(buf);
     }
