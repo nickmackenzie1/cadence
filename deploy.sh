@@ -26,6 +26,16 @@ fi
 if docker compose version >/dev/null 2>&1; then dc(){ docker compose -p cadence "$@"; }
 else dc(){ docker-compose -p cadence "$@"; }; fi
 
+# make sure the app is up (self-heal if the container was stopped or deleted)
+ensure_running(){
+  if ! docker ps --format '{{.Names}}' 2>/dev/null | grep -qx cadence; then
+    [ -f .env ] || cp .env.example .env
+    mkdir -p data
+    log "container not running: starting it"
+    dc up -d --build --remove-orphans >> "$LOG" 2>&1 && log "start ok" || log "START FAILED — see above"
+  fi
+}
+
 URL="https://github.com/$REPO.git"
 [ -n "$TOKEN" ] && URL="https://x-access-token:$TOKEN@github.com/$REPO.git"
 
@@ -52,6 +62,7 @@ if [ -n "${APP_PASSWORD:-}" ] && write_env; then ENV_CHANGED=yes; fi
 
 if [ "$OLD" = "$NEW" ]; then
   if [ "$ENV_CHANGED" = yes ] && [ "$OLD" != none ]; then log "settings changed: restarting"; dc up -d >> "$LOG" 2>&1 || log "restart failed"; fi
+  ensure_running
   exit 0
 fi
 
@@ -63,11 +74,12 @@ mkdir -p data
 
 [ "$ENV_CHANGED" = yes ] && CHANGED="$CHANGED
 docker-compose.yml"
-if echo "$CHANGED" | grep -qE '^(all|server\.js|Dockerfile|docker-compose\.yml)$'; then
+if echo "$CHANGED" | grep -qE '^(all|server\.js|Dockerfile|docker-compose\.yml|deploy\.sh)$'; then
   log "deploy $(echo "$NEW" | cut -c1-7): rebuilding container"
   dc up -d --build --remove-orphans >> "$LOG" 2>&1 && log "rebuild ok" || log "REBUILD FAILED — see above"
 else
   log "deploy $(echo "$NEW" | cut -c1-7): $(echo $CHANGED) (live, no rebuild)"
 fi
+ensure_running
 # keep the log small
 tail -n 300 "$LOG" > "$LOG.tmp" && mv "$LOG.tmp" "$LOG"
