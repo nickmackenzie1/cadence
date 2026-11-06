@@ -34,10 +34,22 @@ input,textarea,select{font:inherit;color:inherit}
 .nav a{display:flex;align-items:center;gap:10px;padding:6px 8px;border-radius:7px;color:var(--text);text-decoration:none;cursor:pointer;font-weight:500}
 .nav a:hover{background:var(--hover)}
 .nav a.on{background:var(--panel);box-shadow:0 1px 2px rgba(0,0,0,.06)}
-.nav a .ic{width:16px;text-align:center;color:var(--muted);font-size:13px}
+.nav a .ic{width:18px;text-align:center;color:var(--muted);font-size:13px;display:inline-flex;justify-content:center}
 .nav a .n{margin-left:auto;color:var(--muted);font-size:12px;font-variant-numeric:tabular-nums}
 .nav a .n.hot{color:var(--danger);font-weight:600}
 .dot{width:8px;height:8px;border-radius:50%;flex:none;display:inline-block}
+.av{position:relative;display:inline-grid;place-items:center;flex:none;border-radius:28%;background:var(--c);color:#fff;font-weight:700;letter-spacing:-.02em;overflow:hidden;line-height:1;vertical-align:middle;box-shadow:inset 0 0 0 1px rgba(0,0,0,.06)}
+.av img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:#fff;padding:9%}
+[data-theme=dark] .av img{background:#f4f3f0}
+.nav a .ic .av{margin:0 auto}
+.nav a.paused{opacity:.55}
+.nav .more{font-size:12px;color:var(--muted);padding:5px 8px;cursor:pointer;display:flex;align-items:center;gap:8px;border-radius:7px}
+.nav .more:hover{background:var(--hover);color:var(--text)}
+.badge{font-size:11px;font-weight:600;padding:2px 8px;border-radius:999px;background:var(--hover);color:var(--muted);letter-spacing:0;vertical-align:middle}
+.site-link{color:var(--muted);text-decoration:none;border-bottom:1px dotted var(--faint)}
+.site-link:hover{color:var(--accent)}
+.fav-prev{display:flex;align-items:center;gap:10px}
+.suggest{font-size:12px;color:var(--accent);cursor:pointer;margin-top:6px;display:inline-block}
 .sect{display:flex;align-items:center;justify-content:space-between;padding:16px 8px 6px;font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
 .sect button{color:var(--muted);font-size:16px;line-height:1;padding:0 4px;border-radius:4px}
 .sect button:hover{color:var(--text);background:var(--hover)}
@@ -291,7 +303,7 @@ const Store = {
     try {
       const h = await fetch('api/health', { cache:'no-store' }); if(!h.ok) return;
       const info = await h.json(); if(!info.ok) return;
-      this.server = true;
+      this.server = true; render();
       if(info.ai){
         const f = async (prompt, opts = {}) => { const r = await fetch('api/ai', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ prompt, tier: opts.modelTier || 'default' }) }); const j = await r.json(); if(!r.ok) throw Object.assign(new Error(j.error || 'AI error'), { code: r.status === 429 ? 'rate_limited' : 'error' }); return { text: j.text || '' }; };
         f.json = async (prompt, opts) => { const r = await f(prompt + '\n\nRespond with JSON only.', opts); const m = r.text.match(/[\[{][\s\S]*[\]}]/); return m ? JSON.parse(m[0]) : null; };
@@ -332,10 +344,25 @@ function save(){ S.updatedAt = Date.now(); persistLocal(); Store.schedule(); }
 
 /* ---------- model ops ---------- */
 const client = id => S.clients.find(c => c.id === id);
-function addClient(name, color){
-  name = String(name||'').trim(); if(!name) return null;
+function cleanDomain(v){
+  v = String(v || '').trim().toLowerCase(); if(!v) return '';
+  v = v.replace(/^[a-z]+:\/\//, '').replace(/^www\./, '').split(/[\/?#\s]/)[0].replace(/:\d+$/, '');
+  return /^[a-z0-9-]+(\.[a-z0-9-]+)+$/.test(v) ? v : '';
+}
+const guessDomain = name => { const b = norm(String(name).replace(/\b(inc|corp|corporation|llc|ltd|limited|co|company|group|industries|holdings|solutions|consulting|technologies|tech)\b\.?/gi, '')); return b ? b + '.com' : ''; };
+const initials = name => { const w = String(name||'?').replace(/[^\p{L}\p{N}\s&]/gu,'').trim().split(/\s+/).filter(x => !/^(inc|corp|llc|ltd|the|&)$/i.test(x)); return ((w[0]||'?')[0] + (w.length > 1 ? w[1][0] : (w[0]||'')[1] || '')).toUpperCase(); };
+const faviconUrl = d => Store.server ? 'api/favicon?d=' + encodeURIComponent(d) : 'https://www.google.com/s2/favicons?sz=128&domain=' + encodeURIComponent(d);
+function avatar(c, size = 16){
+  if(!c) return '';
+  const img = c.domain ? `<img src="${esc(faviconUrl(c.domain))}" alt="" loading="lazy" onerror="this.remove()">` : '';
+  return `<span class="av" style="--c:${c.color};width:${size}px;height:${size}px;font-size:${Math.round(size*.42)}px">${esc(initials(c.name))}${img}</span>`;
+}
+function addClient(name, color, domain){
+  name = String(name||'').trim();
+  const m = name.match(/^(.*?)\s*[(<\[]\s*([^)>\]]+)\s*[)>\]]\s*$/); if(m && cleanDomain(m[2])){ name = m[1].trim(); domain = domain || m[2]; }
+  if(!name) return null;
   const ex = S.clients.find(c => norm(c.name) === norm(name)); if(ex){ ex.archived = false; return ex; }
-  const c = { id: uid('c'), name, color: color || COLORS[S.clients.length % COLORS.length], archived:false, createdAt: Date.now() };
+  const c = { id: uid('c'), name, color: color || COLORS[S.clients.length % COLORS.length], domain: cleanDomain(domain), status:'active', archived:false, createdAt: Date.now() };
   S.clients.push(c); save(); emit('client:add', clone(c)); return c;
 }
 function computeRemind(t){
@@ -408,7 +435,7 @@ function parseQuick(input, ctx = {}){
 }
 function parseChips(r){
   const out = [];
-  if(r.clientId){ const c = client(r.clientId); out.push(`<span class="chip"><span class="dot" style="background:${c.color}"></span>${esc(c.name)}</span>`); }
+  if(r.clientId){ const c = client(r.clientId); out.push(`<span class="chip">${avatar(c,14)}${esc(c.name)}</span>`); }
   if(r.newClient) out.push(`<span class="chip">+ new client “${esc(r.newClient)}”</span>`);
   if(r.owner === 'client') out.push(`<span class="chip client-owned">↗ ${r.assignee ? esc(r.assignee) : 'Client'}’s action</span>`);
   if(r.dueDate) out.push(`<span class="chip">◷ ${esc(dueLabel(r))}</span>`);
@@ -443,7 +470,7 @@ function makeApi(pid){
     extractors: { add: e => Reg.extractors.push({ ...e, pid }) },
     taskActions: { add: a => Reg.taskActions.push({ ...a, pid }) },
     meetingActions: { add: a => Reg.meetingActions.push({ ...a, pid }) },
-    ui: { toast, navigate: r => go(r), refresh: () => render(), copy: copyText, esc, modal: openModalHTML, close: closeModal, currentRoute: () => route() },
+    ui: { toast, avatar: (c, size) => avatar(c, size), navigate: r => go(r), refresh: () => render(), copy: copyText, esc, modal: openModalHTML, close: closeModal, currentRoute: () => route() },
     storage: { get: k => (S.pluginData[pid] || {})[k], set: (k,v) => { (S.pluginData[pid] = S.pluginData[pid] || {})[k] = v; save(); } },
     get ai(){ return AI; },
     settings: () => clone(S.settings),
@@ -487,10 +514,16 @@ function counts(){
     inbox: o.filter(x => !x.clientId).length
   };
 }
+let showPaused = false;
+function clientLink(cl, r, o, isPaused){
+  const n = o.filter(t => t.clientId===cl.id && t.owner==='me').length, hot = o.some(t => t.clientId===cl.id && t.owner==='me' && dueState(t)==='over');
+  return `<a class="${r==='client-'+cl.id?'on':''} ${isPaused?'paused':''}" href="#client-${cl.id}"><span class="ic">${avatar(cl, 18)}</span>${esc(cl.name)}${n?`<span class="n ${hot?'hot':''}">${n}</span>`:''}</a>`;
+}
 function renderSide(){
   const r = route(), c = counts(), o = open();
   const nav = (id, ic, label, n, hot) => `<a class="${r===id?'on':''}" href="#${id}"><span class="ic">${ic}</span>${label}${n ? `<span class="n ${hot?'hot':''}">${n}</span>` : ''}</a>`;
-  const clients = S.clients.filter(x => !x.archived).sort((a,b) => a.name.localeCompare(b.name));
+  const all = S.clients.filter(x => !x.archived).sort((a,b) => a.name.localeCompare(b.name));
+  const clients = all.filter(x => x.status !== 'paused'), paused = all.filter(x => x.status === 'paused');
   $('#side').innerHTML = `
     <div class="brand"><span class="logo"></span>Cadence<kbd title="Command palette">⌘K</kbd></div>
     <nav class="nav">
@@ -502,7 +535,8 @@ function renderSide(){
     </nav>
     ${Reg.views.length ? `<div class="sect">Views</div><nav class="nav">${Reg.views.map(v => nav('view-'+v.id, esc(v.icon||'◇'), esc(v.title))).join('')}</nav>` : ''}
     <div class="sect">Clients <button data-act="add-client" title="Add client">+</button></div>
-    <nav class="nav">${clients.map(cl => { const n = o.filter(t => t.clientId===cl.id && t.owner==='me').length; const hot = o.some(t => t.clientId===cl.id && t.owner==='me' && dueState(t)==='over'); return `<a class="${r==='client-'+cl.id?'on':''}" href="#client-${cl.id}"><span class="ic"><span class="dot" style="background:${cl.color}"></span></span>${esc(cl.name)}${n?`<span class="n ${hot?'hot':''}">${n}</span>`:''}</a>`; }).join('') || `<a data-act="add-client"><span class="ic">+</span><span class="muted">Add your clients</span></a>`}</nav>
+    <nav class="nav">${clients.map(cl => clientLink(cl, r, o)).join('') || (paused.length ? '' : `<a data-act="add-client"><span class="ic">+</span><span class="muted">Add your clients</span></a>`)}
+      ${paused.length ? `<div class="more" data-act="toggle-paused">${showPaused ? '▾' : '▸'} Paused <span class="muted">${paused.length}</span></div>${showPaused ? paused.map(cl => clientLink(cl, r, o, true)).join('') : ''}` : ''}</nav>
     <div class="side-foot">
       <button class="meet-btn" data-act="meeting">${S.activeMeeting ? '● Resume meeting' : '◉ Start meeting'} <kbd style="background:transparent;color:inherit;border-color:currentColor;opacity:.5">M</kbd></button>
       <div class="foot-row"><span class="sync ${Store.status==='synced'?'ok':''}" id="sync"><i></i><span>${Store.status==='synced'?(Store.server?'Synced to NAS':'Synced'):'This browser'}</span></span><button data-act="theme" title="Theme">☾</button><button data-act="settings" title="Settings & plugins">⚙</button></div>
@@ -511,7 +545,7 @@ function renderSide(){
 function taskRow(t, opts = {}){
   const c = client(t.clientId), ds = dueState(t);
   const meta = [];
-  if(c && !opts.hideClient) meta.push(`<span class="chip"><span class="dot" style="background:${c.color}"></span>${esc(c.name)}</span>`);
+  if(c && !opts.hideClient) meta.push(`<span class="chip">${avatar(c,14)}${esc(c.name)}</span>`);
   if(t.owner === 'client' && !opts.hideOwner) meta.push(`<span class="chip client-owned">↗ ${esc(t.assignee || 'Client')}</span>`);
   if(t.dueDate) meta.push(`<span class="chip due ${ds}">${ds==='over'?'⚠ ':''}${esc(dueLabel(t))}</span>`);
   if(t.remindAt && !t.reminded && !t.done) meta.push(`<span class="chip due" title="Reminder ${new Date(t.remindAt).toLocaleString()}">🔔</span>`);
@@ -550,7 +584,7 @@ function renderView(){
     const w = o.filter(x => x.owner==='client'), by = {};
     w.forEach(x => (by[x.clientId||'_'] = by[x.clientId||'_'] || []).push(x));
     html = `<div class="head"><div><h1>Waiting on clients</h1><div class="sub">Action items you’re owed — chase these</div></div></div>${quickAdd('Log a client action item…', { owner:'client' })}
-      ${Object.keys(by).map(k => { const c = client(k); return group(c ? `<span class="dot" style="background:${c.color}"></span> ${esc(c.name)}` : 'No client', by[k], {hideClient:true, hideOwner:false}); }).join('') || emptyState('↗','No one owes you anything','Prefix with <kbd>^</kbd> to mark an item as the client’s.')}`;
+      ${Object.keys(by).map(k => { const c = client(k); return group(c ? `${avatar(c,16)} ${esc(c.name)}` : 'No client', by[k], {hideClient:true, hideOwner:false}); }).join('') || emptyState('↗','No one owes you anything','Prefix with <kbd>^</kbd> to mark an item as the client’s.')}`;
   } else if(r === 'inbox'){
     html = `<div class="head"><div><h1>Inbox</h1><div class="sub">Tasks not tied to a client</div></div></div>${quickAdd('Capture anything…')}${group('Unsorted', o.filter(x => !x.clientId)) || emptyState('▢','Inbox zero','Nice.')}`;
   } else if(r === 'done'){
@@ -564,8 +598,8 @@ function renderView(){
       const mine = o.filter(x => x.clientId===c.id && x.owner==='me'), theirs = o.filter(x => x.clientId===c.id && x.owner==='client');
       const mtgs = S.meetings.filter(m => m.clientId===c.id).sort((a,b) => b.start - a.start);
       const overdue = mine.filter(x => dueState(x)==='over').length;
-      html = `<div class="head"><div><h1><span class="dot" style="background:${c.color};width:12px;height:12px"></span>${esc(c.name)}</h1><div class="sub">${mtgs[0] ? 'Last meeting ' + fmtDate(ymd(new Date(mtgs[0].start))).toLowerCase() : 'No meetings logged yet'}</div></div>
-        <div class="actions"><button class="btn ghost" data-act="edit-client" data-cid="${c.id}">Edit</button>${enabled('recap') ? `<button class="btn" data-act="client-update">✉ Status email</button>` : ''}<button class="btn primary" data-act="meeting" data-cid="${c.id}">◉ Start meeting</button></div></div>
+      html = `<div class="head"><div><h1>${avatar(c, 34)}${esc(c.name)}${c.status==='paused' ? ' <span class="badge">Paused</span>' : ''}</h1><div class="sub">${c.domain ? `<a class="site-link" href="https://${esc(c.domain)}" target="_blank" rel="noopener">${esc(c.domain)}</a> · ` : `<a class="site-link" data-act="edit-client" data-cid="${c.id}" style="cursor:pointer">+ add website</a> · `}${mtgs[0] ? 'Last meeting ' + fmtDate(ymd(new Date(mtgs[0].start))).toLowerCase() : 'No meetings logged yet'}</div></div>
+        <div class="actions"><button class="btn ghost" data-act="pause-client" data-cid="${c.id}">${c.status==='paused' ? '▶ Resume' : '❚❚ Pause'}</button><button class="btn ghost" data-act="edit-client" data-cid="${c.id}">Edit</button>${enabled('recap') ? `<button class="btn" data-act="client-update">✉ Status email</button>` : ''}<button class="btn primary" data-act="meeting" data-cid="${c.id}">◉ Start meeting</button></div></div>
         <div class="stats"><div class="stat"><div class="v">${mine.length}</div><div class="l">On me</div></div><div class="stat"><div class="v" style="color:var(--client)">${theirs.length}</div><div class="l">Waiting on ${esc(c.name)}</div></div><div class="stat"><div class="v" style="color:${overdue?'var(--danger)':'inherit'}">${overdue}</div><div class="l">Overdue</div></div><div class="stat"><div class="v">${mtgs.length}</div><div class="l">Meetings</div></div></div>
         ${quickAdd(`Add a task for ${c.name}…  prefix ^ for their action item`, { clientId: c.id })}
         <div class="cols"><div>${group('On me', mine, {hideClient:true}) || `<div class="group"><div class="group-h">On me</div><div class="muted" style="padding:10px 6px">All clear.</div></div>`}</div>
@@ -581,8 +615,8 @@ function renderView(){
   bindQuickAdd();
 }
 function onboarding(){
-  return `<div class="empty" style="text-align:left;max-width:480px;margin:0 auto"><b style="font-size:18px">Welcome to Cadence 👋</b><p class="muted">Start by adding the clients you work with. Separate with commas.</p>
-    <div class="row"><input class="inp" id="ob-clients" placeholder="Acme Corp, Northwind, Globex…"><button class="btn primary" data-act="ob-add">Add</button></div>
+  return `<div class="empty" style="text-align:left;max-width:480px;margin:0 auto"><b style="font-size:18px">Welcome to Cadence 👋</b><p class="muted">Start by adding the clients you work with, separated by commas. Add a website in brackets to pull in their logo.</p>
+    <div class="row"><input class="inp" id="ob-clients" placeholder="Acme Corp (acme.com), Northwind, Globex…"><button class="btn primary" data-act="ob-add">Add</button></div>
     <p class="muted" style="margin-top:22px;font-size:13px">Then try typing in the box above:<br><code>Send proposal @acme fri 3pm !1</code> — a task with client, due time, and priority.<br><code>^ Share API credentials @acme tomorrow</code> — an item the <i>client</i> owes you.</p></div>`;
 }
 function bindQuickAdd(){
@@ -720,12 +754,26 @@ function openPalette(){
 }
 function promptClient(existing){
   const c = existing ? client(existing) : null;
-  openModalHTML(c ? 'Edit client' : 'Add client', `<div class="field"><label>Name</label><input class="inp" id="cl-name" value="${esc(c ? c.name : '')}" placeholder="Client or project name"></div>
-    <div class="field"><label>Color</label><div class="swatches" id="cl-sw">${COLORS.map((col,i) => `<button style="background:${col}" data-col="${col}" class="${(c ? c.color : COLORS[S.clients.length % COLORS.length])===col?'on':''}"></button>`).join('')}</div></div>`,
+  const draft = { name: c ? c.name : '', domain: c ? (c.domain||'') : '', color: c ? c.color : COLORS[S.clients.length % COLORS.length], status: c ? (c.status||'active') : 'active' };
+  openModalHTML(c ? 'Edit client' : 'Add client', `
+    <div class="fav-prev"><span id="cl-av"></span><div style="flex:1"><div class="field"><label>Name</label><input class="inp" id="cl-name" value="${esc(draft.name)}" placeholder="Client or project name"></div></div></div>
+    <div class="field"><label>Website</label><input class="inp" id="cl-domain" value="${esc(draft.domain)}" placeholder="acme.com — pulls in their logo"><span class="suggest" id="cl-guess"></span></div>
+    <div class="field"><label>Status</label><div class="seg" id="cl-status"><button data-v="active" class="${draft.status!=='paused'?'on':''}">Active</button><button data-v="paused" class="${draft.status==='paused'?'on':''}">Paused</button></div><div class="muted" style="font-size:12px;margin-top:6px">Paused clients move to a collapsed section in the sidebar. Their tasks stay visible.</div></div>
+    <div class="field"><label>Color <span style="text-transform:none;letter-spacing:0;font-weight:400">— used when there's no logo</span></label><div class="swatches" id="cl-sw">${COLORS.map(col => `<button style="background:${col}" data-col="${col}" class="${draft.color===col?'on':''}"></button>`).join('')}</div></div>`,
     (c ? `<button class="btn ghost danger" data-act="archive-client" data-cid="${c.id}" style="margin-right:auto">${c.archived?'Unarchive':'Archive'}</button>` : '') + `<button class="btn" data-act="close-modal">Cancel</button><button class="btn primary" data-act="save-client" data-cid="${c ? c.id : ''}">${c ? 'Save' : 'Add client'}</button>`);
-  setTimeout(() => $('#cl-name').focus(), 20);
-  $('#cl-sw').addEventListener('click', e => { const b = e.target.closest('button'); if(!b) return; $$('#cl-sw button').forEach(x => x.classList.toggle('on', x === b)); });
-  $('#cl-name').addEventListener('keydown', e => { if(e.key === 'Enter') $('[data-act=save-client]').click(); });
+  const refresh = () => {
+    draft.name = $('#cl-name').value; draft.domain = $('#cl-domain').value;
+    $('#cl-av').innerHTML = avatar({ name: draft.name || '?', color: draft.color, domain: cleanDomain(draft.domain) }, 52);
+    const g = guessDomain(draft.name), gl = $('#cl-guess');
+    gl.textContent = !draft.domain.trim() && g ? `Try ${g}?` : ''; gl.dataset.v = g;
+  };
+  let t; const later = () => { clearTimeout(t); t = setTimeout(refresh, 300); };
+  $('#cl-name').addEventListener('input', later); $('#cl-domain').addEventListener('input', later);
+  $('#cl-guess').addEventListener('click', e => { $('#cl-domain').value = e.target.dataset.v; refresh(); });
+  $('#cl-sw').addEventListener('click', e => { const b = e.target.closest('button'); if(!b) return; $$('#cl-sw button').forEach(x => x.classList.toggle('on', x === b)); draft.color = b.dataset.col; refresh(); });
+  $('#cl-status').addEventListener('click', e => { const b = e.target.closest('button'); if(!b) return; $$('#cl-status button').forEach(x => x.classList.toggle('on', x === b)); });
+  [$('#cl-name'), $('#cl-domain')].forEach(i => i.addEventListener('keydown', e => { if(e.key === 'Enter') $('[data-act=save-client]').click(); }));
+  refresh(); setTimeout(() => (c ? $('#cl-domain') : $('#cl-name')).focus(), 20);
 }
 
 /* ---------- settings ---------- */
@@ -910,10 +958,13 @@ document.addEventListener('click', e => {
     case 'add-client': promptClient(); break;
     case 'edit-client': promptClient(a.dataset.cid); break;
     case 'save-client': {
-      const name = $('#cl-name').value.trim(), col = ($('#cl-sw .on') || {}).dataset?.col; if(!name) return;
-      if(a.dataset.cid){ const c = client(a.dataset.cid); c.name = name; c.color = col || c.color; save(); }
-      else { const c = addClient(name, col); closeModal(); go('client-' + c.id); return; }
+      const name = $('#cl-name').value.trim(), col = ($('#cl-sw .on') || {}).dataset?.col, raw = $('#cl-domain').value.trim(), dom = cleanDomain(raw), status = ($('#cl-status .on') || {}).dataset?.v || 'active'; if(!name) return;
+      if(raw && !dom){ toast('That website doesn’t look right — try something like acme.com'); return; }
+      if(a.dataset.cid){ const c = client(a.dataset.cid); Object.assign(c, { name, color: col || c.color, domain: dom, status }); save(); }
+      else { const c = addClient(name, col, dom); c.status = status; save(); closeModal(); go('client-' + c.id); return; }
       closeModal(); render(); break; }
+    case 'pause-client': { const c = client(a.dataset.cid); c.status = c.status === 'paused' ? 'active' : 'paused'; save(); render(); toast(c.status === 'paused' ? `${c.name} paused — find them under Paused in the sidebar` : `${c.name} is active again`); break; }
+    case 'toggle-paused': showPaused = !showPaused; renderSide(); break;
     case 'archive-client': { const c = client(a.dataset.cid); c.archived = !c.archived; save(); closeModal(); go('today'); break; }
     case 'ob-add': { const v = $('#ob-clients').value; v.split(',').forEach(n => addClient(n)); render(); toast('Clients added — they’re in the sidebar'); break; }
     case 'meeting': startMeeting(a.dataset.cid); break;
@@ -1161,7 +1212,7 @@ registerPlugin({
         return { c, mine: mine.length, theirs: theirs.length, over, chase, days, score: over*3 + chase*2 + (days > 14 ? 2 : 0) };
       }).sort((a,b) => b.score - a.score || a.c.name.localeCompare(b.c.name));
       if(!rows.length){ el.innerHTML = '<div class="empty"><b>No clients yet</b>Add some from the sidebar.</div>'; return; }
-      el.innerHTML = `<table class="pulse"><thead><tr><th>Client</th><th>On me</th><th>Overdue</th><th>They owe</th><th>To chase</th><th>Last activity</th></tr></thead><tbody>${rows.map(r => `<tr class="click" data-go="client-${r.c.id}"><td><span class="dot" style="background:${r.c.color};margin-right:8px"></span><b>${api.ui.esc(r.c.name)}</b></td><td>${r.mine||'–'}</td><td style="color:${r.over?'var(--danger)':''};font-weight:${r.over?600:400}">${r.over||'–'}</td><td>${r.theirs||'–'}</td><td style="color:${r.chase?'var(--client)':''};font-weight:${r.chase?600:400}">${r.chase||'–'}</td><td class="${r.days>14?'':'muted'}" style="color:${r.days>14?'var(--client)':''}">${r.days===null?'–':r.days===0?'Today':r.days+'d ago'}${r.days>14?' · quiet':''}</td></tr>`).join('')}</tbody></table>`;
+      el.innerHTML = `<table class="pulse"><thead><tr><th>Client</th><th>On me</th><th>Overdue</th><th>They owe</th><th>To chase</th><th>Last activity</th></tr></thead><tbody>${rows.map(r => `<tr class="click" data-go="client-${r.c.id}"><td style="display:flex;align-items:center;gap:10px">${api.ui.avatar(r.c, 22)}<b>${api.ui.esc(r.c.name)}</b>${r.c.status==='paused'?' <span class="badge">Paused</span>':''}</td><td>${r.mine||'–'}</td><td style="color:${r.over?'var(--danger)':''};font-weight:${r.over?600:400}">${r.over||'–'}</td><td>${r.theirs||'–'}</td><td style="color:${r.chase?'var(--client)':''};font-weight:${r.chase?600:400}">${r.chase||'–'}</td><td class="${r.days>14?'':'muted'}" style="color:${r.days>14?'var(--client)':''}">${r.days===null?'–':r.days===0?'Today':r.days+'d ago'}${r.days>14?' · quiet':''}</td></tr>`).join('')}</tbody></table>`;
       el.querySelectorAll('[data-go]').forEach(tr => tr.addEventListener('click', () => api.ui.navigate(tr.dataset.go)));
     }});
   }

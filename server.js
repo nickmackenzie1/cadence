@@ -19,7 +19,9 @@ const KEEP_BACKUPS = +process.env.KEEP_BACKUPS || 30;
 
 const STATE_FILE = path.join(DATA_DIR, 'state.json');
 const BACKUP_DIR = path.join(DATA_DIR, 'backups');
+const ICON_DIR = path.join(DATA_DIR, 'favicons');
 fs.mkdirSync(BACKUP_DIR, { recursive: true });
+fs.mkdirSync(ICON_DIR, { recursive: true });
 
 const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.svg': 'image/svg+xml', '.png': 'image/png', '.ico': 'image/x-icon' };
 
@@ -58,6 +60,36 @@ function writeState(obj) {
   while (all.length > KEEP_BACKUPS) fs.unlinkSync(path.join(BACKUP_DIR, all.shift()));
 }
 
+// ---- favicons: fetched once per domain, cached in data/favicons ----
+const inflight = new Map();
+const sniff = b => b[0] === 0x89 && b[1] === 0x50 ? 'image/png' : b[0] === 0xff && b[1] === 0xd8 ? 'image/jpeg' : b.slice(0, 4).toString() === 'GIF8' ? 'image/gif' : b.slice(0, 4).toString('hex') === '00000100' ? 'image/x-icon' : /<svg/i.test(b.slice(0, 300).toString()) ? 'image/svg+xml' : b.slice(8, 12).toString() === 'WEBP' ? 'image/webp' : null;
+async function fetchIcon(domain) {
+  const sources = [
+    `https://www.google.com/s2/favicons?sz=128&domain=${domain}`,
+    `https://icons.duckduckgo.com/ip3/${domain}.ico`,
+  ];
+  for (const url of sources) {
+    try {
+      const r = await fetch(url, { redirect: 'follow', signal: AbortSignal.timeout(6000) });
+      if (!r.ok) continue;
+      const buf = Buffer.from(await r.arrayBuffer());
+      if (buf.length < 100 || !sniff(buf)) continue;   // empty / not an image
+      return buf;
+    } catch { /* try next */ }
+  }
+  return null;
+}
+async function getIcon(domain) {
+  const file = path.join(ICON_DIR, domain + '.img'), none = path.join(ICON_DIR, domain + '.none');
+  if (fs.existsSync(file)) return fs.readFileSync(file);
+  if (fs.existsSync(none) && Date.now() - fs.statSync(none).mtimeMs < 864e5) return null;
+  if (!inflight.has(domain)) inflight.set(domain, fetchIcon(domain).then(buf => {
+    if (buf) fs.writeFileSync(file, buf); else fs.writeFileSync(none, '');
+    inflight.delete(domain); return buf;
+  }));
+  return inflight.get(domain);
+}
+
 async function callClaude(prompt, tier) {
   const r = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
@@ -78,7 +110,7 @@ const server = http.createServer(async (req, res) => {
     const url = new URL(req.url, 'http://x');
     const p = url.pathname.replace(/^.*?\/api\//, '/api/'); // works behind a sub-path reverse proxy
 
-    if (p === '/api/health') return send(res, 200, { ok: true, ai: !!API_KEY, version: '0.2.0' });
+    if (p === '/api/health') return send(res, 200, { ok: true, ai: !!API_KEY, version: '0.3.0' });
 
     if (p === '/api/state' && req.method === 'GET') return send(res, 200, readState());
     if (p === '/api/state' && req.method === 'PUT') {
@@ -97,6 +129,15 @@ const server = http.createServer(async (req, res) => {
       if (typeof prompt !== 'string' || !prompt) return send(res, 400, { error: 'Missing prompt' });
       try { return send(res, 200, { text: await callClaude(prompt, tier) }); }
       catch (e) { return send(res, e.status === 429 ? 429 : 502, { error: e.message }); }
+    }
+
+    if (p === '/api/favicon') {
+      const d = String(url.searchParams.get('d') || '').toLowerCase();
+      if (!/^[a-z0-9-]+(\.[a-z0-9-]+)+$/.test(d) || d.length > 253) return send(res, 400, { error: 'Bad domain' });
+      const buf = await getIcon(d);
+      if (!buf) { res.writeHead(404, { 'Cache-Control': 'max-age=3600' }); return res.end(); }
+      res.writeHead(200, { 'Content-Type': sniff(buf), 'Cache-Control': 'private, max-age=604800', 'X-Content-Type-Options': 'nosniff', 'Content-Security-Policy': "default-src 'none'; style-src 'unsafe-inline'" });
+      return res.end(buf);
     }
 
     if (p.startsWith('/api/')) return send(res, 404, { error: 'Not found' });
