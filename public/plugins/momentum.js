@@ -114,7 +114,7 @@
         if (el) { const r = el.getBoundingClientRect(); return { x: r.left + 26, y: r.top + r.height / 2 }; }
         return { x: innerWidth / 2, y: innerHeight / 2 };
       }
-      function pop(x, y, text, { size = 34, color = '#ffd166', label = '', delay = 0, vx = null, life = 1.1 } = {}) {
+      function pop(x, y, text, { size = 34, color = '#ffd166', label = '', delay = 0, vx = null, life = 1.1 } = {}) { if (api.ui.reducedMotion && api.ui.reducedMotion()) { return; }
         setTimeout(() => {
           const el = document.createElement('div'); el.className = 'mo-num';
           el.style.setProperty('--g', color); el.style.fontSize = size + 'px'; el.style.color = '#fff';
@@ -134,7 +134,7 @@
           tick();
         }, delay);
       }
-      function sparks(x, y, color, n = 10) {
+      function sparks(x, y, color, n = 10) { if (api.ui.reducedMotion && api.ui.reducedMotion()) { return; }
         for (let i = 0; i < n; i++) {
           const el = document.createElement('div'); el.className = 'mo-spark'; el.style.setProperty('--g', color);
           G.layer.appendChild(el);
@@ -143,7 +143,7 @@
           tick();
         }
       }
-      function orb(x, y, color, done) {
+      function orb(x, y, color, done) { if (api.ui.reducedMotion && api.ui.reducedMotion()) { if (typeof done === "function") done(); return; }
         const card = document.querySelector('[data-sw="momentum"] .mo-rings');
         if (!card) { done && done(); return; }
         const r = card.getBoundingClientRect(), tx = r.left + r.width * 0.5, ty = r.top + r.height * 0.5;

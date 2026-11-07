@@ -41,15 +41,22 @@ const dueLabel = t => t.dueDate ? fmtDate(t.dueDate) + (t.dueTime ? ' · ' + fmt
 const dueMs = t => { if(!t.dueDate) return null; const d = fromYmd(t.dueDate); if(t.dueTime){ const [h,m]=t.dueTime.split(':').map(Number); d.setHours(h,m,0,0);} else d.setHours(9,0,0,0); return d.getTime(); };
 
 /* ---------- state ---------- */
-const LS_KEY = 'cadence.v1';
+/* demo mode: ?demo opens this tab on fake data — separate storage, never synced (?demo=0 to leave) */
+const DEMO = (() => { try { const q = new URLSearchParams(location.search); if(q.has('demo')){ if(q.get('demo') === '0') sessionStorage.removeItem('cadence.demo'); else sessionStorage.setItem('cadence.demo', '1'); history.replaceState(null, '', location.pathname + location.hash); } return sessionStorage.getItem('cadence.demo') === '1'; } catch(e){ return false; } })();
+if(DEMO) document.documentElement.classList.add('demo');
+const LS_KEY = DEMO ? 'cadence.demo.v1' : 'cadence.v1';
 const blank = () => ({ v:1, clients:[], tasks:[], meetings:[], settings:{ myName:'', theme:'light', remindLead:10 }, disabled:[], userPlugins:[], pluginData:{}, activeMeeting:null, updatedAt:0 });
-let S = (() => { try { const raw = localStorage.getItem(LS_KEY); if(raw) return Object.assign(blank(), JSON.parse(raw)); } catch(e){} return blank(); })();
+let S = (() => { try { const raw = localStorage.getItem(LS_KEY); if(raw) return Object.assign(blank(), JSON.parse(raw)); } catch(e){} if(DEMO && window.CadenceDemo){ const d = Object.assign(blank(), window.CadenceDemo.build()); try { localStorage.setItem(LS_KEY, JSON.stringify(d)); } catch(e){} return d; } return blank(); })();
+const reducedMotion = () => S.settings.motion === 'reduce' || (S.settings.motion !== 'full' && window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
+function resetDemo(){ try { localStorage.removeItem('cadence.demo.v1'); } catch(e){} location.reload(); }
+function exitDemo(){ try { sessionStorage.removeItem('cadence.demo'); } catch(e){} location.href = location.pathname; }
 
 /* storage: localStorage instantly, account sync (artifact db) when available */
 const Store = {
   ref:null, busy:false, again:false, status:'local', timer:null,
   async init(){
     if(!window.claude || !window.claude.use){ return this.initServer(); }
+    if(DEMO) return;
     try{
       const [db, user] = await Promise.all([claude.use('db'), claude.use('user')]);
       if(!db || !user) return;
@@ -76,11 +83,13 @@ const Store = {
       const h = await fetch('api/health', { cache:'no-store' }); if(!h.ok) return;
       const info = await h.json(); if(!info.ok) return;
       this.server = true; this.health = info; render(); emit('sync', { phase:'connected', health: info });
+      if(DEMO){ this.status = 'demo'; this.setStatus('demo'); }
       if(info.ai){
         const f = async (prompt, opts = {}) => { const r = await fetch('api/ai', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ prompt, tier: opts.modelTier || 'default' }) }); const j = await r.json(); if(!r.ok) throw Object.assign(new Error(j.error || 'AI error'), { code: r.status === 429 ? 'rate_limited' : 'error' }); return { text: j.text || '' }; };
         f.json = async (prompt, opts) => { const r = await f(prompt + '\n\nRespond with JSON only.', opts); const m = r.text.match(/[\[{][\s\S]*[\]}]/); return m ? JSON.parse(m[0]) : null; };
         AI = f; rebuildPlugins();
       }
+      if(DEMO) return; // demo data never touches the NAS copy
       await this.pull(true);
       setInterval(() => this.pull(false), 20000);
       document.addEventListener('visibilitychange', () => { if(!document.hidden) this.pull(false); });
@@ -98,10 +107,10 @@ const Store = {
       this.setStatus('synced'); emit('sync', { phase:'pulled', ms: this.latency, first });
     } catch(e){ this.setStatus('local'); emit('sync', { phase:'error', error: String(e.message || e) }); }
   },
-  setStatus(s){ this.status = s; const el = $('#sync'); if(el){ el.className = 'sync' + (s==='synced'?' ok':''); el.lastChild.textContent = s==='synced' ? (this.server ? 'Synced to NAS' : 'Synced') : 'This browser'; } },
-  schedule(){ if(!this.ref && !this.server) return; clearTimeout(this.timer); this.timer = setTimeout(()=>this.push(), 700); },
+  setStatus(s){ this.status = s; const el = $('#sync'); if(el){ el.className = 'sync' + (s==='synced'?' ok':''); el.lastChild.textContent = DEMO ? 'Demo data — not saved' : s==='synced' ? (this.server ? 'Synced to NAS' : 'Synced') : 'This browser'; } },
+  schedule(){ if(DEMO || (!this.ref && !this.server)) return; clearTimeout(this.timer); this.timer = setTimeout(()=>this.push(), 700); },
   async push(){
-    if(!this.ref && !this.server) return;
+    if(DEMO || (!this.ref && !this.server)) return;
     if(this.busy){ this.again = true; return; }
     this.busy = true;
     emit('sync', { phase:'push' }); const t0 = performance.now();
@@ -348,6 +357,7 @@ function makeApi(pid){
     on: (ev, fn) => Reg.listeners.push({ pid, ev, fn }),
     commands: { add: c => Reg.commands.push({ ...c, pid }) },
     views: { add: v => Reg.views.push({ ...v, pid }) },
+    db: { snapshot: () => clone(S) },
     parsers: { add: fn => Reg.parsers.push({ fn, pid }) },
     extractors: { add: e => Reg.extractors.push({ ...e, pid }) },
     taskActions: { add: a => Reg.taskActions.push({ ...a, pid }) },
@@ -355,8 +365,8 @@ function makeApi(pid){
     clientActions: { add: a => Reg.clientActions.push({ ...a, pid }) },
     sidebar: { add: w => Reg.sidebar.push({ ...w, pid }) },
     plugins: { enabled: id => enabled(id) },
-    system: () => ({ mode: Store.server ? 'nas' : Store.ref ? 'claude' : 'local', status: Store.status, lastSyncAt: Store.lastSyncAt || null, latency: Store.latency ?? null, ai: !!AI, health: Store.health || null, version: window.Cadence.version, plugins: Reg.defs.filter(d => enabled(d.id)).length, counts: { tasks: S.tasks.length, open: S.tasks.filter(t => !t.done).length, clients: S.clients.filter(c => !c.archived).length, meetings: S.meetings.length } }),
-    ui: { toast, refreshWidgets: () => renderWidgets(), pointer: () => ({ ...lastPointer }), faviconUrl: (d, v) => faviconUrl(d, v), avatar: (c, size) => avatar(c, size), navigate: r => go(r), refresh: () => render(), copy: copyText, esc, modal: openModalHTML, close: closeModal, currentRoute: () => route() },
+    system: () => ({ demo: DEMO, mode: Store.server ? 'nas' : Store.ref ? 'claude' : 'local', status: Store.status, lastSyncAt: Store.lastSyncAt || null, latency: Store.latency ?? null, ai: !!AI, health: Store.health || null, version: window.Cadence.version, plugins: Reg.defs.filter(d => enabled(d.id)).length, counts: { tasks: S.tasks.length, open: S.tasks.filter(t => !t.done).length, clients: S.clients.filter(c => !c.archived).length, meetings: S.meetings.length } }),
+    ui: { reducedMotion, toast, refreshWidgets: () => renderWidgets(), pointer: () => ({ ...lastPointer }), faviconUrl: (d, v) => faviconUrl(d, v), avatar: (c, size) => avatar(c, size), navigate: r => go(r), refresh: () => render(), copy: copyText, esc, modal: openModalHTML, close: closeModal, currentRoute: () => route() },
     storage: { get: k => (S.pluginData[pid] || {})[k], set: (k,v) => { (S.pluginData[pid] = S.pluginData[pid] || {})[k] = v; save(); } },
     get ai(){ return AI; },
     settings: () => clone(S.settings),
@@ -388,6 +398,7 @@ window.addEventListener('hashchange', () => render());
 
 function render(){
   document.documentElement.dataset.theme = S.settings.theme;
+  document.documentElement.dataset.motion = reducedMotion() ? 'reduce' : 'full';
   renderSide(); renderView();
 }
 function counts(){
@@ -429,13 +440,13 @@ function renderSide(){
       ${nav('inbox', NAV_ICONS.inbox, 'Inbox', c.inbox)}
       ${nav('done', NAV_ICONS.done, 'Logbook')}
     </nav>
-    ${Reg.views.length ? `<div class="sect">Views</div><nav class="nav">${Reg.views.map(v => nav('view-'+v.id, esc(v.icon||'◇'), esc(v.title))).join('')}</nav>` : ''}
+    ${(() => { const loose = Reg.views.filter(v => !v.group && !v.hidden), ins = Reg.views.filter(v => v.group === 'insights'); const items = (ins.length ? [nav('insights', '✦', 'Insights')] : []).concat(loose.map(v => nav('view-'+v.id, esc(v.icon||'◇'), esc(v.title)))); return items.length ? `<div class="sect">Views</div><nav class="nav">${items.join('')}</nav>` : ''; })()}
     <div class="sect">Clients <button data-act="add-client" title="Add client">+</button></div>
     <nav class="nav">${clients.map(cl => clientLink(cl, r, o)).join('') || (paused.length ? '' : `<a data-act="add-client"><span class="ic">+</span><span class="t muted">Add your clients</span></a>`)}
       ${paused.length ? `<div class="more" data-act="toggle-paused">${showPaused ? '▾' : '▸'} Paused <span class="muted">${paused.length}</span></div>${showPaused ? paused.map(cl => clientLink(cl, r, o, true)).join('') : ''}` : ''}</nav>`;
   $('#side-foot').innerHTML = `
       <button class="meet-btn" data-act="meeting">${S.activeMeeting ? '● Resume meeting' : '◉ Start meeting'} <kbd style="background:transparent;color:inherit;border-color:currentColor;opacity:.45">M</kbd></button>
-      <div class="foot-row"><span class="sync ${Store.status==='synced'?'ok':''}" id="sync"><i></i><span>${Store.status==='synced'?(Store.server?'Synced to NAS':'Synced'):'This browser'}</span></span><button data-act="shortcuts" title="Keyboard shortcuts (?)">${NAV_ICONS.keys}</button><button data-act="theme" title="Theme">${NAV_ICONS.moon}</button><button data-act="settings" title="Settings & plugins">${NAV_ICONS.gear}</button></div>`;
+      <div class="foot-row"><span class="sync ${Store.status==='synced'?'ok':''}" id="sync"><i></i><span>${DEMO ? 'Demo data — not saved' : Store.status==='synced'?(Store.server?'Synced to NAS':'Synced'):'This browser'}</span></span><button data-act="shortcuts" title="Keyboard shortcuts (?)">${NAV_ICONS.keys}</button><button data-act="theme" title="Theme">${NAV_ICONS.moon}</button><button data-act="settings" title="Settings & plugins">${NAV_ICONS.gear}</button></div>`;
   emit('render:side', {});
 }
 /* plugin sidebar widgets: rendered once per plugin rebuild; plugins update their own widget afterwards */
@@ -526,6 +537,15 @@ function renderView(){
         <div class="cols"><div>${group('On me', mine, {hideClient:true, drop:'owner:me'}) || `<div class="group" data-drop="owner:me"><div class="group-h">On me</div><div class="muted drop-hint" style="padding:10px 6px">All clear.</div></div>`}</div>
         <div>${group('On client', theirs, {hideClient:true, cls:'client', drop:'owner:client'}) || `<div class="group" data-drop="owner:client"><div class="group-h client">On client</div><div class="muted drop-hint" style="padding:10px 6px">Nothing outstanding.</div></div>`}</div></div>
         ${mtgs.length ? `<div class="group"><div class="group-h">Meeting log<span class="c">${mtgs.length}</span></div>${mtgs.map(m => `<details class="mtg"><summary><b>${new Date(m.start).toLocaleDateString(undefined,{weekday:'short',month:'short',day:'numeric'})}</b><span class="muted">${Math.max(1,Math.round((m.end-m.start)/60000))} min · ${m.itemIds.length} action items</span></summary><div class="notes">${esc(m.notes || 'No notes.')}</div>${Reg.meetingActions.length ? `<div class="row" style="margin-top:10px;flex-wrap:wrap">${Reg.meetingActions.map((ac,i) => `<button class="btn" data-act="mlog-action" data-mid="${m.id}" data-i="${i}">${esc(ac.label)}</button>`).join('')}</div>` : ''}</details>`).join('')}</div>` : ''}`;
+    }
+  } else if(r === 'insights'){
+    const ins = Reg.views.filter(x => x.group === 'insights');
+    if(!ins.length){ html = emptyState('✦','No insights yet','Enable Pulse, Review, Mural or Feeds in Settings → Plugins.'); }
+    else {
+      const cur = ins.find(x => x.id === S.settings.insightsTab) || ins[0];
+      v.innerHTML = `<div class="head"><div><h1>Insights</h1><div class="sub">${esc(cur.subtitle || '')}</div></div></div><div class="ins-tabs">${ins.map(x => `<button class="${x===cur?'on':''}" data-act="ins-tab" data-id="${esc(x.id)}">${esc(x.icon||'')} ${esc(x.title)}</button>`).join('')}</div><div id="pv"></div>`;
+      try { cur.render($('#pv'), makeApi(cur.pid)); } catch(e){ $('#pv').textContent = 'Plugin view failed: ' + e.message; }
+      applyKb(); emit('render', { route: r, view: cur.id }); return;
     }
   } else if(r.startsWith('view-')){
     const pv = Reg.views.find(x => 'view-'+x.id === r);
@@ -923,7 +943,8 @@ function openSettings(tab){
     body += `<div class="field"><label>Your name</label><input class="inp" id="st-name" value="${esc(S.settings.myName)}" placeholder="Used to tell your action items apart in Fireflies notes"></div>
       <div class="field"><label>Default reminder</label><select class="inp" id="st-lead">${[0,5,10,15,30,60].map(n => `<option value="${n}" ${S.settings.remindLead==n?'selected':''}>${n ? n + ' minutes before due time' : 'At due time'}</option>`).join('')}</select></div>
       <div class="field"><label>Desktop notifications</label><button class="btn" data-act="notif">${('Notification' in window && Notification.permission==='granted') ? '✓ Enabled' : 'Enable notifications'}</button><div class="muted" style="font-size:12px;margin-top:6px">Reminders always appear in-app with a chime. Keep Cadence open in a tab or pinned window.</div></div>
-      <div class="field"><label>Theme</label><div class="seg"><button data-act="set-theme" data-v="light" class="${S.settings.theme==='light'?'on':''}">Light</button><button data-act="set-theme" data-v="dark" class="${S.settings.theme==='dark'?'on':''}">Dark</button></div></div>`;
+      <div class="field"><label>Theme</label><div class="seg"><button data-act="set-theme" data-v="light" class="${S.settings.theme==='light'?'on':''}">Light</button><button data-act="set-theme" data-v="dark" class="${S.settings.theme==='dark'?'on':''}">Dark</button></div></div>
+      <div class="field"><label>Motion</label><div class="row" style="align-items:center"><select class="inp" id="set-motion" style="width:auto">${[['auto','Match system'],['reduce','Reduced'],['full','Full']].map(([v,l]) => `<option value="${v}" ${(S.settings.motion||'auto')===v?'selected':''}>${l}</option>`).join('')}</select><span class="muted" style="font-size:12px">Reduced turns off damage numbers, confetti, springs and the living garden.</span></div></div>`;
   } else if(settingsTab === 'plugins'){
     body += Reg.defs.map(d => `<div class="plug"><div class="d"><b>${esc(d.name || d.id)}</b> <span class="muted" style="font-size:12px">${esc(d.version||'')}${d.builtin?' · built-in':' · installed'}</span><small>${esc(d.description||'')}</small></div><button class="switch ${enabled(d.id)?'on':''}" data-act="toggle-plugin" data-pid="${esc(d.id)}" aria-label="Toggle"></button></div>`).join('');
   } else if(settingsTab === 'dev'){
@@ -964,10 +985,12 @@ function openSettings(tab){
   } else {
     const oldDone = S.tasks.filter(t => t.done && t.doneAt < Date.now() - 30*864e5).length;
     body += `<div class="field"><label>Storage</label><div class="muted">${Store.status==='synced' ? (Store.server ? 'Saved on your Cadence server (NAS), with daily backups — shared by every device that opens it.' : 'Synced to your Claude account — available on any device where you open Cadence.') : 'Saved in this browser only.'} ${S.tasks.length} tasks · ${S.clients.length} clients · ${S.meetings.length} meetings.</div></div>
+      <div class="field"><label>Demo mode</label><div class="row" style="align-items:center">${DEMO ? `<button class="btn" data-act="demo-reset">↺ Reset demo data</button><button class="btn primary" data-act="demo-exit">Exit demo</button>` : `<button class="btn" data-act="demo-open">Open demo in a new tab ↗</button>`}<span class="muted" style="font-size:12px">${DEMO ? 'You’re looking at fake data. Nothing here is saved to your NAS.' : 'Fake clients, tasks, meetings and calendar to play with — your real data isn’t touched.'}</span></div></div>
       <div class="field"><label>Backup</label><div class="row"><button class="btn" data-act="export">Copy backup (JSON)</button><button class="btn" data-act="import-open">Restore from backup…</button></div></div>
       <div class="field"><label>Housekeeping</label><button class="btn" data-act="purge" ${oldDone?'':'disabled'}>Delete ${oldDone} tasks completed 30+ days ago</button></div>`;
   }
   openModalHTML('Settings', body, '', 'wide');
+  const mo = $('#set-motion'); if(mo) mo.addEventListener('change', () => { S.settings.motion = mo.value; save(); render(); });
   const n = $('#st-name'); if(n) n.addEventListener('change', () => { S.settings.myName = n.value.trim(); save(); render(); });
   const l = $('#st-lead'); if(l) l.addEventListener('change', () => { S.settings.remindLead = +l.value; S.tasks.forEach(t => { if(t.remindMode==='auto' && !t.done){ t.remindAt = computeRemind(t); } }); save(); });
 }
@@ -1118,6 +1141,10 @@ document.addEventListener('click', e => {
     case 'archive-client': { const c = client(a.dataset.cid); c.archived = !c.archived; save(); closeModal(); go('today'); break; }
     case 'ob-add': { const v = $('#ob-clients').value; v.split(',').forEach(n => addClient(n)); render(); toast('Clients added — they’re in the sidebar'); break; }
     case 'meeting': startMeeting(a.dataset.cid); break;
+    case 'ins-tab': S.settings.insightsTab = a.dataset.id; persistLocal(); render(); break;
+    case 'demo-open': window.open(location.pathname + '?demo=1' + location.hash, '_blank'); break;
+    case 'demo-reset': resetDemo(); break;
+    case 'demo-exit': exitDemo(); break;
     case 'theme': S.settings.theme = S.settings.theme === 'dark' ? 'light' : 'dark'; save(); render(); break;
     case 'settings': openSettings(); break;
     case 'set-tab': openSettings(a.dataset.tab); break;
@@ -1274,6 +1301,11 @@ if(S.activeMeeting) toast('A meeting is still in progress', [{ label:'Resume', r
 setInterval(checkReminders, 15000); checkReminders();
 setInterval(() => { if(!$('#meeting').classList.contains('open') && !document.activeElement.closest?.('.qa, .drawer, .modal')) { renderSide(); } }, 60000);
 Store.init();
+/* narrow layout: slide-over sidebar */
+$('#nav-btn') && $('#nav-btn').addEventListener('click', () => document.body.classList.toggle('nav-open'));
+$('#nav-scrim') && $('#nav-scrim').addEventListener('click', () => document.body.classList.remove('nav-open'));
+addEventListener('hashchange', () => document.body.classList.remove('nav-open'));
+if(DEMO){ const f = document.createElement('div'); f.className = 'demo-flag'; f.innerHTML = '<b>●</b> Demo data <button data-act="demo-reset">Reset</button><button data-act="demo-exit">Exit</button>'; document.body.appendChild(f); }
 if(window.claude && window.claude.use){
   claude.use('sample').then(s => { AI = s || null; rebuildPlugins(); }).catch(() => {});
 }

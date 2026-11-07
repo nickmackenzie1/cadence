@@ -27,6 +27,50 @@
       .rs-row .nxt{opacity:0;color:var(--muted);font-size:13px;padding:2px 4px;border-radius:5px;transition:opacity .15s}
       .rs-row:hover .nxt{opacity:1}.rs-row .nxt:hover{background:var(--line);color:var(--text)}
       .rs-cardmini{width:34px;height:34px;border-radius:8px;background:var(--hover) center/cover;flex:none}
+      /* wall: Pinterest-style masonry, covers at their natural shape */
+      .rs-wall{display:grid;grid-template-columns:repeat(auto-fill,minmax(168px,1fr));grid-auto-rows:4px;grid-auto-flow:dense;column-gap:18px}
+      .rs-pin{display:block;text-decoration:none;color:var(--text);align-self:start}
+      .rs-pin.big{grid-column:span 2}
+      .rs-pin .ph{position:relative;border-radius:12px;overflow:hidden;background:var(--hover);box-shadow:0 1px 1px rgba(0,0,0,.04),0 6px 18px -6px rgba(40,30,10,.22);transform:translateZ(0);transition:transform .35s cubic-bezier(.2,.9,.25,1),box-shadow .35s}
+      .rs-pin .ph img{display:block;width:100%;height:auto;transform:scale(1.035);transition:transform .6s cubic-bezier(.2,.9,.25,1),opacity .4s;opacity:0}
+      .rs-pin .ph img.in{opacity:1}
+      .rs-pin .ph:after{content:"";position:absolute;inset:0;border-radius:inherit;box-shadow:inset 0 0 0 1px rgba(0,0,0,.06);background:linear-gradient(180deg,transparent 55%,rgba(0,0,0,.42));opacity:0;transition:opacity .3s}
+      .rs-pin:hover .ph{transform:translateY(-3px);box-shadow:0 2px 2px rgba(0,0,0,.04),0 16px 34px -10px rgba(40,30,10,.35)}
+      .rs-pin:hover .ph img{transform:scale(1.07)}
+      .rs-pin:hover .ph:after{opacity:1}
+      .rs-pin .go{position:absolute;z-index:1;right:10px;bottom:10px;font-size:11.5px;font-weight:600;color:#fff;background:rgba(255,255,255,.18);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);padding:5px 10px;border-radius:999px;opacity:0;transform:translateY(4px);transition:all .3s}
+      .rs-pin:hover .go{opacity:1;transform:none}
+      .rs-pin .new{position:absolute;z-index:1;left:10px;top:10px;font-size:10.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:#fff;background:#e5484d;padding:3px 7px;border-radius:999px}
+      .rs-pin .cap{padding:9px 4px 18px;line-height:1.3}
+      .rs-pin .cap b{display:block;font-size:13px;font-weight:650}
+      .rs-pin .cap span{display:block;font-size:12.5px;opacity:.85}
+      .rs-pin .cap i{display:block;font-style:normal;font-size:11.5px;color:var(--muted);margin-top:2px}
+      .rs-pin.big .cap b{font-size:15px}.rs-pin.big .cap span{font-size:13.5px}
+      /* timeline */
+      .rs-tabs{display:inline-flex;background:var(--hover);border-radius:9px;padding:2px;margin-right:auto}
+      .rs-tabs button{font-size:12.5px;padding:5px 12px;border-radius:7px;color:var(--muted)}
+      .rs-tabs button.on{background:var(--panel);color:var(--text);box-shadow:0 1px 2px rgba(0,0,0,.08)}
+      .rs-tl{position:relative;padding-left:22px}
+      .rs-tl:before{content:"";position:absolute;left:6px;top:8px;bottom:8px;width:2px;background:var(--line);border-radius:2px}
+      .rs-day{position:sticky;top:0;z-index:2;font-size:12px;font-weight:650;color:var(--muted);padding:14px 0 8px;background:linear-gradient(var(--bg) 70%,transparent)}
+      .rs-panel .rs-day{background:linear-gradient(var(--panel) 70%,transparent)}
+      .rs-day:before{content:"";position:absolute;left:-20px;top:18px;width:10px;height:10px;border-radius:50%;background:var(--panel);border:2px solid var(--muted)}
+      .rs-day.new:before{border-color:#e5484d;background:#e5484d}
+      .rs-ti{display:flex;gap:12px;align-items:center;padding:7px 8px;margin:0 -8px;border-radius:10px;text-decoration:none;color:var(--text);animation:rsfade .4s ease both}
+      .rs-ti:hover{background:var(--hover)}
+      .rs-ti img{width:52px;height:52px;border-radius:7px;object-fit:cover;flex:none;box-shadow:0 2px 8px -2px rgba(0,0,0,.25);background:var(--hover)}
+      .rs-ti .tx{min-width:0;flex:1;line-height:1.3}
+      .rs-ti .tx b{display:block;font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+      .rs-ti .tx span{display:block;font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+      .rs-ti .t{font-size:11px;color:var(--muted);flex:none;font-variant-numeric:tabular-nums}
+      .rs-ti .dot{width:7px;height:7px;border-radius:50%;background:#e5484d;flex:none}
+      .rs-panel{position:fixed;z-index:70;top:10px;right:10px;bottom:10px;width:min(400px,calc(100vw - 20px));background:var(--panel);border:1px solid var(--line);border-radius:18px;box-shadow:0 30px 80px -20px rgba(0,0,0,.35);display:flex;flex-direction:column;transform:translateX(calc(100% + 30px));transition:transform .45s cubic-bezier(.2,.9,.25,1)}
+      .rs-panel.on{transform:none}
+      .rs-panel .hd{display:flex;align-items:center;gap:10px;padding:16px 18px 8px}
+      .rs-panel .hd b{font-size:15px}.rs-panel .hd .x{margin-left:auto;font-size:18px;color:var(--muted);padding:2px 8px;border-radius:7px}.rs-panel .hd .x:hover{background:var(--hover)}
+      .rs-panel .bd{flex:1;overflow:auto;padding:0 18px 18px}
+      .rs-row .exp{opacity:0;color:var(--muted);font-size:12px;padding:2px 4px;border-radius:5px;transition:opacity .15s}
+      .rs-row:hover .exp{opacity:1}.rs-row .exp:hover{background:var(--line);color:var(--text)}
       /* shelf / crate */
       .rs-shelf{margin:0 0 24px}
       .rs-shelf-h{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:600;color:var(--muted);padding:0 4px 10px}
@@ -81,17 +125,65 @@
         return `<a class="rs-rec" href="${E(it.link)}" target="_blank" rel="noopener" title="${E(it.title)}"><div class="wrap"><div class="vin"><div class="lab" style="background-image:url('${E(it.image)}')"></div></div><div class="sl" style="background-image:url('${E(it.image)}')"></div></div><div class="ar">${E(p.a)}</div>${p.b ? `<div class="al">${E(p.b)}</div>` : ''}<div class="dt">${E(p.d || ago(it.date))}</div></a>`; };
       const cardHtml = it => `<a class="rs-card" href="${E(it.link)}" target="_blank" rel="noopener"><div class="im" style="background-image:url('${E(it.image)}')"></div><b>${E(it.title)}</b><span>${E(ago(it.date))}</span></a>`;
       const listHtml = it => `<a href="${E(it.link)}" target="_blank" rel="noopener">${E(it.title)}<span>${E(ago(it.date))}</span></a>`;
+      /* wall (masonry) + timeline */
+      const parts = (it, f) => f.style === 'records' ? split(it.title) : { a: it.title, b: f.title || '', d: '' };
+      const seen = () => api.storage.get('seen') || 0;
+      function wallHtml(f, data, max) {
+        const s0 = G.prevSeen != null ? G.prevSeen : seen();
+        return `<div class="rs-wall">${data.items.slice(0, max).map((it, i) => { const p = parts(it, f), fresh = s0 && it.date && new Date(it.date).getTime() > s0;
+          return `<a class="rs-pin ${i % 9 === 0 ? 'big' : ''}" href="${E(it.link)}" target="_blank" rel="noopener" title="${E(it.title)}"><div class="ph">${fresh ? '<span class="new">New</span>' : ''}${it.image ? `<img src="${E(it.image)}" alt="" loading="lazy" decoding="async">` : ''}<span class="go">Open ↗</span></div><div class="cap"><b>${E(p.a)}</b>${p.b ? `<span>${E(p.b)}</span>` : ''}<i>${E(p.d || ago(it.date))}</i></div></a>`; }).join('')}</div>`;
+      }
+      function layoutWall(root) {
+        root.querySelectorAll('.rs-wall').forEach(w => {
+          const fit = pin => { const h = pin.getBoundingClientRect().height; pin.style.gridRowEnd = 'span ' + Math.ceil((h + 4) / 4); };
+          w.querySelectorAll('.rs-pin').forEach(pin => { const img = pin.querySelector('img');
+            if (!img) return fit(pin);
+            const done = () => { img.classList.add('in'); fit(pin); };
+            if (img.complete && img.naturalWidth) done(); else { pin.style.gridRowEnd = 'span 60'; img.onload = done; img.onerror = () => { img.remove(); fit(pin); }; } });
+          if (!w._ro) { let last = w.clientWidth; w._ro = new ResizeObserver(() => { if (Math.abs(w.clientWidth - last) < 2) return; last = w.clientWidth; w.querySelectorAll('.rs-pin').forEach(fit); }); w._ro.observe(w); }
+        });
+      }
+      async function timelineHtml(list) {
+        const s0 = seen(), all = [];
+        await Promise.all(list.map(f => load(f).then(d => d.items.forEach(it => all.push({ it, f }))).catch(() => {})));
+        all.sort((a, b) => new Date(b.it.date || 0) - new Date(a.it.date || 0));
+        if (!all.length) return '<div class="muted" style="font-size:13px;padding:8px 0">Nothing yet.</div>';
+        const dayName = d => { if (!d) return 'Earlier'; const x = new Date(d), t = new Date(); const diff = Math.round((new Date(t.toDateString()) - new Date(x.toDateString())) / 864e5); return diff === 0 ? 'Today' : diff === 1 ? 'Yesterday' : diff < 7 ? x.toLocaleDateString(undefined, { weekday: 'long' }) : x.toLocaleDateString(undefined, { month: 'long', day: 'numeric' }); };
+        let out = '', cur = null, n = 0;
+        for (const { it, f } of all.slice(0, 150)) {
+          const dn = dayName(it.date), fresh = s0 && it.date && new Date(it.date).getTime() > s0, p = parts(it, f);
+          if (dn !== cur) { cur = dn; out += `<div class="rs-day ${fresh ? 'new' : ''}">${E(dn)}</div>`; }
+          out += `<a class="rs-ti" href="${E(it.link)}" target="_blank" rel="noopener" style="animation-delay:${Math.min(n++, 20) * 25}ms">${it.image ? `<img src="${E(it.image)}" alt="" loading="lazy">` : ''}<div class="tx"><b>${E(p.a)}</b><span>${E([p.b, list.length > 1 ? f.title : ''].filter(Boolean).join(' · ') || p.d)}</span></div>${fresh ? '<span class="dot" title="New since your last visit"></span>' : ''}<span class="t">${it.date ? new Date(it.date).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : ''}</span></a>`;
+        }
+        const nNew = all.filter(x => s0 && x.it.date && new Date(x.it.date).getTime() > s0).length;
+        return (nNew ? `<div style="font-size:12px;color:#e5484d;font-weight:600;padding:4px 0 0">${nNew} new since your last look</div>` : '') + `<div class="rs-tl">${out}</div>`;
+      }
+      const markSeen = () => { G.prevSeen = seen(); api.storage.set('seen', Date.now()); };
+      async function openPanel(f) {
+        let p = document.querySelector('.rs-panel');
+        if (!p) { p = document.createElement('div'); p.className = 'rs-panel'; document.body.appendChild(p);
+          document.addEventListener('keydown', e => { if (e.key === 'Escape') p.classList.remove('on'); });
+          document.addEventListener('pointerdown', e => { if (p.classList.contains('on') && !p.contains(e.target) && !e.target.closest('.rs-row')) p.classList.remove('on'); }, true); }
+        const list = f ? [f] : feeds();
+        p.innerHTML = `<div class="hd"><span class="vin spin" style="width:18px;height:18px"><span class="lab"></span></span><b>${E(f ? f.title || 'Feed' : 'All feeds')}</b><button class="x" title="Close">×</button></div><div class="bd"><div class="muted" style="font-size:13px">Loading…</div></div>`;
+        p.querySelector('.x').onclick = () => p.classList.remove('on');
+        requestAnimationFrame(() => p.classList.add('on'));
+        p.querySelector('.bd').innerHTML = (`<div class="row" style="margin:4px 0 2px"><a href="#view-feeds" style="font-size:12px;color:var(--muted)">Open the wall ›</a></div>`) + await timelineHtml(list);
+        markSeen();
+      }
+      G.openPanel = openPanel;
       function itemsHtml(f, data, max, grid) {
         const items = data.items.slice(0, max);
         if (f.style === 'list') return `<div class="rs-list">${items.map(listHtml).join('')}</div>`;
         if (f.style === 'cards') return `<div class="${grid ? 'rs-grid' : 'rs-crate'}">${items.map(cardHtml).join('')}</div>`;
-        return `<div class="${grid ? 'rs-grid' : 'rs-crate'}">${items.map(it => recHtml(it, f)).join('')}</div>`;
+        if (grid) return wallHtml(f, data, max);
+        return `<div class="rs-crate">${items.map(it => recHtml(it, f)).join('')}</div>`;
       }
 
       /* sidebar: one slim row per feed that slowly rotates through the latest items */
       api.sidebar.add({ id: 'rss', slot: 'bottom', order: 30, render: el => {
         const list = feeds().filter(f => f.placement === 'sidebar'); if (!list.length) { el.style.display = 'none'; return; }
-        el.innerHTML = list.map(f => `<a class="rs-row" data-f="${f.id}" target="_blank" rel="noopener"><span class="vin"><span class="lab"></span></span><span class="tx"><b>${E(f.title || 'Feed')}</b><span>loading…</span></span><span class="nxt" title="Next">›</span></a>`).join('');
+        el.innerHTML = list.map(f => `<a class="rs-row" data-f="${f.id}" target="_blank" rel="noopener"><span class="vin"><span class="lab"></span></span><span class="tx"><b>${E(f.title || 'Feed')}</b><span>loading…</span></span><span class="exp" title="Timeline">⤢</span><span class="nxt" title="Next">›</span></a>`).join('');
         list.forEach(f => {
           const row = el.querySelector(`[data-f="${f.id}"]`); let i = 0, data = null;
           const show = (anim) => {
@@ -102,6 +194,8 @@
             else { vis.className = 'rs-cardmini'; vis.innerHTML = ''; vis.style.backgroundImage = it.image ? `url('${it.image}')` : ''; }
             const tx = row.querySelector('.tx'); tx.innerHTML = `<b>${E(p.a)}</b><span>${E(p.b || f.title || '')}</span>`; if (anim) { tx.classList.remove('fade'); void tx.offsetWidth; tx.classList.add('fade'); }
           };
+          row.querySelector('.exp').addEventListener('click', e => { e.preventDefault(); e.stopPropagation(); openPanel(f); });
+          row.querySelector('.vin, .rs-cardmini') && row.firstElementChild.addEventListener('click', e => { e.preventDefault(); e.stopPropagation(); openPanel(f); });
           row.querySelector('.nxt').addEventListener('click', e => { e.preventDefault(); e.stopPropagation(); i++; show(true); });
           load(f).then(d => { data = d; show(); }).catch(err => { row.querySelector('.tx span').textContent = err.message; row.removeAttribute('href'); });
           clearInterval(G['t' + f.id]); G['t' + f.id] = setInterval(() => { if (!row.isConnected) return clearInterval(G['t' + f.id]); if (!row.matches(':hover')) { i++; show(true); } }, 9000);
@@ -122,11 +216,15 @@
       });
 
       /* full view */
-      api.views.add({ id: 'feeds', title: 'Feeds', icon: '◉', subtitle: 'Your RSS and Atom feeds', render: (el) => {
+      api.views.add({ id: 'feeds', group: 'insights', title: 'Feeds', icon: '◉', subtitle: 'Your RSS and Atom feeds', render: (el) => {
         const list = feeds();
-        el.innerHTML = `<div class="row" style="justify-content:flex-end;margin:-10px 0 18px"><button class="btn" id="rs-cfg">Manage feeds</button></div>` + list.map(f => `<div class="group" data-f="${f.id}"><div class="group-h">${E(f.title || f.url)}<span class="c"></span></div><div class="muted" style="padding:8px 4px;font-size:13px">Loading…</div></div>`).join('') + (list.length ? '' : '<div class="empty"><b>No feeds yet</b>Add one with Manage feeds.</div>');
+        const mode = api.storage.get('viewMode') || 'wall';
+        el.innerHTML = `<div class="row" style="justify-content:flex-end;align-items:center;margin:-10px 0 18px"><div class="rs-tabs"><button data-m="wall" class="${mode === 'wall' ? 'on' : ''}">Wall</button><button data-m="timeline" class="${mode === 'timeline' ? 'on' : ''}">Timeline</button></div><button class="btn" id="rs-cfg">Manage feeds</button></div>` + (mode === 'timeline' ? '<div id="rs-tlv" class="muted" style="font-size:13px">Loading…</div>' : list.map(f => `<div class="group" data-f="${f.id}"><div class="group-h">${E(f.title || f.url)}<span class="c"></span></div><div class="muted" style="padding:8px 4px;font-size:13px">Loading…</div></div>`).join('')) + (list.length ? '' : '<div class="empty"><b>No feeds yet</b>Add one with Manage feeds.</div>');
         el.querySelector('#rs-cfg').onclick = manage;
-        list.forEach(f => { const g = el.querySelector(`[data-f="${f.id}"]`); load(f).then(d => { g.querySelector('.c').textContent = d.items.length; g.lastElementChild.outerHTML = itemsHtml(f, d, 40, true); }).catch(e => { g.lastElementChild.textContent = e.message; }); });
+        el.querySelectorAll('.rs-tabs button').forEach(b => b.onclick = () => { api.storage.set('viewMode', b.dataset.m); api.ui.refresh(); });
+        if (mode === 'timeline') { timelineHtml(list).then(h => { const t = el.querySelector('#rs-tlv'); if (t) { t.className = ''; t.innerHTML = h; markSeen(); } }); return; }
+        let pending = list.length;
+        list.forEach(f => { const g = el.querySelector(`[data-f="${f.id}"]`); load(f).then(d => { g.querySelector('.c').textContent = d.items.length; g.lastElementChild.outerHTML = itemsHtml(f, d, 40, true); layoutWall(g); }).catch(e => { g.lastElementChild.textContent = e.message; }).finally(() => { if (!--pending) markSeen(); }); });
       }});
 
       /* settings */

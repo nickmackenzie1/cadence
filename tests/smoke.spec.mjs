@@ -82,7 +82,7 @@ test('meeting: capture, Fireflies import, review, commit', async ({ page }) => {
 
 test('every sidebar view renders', async ({ page }) => {
   const errs = errorsOf(page); await boot(page);
-  for (const r of ['today', 'upcoming', 'waiting', 'inbox', 'done', 'insights', 'view-pulse', 'view-review', 'view-mural', 'view-feeds']) {
+  for (const r of ['today', 'upcoming', 'waiting', 'inbox', 'done', 'insights', 'view-pulse', 'view-review', 'view-mural', 'view-feeds', 'view-db']) {
     await page.goto(`http://localhost:${PORT}/#${r}`); await page.waitForTimeout(250);
     await expect(page.locator('#view')).not.toContainText('Plugin view failed');
   }
@@ -92,4 +92,50 @@ test('every sidebar view renders', async ({ page }) => {
 test('server refuses to fetch private network addresses', async ({ request }) => {
   expect((await request.get(`http://localhost:${PORT}/api/company?d=192.168.1.1`)).status()).toBe(400);
   expect((await request.get(`http://localhost:${PORT}/api/feed?url=${encodeURIComponent('http://127.0.0.1:22/')}`)).status()).toBeGreaterThanOrEqual(400);
+});
+
+test('demo mode: fake data, never written to the NAS, exits cleanly', async ({ page, request }) => {
+  const errs = errorsOf(page);
+  const before = await (await request.get(`http://localhost:${PORT}/api/state`)).json();
+  await page.goto(`http://localhost:${PORT}/?demo=1#today`);
+  await expect(page.locator('.demo-flag')).toBeVisible();
+  await expect(page.locator('#sync')).toContainText('Demo', { timeout: 8000 });
+  expect(await page.locator('#side-main a[href^="#client-"]').count()).toBeGreaterThanOrEqual(10);
+  await expect(page.locator('.cal-ev').first()).toBeVisible();           // sample calendar is on in demo
+  await page.locator('.task .check').first().click();                     // a change in demo…
+  await page.waitForTimeout(1500);
+  const after = await (await request.get(`http://localhost:${PORT}/api/state`)).json();
+  expect(after.updatedAt).toBe(before.updatedAt);                          // …never reaches the NAS
+  await page.locator('.demo-flag [data-act=demo-exit]').click();
+  await expect(page.locator('.demo-flag')).toHaveCount(0);
+  await expect(page.locator('#sync')).toContainText('NAS', { timeout: 8000 });
+  expect(errs).toEqual([]);
+});
+
+test('insights hub, database viewer and narrow layout', async ({ page }) => {
+  const errs = errorsOf(page);
+  await page.goto(`http://localhost:${PORT}/?demo=1#insights`);
+  for (const id of ['pulse', 'review', 'mural', 'feeds', 'db']) { await page.locator(`[data-act=ins-tab][data-id=${id}]`).click(); await expect(page.locator('#pv')).not.toBeEmpty(); }
+  await page.fill('#dbv-q', 'done:false');
+  await page.waitForTimeout(400);
+  await expect(page.locator('.dbv-bar .cnt')).toContainText('/');
+  await page.locator('.dbv tbody tr').first().click();
+  await expect(page.locator('.dbv-insp pre')).toContainText('"done": false');
+  await page.setViewportSize({ width: 700, height: 800 });
+  await page.goto(`http://localhost:${PORT}/#today`);
+  await page.click('#nav-btn');
+  await expect(page.locator('body')).toHaveClass(/nav-open/);
+  await page.locator('#side a[href="#upcoming"]').click();
+  await expect(page.locator('body')).not.toHaveClass(/nav-open/);
+  await page.goto(`http://localhost:${PORT}/?demo=0`);
+  expect(errs).toEqual([]);
+});
+
+test('calendar: ICS feed is parsed and its URL is never sent back', async ({ request }) => {
+  const r = await request.put(`http://localhost:${PORT}/api/calendar/config`, { data: { calendars: [{ id: 'x', name: 'Work', color: '#f00', url: 'https://calendar.example.com/secret-token/basic.ics' }] } });
+  expect(r.ok()).toBeTruthy();
+  const cfg = await (await request.get(`http://localhost:${PORT}/api/calendar/config`)).text();
+  expect(cfg).not.toContain('secret-token');
+  expect(cfg).toContain('calendar.example.com');
+  await request.put(`http://localhost:${PORT}/api/calendar/config`, { data: { calendars: [] } });
 });

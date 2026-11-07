@@ -89,7 +89,7 @@
         const sys = api.system(), nas = sys.mode === 'nas', ms = G.pingMs ?? sys.latency;
         const state = phase === 'saving' ? 'busy' : phase === 'error' ? 'err' : (sys.status === 'synced' ? 'ok' : '');
         el.className = 'sync clickable ' + state;
-        const label = phase === 'saving' ? 'Saving…' : phase === 'error' ? 'Offline · retrying' : nas ? 'Synced to NAS' : sys.mode === 'claude' ? 'Synced' : 'This browser';
+        const label = phase === 'saving' ? 'Saving…' : phase === 'error' ? 'Offline · retrying' : sys.demo ? 'Demo data — not saved' : nas ? 'Synced to NAS' : sys.mode === 'claude' ? 'Synced' : 'This browser';
         el.innerHTML = `<i class="${pinged && state === 'ok' ? 'ping' : ''}"></i><span>${label}</span>${nas && ms != null && state === 'ok' ? `<span class="ms">${ms} ms</span>` : ''}`;
         el.title = `${nas ? 'NAS' : sys.mode} · ${ms != null ? ms + ' ms' : '—'}\nLast sync: ${fmtAgo(sys.lastSyncAt)}\nAI: ${sys.ai ? ((G.health && G.health.model) || 'ready') : 'off'}\nClick for system details`;
       }
@@ -136,8 +136,8 @@
         const h = await new Promise(r => { G.onConnect = r; setTimeout(() => r(null), 2500); });
         await sleep(Math.max(0, 1500 - (Date.now() - t0)));           // every step stays readable
         const sys = api.system();
-        n.title = sys.mode === 'nas' ? 'Connected to NAS' : sys.mode === 'claude' ? 'Claude storage' : 'Local mode';
-        n.sub = sys.mode === 'nas' ? `${sys.latency ?? '—'} ms · loading workspace…` : 'loading workspace…'; I.update(n);
+        n.title = sys.demo ? 'Demo mode' : sys.mode === 'nas' ? 'Connected to NAS' : sys.mode === 'claude' ? 'Claude storage' : 'Local mode';
+        n.sub = sys.demo ? 'fake data · nothing is saved' : sys.mode === 'nas' ? `${sys.latency ?? '—'} ms · loading workspace…` : 'loading workspace…'; I.update(n);
         await sleep(1600);
         const s2 = api.system();
         n.title = 'Workspace loaded'; n.sub = `${s2.counts.open} open tasks · ${s2.counts.clients} clients`; I.update(n);

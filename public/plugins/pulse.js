@@ -5,7 +5,7 @@ registerPlugin({
   id:'pulse', name:'Client Pulse', version:'1.0.0', builtin:true,
   description:'A one-screen overview of all clients: open work, overdue items, what they owe you, and who you haven’t touched in a while.',
   setup(api){
-    api.views.add({ id:'pulse', title:'Client Pulse', icon:'◎', subtitle:'Every client at a glance — sorted by what needs attention', render: (el, api) => {
+    api.views.add({ id:'pulse', group: 'insights', title:'Client Pulse', icon:'◎', subtitle:'Every client at a glance — sorted by what needs attention', render: (el, api) => {
       const t = api.util.todayKey(), tasks = api.tasks.list(x => !x.done), mtgs = api.meetings.list();
       const rows = api.clients.list().map(c => {
         const mine = tasks.filter(x => x.clientId === c.id && x.owner === 'me'), theirs = tasks.filter(x => x.clientId === c.id && x.owner === 'client');

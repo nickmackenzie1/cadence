@@ -7,7 +7,7 @@ registerPlugin({
   setup(api){
     const E = api.ui.esc;
     const monday = () => { const d = new Date(); d.setHours(0,0,0,0); d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); return d; };
-    api.views.add({ id:'review', title:'Weekly review', icon:'✦', subtitle:'', render: (el, api) => {
+    api.views.add({ id:'review', group: 'insights', title:'Weekly review', icon:'✦', subtitle:'', render: (el, api) => {
       const t = api.util.todayKey(), wk = monday().getTime(), clients = api.clients.list(), cmap = Object.fromEntries(clients.map(c => [c.id, c]));
       const all = api.tasks.list(), open = all.filter(x => !x.done);
       const doneWk = all.filter(x => x.done && x.doneAt >= wk), mtgWk = api.meetings.list().filter(m => m.start >= wk);

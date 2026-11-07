@@ -346,3 +346,34 @@ table.pulse tr.click{cursor:pointer}table.pulse tr.click:hover td{background:var
 .swatches button{width:22px;height:22px;border-radius:50%;border:2px solid transparent}
 .swatches button.on{border-color:var(--text)}
 @media (max-width:900px){.c-hero{margin:-24px -18px 16px;padding:24px 18px 14px}.app{grid-template-columns:1fr}.side{display:none}.wrap{padding:24px 18px 100px}.cols,.m-body,.m-cols{grid-template-columns:1fr}.m-side{display:none}}
+
+/* ---------- narrow windows: the sidebar becomes a slide-over ---------- */
+.nav-btn,.nav-scrim{display:none}
+@media (min-width:901px) and (max-width:1180px){.app{grid-template-columns:240px 1fr}}
+@media (max-width:900px){
+  .side{display:flex!important;position:fixed;z-index:60;left:0;top:0;bottom:0;width:280px;transform:translateX(-102%);transition:transform .32s cubic-bezier(.2,.9,.25,1);box-shadow:0 20px 60px rgba(0,0,0,.18)}
+  body.nav-open .side{transform:none}
+  .nav-btn{display:grid;place-items:center;position:fixed;z-index:55;left:12px;top:12px;width:36px;height:36px;border-radius:10px;background:var(--panel);border:1px solid var(--line);color:var(--text);box-shadow:0 2px 8px rgba(0,0,0,.06)}
+  .nav-scrim{display:block;position:fixed;inset:0;z-index:59;background:rgba(20,18,14,.28);opacity:0;pointer-events:none;transition:opacity .25s}
+  body.nav-open .nav-scrim{opacity:1;pointer-events:auto}
+  .wrap{padding-top:64px!important}
+  .glance{grid-template-columns:1fr 1fr}
+  .cal-ev{min-width:180px}
+}
+@media (max-width:560px){.glance{grid-template-columns:1fr}.wrap{padding-left:14px!important;padding-right:14px!important}h1{font-size:26px}}
+
+/* ---------- reduced motion ---------- */
+html[data-motion=reduce] *,html[data-motion=reduce] *:before,html[data-motion=reduce] *:after{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important;scroll-behavior:auto!important}
+
+/* ---------- demo mode ribbon ---------- */
+html.demo #sync i{background:#f5a524!important;box-shadow:0 0 0 3px rgba(245,165,36,.2)!important}
+.demo-flag{position:fixed;z-index:58;right:14px;bottom:14px;display:flex;align-items:center;gap:8px;padding:6px 6px 6px 12px;border-radius:999px;background:#1c1b19;color:#f4f1ea;font-size:12px;box-shadow:0 8px 24px rgba(0,0,0,.2)}
+.demo-flag b{color:#f5a524;font-weight:600}
+.demo-flag button{font-size:12px;color:#f4f1ea;background:rgba(255,255,255,.1);border-radius:999px;padding:3px 10px}
+.demo-flag button:hover{background:rgba(255,255,255,.2)}
+
+/* Insights hub tabs */
+.ins-tabs{display:flex;gap:4px;flex-wrap:wrap;margin:-6px 0 22px;padding-bottom:10px;border-bottom:1px solid var(--line)}
+.ins-tabs button{font-size:13px;padding:6px 12px;border-radius:9px;color:var(--muted);transition:background .15s,color .15s}
+.ins-tabs button:hover{background:var(--hover);color:var(--text)}
+.ins-tabs button.on{background:var(--panel);color:var(--text);box-shadow:0 1px 2px rgba(0,0,0,.07),0 0 0 1px var(--line)}

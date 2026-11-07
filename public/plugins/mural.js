@@ -99,7 +99,7 @@
         return hm;
       }
 
-      api.views.add({ id: 'mural', title: 'Mural', icon: '🎨', subtitle: 'Every finished task adds a brushstroke in that client’s colours', render: (el, api) => {
+      api.views.add({ id: 'mural', group: 'insights', title: 'Mural', icon: '🎨', subtitle: 'Every finished task adds a brushstroke in that client’s colours', render: (el, api) => {
         const st = backfill(store()); if (!api.storage.get('mural') || !api.storage.get('mural').seeded) api.storage.set('mural', st);
         const strokes = st.strokes, E = api.ui.esc;
         el.innerHTML = `<div class="mu-bar"><span class="mu-stat">${strokes.length.toLocaleString()} strokes${strokes.length ? ' · since ' + new Date(strokes[0].t).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : ''}</span><span class="sp"></span>
