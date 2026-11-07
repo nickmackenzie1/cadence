@@ -23,10 +23,13 @@
       .isl-t b{font-weight:650;color:#fff}
       .isl-t small{display:block;color:#9d99ad;font-size:11px;margin-top:1px;overflow:hidden;text-overflow:ellipsis}
       .isl-right{color:#9d99ad;font-variant-numeric:tabular-nums;font-size:12px;flex:none}
-      .isl-acts{display:flex;gap:6px;justify-content:flex-end}
-      .isl-acts button{background:#24222c;color:#fff;border-radius:999px;padding:5px 11px;font:600 11.5px/1 Inter,ui-sans-serif,system-ui;border:0;cursor:pointer}
-      .isl-acts button:hover{background:#34313f}
-      .isl-acts button.pri{background:var(--accent,#5b5bd6)}
+      .isl-acts{display:flex;gap:2px;justify-content:flex-end;margin-right:-6px}
+      .isl-acts.inline{margin:0 -6px 0 4px;flex:none}
+      .isl-acts button{background:none;color:#a9a5b8;border-radius:999px;padding:5px 8px;font:600 12px/1 Inter,ui-sans-serif,system-ui;border:0;cursor:pointer;transition:color .15s,background .15s}
+      .isl-acts button:hover{color:#fff;background:rgba(255,255,255,.08)}
+      .isl-acts button.pri{color:#a8a6ff}
+      .isl-acts button.pri:hover{color:#c9c8ff}
+      .isl-sep{width:1px;height:14px;background:rgba(255,255,255,.12);flex:none;margin-left:2px}
       .isl-dot{width:7px;height:7px;border-radius:50%;background:#3fc37a;flex:none;box-shadow:0 0 0 3px rgba(63,195,122,.18);transition:background .3s, box-shadow .3s}
       .isl-dot.busy{background:#f5b041;box-shadow:0 0 0 3px rgba(245,176,65,.22);animation:islp 1s infinite}
       .isl-dot.err{background:#ff5a5a;box-shadow:0 0 0 3px rgba(255,90,90,.22)}
@@ -96,11 +99,12 @@
   function next() {
     const n = G.queue.shift(); if (!n) { G.cur = null; idle(); return; }
     G.cur = n;
-    const acts = (n.actions || []).length ? `<div class="isl-acts">${n.actions.map((a, i) => `<button data-ai="${i}" class="${i === 0 ? 'pri' : ''}">${esc(a.label)}</button>`).join('')}</div>` : '';
+    const na = (n.actions || []).length, inline = na > 0 && na <= 2 && !n.sub;
+    const acts = na ? `${inline ? '<span class="isl-sep"></span>' : ''}<div class="isl-acts ${inline ? 'inline' : ''}">${n.actions.map((a, i) => `<button data-ai="${i}" class="${i === 0 ? 'pri' : ''}">${esc(a.label)}</button>`).join('')}</div>` : '';
     const ico = n.check ? checkSvg : n.spin ? '<span class="isl-spin"></span>' : n.icon ? `<span class="isl-ico" style="--ic:${n.color || '#2a2833'}">${n.icon}</span>` : '';
-    const body = `<div class="isl-row">${ico}<span class="isl-t"><b>${esc(n.title)}</b>${n.sub ? `<small>${esc(n.sub)}</small>` : ''}</span>${n.right ? `<span class="isl-right">${esc(n.right)}</span>` : ''}</div>`;
-    const stack = !!acts || !!n.sub;
-    morph({ html: body + acts, stack, actions: n.actions, onClick: n.onClick });
+    const row = `${ico}<span class="isl-t"><b>${esc(n.title)}</b>${n.sub ? `<small>${esc(n.sub)}</small>` : ''}</span>${n.right ? `<span class="isl-right">${esc(n.right)}</span>` : ''}`;
+    const stack = (na && !inline) || !!n.sub;
+    morph({ html: stack ? `<div class="isl-row">${row}</div>${acts}` : row + acts, stack, actions: n.actions, onClick: n.onClick, h: stack ? 0 : 34 });
     clearTimeout(G.t);
     if (!n.sticky) G.t = setTimeout(dismiss, n.ms || (acts ? 6000 : n.sub ? 4600 : 3600));
   }

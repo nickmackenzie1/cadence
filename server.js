@@ -233,6 +233,33 @@ async function companyInfo(domain, refresh) {
   return out;
 }
 
+// ---- feeds: RSS 2.0 / Atom -> compact JSON, cached 15 min ----
+const feedCache = new Map();
+function parseFeed(xml, base) {
+  const tag = (src, name) => { const m = src.match(new RegExp(`<${name}(?:\\s[^>]*)?>([\\s\\S]*?)</${name}>`, 'i')); return m ? m[1].replace(/^\s*<!\[CDATA\[([\s\S]*?)\]\]>\s*$/, '$1').trim() : ''; };
+  const attr = (src, name, a) => { const m = src.match(new RegExp(`<${name}\\b[^>]*\\b${a}=["']([^"']+)["']`, 'i')); return m ? m[1] : ''; };
+  const abs = u => { try { return u ? new URL(decode(u), base).href : ''; } catch { return ''; } };
+  const strip = h => decode(String(h).replace(/<[^>]+>/g, ' ')).slice(0, 280);
+  const bigger = u => u.replace(/\/(\d{2,3})x(\d{2,3})x(\d)\//, '/400x400x$3/');   // Lightspeed-style thumbnail sizes
+  const atom = /<feed[\s>]/i.test(xml) && !/<rss[\s>]/i.test(xml);
+  const chan = atom ? xml : (tag(xml, 'channel') || xml);
+  const head = chan.split(atom ? /<entry[\s>]/i : /<item[\s>]/i)[0];
+  const out = { title: decode(tag(head, 'title')), link: atom ? abs(attr(head, 'link', 'href')) : abs(tag(head, 'link')), image: abs(tag(tag(head, 'image'), 'url') || tag(head, 'logo') || tag(head, 'icon')), items: [] };
+  const blocks = chan.match(atom ? /<entry[\s>][\s\S]*?<\/entry>/gi : /<item[\s>][\s\S]*?<\/item>/gi) || [];
+  for (const b of blocks.slice(0, 40)) {
+    const html = tag(b, 'content:encoded') || tag(b, 'content') || tag(b, 'description') || tag(b, 'summary');
+    const img = attr(b, 'media:content', 'url') || attr(b, 'media:thumbnail', 'url') || (/<enclosure[^>]+type=["']image/i.test(b) ? attr(b, 'enclosure', 'url') : '') || attr(b, 'itunes:image', 'href') || (decode(html).match(/<img[^>]+src=["']([^"']+)["']/i) || [])[1] || '';
+    out.items.push({
+      title: decode(tag(b, 'title')).slice(0, 300),
+      link: atom ? abs(attr(b, 'link', 'href')) : abs(tag(b, 'link') || tag(b, 'guid')),
+      date: tag(b, 'pubDate') || tag(b, 'updated') || tag(b, 'published') || tag(b, 'dc:date') || '',
+      image: img ? bigger(abs(img)) : '',
+      summary: strip(html),
+    });
+  }
+  return out;
+}
+
 async function callClaude(prompt, tier) {
   const r = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
@@ -294,6 +321,19 @@ const server = http.createServer(async (req, res) => {
       const refresh = url.searchParams.get('refresh') === '1';
       if (refresh) { for (const f of [path.join(ICON_DIR, d + '.img'), path.join(ICON_DIR, d + '.none'), path.join(BANNER_DIR, d + '.img')]) { try { fs.unlinkSync(f); } catch {} } }
       return send(res, 200, await companyInfo(d, refresh));
+    }
+    if (p === '/api/feed') {
+      const u = String(url.searchParams.get('url') || '');
+      if (!/^https?:\/\//i.test(u) || u.length > 2000) return send(res, 400, { error: 'Bad feed URL' });
+      const hit = feedCache.get(u);
+      if (hit && Date.now() - hit.at < 15 * 60 * 1000 && url.searchParams.get('refresh') !== '1') return send(res, 200, hit.data);
+      try {
+        const r = await safeFetch(u, { headers: { Accept: 'application/rss+xml, application/atom+xml, application/xml, text/xml, */*' } }, 3 * 1024 * 1024);
+        const data = { ...parseFeed(r.buf.toString('utf8'), r.url), fetchedAt: Date.now() };
+        if (!data.items.length && !data.title) return send(res, 422, { error: 'That URL is not an RSS or Atom feed' });
+        feedCache.set(u, { at: Date.now(), data }); if (feedCache.size > 50) feedCache.delete(feedCache.keys().next().value);
+        return send(res, 200, data);
+      } catch (e) { return hit ? send(res, 200, hit.data) : send(res, 502, { error: 'Could not fetch feed: ' + e.message }); }
     }
     if (p === '/api/banner') {
       const d = String(url.searchParams.get('d') || '').toLowerCase();
