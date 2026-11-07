@@ -972,9 +972,10 @@ function bindQuickAdd(){
   inp.addEventListener('keydown', e => {
     if(e.key === 'Enter' && inp.value.trim()){
       const t = createFromQuick(inp.value, ctx);
-      if(t && ctx.defaultDate === 'today' && !t.dueDate){ t.dueDate = todayKey(); save(); }
+      const defaulted = !!(t && ctx.defaultDate === 'today' && !t.dueDate);
+      if(defaulted){ t.dueDate = todayKey(); save(); }
       inp.value = ''; chips.innerHTML = ''; render(); $('#qa') && $('#qa').focus();
-      if(t) emit('task:quickadd', clone(t));
+      if(t) emit('task:quickadd', { ...clone(t), defaulted });
       if(t) toast(`Added “${t.title}”`, [{ label:'Undo', run: () => { removeTask(t.id); render(); } }]);
     }
     if(e.key === 'Escape') inp.blur();

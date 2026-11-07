@@ -113,7 +113,8 @@
         setTimeout(() => G.el === el && document.addEventListener('pointerdown', G.out, true), 0);
         const q = document.getElementById('qa'); G.inp = () => close(); q && q.addEventListener('input', G.inp, { once: true });
       }
-      api.on('task:quickadd', task => { if (!task.dueDate) setTimeout(() => open(task), 60); });
+      // no date typed (or the home page defaulted it to today): offer the calendar right under the task
+      api.on('task:quickadd', task => { if (!task.dueDate || task.defaulted) setTimeout(() => open(task, { value: task.dueDate || null }), 60); });
       // other parts of Cadence (the inline task editor) can borrow the calendar
       window.CadenceDatePick = { openAt: (anchor, o) => open({ id: '_', title: o.title || 'this' }, { anchor, value: o.value, onPick: o.onPick, onClear: o.onClear }) };
       api.on('render', () => { if (G.el && !document.body.contains(G.el)) G.el = null; });
