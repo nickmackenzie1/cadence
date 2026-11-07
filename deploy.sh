@@ -12,7 +12,7 @@ export PATH="/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:$PATH"
 DIR="$(cd "$(dirname "$0")" && pwd)"
 cd "$DIR"
 REPO="${REPO:?set REPO=owner/name}"
-BRANCH="${BRANCH:-main}"
+BRANCH="${BRANCH:-}"   # empty = follow `stable` (only commits that passed the tests), else main
 TOKEN="${TOKEN:-$(cat .deploy-token 2>/dev/null || true)}"
 LOG="$DIR/deploy.log"
 log(){ echo "$(date '+%F %T') $*" >> "$LOG"; }
@@ -41,6 +41,9 @@ URL="https://github.com/$REPO.git"
 
 [ -d .git ] || { g init -q; g remote add origin "$URL"; log "initialized repo"; }
 g remote set-url origin "$URL"
+if [ -z "$BRANCH" ]; then
+  if g fetch -q origin stable 2>/dev/null; then BRANCH=stable; else BRANCH=main; fi
+fi
 g fetch -q origin "$BRANCH" || { log "fetch failed (check REPO/TOKEN)"; exit 1; }
 
 OLD="$(g rev-parse -q --verify HEAD 2>/dev/null || echo none)"

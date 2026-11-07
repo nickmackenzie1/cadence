@@ -1,0 +1,7 @@
+{
+  "name": "cadence",
+  "private": true,
+  "description": "Modular to-do app for consultants. The app itself has no dependencies; these are only for tests.",
+  "scripts": { "start": "node server.js", "test": "playwright test" },
+  "devDependencies": { "@playwright/test": "1.63.0" }
+}

@@ -4,7 +4,11 @@ A minimal, modular to-do app for consultants: tasks for each client, a Meeting M
 action items on both sides, Fireflies import, formatted recap emails, and a plugin API.
 
 ```
-public/index.html   the whole app (UI, core and built-in plugins). No build step.
+public/index.html   page shell (loads core + plugins). No build step.
+public/core.js      core: state, sync, parsing, rendering, plugin host
+public/core.css     core styles
+public/plugins/     every feature beyond the core, one file each
+tests/              Playwright smoke tests
 server.js           tiny Node server: serves the app, stores data/state.json, daily backups, optional AI proxy
 Dockerfile          node:20-alpine image
 docker-compose.yml  mounts public/ live, so UI changes need no rebuild
@@ -62,6 +66,13 @@ To change your password or AI key later, edit the task's command. The next run a
 
 The script uses `git` if it's installed (Package Center → Git Server). If not, it uses a throwaway
 `alpine/git` container, so no extra packages are needed.
+
+## Tests
+
+`npm install && npx playwright install chromium && npm test` boots a real server on a throwaway data folder
+and drives the app (startup, quick add, sync, inline editor, meetings + Fireflies import, every view, SSRF guard).
+On GitHub, every push to `main` runs them; only green commits are promoted to the `stable` branch, which is
+what `deploy.sh` follows. A broken commit never reaches the NAS.
 
 ## Local development
 

@@ -3,3 +3,6 @@ data/
 deploy.log
 .deploy-token
 /index.html
+node_modules/
+test-results/
+playwright-report/

@@ -1,0 +1,21 @@
+name: test
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - run: npm install
+      - run: npx playwright install --with-deps chromium
+      - run: npm test
+      # only green builds reach the NAS: deploy.sh follows the `stable` branch when it exists
+      - name: Promote to stable
+        run: git push origin HEAD:refs/heads/stable --force

@@ -1,0 +1,95 @@
+// Cadence smoke tests: boots a real server against a throwaway data dir and drives the app like a user.
+// Run: npm test   (needs `npx playwright install chromium` once)
+import { test, expect } from '@playwright/test';
+import { spawn } from 'node:child_process';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
+const PORT = 8611 + Math.floor(Math.random() * 300);
+let server, dataDir;
+test.beforeAll(async () => {
+  dataDir = mkdtempSync(join(tmpdir(), 'cadence-test-'));
+  server = spawn(process.execPath, ['server.js'], { env: { ...process.env, PORT: String(PORT), DATA_DIR: dataDir }, stdio: 'ignore' });
+  for (let i = 0; i < 50; i++) { try { const r = await fetch(`http://localhost:${PORT}/api/health`); if (r.ok) return; } catch {} await new Promise(r => setTimeout(r, 100)); }
+  throw new Error('server did not start');
+});
+test.afterAll(() => { server && server.kill(); rmSync(dataDir, { recursive: true, force: true }); });
+
+const errorsOf = page => { const errs = []; page.on('pageerror', e => errs.push(String(e))); return errs; };
+async function boot(page) {
+  await page.goto(`http://localhost:${PORT}/`);
+  await page.evaluate(() => localStorage.setItem('cadence.reviewNudge', 'x'));
+  await expect(page.locator('#sync')).toContainText('NAS', { timeout: 8000 });
+}
+
+test('boots with every plugin registered and no errors', async ({ page }) => {
+  const errs = errorsOf(page); await boot(page);
+  const scripts = await page.locator('script[src^="plugins/"]').count();
+  await page.click('[data-act=settings]'); await page.click('[data-act=set-tab][data-tab=plugins]');
+  expect(await page.locator('.plug').count()).toBeGreaterThanOrEqual(scripts);
+  expect(errs).toEqual([]);
+});
+
+test('quick add parses client, owner, dates and keeps names after prepositions', async ({ page }) => {
+  await boot(page);
+  await page.fill('#ob-clients', 'Acme Corp, Blue Sky Labs'); await page.click('[data-act=ob-add]');
+  const add = async t => { await page.fill('#qa', t); await page.keyboard.press('Escape'); await page.focus('#qa'); await page.press('#qa', 'Enter'); await page.keyboard.press('Escape'); };
+  await add('send SOW @Acme Corp fri 3pm !1 #crm');
+  await add('meet with @Blue Sky Labs tomorrow');
+  await add('^Sarah share logins @acme today');
+  const tasks = await page.evaluate(() => JSON.parse(localStorage.getItem('cadence.v1')).tasks);
+  const by = t => tasks.find(x => x.title.startsWith(t));
+  expect(by('Send SOW')).toMatchObject({ dueTime: '15:00', priority: 3, tags: ['Zoho-CRM'] });
+  expect(by('Meet with Blue Sky Labs')).toBeTruthy();
+  expect(by('Share logins')).toMatchObject({ owner: 'client', assignee: 'Sarah' });
+});
+
+test('data survives a reload through the NAS', async ({ page, context }) => {
+  await boot(page);
+  await page.fill('#qa', 'Persist me today'); await page.keyboard.press('Escape'); await page.focus('#qa'); await page.press('#qa', 'Enter');
+  await page.waitForTimeout(1500);
+  const p2 = await context.newPage(); await p2.goto(`http://localhost:${PORT}/`); await p2.evaluate(() => localStorage.clear()); await p2.reload();
+  await expect(p2.locator('.t-title', { hasText: 'Persist me' })).toBeVisible({ timeout: 8000 });
+});
+
+test('inline editor opens in place and the date chip sets a date', async ({ page }) => {
+  await boot(page);
+  await page.goto(`http://localhost:${PORT}/#inbox`);
+  await page.fill('#qa', 'Editable task'); await page.keyboard.press('Escape'); await page.focus('#qa'); await page.press('#qa', 'Enter'); await page.keyboard.press('Escape');
+  await page.locator('.task', { hasText: 'Editable task' }).click();
+  await expect(page.locator('.task.open .te-title')).toHaveValue('Editable task');
+  await page.click('.task.open [data-te=due]'); await page.click('.dp-quick button >> nth=1');
+  const t = await page.evaluate(() => JSON.parse(localStorage.getItem('cadence.v1')).tasks.find(x => x.title === 'Editable task'));
+  expect(t.dueDate).toBeTruthy();
+});
+
+test('meeting: capture, Fireflies import, review, commit', async ({ page }) => {
+  const errs = errorsOf(page); await boot(page);
+  await page.click('[data-act=settings]'); await page.fill('#st-name', 'Nick Mackenzie'); await page.press('#st-name', 'Tab'); await page.keyboard.press('Escape');
+  await page.click('[data-act=meeting]');
+  await page.fill('#m-in', 'Send blueprint fri'); await page.press('#m-in', 'Enter');
+  await page.click('[data-act=m-import]');
+  await page.fill('#imp-text', 'Action Items\n\n**Sarah Lee**\nShare API credentials (18:02)');
+  await page.evaluate(() => { document.querySelector('#imp-ex').value = 'fireflies'; });
+  await page.click('[data-act=imp-run]');
+  await page.click('[data-act=m-review]'); await page.click('[data-act=m-commit]');
+  const s = await page.evaluate(() => JSON.parse(localStorage.getItem('cadence.v1')));
+  expect(s.meetings.length).toBe(1);
+  expect(s.tasks.some(t => t.owner === 'client' && /API credentials/.test(t.title))).toBe(true);
+  expect(errs).toEqual([]);
+});
+
+test('every sidebar view renders', async ({ page }) => {
+  const errs = errorsOf(page); await boot(page);
+  for (const r of ['today', 'upcoming', 'waiting', 'inbox', 'done', 'insights', 'view-pulse', 'view-review', 'view-mural', 'view-feeds']) {
+    await page.goto(`http://localhost:${PORT}/#${r}`); await page.waitForTimeout(250);
+    await expect(page.locator('#view')).not.toContainText('Plugin view failed');
+  }
+  expect(errs).toEqual([]);
+});
+
+test('server refuses to fetch private network addresses', async ({ request }) => {
+  expect((await request.get(`http://localhost:${PORT}/api/company?d=192.168.1.1`)).status()).toBe(400);
+  expect((await request.get(`http://localhost:${PORT}/api/feed?url=${encodeURIComponent('http://127.0.0.1:22/')}`)).status()).toBeGreaterThanOrEqual(400);
+});
