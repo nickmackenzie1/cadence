@@ -6,7 +6,7 @@
   async function unleash(api) {
     if (window.__havoc) { window.__havoc.toggle(); return; }
     try {
-      loading = loading || (async () => { if (!window.Matter) await load('vendor/matter.min.js'); await load('vendor/havoc-engine.js'); })();
+      loading = loading || (async () => { if (!window.Matter) await load('vendor/matter.min.js'); await load('vendor/havoc-engine.js?v=' + Date.now().toString(36).slice(0, -3)); })();
       await loading;
     } catch (e) { loading = null; api.ui.toast('Havoc needs its engine files (vendor/) — ' + e.message); }
   }

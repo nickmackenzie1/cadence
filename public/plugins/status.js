@@ -72,11 +72,19 @@
         log(`${ev}${name ? ' · ' + String(name).slice(0, 40) : ''}`);
       });
 
+      /* ------------ new version on the NAS → offer a reload (once) */
+      function checkBuild(h) {
+        if (!h || !h.build) return;
+        if (!G.build) { G.build = h.build; return; }
+        if (h.build !== G.build && !G.toldBuild) { G.toldBuild = true;
+          api.island.show({ icon: '↻', color: '#5b5bd6', title: 'Cadence was updated', sub: 'Reload to get the latest', sticky: true, actions: [{ label: 'Reload', run: () => location.reload() }, { label: 'Later', run: () => {} }] }); }
+      }
+      api.on('sync', e => { if (e.phase === 'connected') checkBuild(e.health); });
       /* ------------ periodic health ping (NAS only) */
       async function ping() {
         if (api.system().mode !== 'nas') return null;
         const t0 = performance.now();
-        try { const r = await fetch('api/health', { cache: 'no-store' }); const j = await r.json(); const ms = Math.round(performance.now() - t0); G.health = j; G.pingMs = ms; G.lat.push(ms); if (G.lat.length > 24) G.lat.shift(); paint(true); return j; }
+        try { const r = await fetch('api/health', { cache: 'no-store' }); const j = await r.json(); const ms = Math.round(performance.now() - t0); G.health = j; checkBuild(j); G.pingMs = ms; G.lat.push(ms); if (G.lat.length > 24) G.lat.shift(); paint(true); return j; }
         catch (e) { G.pingMs = null; phase = 'error'; log('NAS unreachable', 'err'); paint(); return null; }
       }
       clearInterval(G.pingT); G.pingT = setInterval(ping, 20000);

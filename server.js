@@ -263,6 +263,13 @@ function parseFeed(xml, base) {
 // ---- calendars: iCal (.ics) feeds -> events, with recurrence + time zones. URLs stay on the NAS. ----
 const CAL_FILE = path.join(DATA_DIR, 'calendars.json');
 let imgCache = null;
+// build id: changes whenever any file in public/ changes (public/ is mounted live, so updates land without a restart)
+let buildCache = { at: 0, id: '' };
+function buildId() {
+  if (Date.now() - buildCache.at < 10000) return buildCache.id;
+  let m = 0; const walk = d => { try { for (const f of fs.readdirSync(d, { withFileTypes: true })) { const p = path.join(d, f.name); if (f.isDirectory()) walk(p); else m = Math.max(m, fs.statSync(p).mtimeMs); } } catch {} };
+  walk(PUBLIC_DIR); buildCache = { at: Date.now(), id: Math.round(m).toString(36) }; return buildCache.id;
+}
 const icsCache = new Map();
 const WINTZ = { 'Eastern Standard Time': 'America/New_York', 'Central Standard Time': 'America/Chicago', 'Mountain Standard Time': 'America/Denver', 'Pacific Standard Time': 'America/Los_Angeles', 'Atlantic Standard Time': 'America/Halifax', 'Newfoundland Standard Time': 'America/St_Johns', 'GMT Standard Time': 'Europe/London', 'W. Europe Standard Time': 'Europe/Berlin', 'Romance Standard Time': 'Europe/Paris', 'Central Europe Standard Time': 'Europe/Budapest', 'India Standard Time': 'Asia/Kolkata', 'AUS Eastern Standard Time': 'Australia/Sydney', 'UTC': 'UTC' };
 const LOCAL_TZ = process.env.TZ || Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
@@ -381,7 +388,7 @@ const server = http.createServer(async (req, res) => {
     if (p === '/api/health') {
       const size = f => { try { return fs.statSync(f).size; } catch { return 0; } };
       const count = d => { try { return fs.readdirSync(d).length; } catch { return 0; } };
-      return send(res, 200, { ok: true, ai: !!API_KEY, model: API_KEY ? MODEL : null, version: '0.5.0', uptime: Math.round((Date.now() - STARTED) / 1000), node: process.version,
+      return send(res, 200, { ok: true, build: buildId(), ai: !!API_KEY, model: API_KEY ? MODEL : null, version: '0.5.0', uptime: Math.round((Date.now() - STARTED) / 1000), node: process.version,
         dataBytes: size(STATE_FILE), backups: count(BACKUP_DIR), logos: fs.readdirSync(ICON_DIR).filter(f => f.endsWith('.img')).length, companies: count(COMPANY_DIR), auth: !!PASSWORD, time: Date.now() });
     }
 
