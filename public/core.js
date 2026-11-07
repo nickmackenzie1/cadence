@@ -172,15 +172,21 @@ function applyCompany(c, info, force){
   c.themeColor = info.themeColor || c.themeColor || '';
   c.hasBanner = !!info.hasBanner; c.logoV = info.fetchedAt; c.fetchedAt = info.fetchedAt;
 }
+/* long-running jobs show as a spinner in the Island (or plain toasts without it) */
+function job(key, title, o = {}){
+  const I = enabled('island') && window.CadenceIsland;
+  if(I) return I.progress(key, title, o);
+  return { update(){}, done(p = {}){ if(p.title) toast(p.title + (p.sub ? ' — ' + p.sub : '')); }, dismiss(){} };
+}
 async function refreshCompany(cid, opts = {}){
   const c = client(cid); if(!c || !c.domain) return;
   if(!Store.server){ if(!opts.quiet) toast('Company lookup runs on your NAS — open Cadence there to refresh'); return; }
-  if(!opts.quiet) toast(`Looking up ${c.domain}…`, [], { ms: 2500 });
+  const j = opts.quiet ? null : job('company:' + cid, `Looking up ${c.domain}`, { sub: 'logo, colours, industry, description' });
   try {
     const info = await fetchCompany(c.domain, !!opts.refresh);
     applyCompany(c, info, opts.force); save(); render();
-    if(!opts.quiet) toast(info.ok ? `Updated ${c.name}${info.industry && INDUSTRY[info.industry] ? ' · ' + INDUSTRY[info.industry].label : ''}` : `Couldn’t reach ${c.domain} — kept what we had`);
-  } catch(e){ if(!opts.quiet) toast('Lookup failed: ' + e.message); }
+    if(j) j.done(info.ok ? { title: `Updated ${c.name}`, sub: [info.industry && INDUSTRY[info.industry] ? INDUSTRY[info.industry].label : '', info.logo ? 'new logo' : ''].filter(Boolean).join(' · ') || c.domain, image: avatar(client(cid), 20), check: false } : { title: `Couldn’t reach ${c.domain}`, sub: 'Kept what we had', icon: '!', color: '#e5484d' });
+  } catch(e){ if(j) j.done({ title: 'Lookup failed', sub: e.message, icon: '!', color: '#e5484d' }); }
 }
 function avatar(c, size = 16){
   if(!c) return '';
@@ -358,6 +364,16 @@ function makeApi(pid){
     commands: { add: c => Reg.commands.push({ ...c, pid }) },
     views: { add: v => Reg.views.push({ ...v, pid }) },
     db: { snapshot: () => clone(S) },
+    /* the Island, for any plugin — falls back to a plain toast when the Island plugin is off */
+    island: (() => { const I = () => enabled('island') && window.CadenceIsland; const noop = { update(){}, done(p){ if(p && p.title) toast(p.title); }, dismiss(){} };
+      return {
+        available: () => !!I(),
+        show: n => I() ? I().show(n) : (toast(n.title + (n.sub ? ' — ' + n.sub : ''), n.actions || []), noop),
+        celebrate: n => I() ? I().celebrate(n) : (toast((n.icon ? n.icon + ' ' : '') + n.title), noop),
+        progress: (key, title, o) => I() ? I().progress(key, title, o) : noop,
+        live: (key, l) => I() && I().live(pid + ':' + key, l),
+        clear: key => I() && I().clear(pid + ':' + key),
+      }; })(),
     parsers: { add: fn => Reg.parsers.push({ fn, pid }) },
     extractors: { add: e => Reg.extractors.push({ ...e, pid }) },
     taskActions: { add: a => Reg.taskActions.push({ ...a, pid }) },
@@ -381,8 +397,11 @@ function rebuildPlugins(){
   }
   if(booted) renderWidgets();
 }
+let loadingUser = null;
 function registerPlugin(def){
   if(!def || !def.id || typeof def.setup !== 'function') throw new Error('Plugin needs { id, name, setup(api) }');
+  if(loadingUser != null) def = Object.assign({}, def, { userCode: loadingUser });
+  else if(!('builtin' in def)) def = Object.assign({}, def, { builtin: true }); // shipped in plugins/*.js
   Reg.defs = Reg.defs.filter(d => d.id !== def.id); Reg.defs.push(def);
   rebuildPlugins(); if(booted){ cancelAnimationFrame(registerPlugin.raf); registerPlugin.raf = requestAnimationFrame(() => render()); }
 }
@@ -444,7 +463,7 @@ function renderSide(){
     <div class="sect">Clients <button data-act="add-client" title="Add client">+</button></div>
     <nav class="nav">${clients.map(cl => clientLink(cl, r, o)).join('') || (paused.length ? '' : `<a data-act="add-client"><span class="ic">+</span><span class="t muted">Add your clients</span></a>`)}
       ${paused.length ? `<div class="more" data-act="toggle-paused">${showPaused ? '▾' : '▸'} Paused <span class="muted">${paused.length}</span></div>${showPaused ? paused.map(cl => clientLink(cl, r, o, true)).join('') : ''}` : ''}</nav>`;
-  $('#side-foot').innerHTML = `
+  $('#side-foot').innerHTML = `${DEMO ? `<div class="demo-row"><b>●</b> Demo data<button data-act="demo-reset">Reset</button><button data-act="demo-exit">Exit</button></div>` : ''}
       <button class="meet-btn" data-act="meeting">${S.activeMeeting ? '● Resume meeting' : '◉ Start meeting'} <kbd style="background:transparent;color:inherit;border-color:currentColor;opacity:.45">M</kbd></button>
       <div class="foot-row"><span class="sync ${Store.status==='synced'?'ok':''}" id="sync"><i></i><span>${DEMO ? 'Demo data — not saved' : Store.status==='synced'?(Store.server?'Synced to NAS':'Synced'):'This browser'}</span></span><button data-act="shortcuts" title="Keyboard shortcuts (?)">${NAV_ICONS.keys}</button><button data-act="theme" title="Theme">${NAV_ICONS.moon}</button><button data-act="settings" title="Settings & plugins">${NAV_ICONS.gear}</button></div>`;
   emit('render:side', {});
@@ -604,7 +623,7 @@ function attachClientAC(inp, onPick){
   inp.addEventListener('keydown', e => {
     if(pop.hidden) return;
     const n = pop.querySelectorAll('.ac-i').length;
-    if(e.key === 'ArrowDown'){ sel = (sel + 1) % n; draw(); }
+    if(e.key === 'ArrowDown'){ sel = (sel + 1) % n; draw(); const o = pop.querySelector('.ac-i.on'); o && o.scrollIntoView({ block:'nearest' }); }
     else if(e.key === 'ArrowUp'){ sel = sel <= 0 ? n - 1 : sel - 1; draw(); }
     else if(e.key === 'Enter' || e.key === 'Tab'){ if(sel < 0){ pop.hidden = true; return; } pick(sel); }
     else if(e.key === 'Escape'){ pop.hidden = true; }
@@ -881,6 +900,7 @@ function openPalette(){
     list = cmds.filter(c => !q || q.split(' ').every(w => c.title.toLowerCase().includes(w))).concat(taskHits).slice(0, 40);
     sel = Math.min(sel, list.length - 1);
     $('#pal-list').innerHTML = list.map((c,i) => `<div class="pal-item ${i===sel?'on':''}" data-i="${i}">${esc(c.title)}${c.k?`<span class="k">${esc(c.k)}</span>`:''}</div>`).join('') || '<div class="muted" style="padding:12px">No matches</div>';
+    const on = $('#pal-list .pal-item.on'); if(on) on.scrollIntoView({ block: 'nearest' });
   };
   const inp = $('#pal-in'); draw(); inp.focus();
   inp.addEventListener('input', () => { sel = 0; draw(); });
@@ -935,6 +955,19 @@ function promptClient(existing){
 
 /* ---------- settings ---------- */
 let settingsTab = 'general';
+const plugUI = { q:'', cat:'All', open:null };
+const PLUG_CATS = ['Meetings','Clients','Productivity','Look & feel','Fun','Integrations','System','Other'];
+/* plugin icon: SVG markup (inner paths or a full <svg>), an image URL, or an emoji — on a tile in the plugin's colour */
+function plugIcon(d, size = 36){
+  const col = d.color || COLORS[Math.abs([...String(d.id)].reduce((a, ch) => a * 31 + ch.charCodeAt(0) | 0, 7)) % COLORS.length];
+  const ic = String(d.icon || '');
+  const inner = !ic ? `<b>${esc((d.name || d.id || '?').trim()[0].toUpperCase())}</b>`
+    : /^(https?:|data:image)/.test(ic) ? `<img src="${esc(ic)}" alt="">`
+    : ic.trim().startsWith('<svg') ? ic
+    : ic.trim().startsWith('<') ? `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${ic}</svg>`
+    : `<span>${esc(ic)}</span>`;
+  return `<span class="pl-ic" style="--pc:${esc(col)};width:${size}px;height:${size}px;border-radius:${Math.round(size*.28)}px">${inner}</span>`;
+}
 function openSettings(tab){
   if(tab) settingsTab = tab;
   const tabs = [['general','General'],['plugins','Plugins'],['dev','Developer'],['data','Data']];
@@ -946,7 +979,17 @@ function openSettings(tab){
       <div class="field"><label>Theme</label><div class="seg"><button data-act="set-theme" data-v="light" class="${S.settings.theme==='light'?'on':''}">Light</button><button data-act="set-theme" data-v="dark" class="${S.settings.theme==='dark'?'on':''}">Dark</button></div></div>
       <div class="field"><label>Motion</label><div class="row" style="align-items:center"><select class="inp" id="set-motion" style="width:auto">${[['auto','Match system'],['reduce','Reduced'],['full','Full']].map(([v,l]) => `<option value="${v}" ${(S.settings.motion||'auto')===v?'selected':''}>${l}</option>`).join('')}</select><span class="muted" style="font-size:12px">Reduced turns off damage numbers, confetti, springs and the living garden.</span></div></div>`;
   } else if(settingsTab === 'plugins'){
-    body += Reg.defs.map(d => `<div class="plug"><div class="d"><b>${esc(d.name || d.id)}</b> <span class="muted" style="font-size:12px">${esc(d.version||'')}${d.builtin?' · built-in':' · installed'}</span><small>${esc(d.description||'')}</small></div><button class="switch ${enabled(d.id)?'on':''}" data-act="toggle-plugin" data-pid="${esc(d.id)}" aria-label="Toggle"></button></div>`).join('');
+    const cats = [...new Set(Reg.defs.map(d => d.category || 'Other'))].sort((a, b) => PLUG_CATS.indexOf(a) - PLUG_CATS.indexOf(b));
+    const q = (plugUI.q || '').toLowerCase(), cat = plugUI.cat || 'All';
+    const list = Reg.defs.filter(d => (cat === 'All' || (d.category || 'Other') === cat) && (!q || [d.name, d.id, d.tagline, d.description].join(' ').toLowerCase().includes(q)));
+    const on = Reg.defs.filter(d => enabled(d.id)).length;
+    body += `<div class="pl-bar"><input class="inp" id="pl-q" placeholder="Search ${Reg.defs.length} plugins…" value="${esc(plugUI.q || '')}"><span class="muted" style="font-size:12px;white-space:nowrap">${on} on</span></div>
+      <div class="pl-cats">${['All', ...cats].map(c => `<button class="${c === cat ? 'on' : ''}" data-act="pl-cat" data-c="${esc(c)}">${esc(c)}</button>`).join('')}</div>
+      <div class="pl-grid">${list.map(d => { const open = plugUI.open === d.id;
+        return `<div class="pl-card ${enabled(d.id) ? '' : 'off'} ${open ? 'open' : ''}" data-act="pl-open" data-pid="${esc(d.id)}">
+          <div class="pl-top">${plugIcon(d, 36)}<div class="pl-tx"><b>${esc(d.name || d.id)}</b><span>${esc(d.tagline || d.description || '')}</span></div><button class="switch sm ${enabled(d.id)?'on':''}" data-act="toggle-plugin" data-pid="${esc(d.id)}" aria-label="Turn ${esc(d.name || d.id)} ${enabled(d.id) ? 'off' : 'on'}"></button></div>
+          ${open ? `<div class="pl-more"><p>${esc(d.description || '')}</p><div class="pl-meta"><span>v${esc(d.version || '1.0')}</span><span>${d.userCode ? 'Installed by you' : 'Built-in'}</span>${(d.category) ? `<span>${esc(d.category)}</span>` : ''}${d.settings && enabled(d.id) ? `<button class="btn" data-act="pl-settings" data-pid="${esc(d.id)}">Settings</button>` : ''}${d.userCode ? `<button class="btn ghost danger" data-act="remove-plugin" data-pid="${esc(d.id)}">Remove</button>` : ''}</div></div>` : ''}
+        </div>`; }).join('') || '<div class="muted" style="padding:20px 0;font-size:13px">No plugins match.</div>'}</div>`;
   } else if(settingsTab === 'dev'){
     body += `<p class="muted" style="margin:0">Everything beyond the core — Fireflies import, AI extraction, recap emails, Client Pulse — is a plugin built on this API. Write your own:</p>
 <pre class="code">Cadence.registerPlugin({
@@ -990,6 +1033,7 @@ function openSettings(tab){
       <div class="field"><label>Housekeeping</label><button class="btn" data-act="purge" ${oldDone?'':'disabled'}>Delete ${oldDone} tasks completed 30+ days ago</button></div>`;
   }
   openModalHTML('Settings', body, '', 'wide');
+  const pq = $('#pl-q'); if(pq) pq.addEventListener('input', () => { plugUI.q = pq.value; clearTimeout(plugUI.t); plugUI.t = setTimeout(() => { const pos = pq.selectionStart; openSettings(); const n = $('#pl-q'); if(n){ n.focus(); n.setSelectionRange(pos, pos); } }, 140); });
   const mo = $('#set-motion'); if(mo) mo.addEventListener('change', () => { S.settings.motion = mo.value; save(); render(); });
   const n = $('#st-name'); if(n) n.addEventListener('change', () => { S.settings.myName = n.value.trim(); save(); render(); });
   const l = $('#st-lead'); if(l) l.addEventListener('change', () => { S.settings.remindLead = +l.value; S.tasks.forEach(t => { if(t.remindMode==='auto' && !t.done){ t.remindAt = computeRemind(t); } }); save(); });
@@ -1081,6 +1125,7 @@ async function runImport(){
   const ex = Reg.extractors.find(e => e.id === $('#imp-ex').value); if(!ex) return;
   const btn = $('[data-act=imp-run]'); btn.disabled = true; btn.textContent = 'Extracting…';
   const M = S.activeMeeting, c = client(M.clientId);
+  const j = job('extract', ex.id === 'ai' ? 'Claude is reading your notes' : 'Extracting action items', { sub: `${text.split(/\s+/).length.toLocaleString()} words${c ? ' · ' + c.name : ''}` });
   try {
     const items = await ex.run(text, { myName: S.settings.myName, clientName: c ? c.name : '', today: todayKey() }, makeApi(ex.pid));
     let n = 0;
@@ -1089,9 +1134,11 @@ async function runImport(){
       M.items.push({ id: uid('i'), title: capFirst(it.title), owner: it.owner === 'client' ? 'client' : 'me', assignee: it.assignee || '', dueDate: /^\d{4}-\d\d-\d\d$/.test(it.dueDate||'') ? it.dueDate : null, dueTime: /^\d\d:\d\d$/.test(it.dueTime||'') ? it.dueTime : null, priority: 0, tags: [], include: true }); n++;
     }
     if($('#imp-notes').checked) M.notes = (M.notes ? M.notes + '\n\n' : '') + text;
-    save(); closeModal(); renderMeeting(); toast(n ? `Pulled ${n} action item${n===1?'':'s'} — review them on each side` : 'No action items found in that text');
+    save(); closeModal(); renderMeeting();
+    const mine = M.items.slice(-n).filter(i => i.owner === 'me').length;
+    j.done(n ? { title: `Pulled ${n} action item${n===1?'':'s'}`, sub: `${mine} for you · ${n - mine} for ${c ? c.name : 'the client'} — review each side` } : { title: 'No action items found', sub: 'Try the AI extractor or a plain list', icon: '?', color: '#6b6878' });
   } catch(e){
-    btn.disabled = false; btn.textContent = 'Extract action items';
+    btn.disabled = false; btn.textContent = 'Extract action items'; j.dismiss();
     toast(e && e.code === 'rate_limited' ? 'AI is busy — try again in a minute, or use the Fireflies parser.' : 'Extraction failed: ' + (e.message || e.code || e));
   }
 }
@@ -1141,6 +1188,10 @@ document.addEventListener('click', e => {
     case 'archive-client': { const c = client(a.dataset.cid); c.archived = !c.archived; save(); closeModal(); go('today'); break; }
     case 'ob-add': { const v = $('#ob-clients').value; v.split(',').forEach(n => addClient(n)); render(); toast('Clients added — they’re in the sidebar'); break; }
     case 'meeting': startMeeting(a.dataset.cid); break;
+    case 'remove-plugin': { const d = Reg.defs.find(x => x.id === a.dataset.pid); if(!d || !d.userCode) break; S.userPlugins = S.userPlugins.filter(c => c !== d.userCode); Reg.defs = Reg.defs.filter(x => x !== d); save(); rebuildPlugins(); render(); toast(`Removed ${d.name || d.id}`); openSettings('plugins'); break; }
+    case 'pl-cat': plugUI.cat = a.dataset.c; openSettings(); break;
+    case 'pl-open': if(e.target.closest('button')) break; plugUI.open = plugUI.open === a.dataset.pid ? null : a.dataset.pid; openSettings(); break;
+    case 'pl-settings': { const d = Reg.defs.find(x => x.id === a.dataset.pid); if(d && d.settings){ closeModal(); setTimeout(() => d.settings(makeApi(d.id)), 60); } break; }
     case 'ins-tab': S.settings.insightsTab = a.dataset.id; persistLocal(); render(); break;
     case 'demo-open': window.open(location.pathname + '?demo=1' + location.hash, '_blank'); break;
     case 'demo-reset': resetDemo(); break;
@@ -1153,7 +1204,7 @@ document.addEventListener('click', e => {
     case 'toggle-plugin': { const p = a.dataset.pid; S.disabled = enabled(p) ? [...S.disabled, p] : S.disabled.filter(x => x !== p); save(); rebuildPlugins(); render(); openSettings(); break; }
     case 'dev-install': {
       const code = $('#dev-code').value.trim(); if(!code) return;
-      try { new Function('Cadence', code)(window.Cadence); S.userPlugins = [...S.userPlugins, code]; save(); toast('Plugin installed'); openSettings('plugins'); }
+      try { loadingUser = code; try { new Function('Cadence', code)(window.Cadence); } finally { loadingUser = null; } S.userPlugins = [...S.userPlugins, code]; save(); toast('Plugin installed'); openSettings('plugins'); }
       catch(err){ toast(/eval|unsafe|Content Security/i.test(String(err)) ? 'This host blocks running pasted code. Plugins can be added in the app source instead.' : 'Plugin error: ' + err.message); }
       break; }
     case 'export': copyText(JSON.stringify(S, null, 2)); break;
@@ -1285,7 +1336,7 @@ document.addEventListener('drop', e => {
 });
 
 /* user-installed plugins */
-for(const code of S.userPlugins){ try { new Function('Cadence', code)(window.Cadence); } catch(e){ console.warn('User plugin failed', e); } }
+for(const code of S.userPlugins){ loadingUser = code; try { new Function('Cadence', code)(window.Cadence); } catch(e){ console.warn('User plugin failed', e); } loadingUser = null; }
 
 /* =========================================================
    Boot
@@ -1305,7 +1356,6 @@ Store.init();
 $('#nav-btn') && $('#nav-btn').addEventListener('click', () => document.body.classList.toggle('nav-open'));
 $('#nav-scrim') && $('#nav-scrim').addEventListener('click', () => document.body.classList.remove('nav-open'));
 addEventListener('hashchange', () => document.body.classList.remove('nav-open'));
-if(DEMO){ const f = document.createElement('div'); f.className = 'demo-flag'; f.innerHTML = '<b>●</b> Demo data <button data-act="demo-reset">Reset</button><button data-act="demo-exit">Exit</button>'; document.body.appendChild(f); }
 if(window.claude && window.claude.use){
   claude.use('sample').then(s => { AI = s || null; rebuildPlugins(); }).catch(() => {});
 }

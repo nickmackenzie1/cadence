@@ -2,7 +2,7 @@
 (() => {
 const registerPlugin = def => Cadence.registerPlugin(def);
 registerPlugin({
-  id:'recap', name:'Client recap email', version:'2.0.0', builtin:true,
+  id:'recap', name:'Client recap email', version:'2.0.0', icon: '<rect x="3" y="5.5" width="18" height="13" rx="2"/><path d="M3.5 7l8.5 6 8.5-6"/>', color: '#2f7de1', category: 'Meetings', tagline: 'Formatted recap & status emails', builtin:true,
   description:'Formatted follow-up emails — action items for both sides in clean tables, optional AI summary. Pastes into Outlook/Gmail with formatting intact.',
   setup(api){
     const E = api.ui.esc;
@@ -82,11 +82,12 @@ registerPlugin({
 
     const subj = (clientName, ts, what = 'Meeting recap & action items') => `${clientName ? clientName + ' — ' : ''}${what} (${new Date(ts || Date.now()).toLocaleDateString(undefined,{month:'short',day:'numeric'})})`;
 
-    api.meetingActions.add({ label:'✉ Recap email', run: (m, items, api) => {
+    const recapMeeting = (m, items) => {
       const c = api.clients.get(m.clientId), name = c ? c.name : '';
       openRecap({ clientName: name, mine: items.filter(i => i.owner === 'me'), theirs: items.filter(i => i.owner === 'client'), notes: m.notes || '',
         subject: subj(name, m.start), intro: `Thanks for your time ${new Date(m.start).toDateString() === new Date().toDateString() ? 'today' : 'on ' + dateStr(m.start)}. Here’s a recap of what we covered and the action items we agreed on.` });
-    }});
+    };
+    api.meetingActions.add({ label:'✉ Recap email', run: (m, items) => recapMeeting(m, items) });
     api.commands.add({ title:'Status update email for current client', run: api => {
       const r = api.ui.currentRoute(); if(!r.startsWith('client-')){ api.ui.toast('Open a client first'); return; }
       const cid = r.slice(7), c = api.clients.get(cid), open = api.tasks.list(t => !t.done && t.clientId === cid);
@@ -100,7 +101,7 @@ registerPlugin({
     }});
     api.taskActions.add({ label:'Copy as follow-up line', run: (t, api) => api.ui.copy(`• ${t.title}${t.assignee ? ` (${t.assignee})` : ''}${t.dueDate ? ` — by ${api.util.fmtDate(t.dueDate)}` : ''}`) });
     // expose for other plugins
-    window.CadenceRecap = { open: openRecap };
+    window.CadenceRecap = { open: openRecap, meeting: recapMeeting };
   }
 });
 })();

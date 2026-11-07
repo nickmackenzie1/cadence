@@ -44,6 +44,23 @@
       @keyframes islsp{to{transform:rotate(360deg)}}
       .isl-bar{height:3px;border-radius:9px;background:#2a2833;overflow:hidden}
       .isl-bar i{display:block;height:100%;background:linear-gradient(90deg,#5b5bd6,#b06bd6,#ff7a8a);transition:width .35s}
+      .isl-img{width:20px;height:20px;flex:none;display:grid;place-items:center}
+      .isl-img img{width:20px;height:20px;border-radius:5px;object-fit:cover;display:block}
+      .isl-img .av{width:20px!important;height:20px!important}
+      .isl-row+.isl-bar{margin-top:-1px}
+      /* celebrate */
+      .isl-pill.cel{box-shadow:0 18px 50px rgba(0,0,0,.35),0 0 0 1px rgba(255,255,255,.08) inset,0 0 40px -6px color-mix(in srgb,var(--glow,#ffb020) 55%,transparent)}
+      .isl-cel{position:relative;display:flex;align-items:center;gap:12px;padding:2px 2px 2px 0;min-width:260px}
+      .isl-badge{width:40px;height:40px;border-radius:13px;flex:none;display:grid;place-items:center;font-size:22px;background:radial-gradient(circle at 30% 25%,color-mix(in srgb,var(--ic) 70%,#fff),var(--ic) 60%,color-mix(in srgb,var(--ic) 70%,#000));box-shadow:0 0 0 1px rgba(255,255,255,.18) inset,0 6px 18px -4px var(--ic);animation:islpop .7s cubic-bezier(.3,1.6,.5,1) both}
+      .isl-badge .av{width:40px!important;height:40px!important;border-radius:13px!important}
+      .isl-eye{display:block;font-size:10px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--ic);margin-bottom:1px}
+      .isl-cel .isl-t b{font-size:14px}
+      .isl-xp{font:800 13px/1 Inter,ui-sans-serif,system-ui;color:#0d0c10;background:var(--ic);padding:5px 8px;border-radius:999px;flex:none;animation:islpop .6s .25s cubic-bezier(.3,1.6,.5,1) both}
+      .isl-shine{position:absolute;inset:-12px -20px;background:linear-gradient(105deg,transparent 35%,rgba(255,255,255,.14) 50%,transparent 65%);transform:translateX(-100%);animation:islshine 1.4s .3s ease-out;pointer-events:none}
+      .isl-cel i{position:absolute;top:50%;left:var(--x);width:4px;height:7px;border-radius:1px;background:var(--c);opacity:0;animation:islconf 1.1s var(--d) ease-out both;pointer-events:none}
+      @keyframes islpop{from{transform:scale(.3) rotate(-14deg);opacity:0}}
+      @keyframes islshine{to{transform:translateX(100%)}}
+      @keyframes islconf{0%{opacity:1;transform:translateY(0) rotate(0)}100%{opacity:0;transform:translateY(-34px) rotate(260deg)}}
       .isl-measure{position:fixed;left:-9999px;top:0;visibility:hidden}
     `;
     document.head.appendChild(st);
@@ -88,39 +105,79 @@
   function idle() { if (G.cur) return; morph(idleView()); }
   clearInterval(G.clock); G.clock = setInterval(() => { if (!G.cur) { const v = idleView(); const tEl = G.pill.querySelector('.isl-time'); const lt = G.pill.querySelector('[data-live-tick]'); if (tEl && !G.lives.size) tEl.textContent = new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }); else if (lt && v.tick) lt.textContent = v.tick(); else if (!tEl && !lt) idle(); } }, 1000);
 
-  /* ---- transient notices ---- */
+  /* ---- transient notices ----
+     show(n) → handle { update(patch), done(patch), dismiss() }
+     n: { title, sub, icon, color, image (html), right, check, spin, progress (0–1), actions:[{label,run}],
+          style: 'celebrate', eyebrow, key (replaces a notice with the same key), sticky, ms, onClick, keep } */
+  const kept = q => q.sticky || q.keep || q.style === 'celebrate';
   function show(n) {
-    // newest wins: keep at most 2 waiting, and hurry the current notice along
-    G.queue = G.queue.filter(q => q.sticky).concat(G.queue.filter(q => !q.sticky).slice(-1));
+    n = Object.assign({}, n);
+    if (n.key) { // same key: update in place instead of queueing another
+      if (G.cur && G.cur.key === n.key) { Object.assign(G.cur, n); render(G.cur, true); return handle(G.cur); }
+      const q = G.queue.find(x => x.key === n.key); if (q) { Object.assign(q, n); return handle(q); }
+    }
+    // newest wins for plain notices; celebrations, sticky and keyed ones wait their turn
+    G.queue = G.queue.filter(kept).concat(G.queue.filter(q => !kept(q)).slice(-1));
     G.queue.push(n);
-    if (!G.cur) return next();
-    if (!G.cur.sticky) { clearTimeout(G.t); G.t = setTimeout(dismiss, 1200); }
+    if (!G.cur) next();
+    else if (!G.cur.sticky && G.cur.progress == null && !G.cur.spin) { clearTimeout(G.t); G.t = setTimeout(dismiss, G.cur.style === 'celebrate' ? 2200 : 1200); }
+    return handle(n);
+  }
+  function handle(n) {
+    return {
+      update(patch) { Object.assign(n, patch); if (G.cur === n) render(n, true); },
+      done(patch = {}) { Object.assign(n, { spin: false, progress: null, check: patch.icon ? false : true, sticky: false, ms: 3200 }, patch); if (G.cur === n) { render(n); clearTimeout(G.t); G.t = setTimeout(dismiss, n.ms); } },
+      dismiss() { if (G.cur === n) dismiss(); else G.queue = G.queue.filter(x => x !== n); }
+    };
+  }
+  function view(n) {
+    const na = (n.actions || []).length, inline = na > 0 && na <= 2 && !n.sub && n.style !== 'celebrate' && n.progress == null;
+    const acts = na ? `${inline ? '<span class="isl-sep"></span>' : ''}<div class="isl-acts ${inline ? 'inline' : ''}">${n.actions.map((a, i) => `<button data-ai="${i}" class="${i === 0 ? 'pri' : ''}">${esc(a.label)}</button>`).join('')}</div>` : '';
+    if (n.style === 'celebrate') {
+      const html = `<div class="isl-cel" style="--ic:${n.color || '#ffb020'}"><span class="isl-badge">${n.image || n.icon || '★'}</span><span class="isl-t"><span class="isl-eye">${esc(n.eyebrow || 'Achievement unlocked')}</span><b>${esc(n.title)}</b>${n.sub ? `<small>${esc(n.sub)}</small>` : ''}</span>${n.right ? `<span class="isl-xp">${esc(n.right)}</span>` : ''}<span class="isl-shine"></span>${'<i></i>'.repeat(10)}</div>${acts}`;
+      return { html, stack: true, cls: 'cel' };
+    }
+    const ico = n.check ? checkSvg : n.spin ? '<span class="isl-spin"></span>' : n.image ? `<span class="isl-img">${n.image}</span>` : n.icon ? `<span class="isl-ico" style="--ic:${n.color || '#2a2833'}">${n.icon}</span>` : '';
+    const row = `${ico}<span class="isl-t"><b>${esc(n.title)}</b>${n.sub ? `<small>${esc(n.sub)}</small>` : ''}</span>${n.right ? `<span class="isl-right">${esc(n.right)}</span>` : ''}`;
+    const bar = n.progress != null ? `<div class="isl-bar"><i style="width:${Math.round(Math.max(0, Math.min(1, n.progress)) * 100)}%"></i></div>` : '';
+    const stack = (na && !inline) || !!n.sub || !!bar;
+    return { html: stack ? `<div class="isl-row">${row}</div>${bar}${acts}` : row + acts, stack };
+  }
+  function render(n, soft) {
+    // progress / text updates of the same notice: patch in place, no crossfade
+    if (soft && G.pill.querySelector('.isl-c:not(.leaving) .isl-bar') && n.progress != null) {
+      const c = G.pill.querySelector('.isl-c:not(.leaving)');
+      c.querySelector('.isl-bar i').style.width = Math.round(Math.max(0, Math.min(1, n.progress)) * 100) + '%';
+      const b = c.querySelector('.isl-t b'), sm = c.querySelector('.isl-t small'); if (b) b.textContent = n.title; if (sm && n.sub) sm.textContent = n.sub;
+      return;
+    }
+    const v = view(n);
+    const c = morph({ html: v.html, stack: v.stack, actions: n.actions, onClick: n.onClick, h: v.stack ? 0 : 34, minW: n.progress != null ? 240 : 0 });
+    G.pill.classList.toggle('cel', v.cls === 'cel'); if (v.cls === 'cel') G.pill.style.setProperty('--glow', n.color || '#ffb020');
+    if (v.cls === 'cel') c.querySelectorAll('.isl-cel i').forEach((d, k) => { d.style.setProperty('--x', (Math.random() * 100) + '%'); d.style.setProperty('--d', (k * 70) + 'ms'); d.style.setProperty('--c', ['#ffd166', '#7cf7d4', '#ff4fa3', '#5cc8ff', '#b28cff'][k % 5]); });
   }
   function next() {
-    const n = G.queue.shift(); if (!n) { G.cur = null; idle(); return; }
-    G.cur = n;
-    const na = (n.actions || []).length, inline = na > 0 && na <= 2 && !n.sub;
-    const acts = na ? `${inline ? '<span class="isl-sep"></span>' : ''}<div class="isl-acts ${inline ? 'inline' : ''}">${n.actions.map((a, i) => `<button data-ai="${i}" class="${i === 0 ? 'pri' : ''}">${esc(a.label)}</button>`).join('')}</div>` : '';
-    const ico = n.check ? checkSvg : n.spin ? '<span class="isl-spin"></span>' : n.icon ? `<span class="isl-ico" style="--ic:${n.color || '#2a2833'}">${n.icon}</span>` : '';
-    const row = `${ico}<span class="isl-t"><b>${esc(n.title)}</b>${n.sub ? `<small>${esc(n.sub)}</small>` : ''}</span>${n.right ? `<span class="isl-right">${esc(n.right)}</span>` : ''}`;
-    const stack = (na && !inline) || !!n.sub;
-    morph({ html: stack ? `<div class="isl-row">${row}</div>${acts}` : row + acts, stack, actions: n.actions, onClick: n.onClick, h: stack ? 0 : 34 });
+    const n = G.queue.shift(); if (!n) { G.cur = null; G.pill.classList.remove('cel'); idle(); return; }
+    G.cur = n; render(n);
     clearTimeout(G.t);
-    if (!n.sticky) G.t = setTimeout(dismiss, n.ms || (acts ? 6000 : n.sub ? 4600 : 3600));
+    if (!n.sticky && n.progress == null && !n.spin) G.t = setTimeout(dismiss, n.ms || (n.style === 'celebrate' ? 5200 : (n.actions || []).length ? 6000 : n.sub ? 4600 : 3600));
   }
-  function dismiss() { clearTimeout(G.t); G.cur = null; setTimeout(next, 220); }
-  function update(n) { if (G.cur === n) { G.queue.unshift(n); G.cur = null; next(); } }
+  function dismiss() { clearTimeout(G.t); G.cur = null; G.pill.classList.remove('cel'); setTimeout(() => { if (!G.cur) next(); }, 220); }
+  function update(n) { if (G.cur === n) render(n, true); }
 
   window.CadenceIsland = {
     show, dismiss, update,
+    /* a task that takes a while: const p = progress('import', 'Importing…'); p.update({ progress: .5 }); p.done({ title: 'Imported 12' }) */
+    progress(key, title, o = {}) { return show(Object.assign({ key, title, progress: o.value ?? null, spin: o.value == null, sticky: true }, o)); },
+    celebrate(o) { return show(Object.assign({ style: 'celebrate' }, o)); },
     live(key, l) { G.lives.set(key, l); if (!G.cur) idle(); },
     clear(key) { G.lives.delete(key); if (!G.cur) idle(); },
     setSync(s) { G.sync = s; const d = G.pill.querySelector('.isl-dot:not(.rec)'); if (d) d.className = 'isl-dot ' + s; },
-    toast(msg, actions = [], opts = {}) { show({ title: msg, actions, sticky: opts.sticky, icon: opts.icon, color: opts.color, check: /^(Completed|Added|Saved|Updated|Restored|Deleted)/.test(msg) }); },
+    toast(msg, actions = [], opts = {}) { return show({ title: msg, actions, sticky: opts.sticky, icon: opts.icon, color: opts.color, check: /^(Completed|Added|Saved|Updated|Restored|Deleted|Copied|Removed|Imported)/.test(msg) }); },
   };
 
   Cadence.registerPlugin({
-    id: 'island', name: 'Island', version: '1.0.0',
+    id: 'island', name: 'Island', version: '1.0.0', icon: '<rect x="3.5" y="9" width="17" height="6" rx="3"/><path d="M16.5 12h.01"/>', color: '#1c1b19', category: 'Look & feel', tagline: 'Dynamic-Island notifications',
     description: 'A Dynamic-Island-style pill at the top: shows the time and sync, morphs open for completed tasks, reminders and startup, and holds live activities like a running meeting.',
     setup(api) {
       idle();
@@ -145,6 +202,31 @@
       };
       api.on('meeting:start', syncMeeting); api.on('meeting:end', () => window.CadenceIsland.clear('meeting'));
       api.on('render:side', syncMeeting);
+      // meeting wrapped up: summary + one tap to the recap email
+      api.on('meeting:end', ({ meeting, items }) => {
+        const c = meeting.clientId && api.clients.get(meeting.clientId), mine = items.filter(i => i.owner === 'me').length, mins = Math.max(1, Math.round((meeting.end - meeting.start) / 60000));
+        show({ image: c ? api.ui.avatar(c, 20) : '', icon: c ? '' : '◉', title: `${c ? c.name : 'Meeting'} wrapped · ${mins} min`, sub: items.length ? `${mine} for you · ${items.length - mine} for them` : 'No action items', ms: 8000,
+          actions: [].concat(window.CadenceRecap && window.CadenceRecap.meeting && items.length ? [{ label: '✉ Recap email', run: () => window.CadenceRecap.meeting(meeting, items) }] : []).concat(c ? [{ label: 'Open client', run: () => api.ui.navigate('client-' + c.id) }] : []) });
+      });
+      // connection: say it once when it drops, and once when it's back
+      api.on('sync', e => {
+        if (e.phase === 'error' && !G.offline) { G.offline = true; show({ key: 'net', icon: '⚡', color: '#e5484d', title: 'Can’t reach your NAS', sub: 'Changes are kept in this browser and sync when it’s back' }); }
+        else if ((e.phase === 'saved' || e.phase === 'pulled') && G.offline) { G.offline = false; show({ key: 'net', check: true, title: 'Back online', sub: 'Everything synced' }); }
+      });
+      // once a day: a quiet morning brief
+      api.on('sync', e => {
+        if (e.phase !== 'connected' || G.briefed) return;
+        const day = api.util.todayKey(); if (api.storage.get('brief') === day && !api.system().demo) return;
+        G.briefed = true;
+        setTimeout(() => {
+          const t = day, open = api.tasks.list(x => !x.done && x.owner === 'me'), over = open.filter(x => x.dueDate && x.dueDate < t).length, due = open.filter(x => x.dueDate === t).length;
+          const cal = (window.__cal && window.__cal.events || []).filter(ev => !ev.allDay && new Date(ev.start).toDateString() === new Date().toDateString() && ev.end > Date.now()).length;
+          const h = new Date().getHours(), hi = h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening';
+          const parts = [due ? `${due} due today` : 'nothing due today', over ? `${over} overdue` : '', cal ? `${cal} meeting${cal === 1 ? '' : 's'} left` : ''].filter(Boolean);
+          show({ icon: h < 12 ? '☀️' : h < 17 ? '◐' : '☾', color: '#2a2833', title: hi + (api.settings().myName ? ', ' + api.settings().myName.split(' ')[0] : ''), sub: parts.join(' · '), ms: 6000, onClick: () => api.ui.navigate('today') });
+          api.storage.set('brief', day);
+        }, 7000);
+      });
       api.on('reminder', t => {
         const c = t.clientId && api.clients.get(t.clientId);
         show({ icon: '🔔', color: '#5b5bd6', title: t.title, sub: (c ? c.name + ' · ' : '') + (t.dueTime ? 'due ' + t.dueTime : 'reminder'), sticky: true,

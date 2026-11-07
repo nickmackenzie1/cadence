@@ -262,6 +262,7 @@ function parseFeed(xml, base) {
 
 // ---- calendars: iCal (.ics) feeds -> events, with recurrence + time zones. URLs stay on the NAS. ----
 const CAL_FILE = path.join(DATA_DIR, 'calendars.json');
+let imgCache = null;
 const icsCache = new Map();
 const WINTZ = { 'Eastern Standard Time': 'America/New_York', 'Central Standard Time': 'America/Chicago', 'Mountain Standard Time': 'America/Denver', 'Pacific Standard Time': 'America/Los_Angeles', 'Atlantic Standard Time': 'America/Halifax', 'Newfoundland Standard Time': 'America/St_Johns', 'GMT Standard Time': 'Europe/London', 'W. Europe Standard Time': 'Europe/Berlin', 'Romance Standard Time': 'Europe/Paris', 'Central Europe Standard Time': 'Europe/Budapest', 'India Standard Time': 'Asia/Kolkata', 'AUS Eastern Standard Time': 'Australia/Sydney', 'UTC': 'UTC' };
 const LOCAL_TZ = process.env.TZ || Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
@@ -432,6 +433,19 @@ const server = http.createServer(async (req, res) => {
       if (refresh) { for (const f of [path.join(ICON_DIR, d + '.img'), path.join(ICON_DIR, d + '.none'), path.join(BANNER_DIR, d + '.img')]) { try { fs.unlinkSync(f); } catch {} } }
       return send(res, 200, await companyInfo(d, refresh));
     }
+    // image proxy (mural mosaic targets): raster images only, SSRF-safe, small memory cache
+    if (p === '/api/img') {
+      const u = url.searchParams.get('url') || '';
+      if (!/^https?:\/\//i.test(u)) return send(res, 400, { error: 'Bad url' });
+      imgCache = imgCache || new Map();
+      let hit = imgCache.get(u);
+      if (!hit) {
+        try { const r = await safeFetch(u, { headers: { Accept: 'image/avif,image/webp,image/png,image/jpeg,*/*' } }, 8 * 1024 * 1024); const type = sniff(r.buf); if (!type || type === 'image/svg+xml') return send(res, 415, { error: 'Not a raster image' }); hit = { type, buf: r.buf }; imgCache.set(u, hit); if (imgCache.size > 24) imgCache.delete(imgCache.keys().next().value); }
+        catch (e) { return send(res, 502, { error: e.message }); }
+      }
+      res.writeHead(200, { 'Content-Type': hit.type, 'Cache-Control': 'private, max-age=86400', 'X-Content-Type-Options': 'nosniff' }); return res.end(hit.buf);
+    }
+
     if (p === '/api/feed') {
       const u = String(url.searchParams.get('url') || '');
       if (!/^https?:\/\//i.test(u) || u.length > 2000) return send(res, 400, { error: 'Bad feed URL' });

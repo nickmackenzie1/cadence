@@ -1,15 +1,23 @@
 # Writing Cadence plugins
 
 Everything beyond the core is a plugin, including the Fireflies import, AI extraction, recap emails,
-Client Pulse and Zoho tags. Built-in plugins live at the bottom of `public/index.html` and are the
-best examples. A plugin is one call:
+Client Pulse and Zoho tags. Built-in plugins live in `public/plugins/` and are the best examples.
+A plugin is one call:
 
 ```js
 Cadence.registerPlugin({
   id: 'my-plugin',            // unique, stable
   name: 'My plugin',
   version: '1.0.0',
-  description: 'Shown in Settings → Plugins',
+  description: 'Shown when the card is opened in Settings → Plugins',
+
+  // how the plugin looks in Settings → Plugins (all optional)
+  tagline: 'One short line on the card',
+  icon: '<path d="M4 12h16"/>',  // SVG paths (24×24, drawn as white strokes), a full <svg>, an image URL, or an emoji
+  color: '#2f7de1',               // the icon tile's colour
+  category: 'Meetings',           // Meetings · Clients · Productivity · Look & feel · Fun · Integrations · System
+  settings(api) { api.ui.modal('My plugin', '…') },  // adds a Settings button to the card
+
   setup(api) { /* register things */ }
 });
 ```
@@ -47,6 +55,28 @@ api.util.parse(text, ctx) / ymd(date) / fmtDate(ymd) / dueLabel(task) / addDays(
 ```
 
 Everything returned is a copy. Change data through the API so events fire and the data syncs.
+
+## The Island (`api.island`)
+
+The pill at the top of the app is shared by every plugin. Use it for anything worth a glance; it falls back to a plain toast if the Island plugin is turned off.
+
+```js
+api.island.show({ title: 'Invoice sent', sub: 'Acme · $4,200', icon: '✉', color: '#2f7de1',
+  actions: [{ label: 'Open', run: () => {} }] });          // 1–2 actions sit inline, more stack below
+
+api.island.show({ image: api.ui.avatar(client, 20), title: 'Acme replied', key: 'acme-mail' }); // same key = updates in place
+
+const job = api.island.progress('sync-books', 'Syncing Zoho Books…');  // spinner (or pass { value: 0 } for a bar)
+job.update({ progress: 0.6, sub: '120 of 200 invoices' });
+job.done({ title: 'Books synced', sub: '200 invoices' });               // turns into a check, then fades
+
+api.island.celebrate({ eyebrow: 'Milestone', icon: '🏆', color: '#ffb020', title: '100 tasks this month', right: '+100 XP' });
+
+api.island.live('timer', { prio: 5, view: () => ({ html: '<span class="isl-t"><b>Focus</b></span><span class="isl-right" data-live-tick>25:00</span>', tick: () => '24:59', onClick() {} }) });
+api.island.clear('timer');
+```
+
+Options for `show`: `title`, `sub`, `icon` + `color`, `image` (HTML, e.g. an avatar or `<img>`), `right` (small text on the right), `check`, `spin`, `progress` (0–1), `actions`, `onClick`, `key`, `sticky`, `ms`. Plain notices: the newest wins. Celebrations, sticky and keyed notices wait their turn. Live activities (a running meeting, the next calendar event) show whenever nothing else is.
 
 ## Task shape
 

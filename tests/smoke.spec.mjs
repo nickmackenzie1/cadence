@@ -27,7 +27,7 @@ test('boots with every plugin registered and no errors', async ({ page }) => {
   const errs = errorsOf(page); await boot(page);
   const scripts = await page.locator('script[src^="plugins/"]').count();
   await page.click('[data-act=settings]'); await page.click('[data-act=set-tab][data-tab=plugins]');
-  expect(await page.locator('.plug').count()).toBeGreaterThanOrEqual(scripts);
+  expect(await page.locator('.pl-card').count()).toBeGreaterThanOrEqual(scripts);
   expect(errs).toEqual([]);
 });
 
@@ -98,7 +98,7 @@ test('demo mode: fake data, never written to the NAS, exits cleanly', async ({ p
   const errs = errorsOf(page);
   const before = await (await request.get(`http://localhost:${PORT}/api/state`)).json();
   await page.goto(`http://localhost:${PORT}/?demo=1#today`);
-  await expect(page.locator('.demo-flag')).toBeVisible();
+  await expect(page.locator('.demo-row')).toBeVisible();
   await expect(page.locator('#sync')).toContainText('Demo', { timeout: 8000 });
   expect(await page.locator('#side-main a[href^="#client-"]').count()).toBeGreaterThanOrEqual(10);
   await expect(page.locator('.cal-ev').first()).toBeVisible();           // sample calendar is on in demo
@@ -106,8 +106,8 @@ test('demo mode: fake data, never written to the NAS, exits cleanly', async ({ p
   await page.waitForTimeout(1500);
   const after = await (await request.get(`http://localhost:${PORT}/api/state`)).json();
   expect(after.updatedAt).toBe(before.updatedAt);                          // …never reaches the NAS
-  await page.locator('.demo-flag [data-act=demo-exit]').click();
-  await expect(page.locator('.demo-flag')).toHaveCount(0);
+  await page.locator('.demo-row [data-act=demo-exit]').click();
+  await expect(page.locator('.demo-row')).toHaveCount(0);
   await expect(page.locator('#sync')).toContainText('NAS', { timeout: 8000 });
   expect(errs).toEqual([]);
 });
@@ -115,7 +115,7 @@ test('demo mode: fake data, never written to the NAS, exits cleanly', async ({ p
 test('insights hub, database viewer and narrow layout', async ({ page }) => {
   const errs = errorsOf(page);
   await page.goto(`http://localhost:${PORT}/?demo=1#insights`);
-  for (const id of ['pulse', 'review', 'mural', 'feeds', 'db']) { await page.locator(`[data-act=ins-tab][data-id=${id}]`).click(); await expect(page.locator('#pv')).not.toBeEmpty(); }
+  for (const id of ['pulse', 'review', 'db']) { await page.locator(`[data-act=ins-tab][data-id=${id}]`).click(); await expect(page.locator('#pv')).not.toBeEmpty(); }
   await page.fill('#dbv-q', 'done:false');
   await page.waitForTimeout(400);
   await expect(page.locator('.dbv-bar .cnt')).toContainText('/');

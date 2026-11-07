@@ -42,7 +42,7 @@
   }
 
   Cadence.registerPlugin({
-    id: 'datepick', name: 'Quick date', version: '1.0.0',
+    id: 'datepick', name: 'Quick date', version: '1.0.0', icon: '<rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 9.5h16M8.5 3v4M15.5 3v4"/><rect x="8" y="13" width="3.5" height="3.5" rx=".6"/>', color: '#5b5bd6', category: 'Productivity', tagline: 'A fluid date picker, in place',
     description: 'Add a task without a date and a little calendar pops open right under it — click a day or use the arrow keys.',
     setup(api) {
       const { ymd, addDays, todayKey, fmtDate } = api.util;

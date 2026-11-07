@@ -35,7 +35,7 @@
 
   /* ------------------------------------------------------------------ state */
   const H = window.__havoc = { active: false, toggle() { H.active ? stop() : start(); } };
-  let host, root, stage, fx, fxc, hit, hud, scorch, sc, tipEl;
+  let host, root, stage, fx, fxc, hit, hud, scorch, sc, tipEl, scorchHost, hl, hlc;
   let engine, mouse, mcon, raf = 0, lastT = 0, W = innerWidth, Hh = innerHeight, DPR = Math.min(2, devicePixelRatio || 1);
   let letters = [], images = [], bodyMap = new Map(), restore = [], touched = new Map();
   const touch = el => { if (!touched.has(el)) touched.set(el, el.getAttribute('style')); };
@@ -147,7 +147,7 @@
     const out = [];
     const els = document.querySelectorAll('img, video, canvas, picture > source + img');
     for (const el of els) {
-      if (el.closest('#havoc-host')) continue;
+      if (el.closest('#havoc-host, #havoc-scorch')) continue;
       const r = el.getBoundingClientRect(); if (!inView(r) || r.width < 24 || r.height < 24) continue;
       const c = getComputedStyle(el); if (c.visibility === 'hidden' || +c.opacity === 0 || c.display === 'none') continue;
       if (el.tagName === 'IMG' && !(el.complete && el.naturalWidth)) continue;
@@ -158,7 +158,7 @@
     let count = 0;
     for (const el of all) {
       if (count > 40) break;
-      if (el.closest('#havoc-host')) continue;
+      if (el.closest('#havoc-host, #havoc-scorch')) continue;
       const c = getComputedStyle(el); if (!c.backgroundImage || c.backgroundImage === 'none' || !/url\(/.test(c.backgroundImage)) continue;
       const r = el.getBoundingClientRect(); if (!inView(r) || r.width * r.height < 6000) continue;
       const url = (c.backgroundImage.match(/url\(["']?([^"')]+)["']?\)/) || [])[1]; if (!url || /^data:image\/svg/.test(url)) continue;
@@ -322,11 +322,80 @@
     for (let i = 0; i < 70; i++) { const a = rand(0, Math.PI * 2), v = rand(3, 16); particles.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 3, life: rand(0.5, 1.2), size: rand(1.5, 4), color: Math.random() < 0.5 ? '255,200,90' : '255,110,40', g: 0.3, glow: true }); }
     for (let i = 0; i < 24; i++) { const a = rand(0, Math.PI * 2), v = rand(0.5, 3); particles.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 1, life: rand(1.2, 2.4), size: rand(14, 34), color: '60,55,52', g: -0.02, smoke: true }); }
     flash = 1; flashPos = { x, y };
-    // scorch mark that stays on the page
-    const g = sc.createRadialGradient(x, y, 0, x, y, 90); g.addColorStop(0, 'rgba(20,12,8,.55)'); g.addColorStop(0.5, 'rgba(30,18,10,.25)'); g.addColorStop(1, 'rgba(0,0,0,0)');
-    sc.fillStyle = g; sc.beginPath(); sc.arc(x, y, 90, 0, Math.PI * 2); sc.fill();
-    for (let i = 0; i < 9; i++) { const a = rand(0, Math.PI * 2), l = rand(30, 110); sc.strokeStyle = 'rgba(25,15,10,.35)'; sc.lineWidth = rand(1, 2.5); sc.beginPath(); sc.moveTo(x, y); let cx = x, cy = y; for (let j = 0; j < 5; j++) { cx += Math.cos(a + rand(-0.5, 0.5)) * l / 5; cy += Math.sin(a + rand(-0.5, 0.5)) * l / 5; sc.lineTo(cx, cy); } sc.stroke(); }
+    damage(x, y);
+    dent(x, y, R);
     sfx.boom();
+  }
+
+  /* ------------------------------------------------------------------ damage that becomes part of the page */
+  // one crack: a jagged, tapering line with a dark groove and a lit lip, branching as it goes
+  function crack(x, y, a, len, w, depth) {
+    let cx = x, cy = y, left = len;
+    while (left > 0 && w > 0.25) {
+      const step = Math.min(left, rand(7, 15)); a += rand(-0.38, 0.38);
+      const nx = cx + Math.cos(a) * step, ny = cy + Math.sin(a) * step;
+      sc.strokeStyle = `rgba(28,20,14,${0.55 + 0.3 * Math.min(1, w / 2)})`; sc.lineWidth = w; sc.lineCap = 'round';
+      sc.beginPath(); sc.moveTo(cx, cy); sc.lineTo(nx, ny); sc.stroke();
+      hlc.strokeStyle = `rgba(255,255,255,${0.55 * Math.min(1, w / 1.6)})`; hlc.lineWidth = Math.max(0.5, w * 0.45); hlc.lineCap = 'round';
+      hlc.beginPath(); hlc.moveTo(cx + w * 0.55, cy + w * 0.55); hlc.lineTo(nx + w * 0.55, ny + w * 0.55); hlc.stroke();
+      if (depth < 2 && Math.random() < 0.2) crack(nx, ny, a + (Math.random() < 0.5 ? -1 : 1) * rand(0.45, 1), left * rand(0.25, 0.55), w * 0.6, depth + 1);
+      cx = nx; cy = ny; left -= step; w *= 0.93;
+    }
+    return { x: cx, y: cy };
+  }
+  function damage(x, y) {
+    const R = rand(80, 130), n = 7 + Math.floor(rand(0, 5)), spokes = [];
+    // soot: a few irregular soft burns, multiplied into whatever is underneath
+    for (let i = 0; i < 6; i++) {
+      const ox = x + rand(-18, 18), oy = y + rand(-18, 18), r = rand(26, 62);
+      const g = sc.createRadialGradient(ox, oy, 0, ox, oy, r); g.addColorStop(0, `rgba(36,24,16,${rand(0.16, 0.3)})`); g.addColorStop(0.6, 'rgba(60,40,26,.08)'); g.addColorStop(1, 'rgba(0,0,0,0)');
+      sc.fillStyle = g; sc.beginPath(); sc.arc(ox, oy, r, 0, Math.PI * 2); sc.fill();
+    }
+    // the crater: shaded like a dent (dark lower-right, lit upper-left)
+    const cr = rand(10, 16);
+    const dg = sc.createRadialGradient(x + cr * 0.35, y + cr * 0.35, 0, x, y, cr * 1.6); dg.addColorStop(0, 'rgba(20,14,10,.55)'); dg.addColorStop(1, 'rgba(20,14,10,0)');
+    sc.fillStyle = dg; sc.beginPath(); sc.arc(x, y, cr * 1.6, 0, Math.PI * 2); sc.fill();
+    hlc.strokeStyle = 'rgba(255,255,255,.55)'; hlc.lineWidth = 1.5; hlc.beginPath(); hlc.arc(x, y, cr, Math.PI * 0.95, Math.PI * 1.75); hlc.stroke();
+    // radial cracks
+    for (let i = 0; i < n; i++) { const a = (i / n) * Math.PI * 2 + rand(-0.3, 0.3); spokes.push(a); crack(x + Math.cos(a) * cr * 0.8, y + Math.sin(a) * cr * 0.8, a, R * rand(0.55, 1.25), rand(1.5, 2.6), 0); }
+    // ring fractures between neighbouring spokes, like struck glass or plaster
+    for (const rr of [R * rand(0.22, 0.3), R * rand(0.45, 0.58)]) {
+      for (let i = 0; i < n; i++) {
+        if (Math.random() < 0.35) continue;
+        const a0 = spokes[i], a1 = spokes[(i + 1) % n] + (i === n - 1 ? Math.PI * 2 : 0), segs = 3;
+        sc.strokeStyle = 'rgba(28,20,14,.5)'; sc.lineWidth = rand(0.7, 1.3); sc.beginPath();
+        for (let k = 0; k <= segs; k++) { const a = a0 + (a1 - a0) * k / segs, r = rr * rand(0.9, 1.1); const px = x + Math.cos(a) * r, py = y + Math.sin(a) * r; k ? sc.lineTo(px, py) : sc.moveTo(px, py); }
+        sc.stroke();
+      }
+    }
+    // chips knocked out near the impact
+    for (let i = 0; i < 6; i++) {
+      const a = rand(0, Math.PI * 2), d = rand(cr, cr * 3), px = x + Math.cos(a) * d, py = y + Math.sin(a) * d, r = rand(2, 6);
+      sc.fillStyle = 'rgba(40,28,20,.35)'; sc.beginPath();
+      for (let k = 0; k < 5; k++) { const b = k / 5 * Math.PI * 2 + rand(-0.3, 0.3), q = r * rand(0.6, 1.2); k ? sc.lineTo(px + Math.cos(b) * q, py + Math.sin(b) * q) : sc.moveTo(px + Math.cos(b) * q, py + Math.sin(b) * q); }
+      sc.closePath(); sc.fill();
+      hlc.strokeStyle = 'rgba(255,255,255,.45)'; hlc.lineWidth = 0.8; hlc.beginPath(); hlc.arc(px, py, r * 0.8, Math.PI, Math.PI * 1.6); hlc.stroke();
+    }
+  }
+  // the page's own boxes (cards, inputs, buttons) get knocked askew by the shockwave and stay that way
+  function dent(x, y, R) {
+    const seen = new Set();
+    for (let i = 0; i < 28; i++) {
+      const a = (i / 28) * Math.PI * 2, d = i % 2 ? R * 0.35 : R * 0.8;
+      for (const el of document.elementsFromPoint(x + Math.cos(a) * d, y + Math.sin(a) * d)) {
+        if (seen.has(el) || el === host || el === scorchHost || el === document.body || el === document.documentElement) continue; seen.add(el);
+        const r = el.getBoundingClientRect(); if (r.width < 36 || r.height < 18 || r.width > W * 0.7 || r.height > Hh * 0.6) continue;
+        const cs = getComputedStyle(el), boxy = (cs.backgroundColor && !/rgba\(0, 0, 0, 0\)|transparent/.test(cs.backgroundColor)) || parseFloat(cs.borderTopWidth) > 0 || cs.boxShadow !== 'none';
+        if (!boxy || cs.position === 'fixed') continue;
+        const cx = r.left + r.width / 2, cy = r.top + r.height / 2, dd = Math.max(20, Math.hypot(cx - x, cy - y)), k = Math.max(0, 1 - dd / (R * 1.8)); if (k <= 0.05) continue;
+        const st = el.__hv || (el.__hv = { r: 0, x: 0, y: 0, init: false });
+        if (!st.init) { st.init = true; hideEl(el, 'transition', 'transform .45s cubic-bezier(.2,1.5,.4,1)'); hideEl(el, 'transform', 'none'); restore.push(() => { delete el.__hv; }); }
+        const side = Math.sign((cx - x) || 1);
+        st.r = Math.max(-9, Math.min(9, st.r + side * rand(1.2, 3.6) * k)); st.x += (cx - x) / dd * 9 * k; st.y += (cy - y) / dd * 7 * k + 2 * k;
+        el.style.setProperty('transform', `translate(${st.x.toFixed(1)}px,${st.y.toFixed(1)}px) rotate(${st.r.toFixed(2)}deg)`, 'important');
+        break; // one box per sample point: the innermost card
+      }
+    }
   }
   function melt(x, y) {
     const R = 110; let hitAny = false;
@@ -627,10 +696,15 @@
     root = host.attachShadow({ mode: 'open' });
     const st = document.createElement('style'); st.textContent = CSS; root.appendChild(st);
     stage = document.createElement('div'); stage.className = 'stage';
-    scorch = document.createElement('canvas'); scorch.className = 'scorch'; sizeCanvas(scorch); sc = scorch.getContext('2d'); sc.setTransform(DPR, 0, 0, DPR, 0, 0);
+    // damage is burned *into* the page: a multiply layer under the physics, plus a thin highlight layer for chipped edges
+    scorchHost = document.createElement('div'); scorchHost.id = 'havoc-scorch';
+    scorchHost.style.cssText = 'position:fixed!important;inset:0!important;z-index:2147483646!important;pointer-events:none!important;mix-blend-mode:multiply!important;display:block!important;margin:0!important;padding:0!important;background:none!important';
+    scorch = document.createElement('canvas'); scorch.style.cssText = 'position:absolute;inset:0;width:100vw;height:100vh'; sizeCanvas(scorch); sc = scorch.getContext('2d'); sc.setTransform(DPR, 0, 0, DPR, 0, 0);
+    scorchHost.appendChild(scorch); document.documentElement.appendChild(scorchHost);
+    hl = document.createElement('canvas'); hl.className = 'scorch'; sizeCanvas(hl); hlc = hl.getContext('2d'); hlc.setTransform(DPR, 0, 0, DPR, 0, 0);
     fx = document.createElement('canvas'); fx.className = 'fx'; sizeCanvas(fx); fxc = fx.getContext('2d');
     hit = document.createElement('div'); hit.className = 'hit';
-    root.append(scorch, stage, fx, hit);
+    root.append(hl, stage, fx, hit);
 
     // lock scrolling while the page is "live"
     const de = document.documentElement, bd = document.body;
@@ -686,7 +760,7 @@
     H.active = false; cancelAnimationFrame(raf); raining = false;
     removeEventListener('keydown', onKey, true); removeEventListener('resize', onResize);
     try { Engine.clear(engine); } catch (e) {}
-    host && host.remove(); host = null; hud = null;
+    host && host.remove(); host = null; hud = null; scorchHost && scorchHost.remove(); scorchHost = null;
     for (let i = restore.length - 1; i >= 0; i--) { try { restore[i](); } catch (e) {} }
     // put style attributes back exactly as they were
     touched.forEach((orig, el) => { if (orig === null) { el.getAttribute('style'); /* forces Chrome to sync the lazily-serialized attribute */ if (!el.style.cssText.trim()) el.removeAttribute('style'); } else if (!el.style.cssText.trim() && orig.trim()) el.setAttribute('style', orig); });

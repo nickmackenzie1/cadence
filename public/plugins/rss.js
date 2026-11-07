@@ -107,7 +107,7 @@
   const split = title => { const m = title.match(/^(.+?)\s+[-–—]\s+(.+)$/); if (!m) return { a: title, b: '', d: '' }; const det = m[2].match(/^(.*?)\s*(\(.*)$/); return det ? { a: m[1], b: det[1] || m[2], d: det[2].replace(/^\(|\)$/g, '').replace(/\)\s*\(/g, ' · ') } : { a: m[1], b: m[2], d: '' }; };
 
   Cadence.registerPlugin({
-    id: 'rss', name: 'Feeds', version: '1.0.0',
+    id: 'rss', name: 'Feeds', version: '1.0.0', settings: () => window.__rss.manage && window.__rss.manage(), icon: '<circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="2.5"/><path d="M12 5.5a6.5 6.5 0 016.5 6.5"/>', color: '#2a2622', category: 'Look & feel', tagline: 'Feeds as a record shelf',
     description: 'Follow RSS/Atom feeds in Cadence. Put each one in the sidebar (one slim rotating row), on the home page (a shelf), or only in the Feeds view — styled as vinyl records, cards or a list.',
     setup(api) {
       const E = api.ui.esc;
@@ -172,6 +172,14 @@
         markSeen();
       }
       G.openPanel = openPanel;
+      // new arrivals since your last look → one Island notice per feed per session
+      function announce(f, d) {
+        G.told = G.told || {}; const s0 = seen(); if (!s0 || G.told[f.id]) return; G.told[f.id] = 1;
+        const fresh = d.items.filter(it => it.date && new Date(it.date).getTime() > s0); if (!fresh.length) return;
+        const p = parts(fresh[0], f);
+        setTimeout(() => api.island.show({ image: fresh[0].image ? `<img src="${E(fresh[0].image)}" alt="">` : '', icon: fresh[0].image ? '' : '◉', title: `${fresh.length} new at ${f.title || 'your feed'}`, sub: p.b ? `${p.a} — ${p.b}` : p.a, ms: 7000,
+          actions: [{ label: 'Timeline', run: () => openPanel(f) }, { label: 'Wall', run: () => api.ui.navigate('view-feeds') }] }), 9000);
+      }
       function itemsHtml(f, data, max, grid) {
         const items = data.items.slice(0, max);
         if (f.style === 'list') return `<div class="rs-list">${items.map(listHtml).join('')}</div>`;
@@ -197,7 +205,7 @@
           row.querySelector('.exp').addEventListener('click', e => { e.preventDefault(); e.stopPropagation(); openPanel(f); });
           row.querySelector('.vin, .rs-cardmini') && row.firstElementChild.addEventListener('click', e => { e.preventDefault(); e.stopPropagation(); openPanel(f); });
           row.querySelector('.nxt').addEventListener('click', e => { e.preventDefault(); e.stopPropagation(); i++; show(true); });
-          load(f).then(d => { data = d; show(); }).catch(err => { row.querySelector('.tx span').textContent = err.message; row.removeAttribute('href'); });
+          load(f).then(d => { data = d; show(); announce(f, d); }).catch(err => { row.querySelector('.tx span').textContent = err.message; row.removeAttribute('href'); });
           clearInterval(G['t' + f.id]); G['t' + f.id] = setInterval(() => { if (!row.isConnected) return clearInterval(G['t' + f.id]); if (!row.matches(':hover')) { i++; show(true); } }, 9000);
         });
       }});
@@ -216,7 +224,7 @@
       });
 
       /* full view */
-      api.views.add({ id: 'feeds', group: 'insights', title: 'Feeds', icon: '◉', subtitle: 'Your RSS and Atom feeds', render: (el) => {
+      api.views.add({ id: 'feeds', title: 'Feeds', icon: '◉', subtitle: 'Your RSS and Atom feeds', render: (el) => {
         const list = feeds();
         const mode = api.storage.get('viewMode') || 'wall';
         el.innerHTML = `<div class="row" style="justify-content:flex-end;align-items:center;margin:-10px 0 18px"><div class="rs-tabs"><button data-m="wall" class="${mode === 'wall' ? 'on' : ''}">Wall</button><button data-m="timeline" class="${mode === 'timeline' ? 'on' : ''}">Timeline</button></div><button class="btn" id="rs-cfg">Manage feeds</button></div>` + (mode === 'timeline' ? '<div id="rs-tlv" class="muted" style="font-size:13px">Loading…</div>' : list.map(f => `<div class="group" data-f="${f.id}"><div class="group-h">${E(f.title || f.url)}<span class="c"></span></div><div class="muted" style="padding:8px 4px;font-size:13px">Loading…</div></div>`).join('')) + (list.length ? '' : '<div class="empty"><b>No feeds yet</b>Add one with Manage feeds.</div>');
@@ -228,6 +236,7 @@
       }});
 
       /* settings */
+      G.manage = () => manage();
       function manage() {
         const list = feeds().map(f => ({ ...f }));
         const draw = () => {

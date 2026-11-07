@@ -50,7 +50,7 @@
   }
 
   Cadence.registerPlugin({
-    id: 'links', name: 'Client links', version: '1.0.0',
+    id: 'links', name: 'Client links', version: '1.0.0', icon: '<path d="M10 14a4 4 0 005.7 0l3-3a4 4 0 00-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 00-5.7 0l-3 3a4 4 0 005.7 5.7l1-1"/>', color: '#3e63dd', category: 'Clients', tagline: 'Quick links for every client',
     description: 'A row of quick links on each client page — paste their Zoho CRM account, Projects portal, Desk, WorkDrive or any URL and it’s detected and labelled.',
     setup(api) {
       const E = api.ui.esc;

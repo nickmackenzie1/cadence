@@ -56,7 +56,7 @@
   const PREF = ['id', 'title', 'name', 'clientId', 'owner', 'dueDate', 'dueTime', 'done', 'doneAt', 'priority', 'domain', 'status', 'start', 'end', 'createdAt'];
 
   Cadence.registerPlugin({
-    id: 'dbview', name: 'Database viewer', version: '1.0.0',
+    id: 'dbview', name: 'Database viewer', version: '1.0.0', icon: '<ellipse cx="12" cy="6" rx="7" ry="2.8"/><path d="M5 6v12c0 1.5 3.1 2.8 7 2.8s7-1.3 7-2.8V6M5 12c0 1.5 3.1 2.8 7 2.8s7-1.3 7-2.8"/>', color: '#0f766e', category: 'System', tagline: 'Peek under the hood',
     description: 'A read-only look under the hood: every collection as a sortable table, key:value filters, a JSON inspector, and your NAS backups to browse and compare.',
     setup(api) {
       const E = api.ui.esc;

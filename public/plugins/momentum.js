@@ -60,9 +60,6 @@
       @keyframes mohop{40%{transform:translateY(-8px)}}
       .mo-fall{animation:mofall .55s cubic-bezier(.5,0,.8,.4)}
       @keyframes mofall{from{transform:translateY(-90px)}}
-      .mo-ach{position:fixed;z-index:71;display:flex;align-items:center;gap:12px;padding:11px 16px 11px 12px;border-radius:14px;background:#15131c;color:#fff;box-shadow:0 14px 40px rgba(0,0,0,.35),inset 0 0 0 1px rgba(255,255,255,.08);font:500 13px/1.3 ui-sans-serif,system-ui;animation:moach .5s cubic-bezier(.2,1.4,.4,1);pointer-events:none}
-      .mo-ach b{display:block;font-size:14px}.mo-ach .ico{font-size:26px;filter:drop-shadow(0 0 8px gold)}
-      .mo-ach small{color:#ffd166;font-weight:700;letter-spacing:.08em;font-size:10.5px}
       @keyframes moach{from{opacity:0;transform:translateX(-20px) scale(.9)}}
       .mo-modal-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
       .mo-tile{background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:12px}
@@ -81,7 +78,7 @@
   }
 
   Cadence.registerPlugin({
-    id: 'momentum', name: 'Momentum', version: '1.0.0',
+    id: 'momentum', name: 'Momentum', version: '1.0.0', settings: () => window.__momentum.openStats && window.__momentum.openStats(), icon: '<path d="M12 21v-9"/><path d="M12 12c0-4 3-7 8-7 0 5-3 7-8 7z"/><path d="M12 14.5c0-3-2-5-6-5 0 3 2 5 6 5z"/>', color: '#30a46c', category: 'Fun', tagline: 'XP, streaks & a growing garden',
     description: 'Gamified progress: XP, combos, crits and streaks, Borderlands-style damage numbers, achievements, and an ever-growing garden — every task you finish plants something.',
     setup(api) {
       const S = () => Object.assign({ xp: 0, streak: 0, best: 0, lastDay: null, ach: {}, sound: true, log: [], awarded: {}, crits: 0, loot: 0 }, api.storage.get('state') || {});
@@ -180,7 +177,9 @@
         st.xp += total; st.awarded[task.id] = total;
         const keys = Object.keys(st.awarded); if (keys.length > 400) keys.slice(0, keys.length - 400).forEach(k => delete st.awarded[k]);
         st.log.push([now, total, task.clientId || null]); if (st.log.length > 3000) st.log.splice(0, st.log.length - 3000);
-        if (st.lastDay !== t) { st.streak = st.lastDay === yesterday() ? st.streak + 1 : 1; st.lastDay = t; st.best = Math.max(st.best, st.streak); }
+        let streakUp = 0;
+        if (st.lastDay !== t) { st.streak = st.lastDay === yesterday() ? st.streak + 1 : 1; st.lastDay = t; st.best = Math.max(st.best, st.streak); if (st.streak > 1) streakUp = st.streak; }
+        const goalHit = todayCount(st) === (st.goal || 5);
         seedGarden(st); plantFor(st, crit ? 'sun' : loot ? 'berry' : 'flower', task.clientId);
         if (crit) st.crits = (st.crits || 0) + 1;
         if (loot) st.loot = (st.loot || 0) + 1;
@@ -191,7 +190,9 @@
         orb(o.x, o.y, color, () => {
           refresh(true, { kind: loot ? 'loot' : 'xp', task });
           if (after.L > before.L) levelUp(after.L);
-          newAch.forEach((a, i) => setTimeout(() => achievement(a), 500 + i * 900));
+          if (goalHit) api.island.celebrate({ eyebrow: 'Daily goal', icon: '🎯', color: '#3fc37a', title: `${st.goal || 5} tasks done today`, sub: 'Everything else is a bonus', right: '✓' });
+          if (streakUp && !newAch.some(a => a.id.startsWith('streak'))) api.island.show({ icon: '🔥', color: '#ff7a1a', title: `${streakUp}-day streak`, sub: streakUp >= st.best ? 'Your best yet' : `Best: ${st.best} days` });
+          newAch.forEach(a => achievement(a));
         });
       });
       api.on('task:reopen', task => {
@@ -226,22 +227,15 @@
         return got;
       }
       function achievement(a) {
-        const w = document.querySelector('[data-sw="momentum"]'); const r = w ? w.getBoundingClientRect() : { right: 300, top: 80 };
-        const el = document.createElement('div'); el.className = 'mo-ach';
-        el.innerHTML = `<span class="ico">${a.icon}</span><div><small>ACHIEVEMENT · +50 XP</small><b>${api.ui.esc(a.name)}</b>${api.ui.esc(a.desc)}</div>`;
-        document.body.appendChild(el);
-        const slot = G.achSlot = (G.achSlot || 0) + 1; setTimeout(() => { G.achSlot = Math.max(0, G.achSlot - 1); }, 3900);
-        el.style.left = (r.right + 12) + 'px'; el.style.top = Math.max(12, Math.min(innerHeight - 90, r.top + 10) - (slot - 1) * 76) + 'px';
-        chime('ach'); sparks(r.right + 30, r.top + 40, '#ffd166', 16);
-        setTimeout(() => { el.style.transition = 'opacity .4s, transform .4s'; el.style.opacity = '0'; el.style.transform = 'translateX(-12px)'; }, 3400);
-        setTimeout(() => el.remove(), 3900); refresh();
+        chime('ach');
+        const w = document.querySelector('[data-sw="momentum"] .mo-rings'); if (w) { const r = w.getBoundingClientRect(); sparks(r.left + r.width / 2, r.top + r.height / 2, '#ffd166', 14); }
+        api.island.celebrate({ eyebrow: 'Achievement unlocked', icon: a.icon, color: '#ffb020', title: a.name, sub: a.desc, right: '+50 XP', onClick: () => openStats() });
+        refresh();
       }
       function levelUp(L) {
-        const w = document.querySelector('[data-sw="momentum"]'); const r = w ? w.getBoundingClientRect() : { left: 20, top: innerHeight - 260, width: 240 };
-        const x = r.left + r.width / 2, y = r.top + 40;
-        pop(x, y, 'LEVEL ' + L, { size: 46, color: '#7cf7d4', label: 'LEVEL UP!', life: 1.8, vx: 0 });
-        for (let i = 0; i < 4; i++) setTimeout(() => sparks(x + (Math.random() * 120 - 60), y + (Math.random() * 40 - 20), ['#ffd166', '#7cf7d4', '#ff4fa3', '#5cc8ff'][i], 18), i * 120);
         chime('level');
+        const w = document.querySelector('[data-sw="momentum"] .mo-rings'); if (w) { const r = w.getBoundingClientRect(); for (let i = 0; i < 3; i++) setTimeout(() => sparks(r.left + r.width / 2, r.top + r.height / 2, ['#ffd166', '#7cf7d4', '#ff4fa3'][i], 16), i * 140); }
+        api.island.celebrate({ eyebrow: 'Level up', icon: '🌳', color: '#7cf7d4', title: `Level ${L}`, sub: 'A new tree is growing in your garden', right: 'LV ' + L, onClick: () => openStats() });
       }
 
       /* ---------------- the garden: every completed task plants something; it grows forever */
@@ -338,6 +332,7 @@
       api.on('client:update', () => refresh());
 
       /* ---------------- stats modal */
+      G.openStats = () => openStats();
       function openStats() {
         const st = S(), lv = levelOf(st.xp), E = api.ui.esc;
         const days = [...Array(7)].map((_, i) => { const d = api.util.ymd(api.util.addDays(new Date(), i - 6)); return { d, xp: st.log.filter(e => dayOf(e[0]) === d).reduce((a, e) => a + e[1], 0) }; });

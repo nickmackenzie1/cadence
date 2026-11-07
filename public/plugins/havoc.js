@@ -11,7 +11,7 @@
     } catch (e) { loading = null; api.ui.toast('Havoc needs its engine files (vendor/) — ' + e.message); }
   }
   Cadence.registerPlugin({
-    id: 'havoc', name: 'Havoc', version: '1.0.0',
+    id: 'havoc', name: 'Havoc', version: '1.0.0', icon: '<path d="M12 2.5l2 5.5 5.5-1.5-3.8 4.5 4.8 3.5-5.8.8.8 5.7-3.5-3.8-3.5 3.8.8-5.7-5.8-.8 4.8-3.5L4.5 6.5 10 8z"/>', color: '#f76b15', category: 'Fun', tagline: 'Wreck the page with physics',
     description: 'Blow off steam: blast, melt, rain on or black-hole the Cadence page itself. Shift+H to unleash, Esc to restore.',
     setup(api) {
       api.commands.add({ title: '💥 Havoc — wreck this page', hint: '⇧H', run: api => unleash(api) });

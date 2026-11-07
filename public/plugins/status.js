@@ -52,7 +52,7 @@
   const log = (msg, kind = '') => { G.log.push({ t: Date.now(), msg, kind }); if (G.log.length > 200) G.log.shift(); };
 
   Cadence.registerPlugin({
-    id: 'status', name: 'System status', version: '1.0.0',
+    id: 'status', name: 'System status', version: '1.0.0', icon: '<path d="M4 16a8 8 0 0116 0"/><path d="M12 16l4-5"/>', color: '#64748b', category: 'System', tagline: 'Sync, latency & health',
     description: 'Boot sequence, a live panel for NAS connection, sync, AI and caches, and an activity log of what Cadence is doing.',
     setup(api) {
       const settings = () => Object.assign({ boot: true }, api.storage.get('settings') || {});

@@ -43,7 +43,7 @@
   const sameDay = (a, b) => new Date(a).toDateString() === new Date(b).toDateString();
 
   Cadence.registerPlugin({
-    id: 'calendar', name: 'Calendar', version: '1.0.0',
+    id: 'calendar', name: 'Calendar', version: '1.0.0', settings: () => window.__cal.settings && window.__cal.settings(), icon: '<rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 9.5h16M8.5 3v4M15.5 3v4M12 13v3l2 1.2"/>', color: '#e5484d', category: 'Meetings', tagline: 'Meetings matched to clients',
     description: 'Your meetings in Cadence: today’s schedule matched to clients, a heads-up before each meeting with Prep / Start, and a nudge to import Fireflies notes afterwards. Reads iCal feeds through the NAS.',
     setup(api) {
       const E = api.ui.esc, opts = () => Object.assign({ sample: false, lead: 10 }, api.storage.get('settings') || {}, api.system().demo ? { sample: true } : {});
@@ -149,17 +149,17 @@
 
       /* ---------- Island: heads-up before, live during, nudge after ---------- */
       function tick() {
-        const I = window.CadenceIsland; if (!I) return;
+        const I = api.island;
         const now = Date.now(), active = api.meetings.active(), lead = opts().lead * 60e3;
         const list = G.events.filter(e => !e.allDay).map(enrich);
         const soon = list.find(e => e.start > now && e.start - now <= lead), cur = list.find(e => e.start <= now && e.end > now);
         if (!active && (soon || cur)) {
           const ev = soon || cur, c = ev.client;
           const label = () => { const m = Math.round((ev.start - Date.now()) / 60e3); return ev.start > Date.now() ? (m <= 0 ? 'now' : `in ${m} min`) : 'now'; };
-          I.live('calendar', { prio: 5, view: () => ({ tick: label, minW: 210, onClick: () => soon ? prepFor(ev) : startFor(ev),
+          I.live('next', { prio: 5, view: () => ({ tick: label, minW: 210, onClick: () => soon ? prepFor(ev) : startFor(ev),
             html: `${c ? api.ui.avatar(c, 18) : '<span class="isl-dot" style="background:#5cc8ff;box-shadow:0 0 0 3px rgba(92,200,255,.2)"></span>'}<span class="isl-t"><b>${E(c ? c.name : ev.title)}</b></span><span class="isl-right" data-live-tick>${label()}</span>` }) });
           if (soon && !G.nudged['pre' + ev.id] && ev.start - now <= 5 * 60e3) { G.nudged['pre' + ev.id] = 1; I.show({ icon: '📅', color: '#2f7de1', title: ev.title, sub: `Starts ${label()}${c ? ' · ' + c.name : ''}`, actions: [{ label: 'Start', run: () => startFor(ev) }].concat(c ? [{ label: 'Prep', run: () => prepFor(ev) }] : []).concat(ev.join ? [{ label: 'Join', run: () => window.open(ev.join, '_blank', 'noopener') }] : []) }); }
-        } else I.clear('calendar');
+        } else I.clear('next');
         // just ended (and no meeting logged): offer the Fireflies import
         const ended = list.find(e => e.end <= now && now - e.end < 20 * 60e3 && e.client && !G.nudged['post' + e.id]);
         if (ended && !active) {

@@ -2,7 +2,7 @@
 (() => {
 const registerPlugin = def => Cadence.registerPlugin(def);
 registerPlugin({
-  id:'review', name:'Weekly review', version:'1.0.0', builtin:true,
+  id:'review', name:'Weekly review', version:'1.0.0', icon: '<rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 9.5h16M8.5 3v4M15.5 3v4M9 14.5l2 2 4-4"/>', color: '#8e4ec6', category: 'Productivity', tagline: 'Friday: look back, plan ahead', builtin:true,
   description:'Friday-afternoon look back: what got done per client, what slipped, who owes you, who has gone quiet, and what’s coming next week.',
   setup(api){
     const E = api.ui.esc;

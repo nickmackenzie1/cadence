@@ -2,7 +2,7 @@
 (() => {
 const registerPlugin = def => Cadence.registerPlugin(def);
 registerPlugin({
-  id:'prep', name:'Meeting prep sheet', version:'1.0.0', builtin:true,
+  id:'prep', name:'Meeting prep sheet', version:'1.0.0', icon: '<rect x="5" y="4.5" width="14" height="16" rx="2"/><path d="M9 3.5h6v3H9zM9 11h6M9 15h4"/>', color: '#0ea5a4', category: 'Meetings', tagline: 'A one-page brief before each call', builtin:true,
   description:'Before a call: what you owe, what they owe, what got done since last time, last meeting notes, and an agenda that carries into the meeting.',
   setup(api){
     const E = api.ui.esc;
