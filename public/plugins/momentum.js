@@ -1,0 +1,355 @@
+/* Momentum — gamified progress for Cadence.
+   XP for every completed task, combos, crits, streaks, levels, achievements,
+   Borderlands-style damage numbers that burst from whatever you clicked,
+   and a little world in the sidebar (plant / mountain / tower) that grows as you work. */
+(() => {
+  // one shared overlay + font, created once no matter how often the plugin is rebuilt
+  const G = window.__momentum = window.__momentum || {};
+  if (!G.layer) {
+    G.layer = document.createElement('div');
+    G.layer.style.cssText = 'position:fixed;inset:0;pointer-events:none;z-index:70;overflow:hidden';
+    document.body.appendChild(G.layer);
+    const f = document.createElement('link'); f.rel = 'stylesheet'; f.href = 'https://fonts.googleapis.com/css2?family=Bangers&family=Luckiest+Guy&display=swap'; document.head.appendChild(f);
+    const st = document.createElement('style'); st.textContent = `
+      .mo-num{position:absolute;left:0;top:0;font-family:Bangers,"Luckiest Guy",Impact,"Arial Black",sans-serif;font-weight:400;letter-spacing:.03em;white-space:nowrap;will-change:transform,opacity;line-height:.95;isolation:isolate;filter:drop-shadow(0 0 14px color-mix(in srgb,var(--g) 55%,transparent))}
+      /* Borderlands-style: chunky black outline + offset shadow behind a top-lit gradient fill, slanted */
+      .mo-num .w{display:grid;transform:skewX(-9deg)}
+      .mo-num .w>span{grid-area:1/1;display:block;text-align:center}
+      .mo-num .o{color:#120f16;-webkit-text-stroke:.17em #120f16;text-shadow:.05em .08em 0 #120f16,.08em .12em 0 #120f16}
+      .mo-num .f{color:transparent;background:linear-gradient(180deg,#fff 0%,#fff 30%,var(--g) 70%,color-mix(in srgb,var(--g) 65%,#000) 100%);-webkit-background-clip:text;background-clip:text}
+      .mo-num .lbw{font-size:.4em;letter-spacing:.1em;margin-bottom:.14em}
+      .mo-num .lbw .o{-webkit-text-stroke:.24em #120f16}
+      .mo-num .lbw .f{background:linear-gradient(180deg,#fff 5%,var(--g) 85%);-webkit-background-clip:text;background-clip:text}
+      .mo-spark{position:absolute;left:0;top:0;width:8px;height:8px;background:var(--g);clip-path:polygon(50% 0,61% 39%,100% 50%,61% 61%,50% 100%,39% 61%,0 50%,39% 39%);will-change:transform,opacity}
+      .mo-orb{position:absolute;left:0;top:0;width:10px;height:10px;margin:-5px 0 0 -5px;border-radius:50%;background:radial-gradient(circle,#fff,var(--g) 60%,transparent 70%);box-shadow:0 0 14px var(--g),0 0 4px #fff;will-change:transform}
+      .mo-card{padding:12px 12px 11px;border-radius:14px;background:var(--panel);border:1px solid var(--line);cursor:pointer;position:relative;overflow:hidden;transition:transform .15s, box-shadow .2s}
+      .mo-card:hover{box-shadow:0 6px 20px rgba(0,0,0,.08);transform:translateY(-1px)}
+      .mo-card.bump{animation:mobump .5s cubic-bezier(.2,1.6,.4,1)}
+      @keyframes mobump{30%{transform:scale(1.035)}}
+      .mo-world{height:92px;margin:-4px -4px 8px;border-radius:10px;overflow:hidden;position:relative;background:linear-gradient(180deg,color-mix(in srgb,var(--accent) 10%,transparent),transparent)}
+      .mo-world svg{width:100%;height:100%;display:block}
+      .mo-card{padding:10px 11px 9px}
+      .mo-top{display:flex;align-items:center;gap:8px}
+      .mo-lvl{font:800 11px/1 ui-sans-serif,system-ui;letter-spacing:.06em;padding:4px 7px;border-radius:7px;background:var(--text);color:var(--bg)}
+      .mo-xp{font-weight:700;font-variant-numeric:tabular-nums;font-size:13px}
+      .mo-xp span{color:var(--muted);font-weight:500}
+      .mo-streak{margin-left:auto;font-weight:700;font-size:12.5px;display:flex;align-items:center;gap:3px}
+      .mo-streak.cold{opacity:.4;filter:grayscale(1)}
+      .mo-bar{height:7px;border-radius:99px;background:var(--hover);margin-top:9px;overflow:hidden;position:relative}
+      .mo-bar i{position:absolute;inset:0 auto 0 0;border-radius:99px;background:linear-gradient(90deg,#5b5bd6,#b06bd6,#ff7a8a);transition:width .8s cubic-bezier(.2,.9,.2,1)}
+      .mo-bar i:after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,transparent,rgba(255,255,255,.6),transparent);transform:translateX(-100%);animation:moshine 2.8s infinite}
+      @keyframes moshine{60%,100%{transform:translateX(100%)}}
+      .mo-bar.flash i{filter:brightness(1.5) saturate(1.3)}
+      .mo-sub{display:flex;justify-content:space-between;margin-top:6px;font-size:11.5px;color:var(--muted);font-variant-numeric:tabular-nums}
+      .mo-sway{transform-origin:50% 100%;animation:mosway 5s ease-in-out infinite}
+      @keyframes mosway{50%{transform:rotate(1.6deg)}}
+      .mo-cloud{animation:mocloud 40s linear infinite}
+      @keyframes mocloud{from{transform:translateX(-60px)}to{transform:translateX(260px)}}
+      .mo-drop{animation:modrop .9s ease-in forwards}
+      @keyframes modrop{from{transform:translateY(-40px);opacity:1}90%{opacity:1}to{transform:translateY(46px);opacity:0}}
+      .mo-hop{animation:mohop .5s ease}
+      @keyframes mohop{40%{transform:translateY(-8px)}}
+      .mo-fall{animation:mofall .55s cubic-bezier(.5,0,.8,.4)}
+      @keyframes mofall{from{transform:translateY(-90px)}}
+      .mo-ach{position:fixed;z-index:71;display:flex;align-items:center;gap:12px;padding:11px 16px 11px 12px;border-radius:14px;background:#15131c;color:#fff;box-shadow:0 14px 40px rgba(0,0,0,.35),inset 0 0 0 1px rgba(255,255,255,.08);font:500 13px/1.3 ui-sans-serif,system-ui;animation:moach .5s cubic-bezier(.2,1.4,.4,1);pointer-events:none}
+      .mo-ach b{display:block;font-size:14px}.mo-ach .ico{font-size:26px;filter:drop-shadow(0 0 8px gold)}
+      .mo-ach small{color:#ffd166;font-weight:700;letter-spacing:.08em;font-size:10.5px}
+      @keyframes moach{from{opacity:0;transform:translateX(-20px) scale(.9)}}
+      .mo-modal-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+      .mo-tile{background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:12px}
+      .mo-tile .v{font:800 24px/1 ui-sans-serif,system-ui;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+      .mo-tile .l{font-size:11.5px;color:var(--muted);margin-top:4px}
+      .mo-bars{display:flex;align-items:flex-end;gap:8px;height:110px;padding:8px 4px 0}
+      .mo-bars div{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;font-size:10.5px;color:var(--muted)}
+      .mo-bars div i{display:block;width:100%;border-radius:6px 6px 3px 3px;background:linear-gradient(180deg,#b06bd6,#5b5bd6);min-height:3px;transition:height .6s}
+      .mo-bars div.today i{background:linear-gradient(180deg,#ff7a8a,#b06bd6)}
+      .mo-achs{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+      .mo-a{display:flex;gap:10px;align-items:center;padding:9px 10px;border-radius:10px;border:1px solid var(--line);font-size:12.5px}
+      .mo-a .i{font-size:20px}.mo-a small{display:block;color:var(--muted);font-size:11px}
+      .mo-a.locked{opacity:.45;filter:grayscale(1)}
+    `;
+    document.head.appendChild(st);
+  }
+
+  Cadence.registerPlugin({
+    id: 'momentum', name: 'Momentum', version: '1.0.0',
+    description: 'Gamified progress: XP, combos, crits and streaks, Borderlands-style damage numbers, achievements, and a plant / mountain / tower in the sidebar that grows as you get things done.',
+    setup(api) {
+      const S = () => Object.assign({ xp: 0, streak: 0, best: 0, lastDay: null, ach: {}, world: 'plant', sound: true, log: [], awarded: {}, crits: 0, loot: 0 }, api.storage.get('state') || {});
+      const put = st => api.storage.set('state', st);
+      const today = () => api.util.todayKey();
+      const dayOf = t => api.util.ymd(new Date(t));
+      const yesterday = () => api.util.ymd(api.util.addDays(new Date(), -1));
+      // level curve: each level needs a bit more
+      const need = L => Math.round(80 * Math.pow(L, 1.35));
+      function levelOf(xp) { let L = 1, acc = 0; while (xp >= acc + need(L)) { acc += need(L); L++; } return { L, into: xp - acc, need: need(L), pct: (xp - acc) / need(L) }; }
+      const todayXp = st => st.log.filter(e => dayOf(e[0]) === today()).reduce((a, e) => a + e[1], 0);
+      const todayCount = st => st.log.filter(e => dayOf(e[0]) === today() && e[1] > 0).length;
+
+      /* ---------------- sound (soft, optional) */
+      let AC;
+      function chime(kind) {
+        if (!S().sound) return;
+        try {
+          AC = AC || new (window.AudioContext || window.webkitAudioContext)();
+          const t = AC.currentTime, notes = kind === 'level' ? [523, 659, 784, 1046] : kind === 'crit' ? [880, 1320] : kind === 'ach' ? [784, 988, 1175] : [988];
+          notes.forEach((f, i) => { const o = AC.createOscillator(), g = AC.createGain(); o.type = kind === 'crit' ? 'square' : 'triangle'; o.frequency.value = f; g.gain.setValueAtTime(0.0001, t + i * 0.07); g.gain.exponentialRampToValueAtTime(kind === 'crit' ? 0.05 : 0.08, t + i * 0.07 + 0.01); g.gain.exponentialRampToValueAtTime(0.0001, t + i * 0.07 + 0.25); o.connect(g).connect(AC.destination); o.start(t + i * 0.07); o.stop(t + i * 0.07 + 0.3); });
+        } catch (e) {}
+      }
+
+      /* ---------------- damage numbers */
+      function originFor(task) {
+        const p = api.ui.pointer();
+        if (Date.now() - p.t < 1200) return { x: p.x, y: p.y };
+        const el = document.querySelector(`.task[data-id="${task.id}"]`);
+        if (el) { const r = el.getBoundingClientRect(); return { x: r.left + 26, y: r.top + r.height / 2 }; }
+        return { x: innerWidth / 2, y: innerHeight / 2 };
+      }
+      function pop(x, y, text, { size = 34, color = '#ffd166', label = '', delay = 0, vx = null, life = 1.1 } = {}) {
+        setTimeout(() => {
+          const el = document.createElement('div'); el.className = 'mo-num';
+          el.style.setProperty('--g', color); el.style.fontSize = size + 'px'; el.style.color = '#fff';
+          const layer = (t, cls = '') => `<span class="w ${cls}"><span class="o">${t}</span><span class="f">${t}</span></span>`;
+          el.innerHTML = (label ? layer(label, 'lbw') : '') + layer(text);
+          G.layer.appendChild(el);
+          const w = el.offsetWidth, h = el.offsetHeight;
+          let px = x - w / 2, py = y - h, vX = vx ?? (Math.random() * 3 - 1.5), vY = -(6 + Math.random() * 3), t = 0, rot = (Math.random() * 14 - 7);
+          const tick = () => {
+            t += 1 / 60; vY += 0.32; px += vX; py += vY; vX *= 0.98;
+            const s = t < 0.09 ? 0.3 + (t / 0.09) * 1.25 : t < 0.22 ? 1.55 - ((t - 0.09) / 0.13) * 0.55 : 1;
+            const jx = t < 0.25 ? (Math.random() - 0.5) * 5 : 0, jy = t < 0.25 ? (Math.random() - 0.5) * 5 : 0;
+            const a = t > life - 0.35 ? Math.max(0, (life - t) / 0.35) : 1;
+            el.style.transform = `translate(${px + jx}px,${py + jy}px) rotate(${rot * (1 - t)}deg) scale(${s})`; el.style.opacity = a;
+            if (t < life) requestAnimationFrame(tick); else el.remove();
+          };
+          tick();
+        }, delay);
+      }
+      function sparks(x, y, color, n = 10) {
+        for (let i = 0; i < n; i++) {
+          const el = document.createElement('div'); el.className = 'mo-spark'; el.style.setProperty('--g', color);
+          G.layer.appendChild(el);
+          const a = Math.random() * Math.PI * 2, v = 2 + Math.random() * 5; let px = x, py = y, vx = Math.cos(a) * v, vy = Math.sin(a) * v - 2, t = 0, s = 0.6 + Math.random() * 1.2, r = Math.random() * 360;
+          const tick = () => { t += 1 / 60; vy += 0.18; px += vx; py += vy; vx *= 0.96; r += 9; el.style.transform = `translate(${px - 4}px,${py - 4}px) rotate(${r}deg) scale(${s * (1 - t / 0.7)})`; el.style.opacity = 1 - t / 0.7; if (t < 0.7) requestAnimationFrame(tick); else el.remove(); };
+          tick();
+        }
+      }
+      function orb(x, y, color, done) {
+        const card = document.querySelector('[data-sw="momentum"] .mo-bar');
+        if (!card) { done && done(); return; }
+        const r = card.getBoundingClientRect(), tx = r.left + r.width * 0.5, ty = r.top + 3;
+        const el = document.createElement('div'); el.className = 'mo-orb'; el.style.setProperty('--g', color); G.layer.appendChild(el);
+        const cx = (x + tx) / 2 + (Math.random() * 160 - 80), cy = Math.min(y, ty) - 120 - Math.random() * 80; let t = 0;
+        const tick = () => { t += 1 / 38; const k = t * t * (3 - 2 * t), u = 1 - k; const px = u * u * x + 2 * u * k * cx + k * k * tx, py = u * u * y + 2 * u * k * cy + k * k * ty; el.style.transform = `translate(${px}px,${py}px) scale(${1 + Math.sin(t * Math.PI) * 0.8})`; if (t < 1) requestAnimationFrame(tick); else { el.remove(); done && done(); } };
+        tick();
+      }
+
+      /* ---------------- awarding */
+      let combo = G.combo || { n: 0, until: 0 }; G.combo = combo;
+      api.on('task:complete', task => {
+        const st = S(); if (st.awarded[task.id]) return;
+        const t = today(), o = originFor(task), now = Date.now();
+        combo.n = now < combo.until ? combo.n + 1 : 1; combo.until = now + 25000;
+        const mult = Math.min(3, 1 + 0.25 * (combo.n - 1));
+        let base = 10 + 6 * (task.priority || 0); const parts = [];
+        const loot = task.owner === 'client';
+        const crit = !loot && task.dueDate && task.dueDate < t;
+        if (loot) { base += 8; }
+        else if (task.dueDate === t) { base += 5; parts.push(['ON TIME', 5, '#7cf7d4']); }
+        else if (task.dueDate && task.dueDate > t) { base += 3; parts.push(['EARLY', 3, '#5cc8ff']); }
+        if (task.meetingId) { base += 3; }
+        const total = Math.round(base * (crit ? 2 : 1) * mult);
+        // numbers
+        const color = crit ? '#ff8a3d' : loot ? '#b28cff' : '#ffd166';
+        pop(o.x, o.y, '+' + total, { size: crit ? 54 : 38, color, label: crit ? 'CRITICAL!' : loot ? 'LOOT' : '' });
+        if (combo.n > 1) pop(o.x + 40, o.y - 10, `x${mult.toFixed(2).replace(/\.?0+$/, '')}`, { size: 24, color: '#ff4fa3', label: `${combo.n} COMBO`, delay: 140, vx: 2.2 });
+        parts.forEach((p, i) => pop(o.x - 30, o.y + 6, p[0], { size: 18, color: p[2], delay: 220 + i * 120, vx: -2 }));
+        sparks(o.x, o.y, color, crit ? 22 : 12);
+        chime(crit ? 'crit' : 'xp');
+        // state
+        const before = levelOf(st.xp);
+        st.xp += total; st.awarded[task.id] = total;
+        const keys = Object.keys(st.awarded); if (keys.length > 400) keys.slice(0, keys.length - 400).forEach(k => delete st.awarded[k]);
+        st.log.push([now, total, task.clientId || null]); if (st.log.length > 3000) st.log.splice(0, st.log.length - 3000);
+        if (st.lastDay !== t) { st.streak = st.lastDay === yesterday() ? st.streak + 1 : 1; st.lastDay = t; st.best = Math.max(st.best, st.streak); }
+        if (crit) st.crits = (st.crits || 0) + 1;
+        if (loot) st.loot = (st.loot || 0) + 1;
+        const after = levelOf(st.xp);
+        const newAch = checkAchievements(st, { combo: combo.n });
+        put(st);
+        orb(o.x, o.y, color, () => {
+          refresh(true, { kind: loot ? 'loot' : 'xp', task });
+          if (after.L > before.L) levelUp(after.L);
+          newAch.forEach((a, i) => setTimeout(() => achievement(a), 500 + i * 900));
+        });
+      });
+      api.on('task:reopen', task => {
+        const st = S(), amt = st.awarded[task.id]; if (!amt) return;
+        st.xp = Math.max(0, st.xp - amt); delete st.awarded[task.id];
+        const i = st.log.findIndex(e => e[1] === amt && Date.now() - e[0] < 864e5); if (i > -1) st.log.splice(i, 1);
+        put(st); const o = originFor(task); pop(o.x, o.y, '-' + amt, { size: 26, color: '#8a877f' }); refresh();
+      });
+
+      /* ---------------- achievements */
+      const ACH = [
+        ['first', '🎯', 'First blood', 'Complete your first task', (st) => st.log.length >= 1],
+        ['day5', '🔥', 'On a roll', '5 tasks in one day', (st) => todayCount(st) >= 5],
+        ['day10', '⚡', 'Unstoppable', '10 tasks in one day', (st) => todayCount(st) >= 10],
+        ['combo5', '🌀', 'Combo king', 'Hit a 5x combo', (st, c) => c.combo >= 5],
+        ['crit10', '🗡️', 'Overdue slayer', 'Finish 10 overdue tasks', (st) => (st.crits || 0) >= 10],
+        ['loot10', '💎', 'Collector', 'Close 10 client items', (st) => (st.loot || 0) >= 10],
+        ['streak3', '📅', 'Habit forming', '3-day streak', (st) => st.streak >= 3],
+        ['streak7', '🗓️', 'Week warrior', '7-day streak', (st) => st.streak >= 7],
+        ['streak30', '🏔️', 'Iron will', '30-day streak', (st) => st.streak >= 30],
+        ['lvl5', '⭐', 'Rising star', 'Reach level 5', (st) => levelOf(st.xp).L >= 5],
+        ['lvl10', '🌟', 'Veteran', 'Reach level 10', (st) => levelOf(st.xp).L >= 10],
+        ['clean', '🧹', 'Clean slate', 'Nothing overdue or due today left', () => api.tasks.list(x => !x.done && x.owner === 'me' && x.dueDate && x.dueDate <= today()).length === 0],
+        ['inbox0', '📭', 'Inbox zero', 'Empty the Inbox', () => api.tasks.list(x => !x.done && !x.clientId).length === 0],
+        ['xp1k', '🏆', 'Thousandaire', 'Earn 1,000 XP', (st) => st.xp >= 1000],
+        ['xp10k', '👑', 'Legend', 'Earn 10,000 XP', (st) => st.xp >= 10000],
+      ];
+      function checkAchievements(st, ctx) {
+        const got = [];
+        for (const [id, icon, name, desc, test] of ACH) if (!st.ach[id]) { try { if (test(st, ctx)) { st.ach[id] = Date.now(); st.xp += 50; got.push({ id, icon, name, desc }); } } catch (e) {} }
+        return got;
+      }
+      function achievement(a) {
+        const w = document.querySelector('[data-sw="momentum"]'); const r = w ? w.getBoundingClientRect() : { right: 300, top: innerHeight - 200 };
+        const el = document.createElement('div'); el.className = 'mo-ach';
+        el.innerHTML = `<span class="ico">${a.icon}</span><div><small>ACHIEVEMENT · +50 XP</small><b>${api.ui.esc(a.name)}</b>${api.ui.esc(a.desc)}</div>`;
+        document.body.appendChild(el);
+        const slot = G.achSlot = (G.achSlot || 0) + 1; setTimeout(() => { G.achSlot = Math.max(0, G.achSlot - 1); }, 3900);
+        el.style.left = (r.right + 12) + 'px'; el.style.top = Math.max(12, Math.min(innerHeight - 90, r.top + 10) - (slot - 1) * 76) + 'px';
+        chime('ach'); sparks(r.right + 30, r.top + 40, '#ffd166', 16);
+        setTimeout(() => { el.style.transition = 'opacity .4s, transform .4s'; el.style.opacity = '0'; el.style.transform = 'translateX(-12px)'; }, 3400);
+        setTimeout(() => el.remove(), 3900); refresh();
+      }
+      function levelUp(L) {
+        const w = document.querySelector('[data-sw="momentum"]'); const r = w ? w.getBoundingClientRect() : { left: 20, top: innerHeight - 260, width: 240 };
+        const x = r.left + r.width / 2, y = r.top + 40;
+        pop(x, y, 'LEVEL ' + L, { size: 46, color: '#7cf7d4', label: 'LEVEL UP!', life: 1.8, vx: 0 });
+        for (let i = 0; i < 4; i++) setTimeout(() => sparks(x + (Math.random() * 120 - 60), y + (Math.random() * 40 - 20), ['#ffd166', '#7cf7d4', '#ff4fa3', '#5cc8ff'][i], 18), i * 120);
+        chime('level');
+      }
+
+      /* ---------------- worlds */
+      const rnd = seed => () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+      function health(st) { if (!st.lastDay) return 1; const days = Math.round((new Date(today()) - new Date(st.lastDay)) / 864e5); return days <= 0 ? 1 : days === 1 ? 0.75 : days === 2 ? 0.45 : 0.25; }
+      function plant(st, lv) {
+        const h = health(st), green = h > 0.7 ? '#3fae6a' : h > 0.4 ? '#8fae4a' : '#b49a5a', leafDark = h > 0.7 ? '#2e8a52' : '#7b8a3f';
+        const stem = 20 + Math.min(1, (lv.L - 1) / 8) * 30 + lv.pct * 26, R = rnd(lv.L * 7 + 3);
+        const leaves = Math.min(14, 2 + lv.L + Math.floor(lv.pct * 3)), flowers = lv.L >= 3 ? Math.min(5, lv.L - 2) : 0, droop = (1 - h) * 22;
+        let g = '';
+        for (let i = 0; i < leaves; i++) {
+          const y = 96 - (i + 1) * (stem / (leaves + 1)), side = i % 2 ? 1 : -1, s = 0.7 + R() * 0.5 + (i / leaves) * 0.2, x = 120 + Math.sin(i * 1.3) * 3;
+          g += `<path d="M${x} ${y} q${side * 14 * s} ${-10 * s - droop * 0.3} ${side * 24 * s} ${-2 + droop * 0.4} q${-side * 12 * s} ${8 * s} ${-side * 24 * s} ${2 - droop * 0.4}z" fill="${i % 3 ? green : leafDark}"/>`;
+        }
+        for (let i = 0; i < flowers; i++) {
+          const fx = 120 + (i - (flowers - 1) / 2) * 13 + Math.sin(i) * 4, fy = 96 - stem - 4 + Math.abs(i - (flowers - 1) / 2) * 6, c = ['#ff7a8a', '#ffd166', '#b28cff', '#ff9f43', '#5cc8ff'][i % 5];
+          g += `<g transform="translate(${fx} ${fy})">${[0, 72, 144, 216, 288].map(a => `<ellipse rx="3.4" ry="5.5" transform="rotate(${a}) translate(0 -4.5)" fill="${c}"/>`).join('')}<circle r="2.6" fill="#fff4c2"/></g>`;
+        }
+        const soil = h > 0.9 ? '#4a3426' : '#7a5a3e';
+        return `<svg viewBox="0 0 240 118"><g class="mo-cloud" opacity=".5"><ellipse cx="30" cy="22" rx="18" ry="6" fill="#fff"/><ellipse cx="42" cy="18" rx="12" ry="6" fill="#fff"/></g>
+          <circle cx="205" cy="24" r="10" fill="#ffd166" opacity="${0.4 + h * 0.6}"/>
+          <g class="mo-sway"><path d="M120 98 C ${118 + Math.sin(lv.L) * 4} ${98 - stem * 0.5}, ${122} ${98 - stem * 0.8}, 120 ${98 - stem}" stroke="${leafDark}" stroke-width="3" fill="none" stroke-linecap="round"/>${g}</g>
+          <g id="mo-drops"></g>
+          <path d="M100 96 h40 l-4 20 h-32z" fill="#c8693f"/><rect x="97" y="93" width="46" height="7" rx="2" fill="#b65a33"/><ellipse cx="120" cy="95" rx="20" ry="2.4" fill="${soil}"/>
+          <text x="10" y="112" font-size="9" fill="currentColor" opacity=".45" font-family="ui-sans-serif">${!st.lastDay ? 'finish a task to water me' : h > 0.9 ? 'watered today' : h > 0.6 ? 'thirsty' : 'wilting — finish a task'}</text></svg>`;
+      }
+      function mountain(st, lv) {
+        const R = rnd(lv.L * 13 + 1), pts = []; for (let i = 0; i <= 10; i++) pts.push([10 + i * 22, i === 5 ? 18 : 110 - (5 - Math.abs(5 - i)) * 17 - R() * 10]);
+        pts[5][1] = 16; const path = pts.map((p, i) => (i ? 'L' : 'M') + p[0] + ' ' + p[1]).join(' ');
+        const trail = [[24, 106], [60, 88], [44, 74], [86, 58], [70, 44], [104, 32], [120, 16]];
+        const seg = lv.pct * (trail.length - 1), i0 = Math.floor(seg), f = seg - i0, a = trail[i0], b = trail[Math.min(trail.length - 1, i0 + 1)];
+        const cx = a[0] + (b[0] - a[0]) * f, cy = a[1] + (b[1] - a[1]) * f;
+        return `<svg viewBox="0 0 240 118"><g class="mo-cloud" opacity=".55"><ellipse cx="30" cy="30" rx="20" ry="6" fill="#fff"/></g>
+          <path d="M0 118 L40 70 L70 88 L110 50 L160 96 L200 60 L240 90 V118Z" fill="currentColor" opacity=".08"/>
+          <path d="${path} L240 118 L0 118Z" fill="#6c6a8e"/><path d="M104 32 L120 16 L136 32 L128 30 L120 36 L112 30Z" fill="#fff" opacity=".9"/>
+          <polyline points="${trail.map(p => p.join(',')).join(' ')}" fill="none" stroke="#fff" stroke-width="1.4" stroke-dasharray="2 3" opacity=".6"/>
+          <line x1="120" y1="16" x2="120" y2="2" stroke="#fff" stroke-width="1.5"/><path d="M120 2 l12 4 l-12 4z" fill="#ff4fa3"/>
+          <g id="mo-climber" transform="translate(${cx} ${cy})"><circle r="5" fill="#ffd166" stroke="#15131c" stroke-width="1.5"/><circle r="9" fill="#ffd166" opacity=".25"/></g>
+          <text x="10" y="112" font-size="9" fill="#fff" opacity=".8" font-family="ui-sans-serif">Peak ${lv.L} · ${Math.round(lv.pct * (1200 + lv.L * 300))} m</text></svg>`;
+      }
+      function tower(st, lv) {
+        const cl = Object.fromEntries(api.clients.list().map(c => [c.id, c.color]));
+        // blocks earned this level, coloured by the client the task belonged to
+        let acc = 0; const L0 = st.xp - lv.into; const recent = []; for (let i = st.log.length - 1; i >= 0 && acc < lv.into; i--) { acc += st.log[i][1]; recent.unshift(st.log[i]); }
+        const blocks = recent.slice(-24); let g = '';
+        blocks.forEach((e, i) => { const row = Math.floor(i / 4), col = i % 4, x = 82 + col * 19 + (row % 2) * 6, y = 100 - (row + 1) * 13; g += `<rect ${i === blocks.length - 1 ? 'class="mo-fall"' : ''} x="${x}" y="${y}" width="18" height="12" rx="2" fill="${cl[e[2]] || '#8a877f'}" stroke="rgba(0,0,0,.25)"/>`; });
+        const top = 100 - Math.ceil(blocks.length / 4) * 13;
+        return `<svg viewBox="0 0 240 118"><rect x="0" y="100" width="240" height="18" fill="currentColor" opacity=".08"/>
+          <line x1="190" y1="104" x2="190" y2="14" stroke="#ffb020" stroke-width="3"/><line x1="130" y1="16" x2="214" y2="16" stroke="#ffb020" stroke-width="3"/>
+          <line x1="150" y1="16" x2="150" y2="${Math.max(22, top - 18)}" stroke="#888" stroke-width="1"/><rect x="143" y="${Math.max(22, top - 18)}" width="14" height="8" rx="1" fill="#ffb020"/>
+          ${g}<text x="10" y="112" font-size="9" fill="currentColor" opacity=".5" font-family="ui-sans-serif">Floor ${lv.L} · ${blocks.length} blocks</text></svg>`;
+      }
+
+      /* ---------------- widget */
+      let widgetEl = null, shown = null;
+      api.sidebar.add({ id: 'momentum', order: 10, render: (el) => {
+        widgetEl = el; shown = null;
+        el.innerHTML = `<div class="mo-card" title="Momentum — click for stats"><div class="mo-world"></div><div class="mo-top"><span class="mo-lvl"></span><span class="mo-xp"></span><span class="mo-streak"></span></div><div class="mo-bar"><i></i></div><div class="mo-sub"><span class="a"></span><span class="b"></span></div></div>`;
+        el.querySelector('.mo-card').addEventListener('click', openStats);
+        refresh();
+      }});
+      function countUp(node, from, to) {
+        const t0 = performance.now(), dur = 700;
+        const tick = now => { const k = Math.min(1, (now - t0) / dur), e = 1 - Math.pow(1 - k, 3); node.textContent = Math.round(from + (to - from) * e).toLocaleString(); if (k < 1) requestAnimationFrame(tick); };
+        requestAnimationFrame(tick);
+      }
+      function refresh(animate, ev) {
+        if (!widgetEl || !widgetEl.isConnected) return;
+        const st = S(), lv = levelOf(st.xp), w = widgetEl;
+        const world = st.world === 'mountain' ? mountain(st, lv) : st.world === 'tower' ? tower(st, lv) : plant(st, lv);
+        w.querySelector('.mo-world').innerHTML = world;
+        w.querySelector('.mo-lvl').textContent = 'LVL ' + lv.L;
+        const xpNode = w.querySelector('.mo-xp');
+        const prev = shown ? shown.into : lv.into;
+        xpNode.innerHTML = `<b>${lv.into.toLocaleString()}</b> <span>/ ${lv.need.toLocaleString()} XP</span>`;
+        if (animate && shown && shown.L === lv.L) countUp(xpNode.querySelector('b'), prev, lv.into);
+        const sk = w.querySelector('.mo-streak'); sk.innerHTML = `🔥 ${st.streak}`; sk.classList.toggle('cold', st.lastDay !== today()); sk.title = `${st.streak}-day streak · best ${st.best}`;
+        const bar = w.querySelector('.mo-bar'); bar.querySelector('i').style.width = (lv.pct * 100).toFixed(1) + '%';
+        w.querySelector('.mo-sub .a').textContent = `+${todayXp(st).toLocaleString()} today`;
+        w.querySelector('.mo-sub .b').textContent = `${todayCount(st)} done`;
+        if (animate) {
+          const card = w.querySelector('.mo-card'); card.classList.remove('bump'); void card.offsetWidth; card.classList.add('bump');
+          bar.classList.add('flash'); setTimeout(() => bar.classList.remove('flash'), 400);
+          if (st.world === 'plant') { const d = w.querySelector('#mo-drops'); if (d) d.innerHTML = [0, 1, 2].map(i => `<circle class="mo-drop" style="animation-delay:${i * 0.12}s" cx="${112 + i * 8}" cy="50" r="2.6" fill="#5cc8ff"/>`).join(''); }
+          if (st.world === 'mountain') { const c = w.querySelector('#mo-climber circle'); if (c) c.classList.add('mo-hop'); }
+        }
+        shown = lv;
+      }
+      api.on('client:update', () => { if (S().world === 'tower') refresh(); });
+
+      /* ---------------- stats modal */
+      function openStats() {
+        const st = S(), lv = levelOf(st.xp), E = api.ui.esc;
+        const days = [...Array(7)].map((_, i) => { const d = api.util.ymd(api.util.addDays(new Date(), i - 6)); return { d, xp: st.log.filter(e => dayOf(e[0]) === d).reduce((a, e) => a + e[1], 0) }; });
+        const max = Math.max(30, ...days.map(d => d.xp));
+        const byClient = {}; st.log.forEach(e => { if (e[2]) byClient[e[2]] = (byClient[e[2]] || 0) + e[1]; });
+        const top = Object.entries(byClient).sort((a, b) => b[1] - a[1]).slice(0, 5).map(([id, xp]) => ({ c: api.clients.get(id), xp })).filter(x => x.c);
+        api.ui.modal('✦ Momentum', `
+          <div class="mo-modal-grid">
+            <div class="mo-tile"><div class="v">${lv.L}</div><div class="l">Level · ${lv.into}/${lv.need} XP</div></div>
+            <div class="mo-tile"><div class="v">${st.xp.toLocaleString()}</div><div class="l">Total XP</div></div>
+            <div class="mo-tile"><div class="v">🔥 ${st.streak}</div><div class="l">Day streak · best ${st.best}</div></div>
+            <div class="mo-tile"><div class="v">${todayXp(st)}</div><div class="l">XP today · ${todayCount(st)} done</div></div>
+          </div>
+          <div class="field"><label>Last 7 days</label><div class="mo-bars">${days.map((d, i) => `<div class="${i === 6 ? 'today' : ''}"><span>${d.xp || ''}</span><i style="height:${Math.round(d.xp / max * 80)}px"></i>${new Date(d.d.replace(/-/g, '/')).toLocaleDateString(undefined, { weekday: 'short' })}</div>`).join('')}</div></div>
+          ${top.length ? `<div class="field"><label>Where your XP comes from</label>${top.map(t => `<div style="display:flex;align-items:center;gap:10px;padding:5px 0">${api.ui.avatar(t.c, 20)}<span style="flex:1">${E(t.c.name)}</span><b style="font-variant-numeric:tabular-nums">${t.xp.toLocaleString()} XP</b></div>`).join('')}</div>` : ''}
+          <div class="field"><label>Achievements · ${Object.keys(st.ach).length}/${ACH.length}</label><div class="mo-achs">${ACH.map(([id, icon, name, desc]) => `<div class="mo-a ${st.ach[id] ? '' : 'locked'}"><span class="i">${icon}</span><div><b>${E(name)}</b><small>${E(desc)}</small></div></div>`).join('')}</div></div>
+          <div class="row" style="gap:16px;align-items:flex-end;flex-wrap:wrap">
+            <div class="field"><label>Your world</label><div class="seg" id="mo-world">${[['plant', '🌱 Plant'], ['mountain', '⛰️ Mountain'], ['tower', '🏗️ Tower']].map(([k, l]) => `<button data-w="${k}" class="${st.world === k ? 'on' : ''}">${l}</button>`).join('')}</div></div>
+            <div class="field"><label>Sound</label><div class="seg" id="mo-sound"><button data-s="1" class="${st.sound ? 'on' : ''}">On</button><button data-s="0" class="${st.sound ? '' : 'on'}">Off</button></div></div>
+          </div>
+          <div class="muted" style="font-size:12px">XP: 10 per task, +6 per priority level, +5 on time, ×2 <b>crit</b> for overdue tasks, +8 for closing a client item, combos up to ×3 when you finish tasks within 25 s of each other. Achievements give +50.</div>`,
+          `<button class="btn ghost danger" id="mo-reset" style="margin-right:auto">Reset progress</button><button class="btn primary" data-act="close-modal">Nice</button>`, 'wide');
+        document.querySelectorAll('#mo-world button').forEach(b => b.onclick = () => { const s = S(); s.world = b.dataset.w; put(s); refresh(); openStats(); });
+        document.querySelectorAll('#mo-sound button').forEach(b => b.onclick = () => { const s = S(); s.sound = b.dataset.s === '1'; put(s); openStats(); });
+        document.querySelector('#mo-reset').onclick = () => { if (document.querySelector('#mo-reset').dataset.sure) { put({ world: S().world }); refresh(); api.ui.close(); api.ui.toast('Progress reset'); } else { document.querySelector('#mo-reset').dataset.sure = 1; document.querySelector('#mo-reset').textContent = 'Click again to reset'; } };
+      }
+      api.commands.add({ title: 'Momentum stats', run: () => openStats() });
+      // keep "watered today / streak" fresh across midnight
+      clearInterval(G.tick); G.tick = setInterval(() => refresh(), 5 * 60 * 1000);
+    }
+  });
+})();
