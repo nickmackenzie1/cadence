@@ -40,14 +40,19 @@
       .mo-body{display:grid;grid-template-rows:0fr;transition:grid-template-rows .3s cubic-bezier(.2,.9,.2,1)}
       .mo-strip.open .mo-body{grid-template-rows:1fr}
       .mo-body>div{overflow:hidden;min-height:0}
-      .mo-world{height:86px;margin:2px 8px 6px;border-radius:9px;overflow:hidden;position:relative;background:linear-gradient(180deg,color-mix(in srgb,var(--accent) 10%,transparent),transparent)}
+      .mo-world{height:96px;margin:2px 8px 6px;border-radius:9px;overflow:hidden;position:relative;background:linear-gradient(180deg,color-mix(in srgb,var(--accent) 10%,transparent),transparent)}
       .mo-world svg{width:100%;height:100%;display:block}
       .mo-sub{display:flex;justify-content:space-between;align-items:center;padding:0 9px 8px;font-size:11.5px;color:var(--muted);font-variant-numeric:tabular-nums}
-      .mo-sub a{color:var(--text);font-weight:600;cursor:pointer;text-decoration:none}
-      .mo-sub a:hover{color:var(--accent)}
-      .mo-sway{transform-origin:50% 100%;animation:mosway 5s ease-in-out infinite}
+      .mo-sub .mo-statslink{color:var(--text);font-weight:600;cursor:pointer;flex:none}
+      .mo-sub .mo-statslink:hover{color:var(--accent)}
+      .mo-sub .td{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+      .mo-sway{transform-box:fill-box;transform-origin:50% 100%;animation:mosway 5s ease-in-out infinite}
       @keyframes mosway{50%{transform:rotate(1.6deg)}}
       .mo-cloud{animation:mocloud 40s linear infinite}
+      .mo-grow{transform-box:fill-box;transform-origin:50% 100%;animation:mogrow .9s cubic-bezier(.2,1.6,.4,1)}
+      @keyframes mogrow{from{transform:scale(0)}}
+      .mo-fly{animation:mofly 7s ease-in-out infinite}
+      @keyframes mofly{25%{transform:translate(14px,-6px)}50%{transform:translate(4px,-12px)}75%{transform:translate(-10px,-4px)}}
       @keyframes mocloud{from{transform:translateX(-60px)}to{transform:translateX(260px)}}
       .mo-drop{animation:modrop .9s ease-in forwards}
       @keyframes modrop{from{transform:translateY(-40px);opacity:1}90%{opacity:1}to{transform:translateY(46px);opacity:0}}
@@ -77,9 +82,9 @@
 
   Cadence.registerPlugin({
     id: 'momentum', name: 'Momentum', version: '1.0.0',
-    description: 'Gamified progress: XP, combos, crits and streaks, Borderlands-style damage numbers, achievements, and a plant / mountain / tower in the sidebar that grows as you get things done.',
+    description: 'Gamified progress: XP, combos, crits and streaks, Borderlands-style damage numbers, achievements, and an ever-growing garden — every task you finish plants something.',
     setup(api) {
-      const S = () => Object.assign({ xp: 0, streak: 0, best: 0, lastDay: null, ach: {}, world: 'plant', sound: true, log: [], awarded: {}, crits: 0, loot: 0 }, api.storage.get('state') || {});
+      const S = () => Object.assign({ xp: 0, streak: 0, best: 0, lastDay: null, ach: {}, sound: true, log: [], awarded: {}, crits: 0, loot: 0 }, api.storage.get('state') || {});
       const put = st => api.storage.set('state', st);
       const today = () => api.util.todayKey();
       const dayOf = t => api.util.ymd(new Date(t));
@@ -176,9 +181,11 @@
         const keys = Object.keys(st.awarded); if (keys.length > 400) keys.slice(0, keys.length - 400).forEach(k => delete st.awarded[k]);
         st.log.push([now, total, task.clientId || null]); if (st.log.length > 3000) st.log.splice(0, st.log.length - 3000);
         if (st.lastDay !== t) { st.streak = st.lastDay === yesterday() ? st.streak + 1 : 1; st.lastDay = t; st.best = Math.max(st.best, st.streak); }
+        seedGarden(st); plantFor(st, crit ? 'sun' : loot ? 'berry' : 'flower', task.clientId);
         if (crit) st.crits = (st.crits || 0) + 1;
         if (loot) st.loot = (st.loot || 0) + 1;
         const after = levelOf(st.xp);
+        for (let L = before.L + 1; L <= after.L; L++) plantFor(st, 'tree');
         const newAch = checkAchievements(st, { combo: combo.n });
         put(st);
         orb(o.x, o.y, color, () => {
@@ -191,6 +198,7 @@
         const st = S(), amt = st.awarded[task.id]; if (!amt) return;
         st.xp = Math.max(0, st.xp - amt); delete st.awarded[task.id];
         const i = st.log.findIndex(e => e[1] === amt && Date.now() - e[0] < 864e5); if (i > -1) st.log.splice(i, 1);
+        if (st.garden) { for (let i = st.garden.length - 1; i >= 0; i--) if (st.garden[i].k !== 'tree' && Date.now() - st.garden[i].t < 864e5) { st.garden.splice(i, 1); break; } }
         put(st); const o = originFor(task); pop(o.x, o.y, '-' + amt, { size: 26, color: '#8a877f' }); refresh();
       });
 
@@ -236,55 +244,52 @@
         chime('level');
       }
 
-      /* ---------------- worlds */
+      /* ---------------- the garden: every completed task plants something; it grows forever */
       const rnd = seed => () => (seed = (seed * 16807) % 2147483647) / 2147483647;
-      function health(st) { if (!st.lastDay) return 1; const days = Math.round((new Date(today()) - new Date(st.lastDay)) / 864e5); return days <= 0 ? 1 : days === 1 ? 0.75 : days === 2 ? 0.45 : 0.25; }
-      function plant(st, lv) {
-        const h = health(st), green = h > 0.7 ? '#3fae6a' : h > 0.4 ? '#8fae4a' : '#b49a5a', leafDark = h > 0.7 ? '#2e8a52' : '#7b8a3f';
-        const stem = 20 + Math.min(1, (lv.L - 1) / 8) * 30 + lv.pct * 26, R = rnd(lv.L * 7 + 3);
-        const leaves = Math.min(14, 2 + lv.L + Math.floor(lv.pct * 3)), flowers = lv.L >= 3 ? Math.min(5, lv.L - 2) : 0, droop = (1 - h) * 22;
-        let g = '';
-        for (let i = 0; i < leaves; i++) {
-          const y = 96 - (i + 1) * (stem / (leaves + 1)), side = i % 2 ? 1 : -1, s = 0.7 + R() * 0.5 + (i / leaves) * 0.2, x = 120 + Math.sin(i * 1.3) * 3;
-          g += `<path d="M${x} ${y} q${side * 14 * s} ${-10 * s - droop * 0.3} ${side * 24 * s} ${-2 + droop * 0.4} q${-side * 12 * s} ${8 * s} ${-side * 24 * s} ${2 - droop * 0.4}z" fill="${i % 3 ? green : leafDark}"/>`;
-        }
-        for (let i = 0; i < flowers; i++) {
-          const fx = 120 + (i - (flowers - 1) / 2) * 13 + Math.sin(i) * 4, fy = 96 - stem - 4 + Math.abs(i - (flowers - 1) / 2) * 6, c = ['#ff7a8a', '#ffd166', '#b28cff', '#ff9f43', '#5cc8ff'][i % 5];
-          g += `<g transform="translate(${fx} ${fy})">${[0, 72, 144, 216, 288].map(a => `<ellipse rx="3.4" ry="5.5" transform="rotate(${a}) translate(0 -4.5)" fill="${c}"/>`).join('')}<circle r="2.6" fill="#fff4c2"/></g>`;
-        }
-        const soil = h > 0.9 ? '#4a3426' : '#7a5a3e';
-        return `<svg viewBox="0 0 240 118"><g class="mo-cloud" opacity=".5"><ellipse cx="30" cy="22" rx="18" ry="6" fill="#fff"/><ellipse cx="42" cy="18" rx="12" ry="6" fill="#fff"/></g>
-          <circle cx="205" cy="24" r="10" fill="#ffd166" opacity="${0.4 + h * 0.6}"/>
-          <g class="mo-sway"><path d="M120 98 C ${118 + Math.sin(lv.L) * 4} ${98 - stem * 0.5}, ${122} ${98 - stem * 0.8}, 120 ${98 - stem}" stroke="${leafDark}" stroke-width="3" fill="none" stroke-linecap="round"/>${g}</g>
-          <g id="mo-drops"></g>
-          <path d="M100 96 h40 l-4 20 h-32z" fill="#c8693f"/><rect x="97" y="93" width="46" height="7" rx="2" fill="#b65a33"/><ellipse cx="120" cy="95" rx="20" ry="2.4" fill="${soil}"/>
-          <text x="10" y="112" font-size="9" fill="currentColor" opacity=".45" font-family="ui-sans-serif">${!st.lastDay ? 'finish a task to water me' : h > 0.9 ? 'watered today' : h > 0.6 ? 'thirsty' : 'wilting — finish a task'}</text></svg>`;
+      function idleDays(st) { if (!st.lastDay) return 0; return Math.round((new Date(today().replace(/-/g, '/')) - new Date(st.lastDay.replace(/-/g, '/'))) / 864e5); }
+      function seedGarden(st) {
+        // first run after the update: plant everything already earned
+        if (st.garden) return st.garden;
+        const R = rnd(4242); st.garden = [];
+        st.log.forEach(e => { if (e[1] > 0) st.garden.push({ k: e[1] >= 30 ? 'sun' : 'flower', c: e[2] || null, x: R(), d: R(), t: e[0] }); });
+        for (let L = 2; L <= levelOf(st.xp).L; L++) st.garden.push({ k: 'tree', x: R(), d: R() * 0.5, t: Date.now() });
+        return st.garden;
       }
-      function mountain(st, lv) {
-        const R = rnd(lv.L * 13 + 1), pts = []; for (let i = 0; i <= 10; i++) pts.push([10 + i * 22, i === 5 ? 18 : 110 - (5 - Math.abs(5 - i)) * 17 - R() * 10]);
-        pts[5][1] = 16; const path = pts.map((p, i) => (i ? 'L' : 'M') + p[0] + ' ' + p[1]).join(' ');
-        const trail = [[24, 106], [60, 88], [44, 74], [86, 58], [70, 44], [104, 32], [120, 16]];
-        const seg = lv.pct * (trail.length - 1), i0 = Math.floor(seg), f = seg - i0, a = trail[i0], b = trail[Math.min(trail.length - 1, i0 + 1)];
-        const cx = a[0] + (b[0] - a[0]) * f, cy = a[1] + (b[1] - a[1]) * f;
-        return `<svg viewBox="0 0 240 118"><g class="mo-cloud" opacity=".55"><ellipse cx="30" cy="30" rx="20" ry="6" fill="#fff"/></g>
-          <path d="M0 118 L40 70 L70 88 L110 50 L160 96 L200 60 L240 90 V118Z" fill="currentColor" opacity=".08"/>
-          <path d="${path} L240 118 L0 118Z" fill="#6c6a8e"/><path d="M104 32 L120 16 L136 32 L128 30 L120 36 L112 30Z" fill="#fff" opacity=".9"/>
-          <polyline points="${trail.map(p => p.join(',')).join(' ')}" fill="none" stroke="#fff" stroke-width="1.4" stroke-dasharray="2 3" opacity=".6"/>
-          <line x1="120" y1="16" x2="120" y2="2" stroke="#fff" stroke-width="1.5"/><path d="M120 2 l12 4 l-12 4z" fill="#ff4fa3"/>
-          <g id="mo-climber" transform="translate(${cx} ${cy})"><circle r="5" fill="#ffd166" stroke="#15131c" stroke-width="1.5"/><circle r="9" fill="#ffd166" opacity=".25"/></g>
-          <text x="10" y="112" font-size="9" fill="#fff" opacity=".8" font-family="ui-sans-serif">Peak ${lv.L} · ${Math.round(lv.pct * (1200 + lv.L * 300))} m</text></svg>`;
-      }
-      function tower(st, lv) {
-        const cl = Object.fromEntries(api.clients.list().map(c => [c.id, c.color]));
-        // blocks earned this level, coloured by the client the task belonged to
-        let acc = 0; const L0 = st.xp - lv.into; const recent = []; for (let i = st.log.length - 1; i >= 0 && acc < lv.into; i--) { acc += st.log[i][1]; recent.unshift(st.log[i]); }
-        const blocks = recent.slice(-24); let g = '';
-        blocks.forEach((e, i) => { const row = Math.floor(i / 4), col = i % 4, x = 82 + col * 19 + (row % 2) * 6, y = 100 - (row + 1) * 13; g += `<rect ${i === blocks.length - 1 ? 'class="mo-fall"' : ''} x="${x}" y="${y}" width="18" height="12" rx="2" fill="${cl[e[2]] || '#8a877f'}" stroke="rgba(0,0,0,.25)"/>`; });
-        const top = 100 - Math.ceil(blocks.length / 4) * 13;
-        return `<svg viewBox="0 0 240 118"><rect x="0" y="100" width="240" height="18" fill="currentColor" opacity=".08"/>
-          <line x1="190" y1="104" x2="190" y2="14" stroke="#ffb020" stroke-width="3"/><line x1="130" y1="16" x2="214" y2="16" stroke="#ffb020" stroke-width="3"/>
-          <line x1="150" y1="16" x2="150" y2="${Math.max(22, top - 18)}" stroke="#888" stroke-width="1"/><rect x="143" y="${Math.max(22, top - 18)}" width="14" height="8" rx="1" fill="#ffb020"/>
-          ${g}<text x="10" y="112" font-size="9" fill="currentColor" opacity=".5" font-family="ui-sans-serif">Floor ${lv.L} · ${blocks.length} blocks</text></svg>`;
+      function plantFor(st, kind, cid) { const R = Math.random; (st.garden = st.garden || []).push({ k: kind, c: cid || null, x: R(), d: R(), t: Date.now() }); if (st.garden.length > 600) st.garden.splice(0, st.garden.length - 600); }
+      const PETALS = ['#ff7a8a', '#ffd166', '#b28cff', '#ff9f43', '#5cc8ff', '#ff6fb5', '#7cf7d4'];
+      function garden(st) {
+        const items = seedGarden(st), n = items.length, cl = Object.fromEntries(api.clients.list().map(c => [c.id, c.color]));
+        // the camera pulls back as the garden fills up
+        const W = 240 * (1 + Math.sqrt(Math.max(0, n - 12)) / 6), H = W * 86 / 240, ps = Math.pow(W / 240, 0.65), ground = H * 0.62, now = Date.now();
+        const days = idleDays(st), R0 = rnd(77);
+        let back = '', mid = '';
+        // background grass tufts
+        for (let i = 0; i < Math.round(W / 9); i++) { const x = R0() * W, y = ground + R0() * (H - ground) * 0.9; back += `<path d="M${x} ${y} l-2 -5 M${x} ${y} l0 -6 M${x} ${y} l2 -5" stroke="#5fae5f" stroke-width="1" opacity=".55"/>`; }
+        const sorted = items.map((it, i) => ({ ...it, i })).sort((a, b) => a.d - b.d);
+        for (const it of sorted) {
+          const x = 8 + it.x * (W - 16), y = ground + 4 + it.d * (H - ground - 8), s = (0.7 + it.d * 0.6) * ps, age = Math.min(1, (now - it.t) / (3 * 864e5));
+          const fresh = now - it.t < 4000 ? ' class="mo-grow"' : '';
+          const g = `transform="translate(${x.toFixed(1)} ${y.toFixed(1)}) scale(${(s * (0.75 + age * 0.35)).toFixed(2)})"`;
+          if (it.k === 'tree') mid += `<g ${g}><g${fresh}><rect x="-1.6" y="-26" width="3.2" height="26" rx="1" fill="#8a5a3c"/><circle cy="-30" r="11" fill="#3e9a5a"/><circle cx="-7" cy="-24" r="7.5" fill="#46a865"/><circle cx="7" cy="-25" r="8" fill="#348c50"/><circle cx="3" cy="-34" r="5" fill="#5bbd78" opacity=".8"/></g></g>`;
+          else if (it.k === 'sun') mid += `<g ${g}><g${fresh} class="mo-sway"><path d="M0 0 V-20" stroke="#4a9a4a" stroke-width="1.6"/><path d="M0 -9 q-6 -3 -8 1 q5 1 8 -1" fill="#5aae5a"/>${[...Array(10)].map((_, k) => `<ellipse rx="1.8" ry="4" transform="translate(0 -22) rotate(${k * 36}) translate(0 -4)" fill="#ffc83d"/>`).join('')}<circle cy="-22" r="3.2" fill="#7a4b22"/></g></g>`;
+          else if (it.k === 'berry') mid += `<g ${g}><g${fresh}><circle cy="-5" r="6" fill="#3f8f55"/><circle cx="-4" cy="-7" r="4.5" fill="#4aa063"/>${[[-3, -6], [2, -8], [4, -3], [-1, -2]].map(([a, b]) => `<circle cx="${a}" cy="${b}" r="1.4" fill="#b28cff"/>`).join('')}</g></g>`;
+          else { const col = cl[it.c] || PETALS[it.i % PETALS.length], h = 9 + (it.i % 4) * 2; mid += `<g ${g}><g${fresh} class="mo-sway" style="animation-delay:-${(it.i % 7) * 0.6}s"><path d="M0 0 V-${h}" stroke="#4a9a4a" stroke-width="1.2"/><path d="M0 -${h * 0.45} q4 -3 6 0 q-3 2 -6 0" fill="#5aae5a"/>${[0, 72, 144, 216, 288].map(a => `<ellipse rx="1.7" ry="2.8" transform="translate(0 -${h}) rotate(${a}) translate(0 -2.4)" fill="${col}"/>`).join('')}<circle cy="-${h}" r="1.4" fill="#fff4c2"/></g></g>`; }
+        }
+        // weeds creep in after a couple of idle days
+        let weeds = ''; if (days >= 2) { const Rw = rnd(days * 31); for (let i = 0; i < Math.min(14, days * 3); i++) { const x = Rw() * W, y = ground + Rw() * (H - ground); weeds += `<path d="M${x} ${y} q-3 -6 -1 -10 M${x} ${y} q3 -5 2 -9 M${x} ${y} q0 -4 -4 -6" stroke="#8b7d4a" stroke-width="1.2" fill="none"/>`; } }
+        // butterflies for your streak
+        let bugs = ''; for (let i = 0; i < Math.min(6, st.lastDay === today() ? st.streak : 0); i++) { const c = PETALS[(i * 3) % PETALS.length], bx = W * (0.15 + i * 0.14), by = ground - 14 - (i % 3) * 8; bugs += `<g class="mo-fly" style="animation-delay:-${i * 1.3}s;transform-origin:${bx}px ${by}px"><g transform="translate(${bx} ${by}) scale(${W / 240})"><ellipse cx="-2.2" cy="0" rx="2.4" ry="1.7" fill="${c}"/><ellipse cx="2.2" cy="0" rx="2.4" ry="1.7" fill="${c}"/><rect x="-.4" y="-1.5" width=".8" height="3" fill="#333"/></g></g>`; }
+        const sunR = 9 * W / 240;
+        return `<svg viewBox="0 0 ${W.toFixed(0)} ${H.toFixed(0)}" preserveAspectRatio="xMidYMax slice">
+          <defs><linearGradient id="mo-sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${days >= 2 ? '#c9c4b8' : '#bfe3ff'}"/><stop offset="1" stop-color="${days >= 2 ? '#e8e2d2' : '#eef8ff'}"/></linearGradient></defs>
+          <rect width="100%" height="100%" fill="url(#mo-sky)"/>
+          <circle cx="${W - sunR * 3}" cy="${sunR * 2.4}" r="${sunR}" fill="#ffd166" opacity="${days >= 2 ? .45 : 1}"/>
+          <g class="mo-cloud" opacity=".8"><ellipse cx="${W * 0.15}" cy="${H * 0.18}" rx="${16 * W / 240}" ry="${5 * W / 240}" fill="#fff"/></g>
+          <path d="M0 ${ground - H * 0.08} Q ${W * 0.25} ${ground - H * 0.2} ${W * 0.5} ${ground - H * 0.07} T ${W} ${ground - H * 0.1} V ${H} H 0Z" fill="#a8d89a" opacity=".6"/>
+          <rect y="${ground}" width="100%" height="${H - ground}" fill="#8cc97a"/><rect y="${ground}" width="100%" height="2" fill="#7bbb6a"/>
+          ${back}${weeds}${mid}${bugs}
+          ${n === 0 ? `<text x="${W / 2}" y="${ground + (H - ground) / 2 + 3}" text-anchor="middle" font-size="8" fill="#2f6b34" font-family="ui-sans-serif" opacity=".8">finish a task to plant your first flower</text>` : ''}
+        </svg>`;
       }
 
       /* ---------------- widget */
@@ -300,11 +305,11 @@
             <div class="mo-txt"><b class="lv"></b><span class="xpt"></span></div>
             <span class="mo-streak"></span><span class="mo-chev">›</span>
           </div>
-          <div class="mo-body"><div><div class="mo-world"></div><div class="mo-sub"><span class="td"></span><a class="stats">Stats & achievements</a></div></div></div>
+          <div class="mo-body"><div><div class="mo-world"></div><div class="mo-sub"><span class="td"></span><span class="mo-statslink" role="button">Stats ›</span></div></div></div>
         </div>`;
         const strip = el.querySelector('.mo-strip');
         el.querySelector('.mo-head').addEventListener('click', () => { strip.classList.toggle('open'); try { localStorage.setItem('cadence.mo.open', strip.classList.contains('open') ? '1' : '0'); } catch (e) {} });
-        el.querySelector('.stats').addEventListener('click', e => { e.stopPropagation(); openStats(); });
+        el.querySelector('.mo-statslink').addEventListener('click', e => { e.stopPropagation(); openStats(); });
         refresh();
       }});
       function countUp(node, from, to, suffix) {
@@ -315,7 +320,7 @@
       function refresh(animate) {
         if (!widgetEl || !widgetEl.isConnected) return;
         const st = S(), lv = levelOf(st.xp), w = widgetEl, goal = st.goal || 5, done = todayCount(st);
-        w.querySelector('.mo-world').innerHTML = st.world === 'mountain' ? mountain(st, lv) : st.world === 'tower' ? tower(st, lv) : plant(st, lv);
+        w.querySelector('.mo-world').innerHTML = garden(st);
         w.querySelector('.lv').textContent = 'Level ' + lv.L;
         const xpt = w.querySelector('.xpt'), suffix = ` / ${lv.need.toLocaleString()} XP`;
         if (animate && shown && shown.L === lv.L) countUp(xpt, shown.into, lv.into, suffix); else xpt.textContent = lv.into.toLocaleString() + suffix;
@@ -323,15 +328,14 @@
         w.querySelector('.mo-rings .day').style.strokeDashoffset = (43.98 * (1 - Math.min(1, done / goal))).toFixed(2);
         const sk = w.querySelector('.mo-streak'); sk.textContent = '🔥 ' + st.streak; sk.classList.toggle('cold', st.lastDay !== today()); sk.title = `${st.streak}-day streak · best ${st.best}`;
         w.querySelector('.mo-head').title = `Level ${lv.L} · ${lv.into}/${lv.need} XP · today ${done}/${goal} tasks — click to ${w.querySelector('.mo-strip').classList.contains('open') ? 'collapse' : 'expand'}`;
-        w.querySelector('.td').textContent = `${done}/${goal} today · +${todayXp(st).toLocaleString()} XP`;
+        const plants = (st.garden || []).length, trees = (st.garden || []).filter(g => g.k === 'tree').length;
+        w.querySelector('.td').textContent = `${plants} plant${plants === 1 ? '' : 's'}${trees ? ` · ${trees} tree${trees === 1 ? '' : 's'}` : ''} · ${done}/${goal} today`;
         if (animate) {
           const h = w.querySelector('.mo-head'); h.classList.remove('bump'); void h.offsetWidth; h.classList.add('bump');
-          if (st.world === 'plant') { const d = w.querySelector('#mo-drops'); if (d) d.innerHTML = [0, 1, 2].map(i => `<circle class="mo-drop" style="animation-delay:${i * 0.12}s" cx="${112 + i * 8}" cy="50" r="2.6" fill="#5cc8ff"/>`).join(''); }
-          if (st.world === 'mountain') { const c = w.querySelector('#mo-climber circle'); if (c) c.classList.add('mo-hop'); }
         }
         shown = lv;
       }
-      api.on('client:update', () => { if (S().world === 'tower') refresh(); });
+      api.on('client:update', () => refresh());
 
       /* ---------------- stats modal */
       function openStats() {
@@ -351,16 +355,15 @@
           ${top.length ? `<div class="field"><label>Where your XP comes from</label>${top.map(t => `<div style="display:flex;align-items:center;gap:10px;padding:5px 0">${api.ui.avatar(t.c, 20)}<span style="flex:1">${E(t.c.name)}</span><b style="font-variant-numeric:tabular-nums">${t.xp.toLocaleString()} XP</b></div>`).join('')}</div>` : ''}
           <div class="field"><label>Achievements · ${Object.keys(st.ach).length}/${ACH.length}</label><div class="mo-achs">${ACH.map(([id, icon, name, desc]) => `<div class="mo-a ${st.ach[id] ? '' : 'locked'}"><span class="i">${icon}</span><div><b>${E(name)}</b><small>${E(desc)}</small></div></div>`).join('')}</div></div>
           <div class="row" style="gap:16px;align-items:flex-end;flex-wrap:wrap">
-            <div class="field"><label>Your world</label><div class="seg" id="mo-world">${[['plant', '🌱 Plant'], ['mountain', '⛰️ Mountain'], ['tower', '🏗️ Tower']].map(([k, l]) => `<button data-w="${k}" class="${st.world === k ? 'on' : ''}">${l}</button>`).join('')}</div></div>
+            <div class="field"><label>Your garden</label><div style="font-size:13px">${(() => { const g = seedGarden(st), c = k => g.filter(x => x.k === k).length; return `🌸 ${c('flower')} flowers · 🌻 ${c('sun')} sunflowers · 🫐 ${c('berry')} berry bushes · 🌳 ${c('tree')} trees`; })()}</div></div>
             <div class="field"><label>Daily goal</label><div class="seg" id="mo-goal">${[3, 5, 8, 12].map(n => `<button data-g="${n}" class="${(st.goal || 5) === n ? 'on' : ''}">${n}</button>`).join('')}</div></div>
             <div class="field"><label>Sound</label><div class="seg" id="mo-sound"><button data-s="1" class="${st.sound ? 'on' : ''}">On</button><button data-s="0" class="${st.sound ? '' : 'on'}">Off</button></div></div>
           </div>
-          <div class="muted" style="font-size:12px">Rings: outer = progress to the next level, inner = today’s tasks vs your daily goal. XP: 10 per task, +6 per priority level, +5 on time, ×2 <b>crit</b> for overdue tasks, +8 for closing a client item, combos up to ×3 when you finish tasks within 25 s of each other. Achievements give +50.</div>`,
+          <div class="muted" style="font-size:12px">Rings: outer = progress to the next level, inner = today’s tasks vs your daily goal. Garden: every task plants a flower in the client’s colour, overdue ones a sunflower, client items a berry bush, each level a tree; your streak brings butterflies, and a couple of idle days lets weeds in. XP: 10 per task, +6 per priority level, +5 on time, ×2 <b>crit</b> for overdue tasks, +8 for closing a client item, combos up to ×3 when you finish tasks within 25 s of each other. Achievements give +50.</div>`,
           `<button class="btn ghost danger" id="mo-reset" style="margin-right:auto">Reset progress</button><button class="btn primary" data-act="close-modal">Nice</button>`, 'wide');
-        document.querySelectorAll('#mo-world button').forEach(b => b.onclick = () => { const s = S(); s.world = b.dataset.w; put(s); refresh(); openStats(); });
         document.querySelectorAll('#mo-goal button').forEach(b => b.onclick = () => { const s = S(); s.goal = +b.dataset.g; put(s); refresh(); openStats(); });
         document.querySelectorAll('#mo-sound button').forEach(b => b.onclick = () => { const s = S(); s.sound = b.dataset.s === '1'; put(s); openStats(); });
-        document.querySelector('#mo-reset').onclick = () => { if (document.querySelector('#mo-reset').dataset.sure) { put({ world: S().world }); refresh(); api.ui.close(); api.ui.toast('Progress reset'); } else { document.querySelector('#mo-reset').dataset.sure = 1; document.querySelector('#mo-reset').textContent = 'Click again to reset'; } };
+        document.querySelector('#mo-reset').onclick = () => { if (document.querySelector('#mo-reset').dataset.sure) { put({}); refresh(); api.ui.close(); api.ui.toast('Progress reset'); } else { document.querySelector('#mo-reset').dataset.sure = 1; document.querySelector('#mo-reset').textContent = 'Click again to reset'; } };
       }
       api.commands.add({ title: 'Momentum stats', run: () => openStats() });
       // keep "watered today / streak" fresh across midnight

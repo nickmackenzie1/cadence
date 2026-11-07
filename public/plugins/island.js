@@ -10,12 +10,12 @@
       .isl{position:fixed;top:10px;left:calc(276px + (100vw - 276px) / 2);transform:translateX(-50%);z-index:80;pointer-events:none}
       @media (max-width:900px){.isl{left:50%}}
       .isl-pill{pointer-events:auto;position:relative;background:#0d0c10;color:#f2f0f7;border-radius:22px;box-shadow:0 10px 30px rgba(0,0,0,.22),0 0 0 1px rgba(255,255,255,.05) inset;overflow:hidden;
-        width:var(--w,120px);height:var(--h,30px);transition:width .5s cubic-bezier(.25,1.25,.35,1),height .5s cubic-bezier(.25,1.25,.35,1),border-radius .5s,box-shadow .3s;cursor:default;font:500 12.5px/1.25 Inter,ui-sans-serif,system-ui,sans-serif}
+        width:var(--w,120px);height:var(--h,30px);transition:width .75s cubic-bezier(.32,1.22,.42,1),height .75s cubic-bezier(.32,1.22,.42,1),border-radius .75s cubic-bezier(.32,1.22,.42,1),box-shadow .5s;cursor:default;font:500 12.5px/1.25 Inter,ui-sans-serif,system-ui,sans-serif}
       .isl-pill.big{border-radius:24px;box-shadow:0 18px 50px rgba(0,0,0,.32),0 0 0 1px rgba(255,255,255,.06) inset}
       .isl-pill.click{cursor:pointer}
-      .isl-c{position:absolute;inset:0;display:flex;align-items:center;gap:10px;padding:0 14px;white-space:nowrap;transition:opacity .22s, filter .3s, transform .4s cubic-bezier(.25,1.2,.35,1)}
-      .isl-c.leaving{opacity:0;filter:blur(4px);transform:scale(.92)}
-      .isl-c.entering{opacity:0;filter:blur(4px);transform:scale(1.06)}
+      .isl-c{position:absolute;inset:0;display:flex;align-items:center;gap:10px;padding:0 14px;white-space:nowrap;transition:opacity .38s ease, filter .45s ease, transform .6s cubic-bezier(.32,1.2,.42,1)}
+      .isl-c.leaving{opacity:0;filter:blur(6px);transform:scale(.94);transition-duration:.28s,.3s,.35s}
+      .isl-c.entering{opacity:0;filter:blur(6px);transform:scale(1.04) translateY(2px)}
       .isl-c.stack{flex-direction:column;align-items:stretch;justify-content:center;gap:8px;padding:12px 16px;white-space:normal}
       .isl-row{display:flex;align-items:center;gap:10px;min-width:0}
       .isl-ico{width:22px;height:22px;border-radius:50%;display:grid;place-items:center;flex:none;font-size:13px;background:var(--ic,#2a2833);color:#fff}
@@ -69,8 +69,8 @@
     p.onclick = view.onClick ? (e => { if (!e.target.closest('button')) view.onClick(); }) : null;
     const old = p.querySelector('.isl-c:not(.leaving)');
     const c = document.createElement('div'); c.className = 'isl-c entering' + (stack ? ' stack' : ''); c.innerHTML = view.html;
-    p.appendChild(c); requestAnimationFrame(() => c.classList.remove('entering'));
-    if (old) { old.classList.add('leaving'); setTimeout(() => old.remove(), 260); }
+    p.appendChild(c); setTimeout(() => c.classList.remove('entering'), old ? 140 : 40);
+    if (old) { old.classList.add('leaving'); setTimeout(() => old.remove(), 380); }
     (view.actions || []).forEach((a, i) => { const b = c.querySelector(`[data-ai="${i}"]`); if (b) b.onclick = e => { e.stopPropagation(); a.run(); dismiss(); }; });
     return c;
   }
@@ -91,7 +91,7 @@
     G.queue = G.queue.filter(q => q.sticky).concat(G.queue.filter(q => !q.sticky).slice(-1));
     G.queue.push(n);
     if (!G.cur) return next();
-    if (!G.cur.sticky) { clearTimeout(G.t); G.t = setTimeout(dismiss, 450); }
+    if (!G.cur.sticky) { clearTimeout(G.t); G.t = setTimeout(dismiss, 1200); }
   }
   function next() {
     const n = G.queue.shift(); if (!n) { G.cur = null; idle(); return; }
@@ -102,9 +102,9 @@
     const stack = !!acts || !!n.sub;
     morph({ html: body + acts, stack, actions: n.actions, onClick: n.onClick });
     clearTimeout(G.t);
-    if (!n.sticky) G.t = setTimeout(dismiss, n.ms || (acts ? 3600 : n.sub ? 2800 : 2000));
+    if (!n.sticky) G.t = setTimeout(dismiss, n.ms || (acts ? 6000 : n.sub ? 4600 : 3600));
   }
-  function dismiss() { clearTimeout(G.t); G.cur = null; setTimeout(next, 80); }
+  function dismiss() { clearTimeout(G.t); G.cur = null; setTimeout(next, 220); }
   function update(n) { if (G.cur === n) { G.queue.unshift(n); G.cur = null; next(); } }
 
   window.CadenceIsland = {

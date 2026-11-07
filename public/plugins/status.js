@@ -135,9 +135,9 @@
         const h = await new Promise(r => { G.onConnect = r; setTimeout(() => r(null), 1500); });
         const sys = api.system();
         n.title = sys.mode === 'nas' ? 'Loading workspace…' : 'Loading…'; n.sub = sys.mode === 'nas' ? `NAS · ${sys.latency ?? '—'} ms` : sys.mode === 'claude' ? 'Claude storage' : 'This browser'; I.update(n);
-        await new Promise(r => setTimeout(r, 650));
+        await new Promise(r => setTimeout(r, 1100));
         const s2 = api.system(); I.dismiss();
-        I.show({ check: true, title: 'Ready', sub: `${s2.counts.open} open · ${s2.counts.clients} clients${s2.ai ? ' · AI on' : ''}${h ? ` · ${h.logos} logos` : ''}`, ms: 1800, onClick: () => openPanel() });
+        I.show({ check: true, ms: 3200, title: 'Ready', sub: `${s2.counts.open} open · ${s2.counts.clients} clients${s2.ai ? ' · AI on' : ''}${h ? ` · ${h.logos} logos` : ''}`, onClick: () => openPanel() });
         paint(true);
       }
       function boot() {
