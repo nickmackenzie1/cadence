@@ -148,7 +148,8 @@ const INDUSTRIES = {
   automotive:    ['automotive','dealership','auto ','car ','vehicle','motors'],
 };
 const meta = (html, name) => { const re = new RegExp(`<meta[^>]+(?:property|name)=["']${name}["'][^>]*>`, 'i'); const tag = (html.match(re) || [])[0]; if (!tag) return ''; return ((tag.match(/content=["']([^"']*)["']/i) || [])[1] || '').trim(); };
-const decode = s => String(s || '').replace(/&amp;/g, '&').replace(/&quot;/g, '"').replace(/&#39;|&apos;/g, "'").replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&#(\d+);/g, (m, n) => String.fromCharCode(+n)).replace(/\s+/g, ' ').trim();
+const ENT = { amp: '&', quot: '"', apos: "'", lt: '<', gt: '>', nbsp: ' ', ndash: '–', mdash: '—', rsquo: '’', lsquo: '‘', rdquo: '”', ldquo: '“', hellip: '…', copy: '©', reg: '®', trade: '™', bull: '•', middot: '·', laquo: '«', raquo: '»', eacute: 'é', egrave: 'è', agrave: 'à', ccedil: 'ç' };
+const decode = s => String(s || '').replace(/&#x([0-9a-f]+);/gi, (m, h) => String.fromCodePoint(parseInt(h, 16))).replace(/&#(\d+);/g, (m, n) => String.fromCodePoint(+n)).replace(/&([a-z]+);/gi, (m, n) => ENT[n.toLowerCase()] ?? m).replace(/\s+/g, ' ').trim();
 function guessIndustry(text) {
   const t = ' ' + text.toLowerCase() + ' '; let best = null, score = 0;
   for (const [k, words] of Object.entries(INDUSTRIES)) { const sc = words.reduce((n, w) => n + (t.split(w).length - 1), 0); if (sc > score) { score = sc; best = k; } }

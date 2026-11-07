@@ -52,16 +52,18 @@
         const q = document.getElementById('qa'); if (q && G.inp) q.removeEventListener('input', G.inp);
         if (fast) { el.remove(); return; } el.classList.add('out'); setTimeout(() => el.remove(), 170);
       }
-      function open(task) {
+      function open(task, opts = {}) {
         close(true);
-        const row = document.querySelector(`.task[data-id="${task.id}"]`); if (!row) return;
+        const row = opts.anchor || document.querySelector(`.task[data-id="${task.id}"]`); if (!row) return;
         const t0 = todayKey(), now = new Date();
         const dueCounts = {}; api.tasks.list(x => !x.done && x.dueDate && x.owner === 'me').forEach(x => dueCounts[x.dueDate] = (dueCounts[x.dueDate] || 0) + 1);
-        let view = new Date(now.getFullYear(), now.getMonth(), 1), sel = t0;
+        const start0 = opts.value ? fromKey(opts.value) : now;
+        let view = new Date(start0.getFullYear(), start0.getMonth(), 1), sel = opts.value || t0;
         const sat = (6 - now.getDay() + 7) % 7 || 7, mon = ((8 - now.getDay()) % 7) || 7;
         const quick = [['Today', t0], ['Tomorrow', ymd(addDays(now, 1))], ['Weekend', ymd(addDays(now, now.getDay() === 6 ? 0 : sat))], ['Next week', ymd(addDays(now, mon))]];
         const el = document.createElement('div'); el.className = 'dp'; G.el = el;
         const pick = key => {
+          if (opts.onPick) { close(); opts.onPick(key); return; }
           api.tasks.update(task.id, { dueDate: key });
           close();
           const r2 = document.querySelector(`.task[data-id="${task.id}"]`);
@@ -83,17 +85,17 @@
             <div class="dp-quick">${quick.map(([l, k]) => `<button data-k="${k}">${l}<small>${fromKey(k).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric' })}</small></button>`).join('')}</div>
             <div class="dp-month"><b>${view.toLocaleDateString(undefined, { month: 'long', year: view.getFullYear() !== now.getFullYear() ? 'numeric' : undefined })}</b><button data-m="-1">‹</button><button data-m="1">›</button></div>
             <div class="dp-grid">${['M', 'T', 'W', 'T', 'F', 'S', 'S'].map(w => `<span class="w">${w}</span>`).join('')}${cells}</div>
-            <div class="dp-ft"><span>←→↑↓ move · ↵ pick · esc skip</span><button data-x>No date</button></div>`;
+            <div class="dp-ft"><span>←→↑↓ move · ↵ pick · esc ${opts.anchor ? 'close' : 'skip'}</span><button data-x>${opts.value ? 'Clear date' : 'No date'}</button></div>`;
         };
         draw(); document.body.appendChild(el);
         // place right under the new task (or above if there's no room)
         const r = row.getBoundingClientRect(), w = el.offsetWidth, h = el.offsetHeight;
-        const x = Math.max(10, Math.min(innerWidth - w - 10, r.left + 18)), below = r.bottom + 10 + h < innerHeight;
+        const x = Math.max(10, Math.min(innerWidth - w - 10, r.left + (opts.anchor ? 0 : 18))), below = r.bottom + 10 + h < innerHeight;
         el.style.left = x + 'px'; el.style.top = (below ? r.bottom + 8 : r.top - h - 8) + 'px';
-        el.classList.toggle('up', !below); el.style.setProperty('--ox', Math.max(16, Math.min(w - 16, r.left + 30 - x)) + 'px');
+        el.classList.toggle('up', !below); el.style.setProperty('--ox', Math.max(16, Math.min(w - 16, r.left + (opts.anchor ? 16 : 30) - x)) + 'px');
         el.addEventListener('click', e => {
           const b = e.target.closest('button'); if (!b) return; e.stopPropagation();
-          if (b.dataset.x !== undefined) return close();
+          if (b.dataset.x !== undefined) { close(); if (opts.onClear) opts.onClear(); return; }
           if (b.dataset.m) { view = new Date(view.getFullYear(), view.getMonth() + +b.dataset.m, 1); draw(); return; }
           if (b.dataset.k) pick(b.dataset.k);
         });
@@ -112,6 +114,8 @@
         const q = document.getElementById('qa'); G.inp = () => close(); q && q.addEventListener('input', G.inp, { once: true });
       }
       api.on('task:quickadd', task => { if (!task.dueDate) setTimeout(() => open(task), 60); });
+      // other parts of Cadence (the inline task editor) can borrow the calendar
+      window.CadenceDatePick = { openAt: (anchor, o) => open({ id: '_', title: o.title || 'this' }, { anchor, value: o.value, onPick: o.onPick, onClear: o.onClear }) };
       api.on('render', () => { if (G.el && !document.body.contains(G.el)) G.el = null; });
     }
   });

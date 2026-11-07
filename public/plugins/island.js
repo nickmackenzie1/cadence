@@ -16,15 +16,15 @@
       .isl-c{position:absolute;inset:0;display:flex;align-items:center;gap:10px;padding:0 14px;white-space:nowrap;transition:opacity .38s ease, filter .45s ease, transform .6s cubic-bezier(.32,1.2,.42,1)}
       .isl-c.leaving{opacity:0;filter:blur(6px);transform:scale(.94);transition-duration:.28s,.3s,.35s}
       .isl-c.entering{opacity:0;filter:blur(6px);transform:scale(1.04) translateY(2px)}
-      .isl-c.stack{flex-direction:column;align-items:stretch;justify-content:center;gap:8px;padding:12px 16px;white-space:normal}
+      .isl-c.stack{flex-direction:column;align-items:stretch;justify-content:center;gap:7px;padding:9px 14px 10px;white-space:nowrap}
       .isl-row{display:flex;align-items:center;gap:10px;min-width:0}
-      .isl-ico{width:22px;height:22px;border-radius:50%;display:grid;place-items:center;flex:none;font-size:13px;background:var(--ic,#2a2833);color:#fff}
-      .isl-t{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis}
+      .isl-ico{width:20px;height:20px;border-radius:50%;display:grid;place-items:center;flex:none;font-size:13px;background:var(--ic,#2a2833);color:#fff}
+      .isl-t{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;max-width:300px}
       .isl-t b{font-weight:650;color:#fff}
-      .isl-t small{display:block;color:#9d99ad;font-size:11.5px;margin-top:1px;overflow:hidden;text-overflow:ellipsis}
+      .isl-t small{display:block;color:#9d99ad;font-size:11px;margin-top:1px;overflow:hidden;text-overflow:ellipsis}
       .isl-right{color:#9d99ad;font-variant-numeric:tabular-nums;font-size:12px;flex:none}
       .isl-acts{display:flex;gap:6px;justify-content:flex-end}
-      .isl-acts button{background:#24222c;color:#fff;border-radius:999px;padding:6px 12px;font:600 12px/1 Inter,ui-sans-serif,system-ui;border:0;cursor:pointer}
+      .isl-acts button{background:#24222c;color:#fff;border-radius:999px;padding:5px 11px;font:600 11.5px/1 Inter,ui-sans-serif,system-ui;border:0;cursor:pointer}
       .isl-acts button:hover{background:#34313f}
       .isl-acts button.pri{background:var(--accent,#5b5bd6)}
       .isl-dot{width:7px;height:7px;border-radius:50%;background:#3fc37a;flex:none;box-shadow:0 0 0 3px rgba(63,195,122,.18);transition:background .3s, box-shadow .3s}
@@ -34,7 +34,7 @@
       .isl-dot.rec{background:#ff3b3b;box-shadow:0 0 0 3px rgba(255,59,59,.25);animation:islp 1.4s infinite}
       @keyframes islp{50%{opacity:.45}}
       .isl-time{font-variant-numeric:tabular-nums;color:#d8d5e2;font-weight:600;letter-spacing:.01em}
-      .isl-check{width:22px;height:22px;border-radius:50%;background:#3fc37a;display:grid;place-items:center;flex:none}
+      .isl-check{width:20px;height:20px;border-radius:50%;background:#3fc37a;display:grid;place-items:center;flex:none}
       .isl-check svg{width:13px;height:13px;stroke:#fff;stroke-width:3;fill:none;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:20;stroke-dashoffset:20;animation:islck .45s .12s forwards}
       @keyframes islck{to{stroke-dashoffset:0}}
       .isl-spin{width:14px;height:14px;border:2px solid #4a4757;border-top-color:#b28cff;border-radius:50%;animation:islsp .7s linear infinite;flex:none}
@@ -56,14 +56,14 @@
   /* ---- morph engine ---- */
   function measure(html, stack) {
     const m = document.createElement('div'); m.className = 'isl-measure';
-    m.innerHTML = `<div class="isl-c ${stack ? 'stack' : ''}" style="position:static;display:inline-flex;${stack ? 'width:340px;' : ''}">${html}</div>`;
+    m.innerHTML = `<div class="isl-c ${stack ? 'stack' : ''}" style="position:static;display:inline-flex;max-width:${Math.min(360, innerWidth - 60)}px">${html}</div>`;
     document.body.appendChild(m); const r = m.firstChild.getBoundingClientRect(); m.remove();
     return { w: Math.ceil(r.width), h: Math.ceil(r.height) };
   }
   function morph(view) {
     const p = G.pill, stack = !!view.stack;
     const size = view.size || measure(view.html, stack);
-    const w = Math.min(innerWidth - 40, Math.max(view.minW || 0, stack ? 340 : size.w)), h = Math.max(30, stack ? size.h : (view.h || 30));
+    const w = Math.min(innerWidth - 40, Math.max(view.minW || 0, size.w)), h = Math.max(30, stack ? size.h : (view.h || 30));
     p.style.setProperty('--w', w + 'px'); p.style.setProperty('--h', h + 'px');
     p.classList.toggle('big', h > 34 || stack); p.classList.toggle('click', !!view.onClick);
     p.onclick = view.onClick ? (e => { if (!e.target.closest('button')) view.onClick(); }) : null;

@@ -130,14 +130,20 @@
       }
       // startup inside the Island: connecting… → result → ready
       async function islandBoot() {
-        const I = window.CadenceIsland, n = { spin: true, title: 'Connecting…', sticky: true };
-        I.show(n);
-        const h = await new Promise(r => { G.onConnect = r; setTimeout(() => r(null), 1500); });
+        const I = window.CadenceIsland, sleep = ms => new Promise(r => setTimeout(r, ms));
+        const n = { spin: true, title: 'Connecting…', sub: 'Cadence v' + api.system().version, sticky: true };
+        const t0 = Date.now(); I.show(n);
+        const h = await new Promise(r => { G.onConnect = r; setTimeout(() => r(null), 2500); });
+        await sleep(Math.max(0, 1500 - (Date.now() - t0)));           // every step stays readable
         const sys = api.system();
-        n.title = sys.mode === 'nas' ? 'Loading workspace…' : 'Loading…'; n.sub = sys.mode === 'nas' ? `NAS · ${sys.latency ?? '—'} ms` : sys.mode === 'claude' ? 'Claude storage' : 'This browser'; I.update(n);
-        await new Promise(r => setTimeout(r, 1100));
-        const s2 = api.system(); I.dismiss();
-        I.show({ check: true, ms: 3200, title: 'Ready', sub: `${s2.counts.open} open · ${s2.counts.clients} clients${s2.ai ? ' · AI on' : ''}${h ? ` · ${h.logos} logos` : ''}`, onClick: () => openPanel() });
+        n.title = sys.mode === 'nas' ? 'Connected to NAS' : sys.mode === 'claude' ? 'Claude storage' : 'Local mode';
+        n.sub = sys.mode === 'nas' ? `${sys.latency ?? '—'} ms · loading workspace…` : 'loading workspace…'; I.update(n);
+        await sleep(1600);
+        const s2 = api.system();
+        n.title = 'Workspace loaded'; n.sub = `${s2.counts.open} open tasks · ${s2.counts.clients} clients`; I.update(n);
+        await sleep(1500);
+        I.dismiss();
+        I.show({ check: true, ms: 4200, title: 'Ready', sub: [s2.ai ? 'AI on' : 'AI off', `${s2.plugins} plugins`, h ? `${h.logos} logos cached` : ''].filter(Boolean).join(' · '), onClick: () => openPanel() });
         paint(true);
       }
       function boot() {
