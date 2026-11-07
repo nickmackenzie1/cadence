@@ -59,7 +59,7 @@ Everything returned is a copy. Change data through the API so events fire and th
 
 Bigger plugins live in their own file in `public/plugins/` and are loaded by a `<script>` tag at the bottom
 of `index.html`: `status.js` (boot sequence + system panel), `momentum.js` (gamification), `brand.js`
-(client brand colours), `havoc.js` (page destroyer, engine in `public/vendor/`). Copy one as a starting point.
+(client brand colours), `havoc.js` (page destroyer, engine in `public/vendor/`), `links.js` (client quick links with Zoho detection). Copy one as a starting point.
 
 ## Shipping a plugin
 
