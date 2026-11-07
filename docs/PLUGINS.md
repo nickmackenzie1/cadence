@@ -28,8 +28,8 @@ Use `api.storage` for anything that should persist.
 | `api.taskActions.add({ label, run(task, api) })` | Button in the task drawer |
 | `api.meetingActions.add({ label, run(meeting, items, api) })` | Button on the meeting review screen and in the meeting log |
 | `api.clientActions.add({ id, label, run(client, api), primary?, where?: ['waiting'], short? })` | Client page: `primary` shows a button in the header, otherwise it goes in the ••• menu. `where: ['waiting']` also adds a small `short` button to that client's group on Waiting on clients |
-| `api.sidebar.add({ id, order, render(el, api) })` | A widget card at the bottom of the sidebar. Rendered once; update it yourself from events |
-| `api.on(event, fn)` | `task:add` `task:update` `task:complete` `task:reopen` `task:remove` `client:add` `client:update` `meeting:start` `meeting:end` `reminder` `render` ({route}) `sync` ({phase: push/saved/pull/pulled/connected/error, ms}) `*` |
+| `api.sidebar.add({ id, order, slot: 'top'|'bottom', render(el, api) })` | A widget in the sidebar (keep it small: the sidebar is for navigation). Rendered once; update it yourself from events |
+| `api.on(event, fn)` | `task:add` `task:update` `task:complete` `task:reopen` `task:remove` `client:add` `client:update` `meeting:start` `meeting:end` `reminder` `render` ({route}) `sync` ({phase: push/saved/pull/pulled/connected/error, ms}) `task:quickadd` `render:side` `*` |
 
 ## Data and helpers
 
@@ -59,7 +59,7 @@ Everything returned is a copy. Change data through the API so events fire and th
 
 Bigger plugins live in their own file in `public/plugins/` and are loaded by a `<script>` tag at the bottom
 of `index.html`: `status.js` (boot sequence + system panel), `momentum.js` (gamification), `brand.js`
-(client brand colours), `havoc.js` (page destroyer, engine in `public/vendor/`), `links.js` (client quick links with Zoho detection). Copy one as a starting point.
+(client brand colours), `havoc.js` (page destroyer, engine in `public/vendor/`), `links.js` (client quick links with Zoho detection), `island.js` (Dynamic-Island pill: `window.CadenceIsland.show({title, sub, icon, check, actions, sticky})`, `.live(key, {view})`, `.clear(key)`), `datepick.js` (calendar under newly added undated tasks). Copy one as a starting point.
 
 ## Shipping a plugin
 

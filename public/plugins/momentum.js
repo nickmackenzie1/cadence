@@ -22,25 +22,29 @@
       .mo-num .lbw .f{background:linear-gradient(180deg,#fff 5%,var(--g) 85%);-webkit-background-clip:text;background-clip:text}
       .mo-spark{position:absolute;left:0;top:0;width:8px;height:8px;background:var(--g);clip-path:polygon(50% 0,61% 39%,100% 50%,61% 61%,50% 100%,39% 61%,0 50%,39% 39%);will-change:transform,opacity}
       .mo-orb{position:absolute;left:0;top:0;width:10px;height:10px;margin:-5px 0 0 -5px;border-radius:50%;background:radial-gradient(circle,#fff,var(--g) 60%,transparent 70%);box-shadow:0 0 14px var(--g),0 0 4px #fff;will-change:transform}
-      .mo-card{padding:12px 12px 11px;border-radius:14px;background:var(--panel);border:1px solid var(--line);cursor:pointer;position:relative;overflow:hidden;transition:transform .15s, box-shadow .2s}
-      .mo-card:hover{box-shadow:0 6px 20px rgba(0,0,0,.08);transform:translateY(-1px)}
-      .mo-card.bump{animation:mobump .5s cubic-bezier(.2,1.6,.4,1)}
-      @keyframes mobump{30%{transform:scale(1.035)}}
-      .mo-world{height:92px;margin:-4px -4px 8px;border-radius:10px;overflow:hidden;position:relative;background:linear-gradient(180deg,color-mix(in srgb,var(--accent) 10%,transparent),transparent)}
+      .mo-strip{border-radius:10px;transition:background .15s}
+      .mo-strip:hover,.mo-strip.open{background:var(--hover)}
+      .mo-head{display:flex;align-items:center;gap:10px;padding:6px 8px;cursor:pointer;user-select:none}
+      .mo-rings{width:30px;height:30px;flex:none;transform:rotate(-90deg)}
+      .mo-rings circle{fill:none;stroke-linecap:round;transition:stroke-dashoffset .9s cubic-bezier(.2,.9,.2,1)}
+      .mo-rings .bg{stroke:color-mix(in srgb,var(--text) 9%,transparent)}
+      .mo-head.bump .mo-rings{animation:mobump .55s cubic-bezier(.2,1.6,.4,1)}
+      @keyframes mobump{35%{transform:rotate(-90deg) scale(1.18)}}
+      .mo-txt{flex:1;min-width:0;line-height:1.2}
+      .mo-txt b{font-size:13px;font-weight:650;display:block}
+      .mo-txt span{font-size:11.5px;color:var(--muted);font-variant-numeric:tabular-nums}
+      .mo-streak{font-weight:650;font-size:12px;display:flex;align-items:center;gap:2px;font-variant-numeric:tabular-nums}
+      .mo-streak.cold{opacity:.35;filter:grayscale(1)}
+      .mo-chev{color:var(--faint);font-size:11px;transition:transform .2s;margin-left:2px}
+      .mo-strip.open .mo-chev{transform:rotate(90deg)}
+      .mo-body{display:grid;grid-template-rows:0fr;transition:grid-template-rows .3s cubic-bezier(.2,.9,.2,1)}
+      .mo-strip.open .mo-body{grid-template-rows:1fr}
+      .mo-body>div{overflow:hidden;min-height:0}
+      .mo-world{height:86px;margin:2px 8px 6px;border-radius:9px;overflow:hidden;position:relative;background:linear-gradient(180deg,color-mix(in srgb,var(--accent) 10%,transparent),transparent)}
       .mo-world svg{width:100%;height:100%;display:block}
-      .mo-card{padding:10px 11px 9px}
-      .mo-top{display:flex;align-items:center;gap:8px}
-      .mo-lvl{font:800 11px/1 ui-sans-serif,system-ui;letter-spacing:.06em;padding:4px 7px;border-radius:7px;background:var(--text);color:var(--bg)}
-      .mo-xp{font-weight:700;font-variant-numeric:tabular-nums;font-size:13px}
-      .mo-xp span{color:var(--muted);font-weight:500}
-      .mo-streak{margin-left:auto;font-weight:700;font-size:12.5px;display:flex;align-items:center;gap:3px}
-      .mo-streak.cold{opacity:.4;filter:grayscale(1)}
-      .mo-bar{height:7px;border-radius:99px;background:var(--hover);margin-top:9px;overflow:hidden;position:relative}
-      .mo-bar i{position:absolute;inset:0 auto 0 0;border-radius:99px;background:linear-gradient(90deg,#5b5bd6,#b06bd6,#ff7a8a);transition:width .8s cubic-bezier(.2,.9,.2,1)}
-      .mo-bar i:after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,transparent,rgba(255,255,255,.6),transparent);transform:translateX(-100%);animation:moshine 2.8s infinite}
-      @keyframes moshine{60%,100%{transform:translateX(100%)}}
-      .mo-bar.flash i{filter:brightness(1.5) saturate(1.3)}
-      .mo-sub{display:flex;justify-content:space-between;margin-top:6px;font-size:11.5px;color:var(--muted);font-variant-numeric:tabular-nums}
+      .mo-sub{display:flex;justify-content:space-between;align-items:center;padding:0 9px 8px;font-size:11.5px;color:var(--muted);font-variant-numeric:tabular-nums}
+      .mo-sub a{color:var(--text);font-weight:600;cursor:pointer;text-decoration:none}
+      .mo-sub a:hover{color:var(--accent)}
       .mo-sway{transform-origin:50% 100%;animation:mosway 5s ease-in-out infinite}
       @keyframes mosway{50%{transform:rotate(1.6deg)}}
       .mo-cloud{animation:mocloud 40s linear infinite}
@@ -135,9 +139,9 @@
         }
       }
       function orb(x, y, color, done) {
-        const card = document.querySelector('[data-sw="momentum"] .mo-bar');
+        const card = document.querySelector('[data-sw="momentum"] .mo-rings');
         if (!card) { done && done(); return; }
-        const r = card.getBoundingClientRect(), tx = r.left + r.width * 0.5, ty = r.top + 3;
+        const r = card.getBoundingClientRect(), tx = r.left + r.width * 0.5, ty = r.top + r.height * 0.5;
         const el = document.createElement('div'); el.className = 'mo-orb'; el.style.setProperty('--g', color); G.layer.appendChild(el);
         const cx = (x + tx) / 2 + (Math.random() * 160 - 80), cy = Math.min(y, ty) - 120 - Math.random() * 80; let t = 0;
         const tick = () => { t += 1 / 38; const k = t * t * (3 - 2 * t), u = 1 - k; const px = u * u * x + 2 * u * k * cx + k * k * tx, py = u * u * y + 2 * u * k * cy + k * k * ty; el.style.transform = `translate(${px}px,${py}px) scale(${1 + Math.sin(t * Math.PI) * 0.8})`; if (t < 1) requestAnimationFrame(tick); else { el.remove(); done && done(); } };
@@ -214,7 +218,7 @@
         return got;
       }
       function achievement(a) {
-        const w = document.querySelector('[data-sw="momentum"]'); const r = w ? w.getBoundingClientRect() : { right: 300, top: innerHeight - 200 };
+        const w = document.querySelector('[data-sw="momentum"]'); const r = w ? w.getBoundingClientRect() : { right: 300, top: 80 };
         const el = document.createElement('div'); el.className = 'mo-ach';
         el.innerHTML = `<span class="ico">${a.icon}</span><div><small>ACHIEVEMENT · +50 XP</small><b>${api.ui.esc(a.name)}</b>${api.ui.esc(a.desc)}</div>`;
         document.body.appendChild(el);
@@ -285,34 +289,43 @@
 
       /* ---------------- widget */
       let widgetEl = null, shown = null;
-      api.sidebar.add({ id: 'momentum', order: 10, render: (el) => {
+      const isOpen = () => { try { return localStorage.getItem('cadence.mo.open') === '1'; } catch (e) { return false; } };
+      api.sidebar.add({ id: 'momentum', slot: 'top', order: 10, render: (el) => {
         widgetEl = el; shown = null;
-        el.innerHTML = `<div class="mo-card" title="Momentum — click for stats"><div class="mo-world"></div><div class="mo-top"><span class="mo-lvl"></span><span class="mo-xp"></span><span class="mo-streak"></span></div><div class="mo-bar"><i></i></div><div class="mo-sub"><span class="a"></span><span class="b"></span></div></div>`;
-        el.querySelector('.mo-card').addEventListener('click', openStats);
+        el.innerHTML = `<div class="mo-strip ${isOpen() ? 'open' : ''}">
+          <div class="mo-head" title="Momentum — click to expand">
+            <svg class="mo-rings" viewBox="0 0 30 30"><defs><linearGradient id="mo-g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ff7a8a"/><stop offset="1" stop-color="#b06bd6"/></linearGradient></defs>
+              <circle class="bg" cx="15" cy="15" r="12.5" stroke-width="4"/><circle class="xp" cx="15" cy="15" r="12.5" stroke-width="4" stroke="url(#mo-g)" stroke-dasharray="78.54" stroke-dashoffset="78.54"/>
+              <circle class="bg" cx="15" cy="15" r="7" stroke-width="3.6"/><circle class="day" cx="15" cy="15" r="7" stroke-width="3.6" stroke="#3fc37a" stroke-dasharray="43.98" stroke-dashoffset="43.98"/></svg>
+            <div class="mo-txt"><b class="lv"></b><span class="xpt"></span></div>
+            <span class="mo-streak"></span><span class="mo-chev">›</span>
+          </div>
+          <div class="mo-body"><div><div class="mo-world"></div><div class="mo-sub"><span class="td"></span><a class="stats">Stats & achievements</a></div></div></div>
+        </div>`;
+        const strip = el.querySelector('.mo-strip');
+        el.querySelector('.mo-head').addEventListener('click', () => { strip.classList.toggle('open'); try { localStorage.setItem('cadence.mo.open', strip.classList.contains('open') ? '1' : '0'); } catch (e) {} });
+        el.querySelector('.stats').addEventListener('click', e => { e.stopPropagation(); openStats(); });
         refresh();
       }});
-      function countUp(node, from, to) {
+      function countUp(node, from, to, suffix) {
         const t0 = performance.now(), dur = 700;
-        const tick = now => { const k = Math.min(1, (now - t0) / dur), e = 1 - Math.pow(1 - k, 3); node.textContent = Math.round(from + (to - from) * e).toLocaleString(); if (k < 1) requestAnimationFrame(tick); };
+        const tick = now => { const k = Math.min(1, (now - t0) / dur), e = 1 - Math.pow(1 - k, 3); node.textContent = Math.round(from + (to - from) * e).toLocaleString() + suffix; if (k < 1) requestAnimationFrame(tick); };
         requestAnimationFrame(tick);
       }
-      function refresh(animate, ev) {
+      function refresh(animate) {
         if (!widgetEl || !widgetEl.isConnected) return;
-        const st = S(), lv = levelOf(st.xp), w = widgetEl;
-        const world = st.world === 'mountain' ? mountain(st, lv) : st.world === 'tower' ? tower(st, lv) : plant(st, lv);
-        w.querySelector('.mo-world').innerHTML = world;
-        w.querySelector('.mo-lvl').textContent = 'LVL ' + lv.L;
-        const xpNode = w.querySelector('.mo-xp');
-        const prev = shown ? shown.into : lv.into;
-        xpNode.innerHTML = `<b>${lv.into.toLocaleString()}</b> <span>/ ${lv.need.toLocaleString()} XP</span>`;
-        if (animate && shown && shown.L === lv.L) countUp(xpNode.querySelector('b'), prev, lv.into);
-        const sk = w.querySelector('.mo-streak'); sk.innerHTML = `🔥 ${st.streak}`; sk.classList.toggle('cold', st.lastDay !== today()); sk.title = `${st.streak}-day streak · best ${st.best}`;
-        const bar = w.querySelector('.mo-bar'); bar.querySelector('i').style.width = (lv.pct * 100).toFixed(1) + '%';
-        w.querySelector('.mo-sub .a').textContent = `+${todayXp(st).toLocaleString()} today`;
-        w.querySelector('.mo-sub .b').textContent = `${todayCount(st)} done`;
+        const st = S(), lv = levelOf(st.xp), w = widgetEl, goal = st.goal || 5, done = todayCount(st);
+        w.querySelector('.mo-world').innerHTML = st.world === 'mountain' ? mountain(st, lv) : st.world === 'tower' ? tower(st, lv) : plant(st, lv);
+        w.querySelector('.lv').textContent = 'Level ' + lv.L;
+        const xpt = w.querySelector('.xpt'), suffix = ` / ${lv.need.toLocaleString()} XP`;
+        if (animate && shown && shown.L === lv.L) countUp(xpt, shown.into, lv.into, suffix); else xpt.textContent = lv.into.toLocaleString() + suffix;
+        w.querySelector('.mo-rings .xp').style.strokeDashoffset = (78.54 * (1 - lv.pct)).toFixed(2);
+        w.querySelector('.mo-rings .day').style.strokeDashoffset = (43.98 * (1 - Math.min(1, done / goal))).toFixed(2);
+        const sk = w.querySelector('.mo-streak'); sk.textContent = '🔥 ' + st.streak; sk.classList.toggle('cold', st.lastDay !== today()); sk.title = `${st.streak}-day streak · best ${st.best}`;
+        w.querySelector('.mo-head').title = `Level ${lv.L} · ${lv.into}/${lv.need} XP · today ${done}/${goal} tasks — click to ${w.querySelector('.mo-strip').classList.contains('open') ? 'collapse' : 'expand'}`;
+        w.querySelector('.td').textContent = `${done}/${goal} today · +${todayXp(st).toLocaleString()} XP`;
         if (animate) {
-          const card = w.querySelector('.mo-card'); card.classList.remove('bump'); void card.offsetWidth; card.classList.add('bump');
-          bar.classList.add('flash'); setTimeout(() => bar.classList.remove('flash'), 400);
+          const h = w.querySelector('.mo-head'); h.classList.remove('bump'); void h.offsetWidth; h.classList.add('bump');
           if (st.world === 'plant') { const d = w.querySelector('#mo-drops'); if (d) d.innerHTML = [0, 1, 2].map(i => `<circle class="mo-drop" style="animation-delay:${i * 0.12}s" cx="${112 + i * 8}" cy="50" r="2.6" fill="#5cc8ff"/>`).join(''); }
           if (st.world === 'mountain') { const c = w.querySelector('#mo-climber circle'); if (c) c.classList.add('mo-hop'); }
         }
@@ -339,11 +352,13 @@
           <div class="field"><label>Achievements · ${Object.keys(st.ach).length}/${ACH.length}</label><div class="mo-achs">${ACH.map(([id, icon, name, desc]) => `<div class="mo-a ${st.ach[id] ? '' : 'locked'}"><span class="i">${icon}</span><div><b>${E(name)}</b><small>${E(desc)}</small></div></div>`).join('')}</div></div>
           <div class="row" style="gap:16px;align-items:flex-end;flex-wrap:wrap">
             <div class="field"><label>Your world</label><div class="seg" id="mo-world">${[['plant', '🌱 Plant'], ['mountain', '⛰️ Mountain'], ['tower', '🏗️ Tower']].map(([k, l]) => `<button data-w="${k}" class="${st.world === k ? 'on' : ''}">${l}</button>`).join('')}</div></div>
+            <div class="field"><label>Daily goal</label><div class="seg" id="mo-goal">${[3, 5, 8, 12].map(n => `<button data-g="${n}" class="${(st.goal || 5) === n ? 'on' : ''}">${n}</button>`).join('')}</div></div>
             <div class="field"><label>Sound</label><div class="seg" id="mo-sound"><button data-s="1" class="${st.sound ? 'on' : ''}">On</button><button data-s="0" class="${st.sound ? '' : 'on'}">Off</button></div></div>
           </div>
-          <div class="muted" style="font-size:12px">XP: 10 per task, +6 per priority level, +5 on time, ×2 <b>crit</b> for overdue tasks, +8 for closing a client item, combos up to ×3 when you finish tasks within 25 s of each other. Achievements give +50.</div>`,
+          <div class="muted" style="font-size:12px">Rings: outer = progress to the next level, inner = today’s tasks vs your daily goal. XP: 10 per task, +6 per priority level, +5 on time, ×2 <b>crit</b> for overdue tasks, +8 for closing a client item, combos up to ×3 when you finish tasks within 25 s of each other. Achievements give +50.</div>`,
           `<button class="btn ghost danger" id="mo-reset" style="margin-right:auto">Reset progress</button><button class="btn primary" data-act="close-modal">Nice</button>`, 'wide');
         document.querySelectorAll('#mo-world button').forEach(b => b.onclick = () => { const s = S(); s.world = b.dataset.w; put(s); refresh(); openStats(); });
+        document.querySelectorAll('#mo-goal button').forEach(b => b.onclick = () => { const s = S(); s.goal = +b.dataset.g; put(s); refresh(); openStats(); });
         document.querySelectorAll('#mo-sound button').forEach(b => b.onclick = () => { const s = S(); s.sound = b.dataset.s === '1'; put(s); openStats(); });
         document.querySelector('#mo-reset').onclick = () => { if (document.querySelector('#mo-reset').dataset.sure) { put({ world: S().world }); refresh(); api.ui.close(); api.ui.toast('Progress reset'); } else { document.querySelector('#mo-reset').dataset.sure = 1; document.querySelector('#mo-reset').textContent = 'Click again to reset'; } };
       }

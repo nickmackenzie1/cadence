@@ -81,23 +81,17 @@
       }
       clearInterval(G.pingT); G.pingT = setInterval(ping, 20000);
 
-      /* ------------ sidebar widget */
-      api.sidebar.add({ id: 'status', order: 20, render: el => { widget = el; el.innerHTML = `<div class="st-card" title="System status — click for details"></div>`; el.firstChild.addEventListener('click', openPanel); paint(); } });
-      function spark() {
-        const v = G.lat.slice(-16); if (v.length < 2) return '';
-        const mx = Math.max(...v, 40), pts = v.map((x, i) => `${(i / (v.length - 1) * 56).toFixed(1)},${(15 - x / mx * 13).toFixed(1)}`).join(' ');
-        return `<svg class="st-spark" viewBox="0 0 56 16"><polyline points="${pts}" fill="none" stroke="var(--ok)" stroke-width="1.4" stroke-linejoin="round"/></svg>`;
-      }
+      /* ------------ status lives in the footer's sync line: hover for details, click for the panel */
+      if (!G.clickBound) { G.clickBound = true; document.addEventListener('click', e => { if (e.target.closest('#sync') && G.open) G.open(); }); }
+      api.on('render:side', () => paint());
       function paint(pinged) {
-        if (!widget || !widget.isConnected) return;
+        const el = document.getElementById('sync'); if (!el) return;
         const sys = api.system(), nas = sys.mode === 'nas', ms = G.pingMs ?? sys.latency;
-        const conn = nas ? (phase === 'error' ? ['err', 'unreachable'] : ['ok', `NAS · ${ms != null ? ms + ' ms' : 'online'}`]) : sys.mode === 'claude' ? ['ok', 'Claude storage'] : ['warn', 'browser only'];
-        const sync = phase === 'saving' ? ['warn', '<span class="st-spin"></span> saving…'] : phase === 'error' ? ['err', 'retrying…'] : ['ok', 'saved ' + fmtAgo(sys.lastSyncAt)];
-        const ai = sys.ai ? ['ok', (G.health && G.health.model) || 'ready'] : ['', 'off'];
-        widget.firstChild.innerHTML = `
-          <div class="st-row"><span class="st-dot ${conn[0]} ${pinged ? 'ping' : ''}"></span><span class="lbl">LINK</span><span class="val">${conn[1]}</span>${spark()}</div>
-          <div class="st-row"><span class="st-dot ${sync[0]}"></span><span class="lbl">SYNC</span><span class="val">${sync[1]}</span></div>
-          <div class="st-row"><span class="st-dot ${ai[0]}"></span><span class="lbl">AI</span><span class="val">${api.ui.esc(ai[1])}</span></div>`;
+        const state = phase === 'saving' ? 'busy' : phase === 'error' ? 'err' : (sys.status === 'synced' ? 'ok' : '');
+        el.className = 'sync clickable ' + state;
+        const label = phase === 'saving' ? 'Saving…' : phase === 'error' ? 'Offline · retrying' : nas ? 'Synced to NAS' : sys.mode === 'claude' ? 'Synced' : 'This browser';
+        el.innerHTML = `<i class="${pinged && state === 'ok' ? 'ping' : ''}"></i><span>${label}</span>${nas && ms != null && state === 'ok' ? `<span class="ms">${ms} ms</span>` : ''}`;
+        el.title = `${nas ? 'NAS' : sys.mode} · ${ms != null ? ms + ' ms' : '—'}\nLast sync: ${fmtAgo(sys.lastSyncAt)}\nAI: ${sys.ai ? ((G.health && G.health.model) || 'ready') : 'off'}\nClick for system details`;
       }
       clearInterval(G.paintT); G.paintT = setInterval(() => paint(), 5000);
 
@@ -126,12 +120,25 @@
         document.querySelector('#st-bootset').onchange = e => api.storage.set('settings', { ...settings(), boot: e.target.checked });
         document.querySelector('#st-ping').onclick = () => openPanel();
       }
+      G.open = openPanel;
       api.commands.add({ title: 'System status', run: () => openPanel() });
 
       /* ------------ boot sequence (once per page load) */
       if (!G.booted) {
         G.booted = true; log('boot');
-        if (settings().boot) boot();
+        if (settings().boot) { if (window.CadenceIsland && api.plugins && api.plugins.enabled('island')) islandBoot(); else boot(); }
+      }
+      // startup inside the Island: connecting… → result → ready
+      async function islandBoot() {
+        const I = window.CadenceIsland, n = { spin: true, title: 'Connecting…', sticky: true };
+        I.show(n);
+        const h = await new Promise(r => { G.onConnect = r; setTimeout(() => r(null), 1500); });
+        const sys = api.system();
+        n.title = sys.mode === 'nas' ? 'Loading workspace…' : 'Loading…'; n.sub = sys.mode === 'nas' ? `NAS · ${sys.latency ?? '—'} ms` : sys.mode === 'claude' ? 'Claude storage' : 'This browser'; I.update(n);
+        await new Promise(r => setTimeout(r, 650));
+        const s2 = api.system(); I.dismiss();
+        I.show({ check: true, title: 'Ready', sub: `${s2.counts.open} open · ${s2.counts.clients} clients${s2.ai ? ' · AI on' : ''}${h ? ` · ${h.logos} logos` : ''}`, ms: 1800, onClick: () => openPanel() });
+        paint(true);
       }
       function boot() {
         const ov = document.createElement('div'); ov.className = 'st-boot';
