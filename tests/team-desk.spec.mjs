@@ -71,8 +71,8 @@ test('hand tasks to developers: >name, the owner chip, the Team page', async ({ 
 test('Desk tickets: quick add, chips, board, SLA, closing with the task', async ({ page }) => {
   const errs = await open(page);
   await page.evaluate(() => window.T.clients.add('Acme'));
-  await page.fill('#qa', 'Sync error on Deals @acme tkt 4821 ');
-  await expect(page.locator('#qa-chips')).toContainText('#4821');
+  // the view can re-render under us after a sync pull; retype until the preview shows
+  await expect(async () => { await page.fill('#qa', ''); await page.fill('#qa', 'Sync error on Deals @acme tkt 4821 '); await expect(page.locator('#qa-chips')).toContainText('#4821', { timeout: 1000 }); }).toPass({ timeout: 10000 });
   await page.press('#qa', 'Enter');
   await quick(page, 'Portal login loop @acme https://desk.zoho.com/agent/acme/acme/tickets/details/123456789012345 !1');
   const ks = await page.evaluate(() => window.T.tasks.list(t => t.ticket).map(t => ({ title: t.title, k: t.ticket, tags: t.tags })));

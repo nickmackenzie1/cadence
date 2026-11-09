@@ -776,13 +776,13 @@ function manageTeam(){
       <div class="tm-list">${team.map((p, i) => `<div class="tm-row">${personAv(p.name, 28)}<input class="inp" data-i="${i}" data-k="name" value="${esc(p.name)}"><input class="inp" data-i="${i}" data-k="role" value="${esc(p.role || '')}" placeholder="Role (e.g. Deluge dev)"><button class="tm-x" data-del="${i}" title="Remove">✕</button></div>`).join('') || '<div class="muted" style="padding:6px 0 12px">No one yet.</div>'}</div>
       <div class="row" style="gap:8px"><input class="inp" id="tm-new" placeholder="Name"><input class="inp" id="tm-role" placeholder="Role (optional)"><button class="btn" id="tm-add">Add</button></div>`,
       `<button class="btn primary" data-act="close-modal">Done</button>`);
-    const add = () => { const n = $('#tm-new').value.trim(); if(!n) return; addPerson(n, $('#tm-role').value.trim()); render(); draw(); setTimeout(() => $('#tm-new').focus(), 20); };
+    const add = () => { const n = $('#tm-new').value.trim(); if(!n) return; addPerson(n, $('#tm-role').value.trim()); render(); draw(); setTimeout(() => $('#tm-new')?.focus(), 20); };
     $('#tm-add').onclick = add; $('#tm-new').onkeydown = $('#tm-role').onkeydown = e => { if(e.key === 'Enter') add(); };
     $$('#modal .tm-row input').forEach(i => i.onchange = () => { const p = S.settings.team[+i.dataset.i], v = i.value.trim(); if(!p) return;
       if(i.dataset.k === 'name' && v && v !== p.name){ S.tasks.filter(t => t.owner === 'team' && t.assignee === p.name).forEach(t => updateTask(t.id, { assignee: v })); p.name = v; } else if(i.dataset.k === 'role') p.role = v; save(); render(); });
     $$('#modal [data-del]').forEach(b => b.onclick = () => { const p = S.settings.team[+b.dataset.del], n = S.tasks.filter(t => t.owner === 'team' && !t.done && t.assignee === p.name).length;
       if(n && !confirmInline(b)) return; S.settings.team.splice(+b.dataset.del, 1); save(); render(); draw(); if(n) toast(`${p.name} removed. Their ${n} open task${n > 1 ? 's stay' : ' stays'} on the Team page until reassigned.`); });
-    setTimeout(() => $('#tm-new').focus(), 30);
+    setTimeout(() => $('#tm-new')?.focus(), 30);
   };
   draw();
 }
@@ -1177,7 +1177,7 @@ function stepDialog(id, logOnly){
     if(!logOnly) toast(patch.dueDate ? `Back on your list ${dueLabel({ dueDate: patch.dueDate }).toLowerCase()}` : 'Marked as following up');
   };
   $('#st-save').onclick = save2; $('#st-text').onkeydown = e => { if(e.key === 'Enter') save2(); };
-  setTimeout(() => $('#st-text').focus(), 30);
+  setTimeout(() => $('#st-text')?.focus(), 30);
 }
 function openTask(id){
   if(selTask === id) return;
@@ -1369,7 +1369,7 @@ function promptProject(existing){
     if(ex && !isProject(ex) && !ex.archived){ toast(`${ex.name} is already a client. Open it and choose “Make it a project”.`); return; }
     const p = addClient(n, color); Object.assign(p, patch); emit('client:update', clone(p)); done(p.id);
   };
-  setTimeout(() => $('#pj-name').focus(), 30);
+  setTimeout(() => $('#pj-name')?.focus(), 30);
   if(c){
     $('#pj-arch').onclick = () => { c.archived = true; emit('client:update', clone(c)); save(); closeModal(); go('today'); render(); toast(`Archived ${c.name}`, [{ label: 'Undo', run: () => { c.archived = false; save(); render(); } }]); };
     $('#pj-client').onclick = () => { delete c.kind; emit('client:update', clone(c)); save(); closeModal(); render(); toast(`${c.name} is a client again`); };
@@ -1416,7 +1416,7 @@ function promptClient(existing){
   $('#cl-sw').addEventListener('click', e => { const b = e.target.closest('button'); if(!b) return; $$('#cl-sw button').forEach(x => x.classList.toggle('on', x === b)); draft.color = b.dataset.col; refresh(); });
   $('#cl-status').addEventListener('click', e => { const b = e.target.closest('button'); if(!b) return; $$('#cl-status button').forEach(x => x.classList.toggle('on', x === b)); });
   [$('#cl-name'), $('#cl-domain')].forEach(i => i.addEventListener('keydown', e => { if(e.key === 'Enter') $('[data-act=save-client]').click(); }));
-  refresh(); setTimeout(() => (c ? $('#cl-domain') : $('#cl-name')).focus(), 20);
+  refresh(); setTimeout(() => (c ? $('#cl-domain') : $('#cl-name'))?.focus(), 20);
 }
 
 /* ---------- settings ---------- */
@@ -1651,7 +1651,7 @@ function openImport(){
     <textarea class="inp" id="imp-text" style="min-height:240px" placeholder="Action Items&#10;&#10;**Alex Chen**&#10;Send revised Zoho CRM blueprint by Friday (12:41)&#10;&#10;**Sarah Lee**&#10;Share API credentials for Books integration (18:02)"></textarea>
     <div class="row"><select class="inp" id="imp-ex" style="width:auto">${ex.map(e => `<option value="${esc(e.id)}">${esc(e.name)}</option>`).join('')}</select><label class="row muted" style="align-items:center;gap:6px;font-size:13px"><input type="checkbox" id="imp-notes" checked> Also add to meeting notes</label></div>`,
     `<button class="btn" data-act="close-modal">Cancel</button><button class="btn primary" data-act="imp-run">Extract action items</button>`);
-  setTimeout(() => $('#imp-text').focus(), 30);
+  setTimeout(() => $('#imp-text')?.focus(), 30);
 }
 async function runImport(){
   const text = $('#imp-text').value.trim(); if(!text) return;

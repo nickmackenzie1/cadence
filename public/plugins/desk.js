@@ -66,7 +66,7 @@ Cadence.registerPlugin({
         api.ui.close(); api.ui.refresh();
       };
       const rm = document.getElementById('dk-rm'); if (rm) rm.onclick = () => { api.tasks.update(id, { ticket: null, tags: (t.tags || []).filter(x => x !== 'desk') }); api.ui.close(); api.ui.refresh(); };
-      setTimeout(() => document.getElementById('dk-no').focus(), 30);
+      setTimeout(() => document.getElementById('dk-no')?.focus(), 30);
     }
     D.edit = edit;
     api.taskActions.add({ label: '🎫 Desk ticket…', run: t => edit(t.id) });
