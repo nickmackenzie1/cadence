@@ -1711,6 +1711,9 @@ function renderMeeting(){
       <div class="m-input" style="display:flex;gap:8px;justify-content:flex-end;align-items:center;flex-wrap:wrap">${Reg.meetingActions.map((a,i) => `<button class="btn" data-act="m-action" data-i="${i}">${esc(a.label)}</button>`).join('')}<button class="btn primary" data-act="m-commit" ${inc?'':'disabled'}>Create ${inc} task${inc===1?'':'s'} &amp; finish</button></div>`;
     $$('[data-rv]', el).forEach(inp => inp.addEventListener('change', () => { const it = M.items.find(x => x.id === inp.closest('.rv-item').dataset.iid); const k = inp.dataset.rv; it[k] = inp.type === 'checkbox' ? inp.checked : (inp.value || null); save(); if(k==='include') renderMeeting(); }));
   }
+  // the meeting becomes the client's screen: their logo, colours, a line about them, where things stand, talking points
+  const band = meetingBand(c), head = el.querySelector('.m-head'); if(band && head) head.insertAdjacentHTML('afterend', band);
+  el.classList.toggle('branded', !!band);
   $('#m-client').addEventListener('change', e => { M.clientId = e.target.value || null; save(); renderMeeting(); });
   $$('.m-item .tt', el).forEach(t => t.addEventListener('blur', () => { const it = M.items.find(x => x.id === t.closest('.m-item').dataset.iid); if(it){ it.title = t.textContent.trim() || it.title; save(); } }));
 }
@@ -1758,6 +1761,18 @@ async function aiWording(M){
     let n = 0; for(const o of (Array.isArray(out) ? out : [])){ const it = M.items.find(x => x.id === o.id); if(it && o.title && o.title !== it.title){ it.title = capFirst(String(o.title).slice(0, 200)); n++; } }
     save(); renderMeeting(); j.done({ title: n ? `Reworded ${n} item${n === 1 ? '' : 's'}` : 'Already clear', sub: 'Undo isn’t needed: edit any title inline' });
   } catch(e){ j.dismiss(); toast('AI wording failed: ' + e.message); }
+}
+function meetingBand(c){
+  if(!c) return '';
+  const pal = [...((c.brand && c.brand.palette) || []), c.brand && c.brand.primary, c.themeColor, c.color].filter(x => /^#[0-9a-f]{3,8}$/i.test(x || ''));
+  const [a1, a2, a3] = [pal[0] || c.color, pal[1] || pal[0] || c.color, pal[2] || pal[1] || pal[0] || c.color];
+  const o = open(), mine = o.filter(t => t.clientId === c.id && onMe(t)).length, theirs = o.filter(t => t.clientId === c.id && t.owner === 'client').length;
+  const last = S.meetings.filter(m => m.clientId === c.id).sort((x, y) => y.start - x.start)[0], ind = INDUSTRY[c.industry];
+  const talk = (c.research && c.research.talking) || [];
+  return `<div class="m-band" style="--m1:${esc(a1)};--m2:${esc(a2)};--m3:${esc(a3)}">${c.hasBanner && c.domain && Store.server ? `<div class="m-ban" style="background-image:url('api/banner?d=${encodeURIComponent(c.domain)}&v=${c.logoV || ''}')"></div>` : ''}
+    <div class="m-band-in">${avatar(c, 58)}<div class="m-who"><h2>${esc(c.name)}</h2><div class="m-sub">${ind ? `<span>${ind.icon} ${esc(ind.label)}</span>` : ''}${c.domain ? `<span>${esc(c.domain)}</span>` : ''}</div>${c.description ? `<p>${esc(decodeEntities(c.description).slice(0, 200))}</p>` : ''}</div>
+      <div class="m-facts"><span><b>${mine}</b>on you</span><span><b>${theirs}</b>they owe</span><span><b>${last ? esc(fmtDate(ymd(new Date(last.start)))) : 'First'}</b>${last ? 'last met' : 'meeting'}</span></div></div>
+    ${talk.length ? `<div class="m-talk"><em>Worth mentioning</em>${talk.slice(0, 3).map(t => `<span>${esc(t)}</span>`).join('')}</div>` : ''}</div>`;
 }
 function commitMeeting(){
   const M = S.activeMeeting; if(!M) return;

@@ -93,10 +93,10 @@
 
       /* ---------------- lights ---------------- */
       // the string hooks onto the Island pill (the wire swags into its sides), and the pill wears its own ring of tiny bulbs
-      let ringRO = null, ringT = 0;
+      let ringRO = null, ringT = 0, followUntil = 0, followRaf = 0, ringMO = null;
       function lights(o) {
         let el = document.getElementById('xm-string');
-        if (!o.on || !o.lights) { el && el.remove(); document.getElementById('xm-glow')?.remove(); document.getElementById('xm-ring')?.remove(); ringRO && ringRO.disconnect(); ringRO = null; G.bulbs = null; return; }
+        if (!o.on || !o.lights) { el && el.remove(); document.getElementById('xm-glow')?.remove(); document.getElementById('xm-ring')?.remove(); ringRO && ringRO.disconnect(); ringRO = null; ringMO && ringMO.disconnect(); ringMO = null; cancelAnimationFrame(followRaf); followRaf = 0; G.bulbs = null; return; }
         if (!el) { el = document.createElement('div'); el.id = 'xm-string'; el.setAttribute('aria-hidden', 'true'); document.body.appendChild(el); }
         const cols = LIGHTS[o.lightStyle] || LIGHTS.classic, W = innerWidth, pill = document.querySelector('.isl-pill'), pr = pill && pill.getBoundingClientRect();
         const hook = pr && pr.width > 20 && pr.top < 60 ? { l: pr.left - 4, r: pr.right + 4, y: Math.min(34, pr.top + pr.height / 2) } : null;
@@ -113,17 +113,26 @@
         gl.className = el.className + (window.CadenceThemes && window.CadenceThemes.isDark && window.CadenceThemes.isDark() ? ' dk' : '');
         gl.innerHTML = bulbs.map(b => `<i style="left:${b.x}px;--c:${b.c};--d:${b.d}s;--k:${b.k}"></i>`).join('');
         el.innerHTML = `<svg class="xm-wire" width="${W}" height="40" viewBox="0 0 ${W} 40"><path d="${path}"/></svg>` + bulbs.map(b => `<i style="left:${b.x}px;top:${(b.y - 3).toFixed(1)}px;--c:${b.c};--d:${b.d}s;--k:${b.k}"></i>`).join('');
-        // the ring of mini bulbs around the pill
+        G.ringCols = cols; G.ringCls = el.className; drawRing();
+        if (pill && !ringRO && window.ResizeObserver) {
+          // follow the pill frame by frame while it grows or shrinks, so the bulbs move with it instead of catching up later
+          const kick = () => { followUntil = performance.now() + 950; if (!followRaf) followRaf = requestAnimationFrame(follow); clearTimeout(ringT); ringT = setTimeout(() => G.o && G.o.on && G.o.lights && lights(G.o), 1000); };
+          ringRO = new ResizeObserver(kick); ringRO.observe(pill);
+          ringMO = new MutationObserver(kick); ringMO.observe(pill, { attributes: true, attributeFilter: ['class', 'style'] });
+        }
+      }
+      function follow() { drawRing(); followRaf = performance.now() < followUntil ? requestAnimationFrame(follow) : 0; }
+      function drawRing() {
+        const pill = document.querySelector('.isl-pill'), pr = pill && pill.getBoundingClientRect(), cols = G.ringCols;
         let ring = document.getElementById('xm-ring');
-        if (!pill || !pr || pr.width < 20) { ring && ring.remove(); return; }
+        if (!cols || !document.getElementById('xm-string') || !pill || !pr || pr.width < 20) { ring && ring.remove(); return; }
         if (!ring) { ring = document.createElement('div'); ring.id = 'xm-ring'; ring.setAttribute('aria-hidden', 'true'); document.body.appendChild(ring); }
         const pad = 5, w = pr.width + pad * 2, h = pr.height + pad * 2, rad = Math.min(h / 2, (parseFloat(getComputedStyle(pill).borderTopLeftRadius) || h / 2) + pad);
-        ring.className = el.className; Object.assign(ring.style, { left: pr.left - pad + 'px', top: pr.top - pad + 'px', width: w + 'px', height: h + 'px' });
+        ring.className = G.ringCls || ''; Object.assign(ring.style, { left: pr.left - pad + 'px', top: pr.top - pad + 'px', width: w + 'px', height: h + 'px' });
         ring.innerHTML = `<svg width="${w}" height="${h}"><rect x="1.5" y="1.5" width="${w - 3}" height="${h - 3}" rx="${rad - 1.5}" class="xm-rw"/></svg>`;
         const rect = ring.querySelector('rect'), len = rect.getTotalLength ? rect.getTotalLength() : 0, m = Math.max(8, Math.floor(len / 15));
         let dots = ''; for (let i = 0; i < m; i++) { const pt = rect.getPointAtLength(len * i / m); dots += `<circle cx="${pt.x.toFixed(1)}" cy="${pt.y.toFixed(1)}" r="2.3" style="--c:${cols[i % cols.length]};--d:${((i * .29) % 2.2).toFixed(2)}s;--k:${i}"/>`; }
         ring.querySelector('svg').insertAdjacentHTML('beforeend', dots);
-        if (!ringRO && window.ResizeObserver) { ringRO = new ResizeObserver(() => { clearTimeout(ringT); ringT = setTimeout(() => G.o && G.o.on && lights(G.o), 120); }); ringRO.observe(pill); }
       }
 
       /* ---------------- snow ---------------- */
@@ -156,7 +165,7 @@
         return { x: rnd(-60, innerWidth + 60), y: top ? rnd(-80, innerHeight * .9) : rnd(-40, -8), z, r: crys ? r * 2.2 : r, near, far, crys, spr: crys ? (Math.random() * 3) | 0 : null,
           vy: 0, vx: 0, ph: Math.random() * 6.28, sp: rnd(.6, 1.6), rot: Math.random() * 6.28, vr: rnd(-.03, .03), o: far ? rnd(.35, .6) : near ? rnd(.25, .45) : rnd(.7, 1) };
       }
-      const fallSpeed = f => (f.far ? .35 : f.near ? 1.6 : .55 + f.r * .18 * (f.crys ? .35 : 1)) * T.speed;
+      const fallSpeed = f => (f.far ? .35 : f.near ? 1.6 : .55 + f.r * .18 * (f.crys ? .35 : 1)) * T.speed * (f.tv || 1);
       /* drifts are remembered by what they sit on and which page it's on (sidebar snow is shared by every page), so
          they survive page changes and reloads until you shovel them */
       const STORE = new Map(); let dirty = false;
@@ -204,7 +213,10 @@
       const GROUND = { ground: true, isConnected: true, contains: () => false, closest: () => null, matches: () => false, dataset: {}, classList: [], getAttribute: () => null,
         getBoundingClientRect: () => ({ left: 0, right: innerWidth, top: innerHeight - 1, bottom: innerHeight, width: innerWidth, height: 1 }) };
       const rectOf = (el, p) => { const r = el.getBoundingClientRect(); if (!p || !p.tb) return r; const left = r.left + p.tb.dx; return { left, right: left + p.tb.w, top: r.top + p.tb.dy, bottom: r.bottom, width: p.tb.w, height: r.height }; };
+      // a screen that covers the page (the meeting, a dialog): only its own things carry snow while it's up
+      const coverLayer = () => document.querySelector('.meeting.open, .modal-bg:not([hidden])');
       function surfaces() {
+        const layer = coverLayer();
         const seen = new Set(); let n = 0;
         const add = (el, texty) => {
           let tb = null; if (texty) { tb = textBox(el); if (!tb || tb.w < 14) return; }
@@ -219,7 +231,7 @@
           if (p.rad < 0) { if (texty) glyphs(el, p, tb); else if (el === GROUND) { p.rad = 0; p.base = null; p.mf = null; p.hole = null; } else { p.hole = null; shape(el, p, r0); } }
         };
         add(GROUND, false);
-        document.querySelectorAll(SURFACES).forEach(el => { if (el.closest('#xm-string,#xm-ring,.modal-bg[hidden]')) return; add(el, el.matches(TEXTY)); });
+        document.querySelectorAll(SURFACES).forEach(el => { if (el.closest('#xm-string,#xm-ring,.modal-bg[hidden]') || (layer && !layer.contains(el) && !el.closest('.isl'))) return; add(el, el.matches(TEXTY)); });
         for (const el of piles.keys()) if (!seen.has(el) || !el.isConnected) piles.delete(el);
       }
       // the top edge's shape: rounded corners curve down, so snow sits on the curve and slides off steep parts
@@ -247,13 +259,20 @@
         return moved;
       }
       function settle(p, rect, x, amt) {
-        const i = Math.max(0, Math.min(p.h.length - 1, Math.round((x - rect.left) / BUCKET)));
+        let i = Math.max(0, Math.min(p.h.length - 1, Math.round((x - rect.left) / BUCKET)));
         if (p.hole && p.hole[i]) return false;
         if (p.n) amt *= p.n[i];
         const max = 14 * T.pile * (p.max || (rect.width < 120 ? .6 : 1)), mf = p.mf ? p.mf[i] : 1;
         if (max <= 0 || p.h[i] >= max * mf) { if (mf < .5) powder(x, baseY(p, rect, i) - p.h[i], 1, .6, .2); return false; }
         const ok = j => j >= 0 && j < p.h.length && !(p.hole && p.hole[j]);
-        p.h[i] += amt; dirty = true; if (ok(i - 1)) p.h[i - 1] += .22 * amt; if (ok(i + 1)) p.h[i + 1] += .22 * amt;
+        // a flake that lands on a slope rolls a little way downhill first
+        for (let roll = 0; roll < 3; roll++) { const l = ok(i - 1) ? p.h[i - 1] + (p.base ? p.base[i - 1] * -1 : 0) : 1e9, rr = ok(i + 1) ? p.h[i + 1] + (p.base ? p.base[i + 1] * -1 : 0) : 1e9, here = p.h[i] + (p.base ? -p.base[i] : 0);
+          if (Math.min(l, rr) < here - 1.4) i += l < rr ? -1 : 1; else break; }
+        if (Math.random() < .12) amt *= 2.2;                       // now and then a little clump
+        const spread = 1 + ((Math.random() * 3) | 0), w0 = amt / (spread * 2 - 1 + .0001);
+        for (let d = -(spread - 1); d <= spread - 1; d++) if (ok(i + d)) p.h[i + d] += w0 * (1 - Math.abs(d) * .25) * (.7 + Math.random() * .6);
+        for (let d = -6; d <= 6; d++) if (ok(i + d)) p.h[i + d] += amt * .035;   // a thin blanket around it
+        dirty = true;
         for (let k = 0; k < 2; k++) for (let j = 0; j < p.h.length; j++) {   // angle of repose: steep enough for peaks, not spikes
           if (!ok(j)) { p.h[j] = 0; continue; }
           const tb = j > 0 && ok(j - 1), ta = j < p.h.length - 1 && ok(j + 1);
@@ -278,7 +297,8 @@
         mouse.vx *= .9; mouse.vy *= .9; scrollKick *= .9;
         const want = Math.min(CAP, Math.round(150 * T.amount));
         cx.setTransform(1, 0, 0, 1, 0, 0); cx.clearRect(0, 0, cv.width, cv.height);
-        const rects = o.build ? [...piles.entries()].map(([el, p]) => [el, p, rectOf(el, p)]) : [];
+        const layer = coverLayer();
+        const rects = o.build ? [...piles.entries()].filter(([el]) => !layer || el === GROUND || layer.contains(el) || el.closest('.isl')).map(([el, p]) => [el, p, rectOf(el, p)]) : [];
         const focus = document.activeElement && document.activeElement.matches && document.activeElement.matches('input,textarea,[contenteditable="true"]') ? document.activeElement : null;
         const light = !(window.CadenceThemes && window.CadenceThemes.isDark && window.CadenceThemes.isDark());
         const mspd = Math.hypot(mouse.vx, mouse.vy);
@@ -287,7 +307,8 @@
           f.ph += .02 * f.sp * dt; f.rot += f.vr * dt;
           const depthWind = f.far ? .5 : f.near ? 1.4 : 1;
           if (f.air) { f.vy += (f.clump ? .22 : .12) * dt; f.vx += (wind * depthWind - f.vx) * .01 * dt; if (!f.clump && f.vy > fallSpeed(f)) f.air = 0; }
-          else { f.vx += ((wind + Math.sin(f.ph) * (f.crys ? .8 : .5)) * depthWind - f.vx) * .035 * dt; f.vy += (fallSpeed(f) + scrollKick * (f.far ? .2 : 1) - f.vy) * .05 * dt; }
+          else { if (!f.tv) { f.tv = .85 + Math.random() * .3; f.fl = (f.crys ? 1.1 : .55) * (.6 + Math.random() * .8) / Math.max(.6, f.r * .45); }   // its own fall speed and flutter
+            f.vx += ((wind + Math.sin(f.ph) * f.fl + Math.sin(f.ph * 2.3 + f.sp) * f.fl * .35) * depthWind - f.vx) * .035 * dt; f.vy += (fallSpeed(f) + scrollKick * (f.far ? .2 : 1) - f.vy) * .05 * dt; }
           // the mouse ploughs through, harder the faster it moves
           if (!f.far) { const dx = f.x - mouse.x, dy = f.y - mouse.y, d2 = dx * dx + dy * dy, R = 70 + Math.min(110, mspd * 4);
             if (d2 < R * R) { const d = Math.sqrt(d2) || 1, k = (R - d) / R; f.vx += (dx / d) * k * (1.2 + mspd * .08) + mouse.vx * .1 * k; f.vy += (dy / d) * k * (1 + mspd * .05) + mouse.vy * .1 * k; } }
@@ -324,6 +345,8 @@
         cx.globalAlpha = 1;
         for (const [, p, r] of rects) {
           if (o.melt) for (let j = 0; j < p.h.length; j++) if (p.h[j] > 0) p.h[j] = Math.max(0, p.h[j] - .004 * dt);
+          // snow creeps: tiny sideways settling every frame closes the gaps into a continuous cover
+          if (Math.random() < .25) for (let j = 1; j < p.h.length - 1; j++) { if (p.hole && (p.hole[j] || p.hole[j - 1] || p.hole[j + 1])) continue; const avg = (p.h[j - 1] + p.h[j + 1]) / 2; p.h[j] += (avg - p.h[j]) * .024; }
           let any = false; for (let j = 0; j < p.h.length; j++) if (p.h[j] > 1.2) { any = true; break; } if (!any) continue;
           const X = j => Math.min(r.right, r.left + j * BUCKET) * DPR, Yb = j => baseY(p, r, j) * DPR;
           // one smooth shape per run of solid ground (letters, words); curves through midpoints for soft peaks
@@ -332,10 +355,13 @@
             const top = j => Yb(j) - p.h[j] * DPR; cx.moveTo(X(j0), Yb(j0)); cx.lineTo(X(j0), top(j0));
             for (let j = j0; j < j1; j++) { const mx = (X(j) + X(j + 1)) / 2, my = (top(j) + top(j + 1)) / 2; cx.quadraticCurveTo(X(j), top(j), mx, my); }
             cx.lineTo(X(j1), top(j1)); for (let j = j1; j >= j0; j--) cx.lineTo(X(j), Yb(j)); cx.closePath(); j0 = j1 + 1; }
-          const gr = cx.createLinearGradient(0, (r.top - 14) * DPR, 0, r.top * DPR); gr.addColorStop(0, '#ffffff'); gr.addColorStop(1, light ? '#d9e6f7' : '#dfe8f3');
-          cx.shadowColor = light ? 'rgba(120,155,205,.32)' : 'rgba(120,150,190,.35)'; cx.shadowBlur = (light ? 7 : 5) * DPR; cx.shadowOffsetY = 1 * DPR; cx.fillStyle = gr; cx.fill();
+          let hmax = 0; for (let j = 0; j < p.h.length; j++) if (p.h[j] > hmax) hmax = p.h[j];
+          const gr = cx.createLinearGradient(0, (r.top - hmax - 2) * DPR, 0, r.top * DPR);
+          gr.addColorStop(0, '#ffffff'); gr.addColorStop(.55, light ? '#f3f7fd' : '#eef3fa'); gr.addColorStop(1, light ? 'rgba(214,228,246,.82)' : 'rgba(205,219,238,.78)');
+          // a soft glow instead of a hard edge, so the snow sits into the page
+          cx.shadowColor = light ? 'rgba(150,180,220,.45)' : 'rgba(225,235,250,.35)'; cx.shadowBlur = 6 * DPR; cx.shadowOffsetY = 0; cx.fillStyle = gr; cx.fill();
           cx.shadowColor = 'transparent'; cx.shadowBlur = 0; cx.shadowOffsetY = 0;
-          if (light) { cx.strokeStyle = 'rgba(190,212,240,.9)'; cx.lineWidth = DPR; cx.beginPath(); let on = false;   // a cool blue edge, no dark rim
+          if (light) { cx.strokeStyle = 'rgba(200,218,242,.55)'; cx.lineWidth = DPR; cx.beginPath(); let on = false;   // a cool blue edge, no dark rim
             for (let j = 0; j < p.h.length; j++) { const x = X(j), y = Yb(j) - p.h[j] * DPR; if (p.h[j] > .8) { on ? cx.lineTo(x, y) : cx.moveTo(x, y); on = true; } else on = false; }
             cx.stroke(); }
           // the lights glint off the drift tops in their own colours
@@ -386,7 +412,7 @@
         document.documentElement.classList.toggle('xm-on', !!o.on);
         lights(o); snow(o, user);
       }
-      G.teardown = () => { cancelAnimationFrame(raf); raf = 0; clearInterval(saveIv); save(); cv && cv.remove(); cv = cx = null; ringRO && ringRO.disconnect(); ringRO = null; G.h = {}; };
+      G.teardown = () => { cancelAnimationFrame(raf); raf = 0; clearInterval(saveIv); save(); cv && cv.remove(); cv = cx = null; ringRO && ringRO.disconnect(); ringRO = null; ringMO && ringMO.disconnect(); ringMO = null; cancelAnimationFrame(followRaf); followRaf = 0; G.h = {}; };
       // a snow burst from the checkbox when you finish something (Blizzard and up)
       api.on('task:complete', () => { const o = G.o; if (!o || !o.on || T.gusts < 1 || reduced()) return; const c = document.querySelector('.task.done .check, .task.leaving .check'); const r = c ? c.getBoundingClientRect() : { left: innerWidth / 2, top: innerHeight / 2 }; powder(r.left + 9, r.top, Math.round(25 * T.amount), 3.5, 5); });
 

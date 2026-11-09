@@ -583,3 +583,21 @@ svg.lu{width:1.1em;height:1.1em;display:inline-block;vertical-align:-.17em;fill:
 .av.emoji{color:var(--c);background:color-mix(in srgb,var(--c) 16%,var(--panel))!important}.av.emoji .lu-w,.av.emoji svg.lu{width:64%;height:64%}.av.emoji svg.lu{stroke-width:2.2}
 .vgrid .vt .ic svg.lu{width:18px;height:18px}
 .empty .big svg.lu{width:40px;height:40px;stroke-width:1.6;color:var(--faint)}
+
+/* the meeting as the client's screen */
+.m-band{position:relative;overflow:hidden;padding:18px 24px 16px;border-bottom:1px solid var(--line);
+  background:linear-gradient(120deg,color-mix(in srgb,var(--m1) 30%,var(--panel)),color-mix(in srgb,var(--m2) 20%,var(--panel)) 55%,color-mix(in srgb,var(--m3) 16%,var(--panel)))}
+.m-band::after{content:'';position:absolute;left:0;right:0;bottom:0;height:3px;background:linear-gradient(90deg,var(--m1),var(--m2),var(--m3))}
+.m-ban{position:absolute;right:0;top:0;bottom:0;width:46%;background:center/cover no-repeat;opacity:.35;-webkit-mask-image:linear-gradient(90deg,transparent,#000 60%);mask-image:linear-gradient(90deg,transparent,#000 60%)}
+.m-band-in{position:relative;display:flex;align-items:center;gap:18px}
+.m-band-in>.av{box-shadow:0 0 0 3px var(--panel),0 8px 24px color-mix(in srgb,var(--m1) 45%,transparent)}
+.m-who{flex:1;min-width:0}.m-who h2{margin:0;font-size:24px;letter-spacing:-.02em;line-height:1.15}
+.m-sub{display:flex;flex-wrap:wrap;gap:6px 12px;margin-top:3px;font-size:12.5px;color:var(--muted)}
+.m-who p{margin:6px 0 0;font-size:13.5px;line-height:1.5;color:color-mix(in srgb,var(--text) 80%,transparent);max-width:620px}
+.m-facts{display:flex;gap:10px;flex:none}.m-facts span{display:flex;flex-direction:column;align-items:center;min-width:76px;padding:8px 10px;border-radius:12px;background:color-mix(in srgb,var(--panel) 75%,transparent);border:1px solid color-mix(in srgb,var(--m1) 25%,var(--line));font-size:11.5px;color:var(--muted)}
+.m-facts b{font-size:18px;color:var(--text);line-height:1.2}
+.m-talk{position:relative;display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-top:12px}.m-talk em{font-style:normal;font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);margin-right:4px}
+.m-talk span{font-size:12.5px;padding:4px 10px;border-radius:999px;background:color-mix(in srgb,var(--panel) 80%,transparent);border:1px solid color-mix(in srgb,var(--m1) 30%,var(--line))}
+#meeting.branded .m-head{border-bottom:0}
+#meeting.branded .m-col.me h3{color:color-mix(in srgb,var(--m1, var(--accent)) 70%,var(--text))}
+@media (max-width:900px){.m-band-in{flex-wrap:wrap}.m-facts{width:100%}}
