@@ -404,3 +404,7 @@ Needs: Life space (done), weather API (key on NAS), maps/GPX (offline tiles = ph
   without GPU, removed). Lights: thin translucent wire, silver caps, the string hooks into the Island pill's sides and
   the pill wears a ring of mini bulbs (#xm-ring, ResizeObserver on the pill). Layers now under dialogs/menus/toasts
   (glow 26, snow 27, string 29; ring 81 above the Island). Flakes start spread over the screen. G.reset(opts) for tests.
+- Christmas engine lifecycle (2026-11-09): switching Work/Life rebuilds plugins, which used to start a second snow
+  engine each time (slowdown). Now setup() calls G.teardown() first (raf, canvas, save interval, ring observer) and
+  window listeners are bound once and dispatch to G.h (the current engine). Settings are global (localStorage
+  cadence.xmas, falls back to the old per-space storage) so switching spaces never "stops" the snow.

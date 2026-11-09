@@ -163,3 +163,18 @@ test('snow drifts stay on a page after you leave and come back, until shovelled'
   expect((await stored()).length).toBe(0);
   await page.waitForTimeout(1200);
 });
+
+test('switching Work and Life with snow on keeps a single snow engine', async ({ page }) => {
+  const errs = []; page.on('pageerror', e => errs.push(String(e)));
+  await page.addInitScript(() => localStorage.setItem('cadence.reviewNudge', 'x'));
+  await page.goto(B + '/#today');
+  await expect(page.locator('#sync')).toContainText('NAS', { timeout: 8000 });
+  await page.evaluate(() => { window.__xmas.reset({ chaos: 1, tune: null }); window.__xmas.flip('snow'); });
+  for (let i = 0; i < 6; i++) { await page.click(`.space-sw [data-s=${i % 2 ? 'work' : 'life'}]`); await page.waitForTimeout(400); }
+  await expect(page.locator('#xm-snow')).toHaveCount(1);
+  const fps = await page.evaluate(() => new Promise(res => { let n = 0; const t0 = performance.now(); const f = () => { n++; if (performance.now() - t0 < 1500) requestAnimationFrame(f); else res(n / 1.5); }; requestAnimationFrame(f); }));
+  expect(fps).toBeGreaterThan(30);
+  await page.evaluate(() => window.__xmas.flip('snow'));
+  await page.waitForTimeout(1200);
+  expect(errs).toEqual([]);
+});

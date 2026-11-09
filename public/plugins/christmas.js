@@ -25,9 +25,11 @@
     icon: '<path d="M12 2v20M4.9 6l14.2 12M4.9 18L19.1 6"/><path d="M9.5 3.5L12 6l2.5-2.5M9.5 20.5L12 18l2.5 2.5M3 9.2l3.3.9-.9 3.3M21 14.8l-3.3-.9.9-3.3M3 14.8l3.3-.9-.9-3.3M21 9.2l-3.3.9.9 3.3"/>',
     settings(api) { G.settings && G.settings(); },
     setup(api) {
+      G.teardown && G.teardown();   // plugins rebuild when you switch Work/Life: stop the previous engine first
       const defaults = { on: false, lights: true, lightStyle: 'classic', pattern: 'twinkle', snow: true, build: true, chaos: 1, offered: 0, style: 'mixed', depth: true, melt: false, react: true, tune: null };
-      const opts = () => Object.assign({}, defaults, api.storage.get('opts') || {});
-      const setOpts = o => { api.storage.set('opts', o); apply(); };
+      // one Christmas for both spaces: settings live in this browser, not in a space's data
+      const opts = () => { let v = null; try { v = JSON.parse(localStorage.getItem('cadence.xmas') || 'null'); } catch (e) {} return Object.assign({}, defaults, v || api.storage.get('opts') || {}); };
+      const setOpts = o => { try { localStorage.setItem('cadence.xmas', JSON.stringify(o)); } catch (e) {} apply(true); };
       const reduced = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
       const tuneOf = o => Object.assign({}, LEVELS[Math.max(0, Math.min(3, o.chaos))], o.tune || {});
 
@@ -158,7 +160,7 @@
       const save = () => { if (!dirty) return; dirty = false; const out = {}; let n = 0;
         for (const [k, p] of STORE) { if (n > 400) break; let any = false; for (let j = 0; j < p.h.length; j++) if (p.h[j] > .5) { any = true; break; } if (!any) continue; out[k] = { w: Math.round(p.w), h: Array.from(p.h, x => Math.round(x * 10)) }; n++; }
         try { localStorage.setItem('cadence.snow', JSON.stringify(out)); } catch (e) {} };
-      setInterval(save, 4000); addEventListener('pagehide', save);
+      const saveIv = setInterval(save, 4000); G.h0 = save; if (!G.ph) { G.ph = 1; addEventListener('pagehide', () => G.h0 && G.h0()); }
       const routeKey = () => (location.hash || '#today').slice(1);
       function keyOf(el) {
         const scope = el.closest('#side') ? '*' : routeKey();
@@ -298,40 +300,45 @@
         }
       }
       function size() { if (!cv) return; DPR = Math.min(2, devicePixelRatio || 1); cv.width = innerWidth * DPR; cv.height = innerHeight * DPR; }
-      function snow(o) {
+      function snow(o, user) {
         const want = o.on && o.snow && !reduced();
-        if (!want) { cancelAnimationFrame(raf); raf = 0; cv && cv.remove(); cv = cx = null; flakes = []; if (!o.on || !o.snow) shovel(); else { piles.clear(); save(); } return; }
+        if (!want) { cancelAnimationFrame(raf); raf = 0; cv && cv.remove(); cv = cx = null; flakes = []; if (user && (!o.on || !o.snow)) shovel(); else { piles.clear(); save(); } return; }
         T = tuneOf(o);
         if (!cv) { cv = document.createElement('canvas'); cv.id = 'xm-snow'; cv.setAttribute('aria-hidden', 'true'); document.body.appendChild(cv); cx = cv.getContext('2d'); size(); }
         if (!raf) { last = performance.now(); raf = requestAnimationFrame(frame); }
       }
-      G.preview = o => { lights(o); snow(o); };
+      G.preview = o => { lights(o); snow(o, true); };
       G.reset = (x = {}) => setOpts({ ...opts(), on: false, ...x });
-      if (!G.bound) { G.bound = true;
-        addEventListener('resize', () => { size(); G.o && lights(G.o); });
-        document.addEventListener('cadence:theme', () => { piles.forEach(p => p.rad = -1); setTimeout(() => G.o && lights(G.o), 60); });
-        addEventListener('pointermove', e => { const t = performance.now(), k = Math.max(1, t - mouse.t); mouse.vx = (e.clientX - mouse.x) / k * 16; mouse.vy = (e.clientY - mouse.y) / k * 16; if (Math.abs(mouse.vx) > 60) mouse.vx = 0; if (Math.abs(mouse.vy) > 60) mouse.vy = 0; mouse.x = e.clientX; mouse.y = e.clientY; mouse.t = t; }, { passive: true });
+      // handlers are swapped on every setup (spaces rebuild plugins); the listeners themselves are bound once
+      const H = G.h = {};
+      {
+        H.resize = () => { size(); G.o && lights(G.o); };
+        H.theme = () => { piles.forEach(p => p.rad = -1); setTimeout(() => G.o && lights(G.o), 60); };
+        H.pointermove = e => { const t = performance.now(), k = Math.max(1, t - mouse.t); mouse.vx = (e.clientX - mouse.x) / k * 16; mouse.vy = (e.clientY - mouse.y) / k * 16; if (Math.abs(mouse.vx) > 60) mouse.vx = 0; if (Math.abs(mouse.vy) > 60) mouse.vy = 0; mouse.x = e.clientX; mouse.y = e.clientY; mouse.t = t; };
         // a click: a shockwave through the air, and whatever you clicked shrugs its snow off
-        addEventListener('pointerdown', e => { const o = G.o; if (!o || !o.on || !o.react || !cx) return;
+        H.pointerdown = e => { const o = G.o; if (!o || !o.on || !o.react || !cx) return;
           const x = e.clientX, y = e.clientY, R = 190 * Math.max(.7, Math.min(1.6, T.gusts));
           for (const f of flakes) { if (f.far) continue; const dx = f.x - x, dy = f.y - y, d = Math.hypot(dx, dy); if (d < R && d > 0) { const k = (1 - d / R) * 9; f.vx += dx / d * k; f.vy += dy / d * k - 1.5; f.air = f.clump ? 1 : f.air; } }
           let hit = null; for (const el of piles.keys()) if (el.contains(e.target) && (!hit || hit.contains(el))) hit = el;
           if (hit) knock(hit, 1);
           for (const [el] of piles) { if (el === hit) continue; const r = el.getBoundingClientRect(), cxm = Math.max(r.left, Math.min(x, r.right)), cym = Math.max(r.top, Math.min(y, r.bottom)), d = Math.hypot(cxm - x, cym - y); if (d < 140) knock(el, .35 * (1 - d / 140)); }
-        }, { capture: true, passive: true });
+        };
         // scrolling shakes everything loose
-        let lastY = 0; addEventListener('wheel', e => { const o = G.o; if (!o || !o.on || !o.react || !cx) return; const v = Math.max(-40, Math.min(40, e.deltaY)); scrollKick += -v * .04;
-          if (Math.abs(v) > 12) for (const [el, p] of piles) if (Math.random() < .5) knock(el, Math.min(.5, Math.abs(v) / 120)); }, { passive: true });
+        H.wheel = e => { const o = G.o; if (!o || !o.on || !o.react || !cx) return; const v = Math.max(-40, Math.min(40, e.deltaY)); scrollKick += -v * .04;
+          if (Math.abs(v) > 12) for (const [el, p] of piles) if (Math.random() < .5) knock(el, Math.min(.5, Math.abs(v) / 120)); };
         // typing shakes snow off the box you're writing in
-        addEventListener('keydown', e => { if (!G.o || !G.o.on || e.key.length > 1 && e.key !== 'Backspace') return; const el = document.activeElement; if (!el) return;
-          for (const [s, p] of piles) if (s === el || s.contains(el)) { const r = s.getBoundingClientRect(); let shook = 0; for (let j = 0; j < p.h.length; j++) if (p.h[j] > 1 && Math.random() < .18) { p.h[j] *= .55; if (shook++ < 6) powder(r.left + j * BUCKET, r.top - 2, 1, 1.5, 3); } } }, true);
+        H.keydown = e => { if (!G.o || !G.o.on || e.key.length > 1 && e.key !== 'Backspace') return; const el = document.activeElement; if (!el) return;
+          for (const [s, p] of piles) if (s === el || s.contains(el)) { const r = s.getBoundingClientRect(); let shook = 0; for (let j = 0; j < p.h.length; j++) if (p.h[j] > 1 && Math.random() < .18) { p.h[j] *= .55; if (shook++ < 6) powder(r.left + j * BUCKET, r.top - 2, 1, 1.5, 3); } } };
       }
+      if (!G.bound) { G.bound = true; const on = (t, o, tgt = window) => tgt.addEventListener(t === 'theme' ? 'cadence:theme' : t, e => G.h[t] && G.h[t](e), o);
+        on('resize'); on('theme', undefined, document); on('pointermove', { passive: true }); on('pointerdown', { capture: true, passive: true }); on('wheel', { passive: true }); on('keydown', true); }
 
-      function apply() {
+      function apply(user) {
         const o = G.o = opts();
         document.documentElement.classList.toggle('xm-on', !!o.on);
-        lights(o); snow(o);
+        lights(o); snow(o, user);
       }
+      G.teardown = () => { cancelAnimationFrame(raf); raf = 0; clearInterval(saveIv); save(); cv && cv.remove(); cv = cx = null; ringRO && ringRO.disconnect(); ringRO = null; G.h = {}; };
       // a snow burst from the checkbox when you finish something (Blizzard and up)
       api.on('task:complete', () => { const o = G.o; if (!o || !o.on || T.gusts < 1 || reduced()) return; const c = document.querySelector('.task.done .check, .task.leaving .check'); const r = c ? c.getBoundingClientRect() : { left: innerWidth / 2, top: innerHeight / 2 }; powder(r.left + 9, r.top, Math.round(25 * T.amount), 3.5, 5); });
 
