@@ -83,3 +83,14 @@ Next: (superseded, see below)
   view, 24h day-clock of meetings/tasks.
 - Work/Life: user said YES to: separate spaces under one login, Life areas Home/Health/Money/Projects(+custom),
   no clients/meetings/chasing in Life, calmer by default ('Calm' theme fits). Design SQLite with spaces.
+
+## Backlog additions (2026-11-08 late) — user: "just add things I say to the backlog, react later"
+- Plugins declare spaces: `spaces: ['work'] | ['life'] | ['work','life']` so they show in one or both environments.
+- LIFE: inbox scanner plugin: choose mailboxes (IMAP/Gmail/Outlook, creds on NAS only) + categories (school, kids' sports,
+  programs). Brief breakdowns, recaps, action items, suggested calendar events/notifications. AI model selectable; non-AI
+  rule-based fallback (keywords, dates, senders).
+- LIFE: shopping list that also becomes a weekly menu, feeding calendar and to-dos.
+- Christmas mode (lights, snow, build-up, physics, chaos level). Sheep desktop pet (original design).
+- Orbit (MIT) ideas: radial right-click wheel, client solar system, 24h day clock.
+- Letterboxd film diary skin for rss.js. More: focus aquarium, invoice radar, desk plant, weekly rewind, bills calendar.
+- Dashboard: AI chat widget later. Side panel exists (dock a page).

@@ -383,7 +383,12 @@ function makeApi(pid){
     /* the Settings button for this plugin (in the plugin browser): api.onSettings(() => openMySettings()) */
     onSettings: fn => { Reg.settingsPanels = Reg.settingsPanels.filter(x => x.pid !== pid).concat([{ pid, fn }]); },
     /* dashboard widgets: api.widgets.add({ id, title, icon?, size: 's'|'m'|'l'|'w'|'t', render(el, api, ctx) }) */
-    widgets: { add: w => Reg.widgets.push({ size: 'm', ...w, pid, key: pid + ':' + w.id }), list: () => Reg.widgets.map(w => ({ key: w.key, id: w.id, pid: w.pid, title: w.title, icon: w.icon, size: w.size })) },
+    widgets: {
+      add: w => { Reg.widgets = Reg.widgets.filter(x => x.key !== pid + ':' + w.id); Reg.widgets.push({ size: 'm', ...w, pid, key: pid + ':' + w.id }); },
+      list: () => Reg.widgets.map(w => ({ key: w.key, id: w.id, pid: w.pid, title: w.title, icon: w.icon, size: w.size, description: w.description || '', fields: w.fields || [], minW: w.minW, minH: w.minH, color: (Reg.defs.find(d => d.id === w.pid) || {}).color })),
+      /* draw any plugin's widget into el; ctx = { cfg, setCfg(patch), w, h, edit } */
+      render: (key, el, ctx = {}) => { const w = Reg.widgets.find(x => x.key === key); if(!w) return false; try { w.render(el, makeApi(w.pid), ctx); } catch(e){ el.innerHTML = `<div class="muted" style="padding:12px;font-size:12px">Widget failed: ${esc(e.message)}</div>`; } return true; },
+    },
     plugins: { enabled: id => enabled(id) },
     system: () => ({ demo: DEMO, mode: Store.server ? 'nas' : Store.ref ? 'claude' : 'local', status: Store.status, lastSyncAt: Store.lastSyncAt || null, latency: Store.latency ?? null, ai: !!AI, health: Store.health || null, version: window.Cadence.version, plugins: Reg.defs.filter(d => enabled(d.id)).length, counts: { tasks: S.tasks.length, open: S.tasks.filter(t => !t.done).length, clients: S.clients.filter(c => !c.archived).length, meetings: S.meetings.length } }),
     ui: { reducedMotion, toast, refreshWidgets: () => renderWidgets(), pointer: () => ({ ...lastPointer }), faviconUrl: (d, v) => faviconUrl(d, v), avatar: (c, size) => avatar(c, size), navigate: r => go(r), refresh: () => render(), copy: copyText, esc, modal: openModalHTML, close: closeModal, currentRoute: () => route() },

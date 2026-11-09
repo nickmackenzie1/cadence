@@ -25,6 +25,11 @@ Cadence.registerPlugin({
     }
     api.sidebar.add({ id: 'weblinks', slot: 'bottom', order: 20, render: el => draw(el, api) });
     api.commands.add({ title: 'Add a web link to the sidebar', run: api => edit(api, true) });
+    api.widgets.add({ id: 'links', title: 'Web links', icon: '🔗', size: 'm', description: 'Your pinned links as big buttons.', render: el => {
+      const E = api.ui.esc, l = links(api);
+      el.innerHTML = l.length ? `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:8px;padding:8px 12px 12px">${l.map(x => { const h = host(x.url); return `<a href="${E(x.url)}" target="_blank" rel="noopener noreferrer" style="display:flex;align-items:center;gap:8px;padding:10px;border:1px solid var(--line);border-radius:12px;color:var(--text);text-decoration:none;font-size:13px;font-weight:500;overflow:hidden">${h ? `<img src="${E(api.ui.faviconUrl(h))}" width="18" height="18" style="border-radius:4px;flex:none" onerror="this.remove()">` : ''}<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${E(x.name || h)}</span></a>`; }).join('')}</div>`
+        : '<div style="padding:18px;color:var(--muted);font-size:13px;text-align:center">No links yet. Add some in the Web links plugin settings.</div>';
+    } });
   }
 });
 

@@ -172,3 +172,26 @@ test('themes: engine applies, persists, cleans up effects, and plugins can regis
   await page.evaluate(() => CadenceThemes.apply('cadence'));
   expect(errs).toEqual([]);
 });
+
+test('dashboard: starter page, drag to move without overlaps, add from the library, dock to the side', async ({ page }) => {
+  const errs = errorsOf(page); await boot(page);
+  await page.goto(`http://localhost:${PORT}/#view-dash`);
+  await expect(page.locator('.db-item').first()).toBeVisible();
+  const items = () => page.evaluate(() => JSON.parse(localStorage.getItem('cadence.v1')).pluginData.dashboard.pages[0].items);
+  const overlaps = list => { let n = 0; for (const a of list) for (const b of list) if (a !== b && a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h) n++; return n; };
+  const before = (await items()).length;
+  await page.click('#db-edit');
+  const note = page.locator('.db-item').filter({ has: page.locator('.dw-note') }), nb = await note.boundingBox(), gb = await page.locator('#db-grid').boundingBox();
+  await page.mouse.move(nb.x + 30, nb.y + 8); await page.mouse.down(); await page.mouse.move(gb.x + 20, gb.y + 10, { steps: 8 }); await page.mouse.up();
+  await expect.poll(async () => (await items()).find(i => i.key === 'dashboard:note').y).toBe(0);
+  expect(overlaps(await items())).toBe(0);
+  await page.locator('.db-w', { hasText: 'Spacer' }).click();
+  await expect.poll(async () => (await items()).length).toBe(before + 1);
+  expect(overlaps(await items())).toBe(0);
+  await page.click('#db-ldone');
+  await page.click('#db-dock');
+  await expect(page.locator('#db-side .db-item').first()).toBeVisible();
+  await page.click('#db-undock');
+  await expect(page.locator('#db-side')).toHaveCount(0);
+  expect(errs).toEqual([]);
+});

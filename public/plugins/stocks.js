@@ -52,6 +52,7 @@ Cadence.registerPlugin({
     }
     api.sidebar.add({ id: 'stocks', slot: 'bottom', order: 25, render: el => draw(el) });
     api.commands.add({ title: 'Market report: client share prices', run: () => report() });
+    api.widgets.add({ id: 'market', title: 'Client stocks', icon: '📈', size: 'm', description: 'Your weakest client stocks with sparklines. Click the header for the market report.', render: el => draw(el) });
     for (const ev of ['task:complete', 'task:add', 'task:update', 'task:reopen', 'task:remove', 'client:add', 'client:update', 'meeting:end', 'sync']) api.on(ev, () => { clearTimeout(window.__stkT); window.__stkT = setTimeout(() => { api.ui.refreshWidgets(); alerts(); }, 300); });
     setTimeout(alerts, 4000);
 
