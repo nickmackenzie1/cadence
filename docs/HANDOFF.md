@@ -174,3 +174,34 @@ Stakes and accountability
 - Grandma mode: overdue tasks trigger a disappointed-grandparent guilt-trip ("I'm not mad, I just thought you'd have called
   the dentist by now"). Text first; voice via TTS later.
 - Public ledger: your three oldest overdue tasks become your Slack/Discord status (needs their APIs + tokens on the NAS).
+
+## Family / Life plugin ideas from the user (2026-11-08, backlog — all Life space)
+Kids
+- Kid size tracker: shoe/clothing/diaper sizes with dates, nudges when the next size is probably due; shareable "what to buy" for grandparents.
+- Activity logistics: hockey/swim/dance schedules, carpool rotations, gear lists, REGISTRATION DEADLINES (popular programs fill in minutes).
+- Milestone & memory jar: one-tap funny quotes, firsts, moments; yearly compiled book/slideshow.
+- Health records hub: vaccinations, allergies, doctor/dentist visits, medication doses with weights and dates (for walk-in clinics).
+- Chore chart with allowance: age-appropriate recurring chores earning points/money; kids see their balance.
+- Birthday party planner: guests, RSVPs, gifts received (thank-you notes), "things to get for parties we're invited to".
+Spouse / partner
+- Mental load splitter: who owns which recurring household jobs; makes invisible work visible.
+- Date night rotator: regular date night, alternating planner, idea list, "book the babysitter" a week ahead.
+- Gift idea vault: 2-second capture ("she loves that"), birthdays/anniversaries/Mother's & Father's Day reminders 2 weeks out.
+- Weekly check-in: shared 15-min Sunday agenda (schedule, money, anything bugging either of you, one appreciation).
+- Little things reminder: occasional nudge for small unprompted kindnesses.
+Household
+- Meal planner -> grocery list sorted by store aisle; remembers what the family actually ate vs ignored. (merges with shopping-list idea)
+- Home maintenance calendar: seasonal recurrences tuned to location (Toronto: November tire swap). (merges with Good Homeowner)
+- Document & renewal tracker: passports, licences, health cards, insurance, subscriptions; reminders 60–90 days out (kids' passports = 5 yrs).
+- Bills & budget pulse: recurring bills as tasks + monthly "where did the money go" review for two.
+- Emergency binder: who to call, where papers are, account info, what to do if one of you is out of commission.
+Yourself
+- Personal maintenance: your own physical, dentist, eyes, haircut on recurrences.
+- Friendship keeper: nudges to see friends.
+- Energy budget: daily check-in; low days show only essentials and hide the guilt list. (relates to energy-aware scheduler)
+- Solo time scheduler: protected alone time per parent on a rotation.
+Family-wide
+- Shared family dashboard (kitchen tablet): today's schedule, who drives whom, dinner, what's due. (dashboards + side panel exist; needs shared/household login)
+- Vacation planner: per-person packing lists remembered between trips, countdown, booking deadlines, pet-sitter checklist.
+- Family traditions keeper: recurring reminders for traditions (pumpkin patch, cookie day, yearly photo).
+Cross-cutting needs these imply: household sharing (two adults, maybe kids) in the Life space; per-person assignment; a "profiles/people" record kind.

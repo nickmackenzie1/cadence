@@ -191,6 +191,40 @@
       :skin .check{${WOB}!important;border:2px solid #41403e}
       :skin .task.done .t-title{text-decoration:line-through wavy}` });
 
+  // NeoBrutalism (after NeoBrutalismCSS, MIT): thick black borders, hard offset shadows, buttons you can press
+  const NBF = [{ family: 'Lexend Mega', src: V + 'fonts/lexend-mega-latin-800-normal.woff2', weight: 800 }, { family: 'Public Sans', src: V + 'fonts/public-sans-latin-400-normal.woff2' }, { family: 'Public Sans', src: V + 'fonts/public-sans-latin-700-normal.woff2', weight: 700 }];
+  const NB_CARDS = ':skin .pb-search,:skin .gl,:skin .stat,:skin .qa,:skin .dw-qa,:skin .pl-card,:skin .db-item:not(.bare),:skin .th-card,:skin .modal,:skin .pop,:skin .task.open,:skin .drawer,:skin .pb-detail,:skin .db-lib,:skin .toast';
+  const neo = (id, name, tagline, p) => R({ id, name, category: 'Fun', tagline, fonts: NBF, font: '"Public Sans", system-ui, sans-serif',
+    vars: { '--bg': p.bg, '--panel': '#ffffff', '--side': p.side, '--text': '#000', '--muted': '#2b2b2b', '--faint': '#5c5c5c', '--line': '#000', '--hover': 'rgba(0,0,0,.06)',
+      '--accent': p.accent, '--on-accent': '#000', '--accent-soft': p.soft, '--danger': '#d7263d', '--danger-soft': '#ffc5c8', '--ok': '#0f8a5f', '--client': '#b35900', '--client-soft': '#ffe3b3', '--shadow': '5px 5px 0 #000' },
+    preview: { bg: p.bg, panel: '#fff', side: p.side, text: '#000', accent: p.accent, line: '#000', r: '5px', font: '"Lexend Mega", sans-serif', extra: 'box-shadow:inset 0 0 0 3px #000' },
+    css: `${NB_CARDS}{border:3px solid #000!important;border-radius:6px!important;box-shadow:5px 5px 0 #000!important}
+      :skin .head h1,:skin .pb-hero h1,:skin .modal-h,:skin .th-cat,:skin .db-h{font-family:"Lexend Mega",sans-serif;font-weight:800;letter-spacing:-.05em}
+      :skin .head h1{font-size:30px} :skin .modal-h{background:${p.accent};border-bottom:3px solid #000}
+      :skin .btn,:skin .meet-btn{border:3px solid #000!important;border-radius:6px!important;background:#fff;color:#000!important;font-weight:700;box-shadow:4px 4px 0 #000;transition:transform .08s,box-shadow .08s}
+      :skin .btn:hover,:skin .meet-btn:hover{transform:translate(-2px,-2px);box-shadow:6px 6px 0 #000}
+      :skin .btn:active,:skin .meet-btn:active{transform:translate(4px,4px);box-shadow:0 0 0 #000}
+      :skin .btn.primary,:skin .meet-btn{background:${p.accent}!important}
+      :skin .gl:hover,:skin .pl-card:hover,:skin .th-card:hover{transform:translate(-2px,-2px)!important;box-shadow:7px 7px 0 #000!important}
+      :skin .glance .gl:nth-child(4n+1),:skin .dw-stats .gl:nth-child(4n+1){background:#ffc5c8!important} :skin .glance .gl:nth-child(4n+2),:skin .dw-stats .gl:nth-child(4n+2){background:#b9e2f8!important}
+      :skin .glance .gl:nth-child(4n+3),:skin .dw-stats .gl:nth-child(4n+3){background:#b9e7de!important} :skin .glance .gl:nth-child(4n+4),:skin .dw-stats .gl:nth-child(4n+4){background:#bc98cb!important}
+      :skin .gl .v{font-family:"Lexend Mega",sans-serif;font-weight:800}
+      :skin .side{border-right:3px solid #000}
+      :skin .nav a{border:3px solid transparent;border-radius:6px} :skin .nav a.on{background:#fff;border-color:#000;box-shadow:3px 3px 0 #000;color:#000} :skin .nav a.on .ic{color:#000}
+      :skin .space-sw{background:#fff;border:3px solid #000;border-radius:8px;box-shadow:3px 3px 0 #000} :skin .space-sw i{background:${p.accent};border:2px solid #000;box-shadow:none;border-radius:5px}
+      :skin .chip{border:2px solid #000;background:#fff;color:#000;border-radius:5px} :skin .chip.over{background:#ffc5c8;color:#000}
+      :skin .check{border:2.5px solid #000;border-radius:5px} :skin .task.done .check,:skin .dw-task.done .check{background:#40d39c;border-color:#000}
+      :skin .task:hover{background:rgba(255,255,255,.55)}
+      :skin .group-h{font-family:"Lexend Mega",sans-serif;font-weight:800;letter-spacing:-.04em;color:#000;border-bottom:3px solid #000}
+      :skin .inp{border:3px solid #000;border-radius:6px;background:#fff}
+      :skin .isl-pill{background:#fff!important;border:3px solid #000;box-shadow:4px 4px 0 #000!important;--isl-fg:#000;--isl-sub:#2b2b2b}
+      :skin .isl-pill.up{background:${p.accent}!important}
+      :skin .pb-card::before,:skin .pb-detail::before{display:none} :skin .pl-ic{border:2.5px solid #000;box-shadow:3px 3px 0 #000}
+      :skin .dw-note{box-shadow:none;border-radius:0}
+      :skin ::selection{background:${p.accent};color:#000}` });
+  neo('neobrutalism', 'Neo-Brutal', 'Thick borders, hard shadows, sunny yellow (after NeoBrutalismCSS).', { bg: '#fdfd96', side: '#b9e7de', accent: '#ff7a59', soft: '#ffd9cc' });
+  neo('neobrutalism-sky', 'Neo-Brutal Sky', 'The same punch on a sky-blue page with pink buttons.', { bg: '#b9e2f8', side: '#fdfd96', accent: '#ff8fab', soft: '#ffd6e0' });
+
   /* ============================ CRAZY ============================ */
   R({ id: 'crt', name: 'CRT', category: 'Crazy', tagline: 'Amber phosphor on a dying monitor: scanlines, flicker, rolling bar.',
     fonts: [{ family: 'VT323', src: V + 'fonts/vt323-latin-400-normal.woff2' }],
