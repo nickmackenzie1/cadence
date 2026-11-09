@@ -18,6 +18,10 @@ const API_KEY = process.env.ANTHROPIC_API_KEY || '';       // optional AI
 const MODEL = process.env.ANTHROPIC_MODEL || 'claude-sonnet-5-5';
 const MODEL_QUICK = process.env.ANTHROPIC_MODEL_QUICK || 'claude-haiku-5-5';
 const KEEP_BACKUPS = +process.env.KEEP_BACKUPS || 30;
+// HTTPS (mkcert): deploy.sh writes cert.pem/key.pem into ./certs on the NAS, mounted at /certs.
+// When they exist, HTTPS runs on HTTPS_PORT and the plain HTTP port only redirects (and serves the public CA).
+const TLS_DIR = process.env.TLS_DIR || '/certs';
+const HTTPS_PORT = +process.env.HTTPS_PORT || 8443;
 
 const STATE_FILE = path.join(DATA_DIR, 'state.json');
 const BACKUP_DIR = path.join(DATA_DIR, 'backups');
@@ -376,8 +380,19 @@ async function callClaude(prompt, tier) {
   return (j.content || []).filter(b => b.type === 'text').map(b => b.text).join('');
 }
 
-const server = http.createServer(async (req, res) => {
+function caCert() { try { return fs.readFileSync(path.join(TLS_DIR, 'rootCA.pem')); } catch { return null; } }
+function caFingerprint() { const pem = caCert(); try { return pem ? new crypto.X509Certificate(pem).fingerprint256 : ''; } catch { return ''; } }
+// the public root certificate, for installing on your devices (never the key)
+function sendCA(res) {
+  const pem = caCert();
+  if (!pem) return send(res, 404, 'No certificate authority yet', 'text/plain');
+  res.writeHead(200, { 'Content-Type': 'application/x-x509-ca-cert', 'Content-Disposition': 'attachment; filename="cadence-rootCA.crt"', 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' });
+  res.end(pem);
+}
+
+async function handle(req, res) {
   try {
+    if (TLS && new URL(req.url, 'http://x').pathname.replace(/^.*\//, '/') === '/ca.crt') return sendCA(res);
     if (!authorized(req)) {
       res.writeHead(401, { 'WWW-Authenticate': 'Basic realm="Cadence", charset="UTF-8"' });
       return res.end('Login required');
@@ -388,7 +403,7 @@ const server = http.createServer(async (req, res) => {
     if (p === '/api/health') {
       const size = f => { try { return fs.statSync(f).size; } catch { return 0; } };
       const count = d => { try { return fs.readdirSync(d).length; } catch { return 0; } };
-      return send(res, 200, { ok: true, build: buildId(), ai: !!API_KEY, model: API_KEY ? MODEL : null, version: '0.5.0', uptime: Math.round((Date.now() - STARTED) / 1000), node: process.version,
+      return send(res, 200, { ok: true, https: !!TLS && !!req.socket.encrypted, build: buildId(), ai: !!API_KEY, model: API_KEY ? MODEL : null, version: '0.5.0', uptime: Math.round((Date.now() - STARTED) / 1000), node: process.version,
         dataBytes: size(STATE_FILE), backups: count(BACKUP_DIR), logos: fs.readdirSync(ICON_DIR).filter(f => f.endsWith('.img')).length, companies: count(COMPANY_DIR), auth: !!PASSWORD, time: Date.now() });
     }
 
@@ -507,6 +522,23 @@ const server = http.createServer(async (req, res) => {
     console.error(e);
     send(res, 500, { error: e.message });
   }
-});
+}
 
-server.listen(PORT, () => console.log(`Cadence running on :${PORT}  data=${DATA_DIR}  ai=${API_KEY ? 'on' : 'off'}  auth=${PASSWORD ? 'on' : 'off'}`));
+function loadTLS() {
+  try { return { cert: fs.readFileSync(path.join(TLS_DIR, 'cert.pem')), key: fs.readFileSync(path.join(TLS_DIR, 'key.pem')) }; } catch { return null; }
+}
+const TLS = loadTLS();
+const tag = `data=${DATA_DIR}  ai=${API_KEY ? 'on' : 'off'}  auth=${PASSWORD ? 'on' : 'off'}`;
+if (TLS) {
+  require('https').createServer(TLS, handle).listen(HTTPS_PORT, () => console.log(`Cadence running on https :${HTTPS_PORT}  ${tag}  CA ${caFingerprint() || 'unknown'}`));
+  // plain HTTP: nothing but a redirect (so a password is never sent unencrypted) and the public CA download
+  http.createServer((req, res) => {
+    const u = new URL(req.url, 'http://x');
+    if (u.pathname.replace(/^.*\//, '/') === '/ca.crt') return sendCA(res);
+    const host = String(req.headers.host || 'localhost').replace(/:\d+$/, '').replace(/[^\w.\-\[\]:]/g, '');
+    res.writeHead(307, { Location: `https://${host}:${HTTPS_PORT}${u.pathname}${u.search}`, 'Cache-Control': 'no-store' });
+    res.end();
+  }).listen(PORT, () => console.log(`Cadence http :${PORT} redirects to https :${HTTPS_PORT}`));
+} else {
+  http.createServer(handle).listen(PORT, () => console.log(`Cadence running on :${PORT}  ${tag}  https=off`));
+}

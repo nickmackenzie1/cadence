@@ -6,3 +6,6 @@ deploy.log
 node_modules/
 test-results/
 playwright-report/
+certs/
+.mkcert-ca/
+.tools/

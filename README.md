@@ -13,6 +13,7 @@ server.js           tiny Node server: serves the app, stores data/state.json, da
 Dockerfile          node:20-alpine image
 docker-compose.yml  mounts public/ live, so UI changes need no rebuild
 deploy.sh           Synology auto-deploy: pulls from GitHub, rebuilds only when needed
+tls.sh              local HTTPS: mkcert CA + certificate made on the NAS (called by deploy.sh)
 docs/PLUGINS.md     plugin API for developers
 ```
 
@@ -31,7 +32,7 @@ docs/PLUGINS.md     plugin API for developers
 push to main  ->  NAS Task Scheduler runs deploy.sh every 5 min  ->  live
                     public/*                        : live on browser refresh
                     server.js / Dockerfile / compose: container rebuilt automatically
-                    data/ and .env                  : never touched
+                    data/, .env, certs/, .mkcert-ca/: never touched
 ```
 
 Every deploy is a git commit, so rolling back is `git revert` and push.
@@ -62,6 +63,26 @@ Fine-grained tokens → **Generate new token**:
 **4. Run it once.** Select the task and click **Run**. Within a minute or two the container is rebuilt
 from GitHub. Open `http://<nas-ip>:8484`. The sidebar should say **Synced to NAS**.
 
+**5. Turn on HTTPS on your devices (one time each).** On its next run `deploy.sh` makes a private
+certificate authority on the NAS with [mkcert](https://github.com/FiloSottile/mkcert) and a certificate for the
+NAS's LAN names and IPs. Cadence then runs on **`https://<nas-ip>:8443`**, and the old `http://…:8484` address
+redirects there. Nothing is exposed to the internet, and the CA's private key never leaves `docker/cadence/.mkcert-ca/`.
+Each device needs to trust the CA once:
+
+- Get the CA: open `http://<nas-ip>:8484/ca.crt`, or copy `docker/cadence/certs/rootCA.pem` from File Station
+  (safest). Its SHA-256 fingerprint is in `deploy.log`; it should match what your device shows.
+- **Mac:** double-click it → Keychain Access adds it to *System* → double-click the "mkcert" certificate →
+  Trust → *When using this certificate: Always Trust*.
+- **Windows:** double-click → Install Certificate → Local Machine → *Trusted Root Certification Authorities*.
+- **iPhone / iPad:** open the `/ca.crt` link in Safari → Settings → General → VPN & Device Management → install the
+  profile → then Settings → General → About → Certificate Trust Settings → turn on full trust for it.
+- **Android:** Settings → Security → Encryption & credentials → Install a certificate → CA certificate.
+- Firefox keeps its own list: if it still warns, set `security.enterprise_roots.enabled` to true in `about:config`.
+
+If the NAS gets a new IP the certificate is reissued automatically with the same CA, so devices don't need to
+trust anything again. Add extra names (e.g. a local DNS name) with `CERT_HOSTS="cadence.lan"` in the task's command,
+or turn HTTPS off with `HTTPS=off`.
+
 To change your password or AI key later, edit the task's command. The next run applies it and restarts the container.
 
 The script uses `git` if it's installed (Package Center → Git Server). If not, it uses a throwaway
@@ -88,4 +109,5 @@ Or just open `public/index.html` in a browser (data stays in that browser).
 | `APP_USERNAME` / `APP_PASSWORD` | Login (no login if the password is empty) |
 | `ANTHROPIC_API_KEY` | Turns on AI extraction and summaries (optional) |
 | `ANTHROPIC_MODEL`, `ANTHROPIC_MODEL_QUICK` | Override the models |
+| `HTTPS_PORT` / `TLS_DIR` | HTTPS port (8443) and where the certificate is mounted (`/certs`) |
 | `KEEP_BACKUPS` | Number of daily backups to keep in `data/backups` (default 30) |

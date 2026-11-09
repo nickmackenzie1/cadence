@@ -4,10 +4,13 @@ services:
     container_name: cadence
     restart: unless-stopped
     ports:
-      - "8484:8484"
+      - "8484:8484"   # http: redirects to https once certs/ exists
+      - "8443:8443"   # https (mkcert, LAN only)
     volumes:
       - ./data:/data
       # the app UI is mounted live: a pushed change to public/ goes live on refresh, no rebuild
       - ./public:/app/public:ro
+      # certificate made on the NAS by tls.sh (the CA's private key in .mkcert-ca/ is never mounted)
+      - ./certs:/certs:ro
     env_file:
       - .env

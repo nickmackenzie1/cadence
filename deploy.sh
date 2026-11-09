@@ -3,6 +3,7 @@
 # Run from DSM Task Scheduler as root, e.g. every 5 minutes:
 #   REPO=owner/cadence TOKEN=github_pat_xxx APP_PASSWORD=secret sh /volume1/docker/cadence/deploy.sh
 # Optional vars: APP_USERNAME, ANTHROPIC_API_KEY, TZ, BRANCH. They're written to .env (never committed).
+# HTTPS: tls.sh keeps a mkcert certificate in certs/ (HTTPS=off to skip, CERT_HOSTS="..." to set the names).
 # - Pulls the latest commit from GitHub (read-only token)
 # - Changes to public/ go live instantly (mounted into the container)
 # - Changes to server.js / Dockerfile / docker-compose.yml trigger a rebuild
@@ -36,6 +37,15 @@ ensure_running(){
   fi
 }
 
+# local HTTPS certificate (tls.sh exits 10 when it issued a new one)
+TLS_NEW=no
+ensure_tls(){
+  [ -f "$DIR/tls.sh" ] || return 0
+  rc=0; sh "$DIR/tls.sh" || rc=$?
+  [ "$rc" = 10 ] && TLS_NEW=yes
+  return 0
+}
+
 URL="https://github.com/$REPO.git"
 [ -n "$TOKEN" ] && URL="https://x-access-token:$TOKEN@github.com/$REPO.git"
 
@@ -64,7 +74,9 @@ ENV_CHANGED=no
 if [ -n "${APP_PASSWORD:-}" ] && write_env; then ENV_CHANGED=yes; fi
 
 if [ "$OLD" = "$NEW" ]; then
-  if [ "$ENV_CHANGED" = yes ] && [ "$OLD" != none ]; then log "settings changed: restarting"; dc up -d >> "$LOG" 2>&1 || log "restart failed"; fi
+  ensure_tls
+  if [ "$ENV_CHANGED" = yes ] && [ "$OLD" != none ]; then log "settings changed: restarting"; dc up -d >> "$LOG" 2>&1 || log "restart failed"
+  elif [ "$TLS_NEW" = yes ]; then log "new certificate: restarting"; docker restart cadence >> "$LOG" 2>&1 || log "restart failed"; fi
   ensure_running
   exit 0
 fi
@@ -74,15 +86,17 @@ g reset -q --hard "$NEW"
 rm -f "$DIR/index.html"                    # leftover from the manual install
 [ -f .env ] || { cp .env.example .env; log "created .env from .env.example — set APP_PASSWORD"; }
 mkdir -p data
+ensure_tls
 
 [ "$ENV_CHANGED" = yes ] && CHANGED="$CHANGED
 docker-compose.yml"
-if echo "$CHANGED" | grep -qE '^(all|server\.js|Dockerfile|docker-compose\.yml|deploy\.sh)$'; then
+if echo "$CHANGED" | grep -qE '^(all|server\.js|Dockerfile|docker-compose\.yml|deploy\.sh|tls\.sh)$'; then
   log "deploy $(echo "$NEW" | cut -c1-7): rebuilding container"
   dc up -d --build --remove-orphans >> "$LOG" 2>&1 && log "rebuild ok" || log "REBUILD FAILED — see above"
 else
   log "deploy $(echo "$NEW" | cut -c1-7): $(echo $CHANGED) (live, no rebuild)"
 fi
+if [ "$TLS_NEW" = yes ]; then log "new certificate: restarting"; docker restart cadence >> "$LOG" 2>&1 || log "restart failed"; fi
 ensure_running
 # keep the log small
 tail -n 300 "$LOG" > "$LOG.tmp" && mv "$LOG.tmp" "$LOG"

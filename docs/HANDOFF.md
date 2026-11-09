@@ -9,7 +9,7 @@
 - Island API: window.CadenceIsland.show({title,sub,icon,check,spin,actions,sticky,ms}), .update(n), .dismiss(), .live(key,{prio,view}), .clear(key)
 - NOTE: something else is also editing public/plugins/status.js (corner boot + islandBoot timings). Read before editing.
 - TODO next: (1) Living mural plugin (task -> brushstroke in client brand colours, time-lapse, export poster). (2) Generic RSS feed plugin with server proxy /api/feed (safeFetch, cache), placement options (sidebar bottom / home / own view), "record store" vinyl theme using item images (Lightspeed CDN: swap /75x75x2/ -> /300x300x2/). Feed: https://www.somethingelserecords.ca/index.rss (RSS 2.0, image in description <img>).
-  (3) Spotify: user has Premium, Cadence not on HTTPS yet -> give Synology HTTPS steps (DDNS synology.me + Let's Encrypt + reverse proxy) before building PKCE player.
+  (3) Spotify: user has Premium. HTTPS is now local mkcert (see below), no DDNS/Let's Encrypt.
 - mural.js added (view-mural). Next: test with t22, then RSS.
 - mural committed 16c034d
 - rss.js written + server /api/feed + preposition repair migration (S.fixPrep). testing t24
@@ -20,4 +20,29 @@
 
 ## Session end 2026-11-06 21:20 (commit 5bc2dc6, artifact 1794017429-292b)
 Done: demo mode, calendar, insights, db viewer, feeds wall+timeline, motion/narrow, Island API (show/celebrate/progress/live), plugin cards (icon/color/category/tagline/settings), mural mosaic (/api/img), Havoc damage blends into the page, update notice.
-Next: SQLite (node:sqlite, Node 22 in Docker), Tailscale HTTPS -> login page + Spotify, right-click menu, verify mosaic with real Wikimedia images and logos on the NAS.
+Next: (superseded, see below)
+
+## RULES (from the user, 2026-11-08) — override anything above
+- No Tailscale. Never expose the NAS to the internet (no port forwarding, DDNS, Let's Encrypt HTTP challenge).
+- Secrets live on the NAS only (.env, certs/, .mkcert-ca/, data/). Never commit them, never put them in the browser.
+- Deploy = push main -> CI tests -> promoted to `stable` -> NAS deploy.sh (every 5 min). Repo clone is /home/claude/cadence.
+
+## Session 2026-11-08
+- HTTPS (mkcert): tls.sh (called by deploy.sh) downloads pinned mkcert v1.4.4 (sha256 per arch), CA in .mkcert-ca/
+  (never mounted), leaf cert in certs/ -> mounted /certs:ro. Hosts = hostname, hostname.local, localhost, LAN IPv4s
+  + CERT_HOSTS. Reissues on host change / 30 days before expiry, exit 10 -> deploy.sh restarts container.
+  server.js: certs present -> https on 8443, http 8484 = 307 redirect (before auth) + /ca.crt (public CA only).
+  tests/https.spec.mjs covers it. HTTPS=off disables.
+- Plan order: HTTPS (done) -> login page (cookie session, replaces Basic auth) -> SQLite (node:sqlite, Node 22 image).
+
+## Backlog (user ideas, 2026-11-08)
+1. Client page redesign (screenshot was the Filecenter client page: flat, washed out). More aggressive theme in the
+   client's brand colours; switching clients MORPHS the colours like TV bias lighting (ambient glow behind the
+   page/background), but text must stay very readable (contrast-checked).
+2. RSS skins for common feed types: news, podcasts (player), etc. (rss.js already has records/cards/list).
+3. File browser / network shares view (NAS-side, read-only first; must stay LAN-only, path-jailed).
+4. Kanban view. 5. Calendar view (month/week grid; calendar.js has the ICS events).
+6. Weather plugin: API key entered in settings but STORED ON THE NAS (server proxy, like calendars.json), placeable in
+   several spots (sidebar / home / island).
+7. Spotify listening stats (needs HTTPS: done; PKCE, tokens on NAS).
+- Older: right-click menu, verify mosaic with real Wikimedia images and logos on the NAS.
