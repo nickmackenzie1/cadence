@@ -244,3 +244,20 @@ test('sheep: they land on things, baa when clicked, and go back in the pen', asy
   await expect(page.locator('.shp')).toHaveCount(0);
   expect(errs).toEqual([]);
 });
+
+test('orbit: clients orbit the sun, the day clock shows timed work, right-click opens the radial menu', async ({ page }) => {
+  const errs = await open(page);
+  await page.evaluate(() => { const d = window.T.util.todayKey(); for (const n of ['Orbco', 'Planetix', 'Moonly']) { const c = window.T.clients.add(n); window.T.tasks.add({ title: n + ' thing', clientId: c.id, dueDate: d, dueTime: '23:50' }); window.T.tasks.add({ title: 'they send', clientId: c.id, owner: 'client' }); } location.hash = 'view-orbit'; });
+  const ours = page.locator('.ob-pl', { hasText: /Orbco|Planetix|Moonly/ });
+  await expect(ours).toHaveCount(3);
+  await expect(ours.locator('.ob-moon')).toHaveCount(3);
+  expect(await page.locator('.ob-clock .tk').count()).toBeGreaterThanOrEqual(3);
+  await ours.first().click({ force: true });
+  await expect(page).toHaveURL(/#client-/);
+  await page.mouse.click(900, 700, { button: 'right' });
+  await expect(page.locator('#ob-wheel.on .ob-it')).toHaveCount(8);
+  await page.locator('#ob-wheel .ob-it', { hasText: 'Upcoming' }).click();
+  await expect(page).toHaveURL(/#upcoming/);
+  await expect(page.locator('#ob-wheel')).toHaveCount(0);
+  expect(errs).toEqual([]);
+});

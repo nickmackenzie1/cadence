@@ -447,3 +447,15 @@ data, or peer-to-peer on the same LAN). Personal data and secrets stay on each p
 - Chat, but in a fun way (reactions, stickers, Island pings).
 - Virtual chat room with avatars: walk your avatar into a client's "room" (Gather-style map) and that room is the
   client's chat channel.
+
+## Shipped 2026-11-09 evening
+- christmas.js: random/clumpy buildup that rolls downhill and creeps into a continuous cover, per-flake fall speed and
+  flutter, softer blended drifts; covered pages (meeting, dialogs) hide the page's snow; pill bulb ring follows the pill
+  frame by frame (ResizeObserver + MutationObserver kick a 950ms rAF follow).
+- core.js meetingBand: meeting screen in the client's brand (banner, facts, talking points).
+- rss.js: releaseOf(title) -> "Releases <date>" badge (.rs-rel) on covers/pins/rows; date-only parentheticals dropped from pressing notes.
+- typing-fx.js: modes off/fire/ice/typewriter/confetti/power/helper (localStorage cadence.typing), caret via mirror div,
+  one canvas only while particles live; Nib = original sticky-note helper with quick-add tips (#qa only).
+- sheep.js: original pixel sheep desktop pet (localStorage cadence.sheep {count}), walks on PLAT tops, physics, drag/throw.
+- orbit.js: view-orbit (client solar system + 24h day clock), dashboard widget 'dayclock', radial menu on right-click of
+  blank space (Shift = native menu; setting in cadence.orbit). Lucide 'orbit' + 'clock-4' added (🪐 / 🕓 map to them).
