@@ -330,3 +330,6 @@ Needs: Life space (done), weather API (key on NAS), maps/GPX (offline tiles = ph
   settings.myName, "I'll…" mine, "They will…" client, dates pulled via parseQuick into dueDate, dedupe, capitalise.
   Due uses CadenceDatePick (fallback native picker). "Fix wording with AI" when the NAS has a key (AI.json).
 - Feed wall: long grade notes wrap; pins re-fit via ResizeObserver + fonts.ready (were overlapping).
+- Backlog (user, 2026-11-09 15:41): feed records whose title includes a date are upcoming releases (pre-orders). Show
+  them as their own card style with a small "Releases: Nov 28" badge on the top-left of the cover, nothing big; maybe
+  sort/group them as "Coming soon".
