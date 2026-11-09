@@ -107,7 +107,7 @@
     preview: { bg: '#f7f6f3', panel: '#fff', side: '#f0eee9', text: '#1d1c1a', accent: '#5b5bd6', line: '#e7e4dd' } });
   apply(stored('theme') || 'cadence');     // as early as possible: no flash of the wrong theme
 
-  const CATS = ['Useful', 'Fun', 'Crazy'];
+  const CATS = ['Useful', 'Editor', 'daisyUI', 'Fun', 'Crazy'];
   Cadence.registerPlugin({
     id: 'themes', name: 'Themes', version: '1.0.0', category: 'Look & feel',
     description: 'A theming engine for the whole app and every plugin, plus a gallery of useful, fun and properly unhinged themes. Customise the accent, font and corners on top of any theme. Plugins can add their own themes with CadenceThemes.register().',
@@ -142,6 +142,8 @@
           .th-cust label{display:block;font-size:12px;font-weight:600;color:var(--muted);margin-bottom:6px}
           .th-cust input[type=color]{width:100%;height:34px;border:1px solid var(--line);border-radius:8px;background:none;padding:2px}
           .th-cust input[type=range]{width:100%}
+          .th-filter{display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap;margin:18px 0 0}
+          .th-filter .pl-cats button span{opacity:.6;margin-left:3px}
           .th-dev{margin-top:26px;font-size:13px;color:var(--muted)}
           .th-dev code{font-family:var(--mono);font-size:12px;background:var(--hover);padding:1px 5px;border-radius:5px}
         `;
@@ -161,9 +163,12 @@
         const v = Object.entries({ bg: p.bg || '#f7f6f3', panel: p.panel || '#fff', side: p.side || p.panel || '#f0eee9', text: p.text || '#1d1c1a', accent: p.accent || '#5b5bd6', line: p.line || '#e7e4dd', r: p.r || '6px', font: p.font || t.font || 'inherit' }).map(([k, x]) => `--p-${k}:${x}`).join(';');
         return `<div class="th-mini" style="${api.ui.esc(v)};${p.extra ? api.ui.esc(p.extra) : ''}"><div class="s"><i class="a"></i><i></i><i></i><i></i></div><div class="m"><div class="h">Today</div><div class="r"><b></b><span></span></div><div class="r"><b></b><span style="flex:.6"></span></div><div class="bt">Add</div></div>${t.effects ? '<span class="th-fxbadge">FX</span>' : ''}</div>`;
       }
+      const G = window.__thUI = window.__thUI || { cat: 'All', tone: 'all' };
+      const toneOf = t => { const v = t.vars || t.light || {}; const bg = (t.preview && t.preview.bg) || v['--bg'] || '#fff'; return t.light && t.dark ? 'both' : lum(bg) < 0.45 ? 'dark' : 'light'; };
       function gallery(el) {
         const E = api.ui.esc, c = api.storage.get('custom') || {}, level = api.storage.get('effects') || 'full';
-        const byCat = CATS.map(cat => [cat, [...T.values()].filter(t => (t.category || 'Fun') === cat)]).concat([['Other', [...T.values()].filter(t => !CATS.includes(t.category || 'Fun'))]]).filter(x => x[1].length);
+        const keep = t => (G.cat === 'All' || (t.category || 'Fun') === G.cat) && (G.tone === 'all' || toneOf(t) === G.tone || toneOf(t) === 'both');
+        const byCat = CATS.map(cat => [cat, [...T.values()].filter(t => (t.category || 'Fun') === cat && keep(t))]).concat([['Other', [...T.values()].filter(t => !CATS.includes(t.category || 'Fun') && keep(t))]]).filter(x => x[1].length);
         el.innerHTML = `<div class="th-cust">
             <div><label>Accent colour</label><input type="color" id="th-accent" value="${E(c.accent || (token('--accent').match(/^#[0-9a-f]{6}$/i) ? token('--accent') : '#5b5bd6'))}"></div>
             <div><label>Font</label><select class="inp" id="th-font"><option value="">Theme's own</option>${[['sans', 'Inter'], ['system', 'System'], ['serif', 'Serif'], ['rounded', 'Rounded'], ['mono', 'Mono']].map(([k, n]) => `<option value="${k}" ${c.font === k ? 'selected' : ''}>${n}</option>`).join('')}</select></div>
@@ -171,8 +176,12 @@
             <div><label>Effects</label><select class="inp" id="th-fx">${[['full', 'Full chaos'], ['low', 'Gentle'], ['off', 'Off']].map(([k, n]) => `<option value="${k}" ${level === k ? 'selected' : ''}>${n}</option>`).join('')}</select></div>
             <div style="display:flex;align-items:flex-end"><button class="btn" id="th-reset">Reset tweaks</button></div>
           </div>
+          <div class="th-filter"><div class="pl-cats" style="margin:0">${['All', ...CATS].map(k => `<button class="${G.cat === k ? 'on' : ''}" data-thc="${k}">${k}${k === 'All' ? ` <span>${T.size}</span>` : ''}</button>`).join('')}</div>
+            <div class="seg">${[['all', 'Any'], ['light', 'Light'], ['dark', 'Dark']].map(([k, l]) => `<button class="${G.tone === k ? 'on' : ''}" data-tht="${k}">${l}</button>`).join('')}</div></div>
           ${byCat.map(([cat, list]) => `<div class="th-cat">${E(cat)}</div><div class="th-grid">${list.map(t => `<button class="th-card ${t.id === current ? 'on' : ''}" data-th="${E(t.id)}">${preview(t)}<div class="th-meta"><b>${E(t.name)}</b><span>${E(t.tagline || '')}</span></div></button>`).join('')}</div>`).join('')}
           <div class="th-dev">Make your own: call <code>CadenceThemes.register({ id, name, vars, css, effects })</code> from any plugin (Settings → Developer), see docs/PLUGINS.md. Credits for the open-source projects behind these themes are in <code>vendor/themes/CREDITS.md</code>.</div>`;
+        el.querySelectorAll('[data-thc]').forEach(b => b.onclick = () => { G.cat = b.dataset.thc; gallery(el); });
+        el.querySelectorAll('[data-tht]').forEach(b => b.onclick = () => { G.tone = b.dataset.tht; gallery(el); });
         el.querySelectorAll('[data-th]').forEach(b => b.onclick = () => {
           const prev = current; window.CadenceThemes.apply(b.dataset.th); gallery(el);
           if (prev !== current) api.ui.toast(`Theme: ${T.get(current).name}`, [{ label: 'Undo', run: () => { window.CadenceThemes.apply(prev); gallery(el); } }]);
