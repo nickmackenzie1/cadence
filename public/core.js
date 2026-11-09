@@ -694,7 +694,8 @@ function counts(){
     inbox: o.filter(x => !x.clientId).length
   };
 }
-let showPaused = false;
+let showPaused = false, showFinished = false;
+const isProject = c => !!c && c.kind === 'project';
 function clientLink(cl, r, o, isPaused){
   const n = o.filter(t => t.clientId===cl.id && t.owner==='me').length, hot = o.some(t => t.clientId===cl.id && t.owner==='me' && dueState(t)==='over');
   return `<a class="${r==='client-'+cl.id?'on':''} ${isPaused?'paused':''}" href="#client-${cl.id}"><span class="ic">${avatar(cl, 20)}</span><span class="t">${esc(cl.name)}</span>${n?`<span class="n ${hot?'hot':''}">${n}</span>`:''}</a>`;
@@ -711,11 +712,33 @@ const NAV_ICONS = {
   moon: '<svg viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></svg>',
   gear: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2.8l1.6 2.3 2.8-.4.9 2.7 2.6 1.1-.5 2.8 1.8 2.2-1.8 2.2.5 2.8-2.6 1.1-.9 2.7-2.8-.4L12 21.2l-1.6-2.3-2.8.4-.9-2.7-2.6-1.1.5-2.8L2.8 12l1.8-2.2-.5-2.8 2.6-1.1.9-2.7 2.8.4z"/></svg>',
 };
+function projectPage(c, o){
+  const all = S.tasks.filter(x => x.clientId === c.id), open = o.filter(x => x.clientId === c.id), t0 = todayKey();
+  const done = all.filter(x => x.done), pct = all.length ? Math.round(done.length / all.length * 100) : 0;
+  const mine = open.filter(x => x.owner === 'me'), theirs = open.filter(x => x.owner === 'client'), overdue = mine.filter(x => dueState(x) === 'over').length;
+  const now = mine.filter(x => x.dueDate && x.dueDate <= t0), next = mine.filter(x => !x.dueDate || x.dueDate > t0);
+  const recent = done.filter(x => x.doneAt).sort((a, b) => b.doneAt - a.doneAt).slice(0, 6);
+  const weekDone = done.filter(x => x.doneAt && Date.now() - x.doneAt < 7 * 864e5).length;
+  let tgt = '';
+  if(c.target){ const days = Math.round((new Date(c.target + 'T12:00') - new Date(t0 + 'T12:00')) / 864e5);
+    tgt = `<span class="pj-tgt ${days < 0 && c.status !== 'done' ? 'late' : days <= 7 && c.status !== 'done' ? 'soon' : ''}">🎯 ${esc(fmtDate(c.target))}${c.status === 'done' ? '' : days < 0 ? ` · ${-days}d past` : days === 0 ? ' · today' : ` · ${days}d left`}</span>`; }
+  const st = c.status === 'done' ? '<span class="badge">Finished</span>' : c.status === 'paused' ? '<span class="badge">Paused</span>' : '';
+  return `<div class="c-hero proj"><div class="bg" style="background:radial-gradient(1200px 260px at 85% 0%, ${c.color}30, transparent 70%), linear-gradient(180deg, ${c.color}18, transparent)"></div><div class="head"><div><h1>${avatar(c, 44)}<span class="nm" contenteditable="true" spellcheck="false" data-rename="${c.id}" title="Click to rename">${esc(c.name)}</span> ${st}</h1>
+      <div class="sub"><span class="chip">Internal project</span>${tgt}</div>${c.description ? `<div class="c-desc">${esc(c.description)}</div>` : ''}
+      <div class="pj-bar" title="${done.length} of ${all.length} done"><i style="width:${pct}%;background:${c.color}"></i></div><div class="pj-pct"><b>${pct}%</b> done · ${done.length} of ${all.length} tasks${weekDone ? ` · ${weekDone} this week` : ''}</div></div>
+    <div class="actions">${Reg.clientActions.filter(x => x.primary && x.projects).map(x => `<button class="btn" data-act="client-action" data-i="${Reg.clientActions.indexOf(x)}" data-cid="${c.id}">${esc(x.label)}</button>`).join('')}<button class="btn" data-act="edit-project" data-cid="${c.id}">Edit project</button></div></div></div>
+    <div class="stats"><div class="stat"><div class="v">${mine.length}</div><div class="l">To do</div></div><div class="stat"><div class="v" style="color:var(--client)">${theirs.length}</div><div class="l">Waiting on others</div></div><div class="stat"><div class="v" style="color:${overdue ? 'var(--danger)' : 'inherit'}">${overdue}</div><div class="l">Overdue</div></div><div class="stat"><div class="v">${weekDone}</div><div class="l">Done this week</div></div></div>
+    ${quickAdd(`Add a task to ${c.name}…  ^ if waiting on someone`, { clientId: c.id })}
+    <div class="cols"><div>${group('Now', now, { hideClient: true, drop: 'owner:me' }) || ''}${group('Next', next, { hideClient: true, drop: 'owner:me' }) || (now.length ? '' : `<div class="group" data-drop="owner:me"><div class="group-h">To do</div><div class="muted drop-hint" style="padding:10px 6px">${all.length ? 'All done. 🎉' : 'Break it down: add the first task above.'}</div></div>`)}</div>
+    <div>${group('Waiting on others', theirs, { hideClient: true, cls: 'client', drop: 'owner:client' }) || `<div class="group" data-drop="owner:client"><div class="group-h client">Waiting on others</div><div class="muted drop-hint" style="padding:10px 6px">Nothing blocked.</div></div>`}
+      ${recent.length ? `<div class="group"><div class="group-h soft">Recently done</div>${recent.map(x => `<div class="pj-done">✓ <span>${esc(x.title)}</span><em>${esc(fmtDate(ymd(new Date(x.doneAt))))}</em></div>`).join('')}</div>` : ''}</div></div>`;
+}
 function renderSide(){
   const r = route(), c = counts(), o = open();
   const nav = (id, ic, label, n, hot) => `<a class="${r===id?'on':''}" href="#${id}"><span class="ic">${ic}</span><span class="t">${label}</span>${n ? `<span class="n ${hot?'hot':''}">${n}</span>` : ''}</a>`;
   const all = S.clients.filter(x => !x.archived).sort((a,b) => a.name.localeCompare(b.name));
-  const clients = all.filter(x => x.status !== 'paused'), paused = all.filter(x => x.status === 'paused');
+  const projects = LIFE() ? [] : all.filter(isProject), cl0 = all.filter(x => !isProject(x) || LIFE());
+  const clients = cl0.filter(x => x.status !== 'paused'), paused = cl0.filter(x => x.status === 'paused');
   if(!$('#side-head').firstChild) $('#side-head').innerHTML = `<div class="brand"><span class="logo"></span>Cadence<kbd title="Command palette">⌘K</kbd></div><div class="space-sw" role="tablist" aria-label="Space"><i></i><button data-act="space" data-s="work" role="tab">Work</button><button data-act="space" data-s="life" role="tab">Life</button></div>`;
   $$('#side-head .space-sw button').forEach(b => { b.classList.toggle('on', b.dataset.s === SPACE); b.setAttribute('aria-selected', b.dataset.s === SPACE); });
   $('#side-head .space-sw').dataset.on = SPACE;
@@ -730,7 +753,10 @@ function renderSide(){
     ${(() => { const loose = Reg.views.filter(v => !v.group && !v.hidden), ins = Reg.views.filter(v => v.group === 'insights'); const items = (ins.length ? [nav('insights', '✦', 'Insights')] : []).concat(loose.map(v => nav('view-'+v.id, esc(v.icon||'◇'), esc(v.title)))); return items.length ? `<div class="sect">Views</div><nav class="nav">${items.join('')}</nav>` : ''; })()}
     <div class="sect">${LIFE() ? 'Areas' : 'Clients'} <button data-act="add-client" title="${LIFE() ? 'Add an area' : 'Add client'}">+</button></div>
     <nav class="nav">${clients.map(cl => clientLink(cl, r, o)).join('') || (paused.length ? '' : `<a data-act="add-client"><span class="ic">+</span><span class="t muted">${LIFE() ? 'Add an area' : 'Add your clients'}</span></a>`)}
-      ${paused.length ? `<div class="more" data-act="toggle-paused">${showPaused ? '▾' : '▸'} Paused <span class="muted">${paused.length}</span></div>${showPaused ? paused.map(cl => clientLink(cl, r, o, true)).join('') : ''}` : ''}</nav>`;
+      ${paused.length ? `<div class="more" data-act="toggle-paused">${showPaused ? '▾' : '▸'} Paused <span class="muted">${paused.length}</span></div>${showPaused ? paused.map(cl => clientLink(cl, r, o, true)).join('') : ''}` : ''}</nav>
+    ${LIFE() ? '' : (() => { const live = projects.filter(x => x.status !== 'done'), fin = projects.filter(x => x.status === 'done');
+      return `<div class="sect">Projects <button data-act="add-project" title="New internal project">+</button></div><nav class="nav">${live.map(p => clientLink(p, r, o, p.status === 'paused')).join('') || `<a data-act="add-project"><span class="ic">+</span><span class="t muted">Internal work, side projects…</span></a>`}
+      ${fin.length ? `<div class="more" data-act="toggle-finished">${showFinished ? '▾' : '▸'} Finished <span class="muted">${fin.length}</span></div>${showFinished ? fin.map(p => clientLink(p, r, o, true)).join('') : ''}` : ''}</nav>`; })()}`;
   $('#side-foot').innerHTML = `${DEMO ? `<div class="demo-row"><b>●</b> Demo data<button data-act="demo-reset">Reset</button><button data-act="demo-exit">Exit</button></div>` : ''}
       ${LIFE() ? '' : `<button class="meet-btn" data-act="meeting">${S.activeMeeting ? '● Resume meeting' : '◉ Start meeting'} <kbd style="background:transparent;color:inherit;border-color:currentColor;opacity:.45">M</kbd></button>`}
       <div class="foot-row"><span class="sync ${Store.status==='synced'?'ok':''}" id="sync"><i></i><span>${DEMO ? 'Demo data — not saved' : Store.status==='synced'?(Store.server?'Synced to NAS':'Synced'):'This browser'}</span></span><button data-act="shortcuts" title="Keyboard shortcuts (?)">${NAV_ICONS.keys}</button><button data-act="theme" title="Theme">${NAV_ICONS.palette}</button><button data-act="open-plugins" title="Plugins">${NAV_ICONS.puzzle}</button><button data-act="settings" title="Settings">${NAV_ICONS.gear}</button></div>`;
@@ -822,6 +848,7 @@ function renderView(){
         ${group('Now', now, { hideClient: true }) || ''}${group('Later', later, { hideClient: true }) || ''}
         ${!list.length ? emptyState(c.icon || '🌿', 'Nothing here yet', 'Add the first thing above. Repeating things like “every 3 months” work too.') : ''}`;
     }
+    else if(isProject(c)) html = projectPage(c, o);
     else {
       const mine = o.filter(x => x.clientId===c.id && x.owner==='me'), theirs = o.filter(x => x.clientId===c.id && x.owner==='client');
       const mtgs = S.meetings.filter(m => m.clientId===c.id).sort((a,b) => b.start - a.start);
@@ -952,7 +979,7 @@ function taskEditor(t){
   return `<div class="task open ${t.done?'done':''} ${t.owner==='client'?'client':''}" data-id="${t.id}">
     <button class="check" data-act="toggle" aria-label="Complete"></button>
     <div class="t-body">
-      <input class="te-title" data-tf="title" value="${esc(t.title)}" spellcheck="false" aria-label="Title">
+      <textarea class="te-title" data-tf="title" rows="1" spellcheck="false" aria-label="Title">${esc(t.title)}</textarea>
       <textarea class="te-notes" data-tf="notes" rows="1" placeholder="Notes">${esc(t.notes || '')}</textarea>
       <div class="te-chips">
         ${chip('due', t.dueDate ? dueLabel({ dueDate: t.dueDate }) : 'Date', !!t.dueDate, ds)}
@@ -1051,7 +1078,7 @@ function editChip(t, key, el){
 function openTask(id){
   if(selTask === id) return;
   selTask = id; kbId = id; renderView();
-  const ti = $('#view .task.open .te-title'); if(ti){ ti.focus({ preventScroll: true }); ti.setSelectionRange(ti.value.length, ti.value.length); }
+  const ti = $('#view .task.open .te-title'); if(ti){ ti.focus({ preventScroll: true }); ti.setSelectionRange(ti.value.length, ti.value.length); autosize(ti); }
   const el = $('#view .task.open'); if(el){ const r = el.getBoundingClientRect(); if(r.bottom > innerHeight - 20 || r.top < 0) el.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); }
   autosize($('#view .task.open .te-notes'));
 }
@@ -1062,7 +1089,8 @@ let teTimer = null, tePending = null;
 function flushEdit(){ if(tePending){ clearTimeout(teTimer); updateTask(tePending.id, tePending.patch); tePending = null; } }
 document.addEventListener('input', e => {
   const f = e.target.dataset && e.target.dataset.tf; if(!f || !selTask) return;
-  if(f === 'notes') autosize(e.target);
+  if(f === 'title' && /\n/.test(e.target.value)) e.target.value = e.target.value.replace(/\s*\n+\s*/g, ' ');   // one line of text, wrapped
+  if(f === 'notes' || f === 'title') autosize(e.target);
   tePending = { id: selTask, patch: { ...(tePending && tePending.id === selTask ? tePending.patch : {}), [f]: f === 'title' ? e.target.value : e.target.value } };
   clearTimeout(teTimer); teTimer = setTimeout(flushEdit, 400);
 });
@@ -1160,7 +1188,8 @@ function coreCommands(){
     { title:'New task', k:'N', run: () => { closeModal(); const q = $('#qa'); if(q) q.focus(); else { go('inbox'); setTimeout(() => $('#qa') && $('#qa').focus(), 30); } } },
     { title: LIFE() ? 'Switch to Work' : 'Switch to Life', k:'⇧L', run: () => { closeModal(); switchSpace(); } },
     ...(LIFE() ? [] : [{ title: S.activeMeeting ? 'Resume meeting' : 'Start meeting', k:'M', run: () => { closeModal(); startMeeting(); } }]),
-    { title:'Add client', run: () => promptClient() },
+    { title: LIFE() ? 'Add an area' : 'Add client', run: () => promptClient() },
+    ...(LIFE() ? [] : [{ title:'New project', run: () => promptProject() }]),
     { title:'Toggle dark mode', run: () => { closeModal(); S.settings.theme = S.settings.theme==='dark'?'light':'dark'; save(); render(); } },
     { title:'Settings & plugins', run: () => openSettings() },
     { title:'Review sync clashes', run: () => openConflicts() },
@@ -1168,7 +1197,7 @@ function coreCommands(){
     { title:'Go to Today', run: () => { closeModal(); go('today'); } },
     { title:'Go to Upcoming', run: () => { closeModal(); go('upcoming'); } },
     ...(LIFE() ? [] : [{ title:'Go to Waiting on clients', run: () => { closeModal(); go('waiting'); } }]),
-    ...S.clients.filter(c => !c.archived).map(c => ({ title:`${LIFE() ? 'Open area' : 'Open client'}: ${c.name}`, run: () => { closeModal(); go('client-'+c.id); } })),
+    ...S.clients.filter(c => !c.archived).map(c => ({ title:`${LIFE() ? 'Open area' : isProject(c) ? 'Open project' : 'Open client'}: ${c.name}`, run: () => { closeModal(); go('client-'+c.id); } })),
     ...(LIFE() ? [] : S.clients.filter(c => !c.archived).map(c => ({ title:`Start meeting with ${c.name}`, run: () => { closeModal(); startMeeting(c.id); } }))),
     ...Reg.commands.map(c => ({ title: c.title, k: c.hint, run: () => { closeModal(); c.run(makeApi(c.pid)); } }))
   ];
@@ -1212,8 +1241,39 @@ function promptArea(existing){
   $('#ar-save').onclick = done; name.onkeydown = e => { if(e.key === 'Enter') done(); };
   if(c) $('#ar-arch').onclick = () => { c.archived = true; save(); closeModal(); go('today'); };
 }
+/* internal projects (Work): same record as a client, kind 'project'. No website, meetings or chasing; a target date and progress instead */
+const PROJECT_EMOJI = ['🛠️','🚀','📦','🧪','📚','🧭','🏗️','💡','🧰','📣','🎯','⚙️','🗂️','🌱'];
+function promptProject(existing){
+  const c = existing ? client(existing) : null;
+  let icon = c ? c.icon || '🛠️' : PROJECT_EMOJI[S.clients.filter(isProject).length % PROJECT_EMOJI.length], color = c ? c.color : COLORS[S.clients.length % COLORS.length], status = c ? (c.status || 'active') : 'active';
+  openModalHTML(c ? 'Edit project' : 'New project', `<div class="field"><label>Name</label><input class="inp" id="pj-name" value="${esc(c ? c.name : '')}" placeholder="Internal tooling, website refresh, onboarding kit…"></div>
+    <div class="field"><label>What's it for <span style="text-transform:none;letter-spacing:0;font-weight:400">(optional)</span></label><textarea class="inp" id="pj-desc" style="min-height:52px" placeholder="The goal, in a sentence">${esc(c ? c.description || '' : '')}</textarea></div>
+    <div class="row" style="gap:12px;align-items:flex-start"><div class="field" style="flex:1"><label>Target date <span style="text-transform:none;letter-spacing:0;font-weight:400">(optional)</span></label><input class="inp" type="date" id="pj-target" value="${esc(c ? c.target || '' : '')}"></div>
+      <div class="field" style="flex:1.4"><label>Status</label><div class="seg" id="pj-status">${[['active','Active'],['paused','Paused'],['done','Finished']].map(([v,l]) => `<button data-v="${v}" class="${status===v?'on':''}">${l}</button>`).join('')}</div></div></div>
+    <div class="field"><label>Icon</label><div class="ar-emoji">${PROJECT_EMOJI.map(e => `<button data-e="${e}" class="${e === icon ? 'on' : ''}">${e}</button>`).join('')}</div></div>
+    <div class="field"><label>Colour</label><div class="swatches">${COLORS.map(x => `<button data-c="${x}" style="background:${x}" class="${x === color ? 'on' : ''}"></button>`).join('')}</div></div>`,
+    `${c ? `<button class="btn ghost danger" id="pj-arch">Archive</button><button class="btn ghost" id="pj-client" style="margin-right:auto" title="Turn it back into a client">Make it a client</button>` : ''}<button class="btn" data-act="close-modal">Cancel</button><button class="btn primary" id="pj-save">${c ? 'Save' : 'Create project'}</button>`);
+  $$('#modal .ar-emoji button').forEach(b => b.onclick = () => { icon = b.dataset.e; $$('#modal .ar-emoji button').forEach(x => x.classList.toggle('on', x === b)); });
+  $$('#modal .swatches button').forEach(b => b.onclick = () => { color = b.dataset.c; $$('#modal .swatches button').forEach(x => x.classList.toggle('on', x === b)); });
+  $$('#pj-status button').forEach(b => b.onclick = () => { status = b.dataset.v; $$('#pj-status button').forEach(x => x.classList.toggle('on', x === b)); });
+  const done = id => { save(); closeModal(); render(); if(id) go('client-' + id); };
+  $('#pj-save').onclick = () => {
+    const n = $('#pj-name').value.trim(); if(!n) return $('#pj-name').focus();
+    const patch = { kind: 'project', icon, color, status, target: $('#pj-target').value || '', description: $('#pj-desc').value.trim() };
+    if(c){ Object.assign(c, { name: n }, patch); emit('client:update', clone(c)); done(); return; }
+    const ex = S.clients.find(x => norm(x.name) === norm(n));
+    if(ex && !isProject(ex) && !ex.archived){ toast(`${ex.name} is already a client. Open it and choose “Make it a project”.`); return; }
+    const p = addClient(n, color); Object.assign(p, patch); emit('client:update', clone(p)); done(p.id);
+  };
+  setTimeout(() => $('#pj-name').focus(), 30);
+  if(c){
+    $('#pj-arch').onclick = () => { c.archived = true; emit('client:update', clone(c)); save(); closeModal(); go('today'); render(); toast(`Archived ${c.name}`, [{ label: 'Undo', run: () => { c.archived = false; save(); render(); } }]); };
+    $('#pj-client').onclick = () => { delete c.kind; emit('client:update', clone(c)); save(); closeModal(); render(); toast(`${c.name} is a client again`); };
+  }
+}
 function promptClient(existing){
   if(LIFE()) return promptArea(existing);
+  if(existing && isProject(client(existing))) return promptProject(existing);
   const c = existing ? client(existing) : null;
   const draft = { name: c ? c.name : '', domain: c ? (c.domain||'') : '', color: c ? c.color : COLORS[S.clients.length % COLORS.length], status: c ? (c.status||'active') : 'active', info: null, logoV: c ? c.logoV : null };
   openModalHTML(c ? 'Edit client' : 'Add client', `
@@ -1223,7 +1283,7 @@ function promptClient(existing){
     <div class="field"><label>About</label><textarea class="inp" id="cl-desc" style="min-height:56px" placeholder="What they do, in a sentence">${esc(c ? c.description || '' : '')}</textarea></div>
     <div class="field"><label>Status</label><div class="seg" id="cl-status"><button data-v="active" class="${draft.status!=='paused'?'on':''}">Active</button><button data-v="paused" class="${draft.status==='paused'?'on':''}">Paused</button></div><div class="muted" style="font-size:12px;margin-top:6px">Paused clients move to a collapsed section in the sidebar. Their tasks stay visible.</div></div>
     <div class="field"><label>Color <span style="text-transform:none;letter-spacing:0;font-weight:400">— used when there's no logo</span></label><div class="swatches" id="cl-sw">${COLORS.map(col => `<button style="background:${col}" data-col="${col}" class="${draft.color===col?'on':''}"></button>`).join('')}</div></div>`,
-    (c ? `<button class="btn ghost danger" data-act="archive-client" data-cid="${c.id}" style="margin-right:auto">${c.archived?'Unarchive':'Archive'}</button>` : '') + `<button class="btn" data-act="close-modal">Cancel</button><button class="btn primary" data-act="save-client" data-cid="${c ? c.id : ''}">${c ? 'Save' : 'Add client'}</button>`);
+    (c ? `<button class="btn ghost danger" data-act="archive-client" data-cid="${c.id}">${c.archived?'Unarchive':'Archive'}</button><button class="btn ghost" data-act="make-project" data-cid="${c.id}" style="margin-right:auto" title="Not really a client? Track it as internal work">Make it a project</button>` : '') + `<button class="btn" data-act="close-modal">Cancel</button><button class="btn primary" data-act="save-client" data-cid="${c ? c.id : ''}">${c ? 'Save' : 'Add client'}</button>`);
   const refresh = () => {
     draft.name = $('#cl-name').value; draft.domain = $('#cl-domain').value;
     $('#cl-av').innerHTML = avatar({ name: draft.name || '?', color: draft.color, domain: cleanDomain(draft.domain), logoV: draft.logoV }, 52);
@@ -1538,6 +1598,10 @@ document.addEventListener('click', e => {
       if(selTask === id) renderDrawer();
       break; }
     case 'add-client': promptClient(); break;
+    case 'add-project': promptProject(); break;
+    case 'edit-project': promptProject(a.dataset.cid); break;
+    case 'toggle-finished': showFinished = !showFinished; renderSide(); break;
+    case 'make-project': { const c = client(a.dataset.cid); if(!c) break; c.kind = 'project'; c.icon = c.icon || '🛠️'; save(); emit('client:update', clone(c)); closeModal(); render(); setTimeout(() => promptProject(c.id), 60); toast(`${c.name} is now an internal project`); break; }
     case 'edit-client': promptClient(a.dataset.cid); break;
     case 'save-client': {
       const name = $('#cl-name').value.trim(), col = ($('#cl-sw .on') || {}).dataset?.col, raw = $('#cl-domain').value.trim(), dom = cleanDomain(raw), status = ($('#cl-status .on') || {}).dataset?.v || 'active'; if(!name) return;

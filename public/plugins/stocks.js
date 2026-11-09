@@ -104,7 +104,7 @@ Cadence.registerPlugin({
       return { pts: shown, now, day: (now - prev) / prev, month: (now - month) / month, idleDays, lastWhy: (vals[vals.length - 1] || {}).why || '' };
     }
     function market() {
-      const clients = api.clients.list().filter(c => c.status !== 'archived'), tasks = api.tasks.list(), meetings = api.meetings.list(), sym = symbols(clients);
+      const clients = api.clients.list().filter(c => c.status !== 'archived' && c.kind !== 'project'), tasks = api.tasks.list(), meetings = api.meetings.list(), sym = symbols(clients);
       return clients.map(c => ({ c, sym: sym[c.id], ...history(c, tasks, meetings) }));
     }
     const pct = x => (x > 0 ? '+' : '') + (x * 100).toFixed(1) + '%';

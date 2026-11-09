@@ -247,3 +247,24 @@ Needs: Life space (done), weather API (key on NAS), maps/GPX (offline tiles = ph
   pros, warranties, notes. Year strip shows how many jobs land in each month.
 - Core: repeat picker gained Every 3 months / Twice a year / Yearly; labels say "Yearly" etc.
 - Ideas next: mild/hot climate month shifts, "last done" history per job, attach photos/manuals, share with household.
+
+## Notes from daily use (user, 2026-11-09) — backlog unless marked
+- (SHIPPED) Internal work tracking: "for now I just set a client as Catalyst Connect". Now: Projects (see below).
+- (SHIPPED) Long task titles ran off the card in the open editor (title was a one-line <input>). Now an auto-growing textarea.
+- Zoho Desk tickets: not just a tag. A distinct way to surface and track support tickets (ticket number, status,
+  priority, SLA/age, link to Desk), maybe their own lane or view; later pull status from the Desk API.
+- Assign a task to a dev (there is a free-text `assignee` today; want a proper people list, maybe "waiting on dev" lane).
+  Paste a Zoho Projects task URL into a task and show it (iframe if logged in? Zoho likely blocks framing with
+  X-Frame-Options; fall back to a rich link card).
+- Meeting recap / action items after a meeting: needs the nice date picker (same one as the task editor), and should
+  clean up the list without AI (strip bullets, "- [ ]", "Action:", names → owner, dates → due, dedupe, capitalise),
+  with an optional "fix the wording with AI" button later.
+
+## Projects (2026-11-09, shipped) — internal work in Work
+- Same record as a client with `kind: 'project'`, plus `icon`, `target` (YYYY-MM-DD), `status` active|paused|done,
+  `description`. `isProject(c)` in core. Quick add `@name` works as with clients.
+- Sidebar: own "Projects" section under Clients (+ button), finished ones collapse under "Finished".
+- Page `projectPage()`: progress bar (done/all tasks), target chip (days left / past), stats, Now / Next /
+  Waiting on others / Recently done. No meetings, website, industry.
+- `promptProject()` edit dialog; client dialog has "Make it a project", project dialog has "Make it a client".
+- Client-only plugins skip projects: stocks, pulse. Client actions show on project pages only with `projects: true`.

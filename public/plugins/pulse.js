@@ -7,7 +7,7 @@ registerPlugin({
   setup(api){
     api.views.add({ id:'pulse', group: 'insights', title:'Client Pulse', icon:'◎', subtitle:'Every client at a glance — sorted by what needs attention', render: (el, api) => {
       const t = api.util.todayKey(), tasks = api.tasks.list(x => !x.done), mtgs = api.meetings.list();
-      const rows = api.clients.list().map(c => {
+      const rows = api.clients.list().filter(c => c.kind !== 'project').map(c => {
         const mine = tasks.filter(x => x.clientId === c.id && x.owner === 'me'), theirs = tasks.filter(x => x.clientId === c.id && x.owner === 'client');
         const over = mine.filter(x => x.dueDate && x.dueDate < t).length, chase = theirs.filter(x => x.dueDate && x.dueDate <= t).length;
         const last = Math.max(0, ...mtgs.filter(m => m.clientId === c.id).map(m => m.start), ...api.tasks.list(x => x.clientId === c.id).map(x => x.doneAt || x.createdAt));
