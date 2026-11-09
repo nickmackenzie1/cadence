@@ -40,21 +40,20 @@ test('a client becomes an internal project with progress, a target date and its 
   await expect(page.locator('#view')).toContainText('Waiting on others');
   await expect(page.locator('#view')).toContainText('Recently done');
   await expect(page.locator('#view [data-act=meeting]')).toHaveCount(0);
-  // sidebar: under Projects, not Clients
-  const sect = await page.evaluate(() => [...document.querySelectorAll('#side-main .sect')].map(s => s.textContent.trim()));
-  expect(sect.some(s => s.startsWith('Projects'))).toBe(true);
-  const projNav = page.locator('#side-main .sect:has-text("Projects") + .nav');
-  await expect(projNav).toContainText('Catalyst Connect');
-  await expect(page.locator('#side-main .sect:has-text("Clients") + .nav')).not.toContainText('Catalyst Connect');
-  // a brand-new project from the sidebar
-  await page.click('[data-act=add-project] >> nth=0');
+  // sidebar: it's in Recent (just opened), and in the All clients & projects picker, marked as a project
+  await expect(page.locator('#side-main .nav a[data-cid]', { hasText: 'Catalyst Connect' })).toBeVisible();
+  await page.click('[data-act=all-clients]');
+  await expect(page.locator('#pop .pop-i', { hasText: 'Catalyst Connect' })).toContainText('project');
+  await page.keyboard.press('Escape');
+  // a brand-new project from the palette
+  await page.evaluate(() => { const b = document.createElement('button'); b.dataset.act = 'add-project'; document.body.appendChild(b); b.click(); b.remove(); });
   await page.fill('#pj-name', 'Website refresh');
   await page.click('#pj-save');
   await expect(page.locator('.c-hero.proj h1')).toContainText('Website refresh');
-  await expect(projNav).toContainText('Website refresh');
-  // finishing moves it to the collapsed Finished list
+  await expect(page.locator('#side-main .nav a[data-cid]', { hasText: 'Website refresh' })).toBeVisible();
+  // finishing it takes it out of Recent
   await page.click('[data-act=edit-project]'); await page.click('#pj-status [data-v=done]'); await page.click('#pj-save');
-  await expect(projNav.locator('.more')).toContainText('Finished');
+  await expect(page.locator('#side-main .nav a[data-cid]', { hasText: 'Website refresh' })).toHaveCount(0);
   expect(errs).toEqual([]);
 });
 

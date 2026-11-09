@@ -416,3 +416,8 @@ Needs: Life space (done), weather API (key on NAS), maps/GPX (offline tiles = ph
   element's computed font, scan per 4px bucket for the topmost ink; gaps = p.hole, flakes fall through). All piles
   are lumpy (p.n per-bucket holding factor), deposits shift downwind, repose allows 3.6px steps, edges of letters/
   words shed snow, drifts drawn as smooth quadratic curves per solid run.
+- Sidebar v3 (2026-11-09, shipped): main nav is a tile grid (.ntiles/.ntile: icon, label under, count badge; 3×2 in
+  Work, 4 in Life). Work shows "Recent": last 4 opened clients/projects (localStorage cadence.recent.<space>, touched
+  on the client route) + up to 3 with overdue work, topped up by busiest; "All clients & projects (N)" opens a
+  searchable picker (projects/paused labelled, counts, red when overdue). Life keeps its Areas list. Discord theme
+  renders tiles as #channels.

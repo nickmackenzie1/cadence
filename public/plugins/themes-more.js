@@ -35,6 +35,10 @@
       :skin #side-head .brand{font-size:15px;font-weight:700;color:#f2f3f5;gap:6px} :skin #side-head .brand .logo{display:none} :skin #side-head .brand::after{content:'⌄';margin-left:auto;font-size:16px;color:#b5bac1}
       :skin #side-head .brand kbd{display:none} :skin #side-head .space-sw{display:none}
       :skin #side-main .sect:has(+ .nav a[data-cid]),:skin #side-main .sect:has(+ .nav a[data-cid]) + .nav,:skin #side-main .sect:has([data-act=add-project]),:skin #side-main .sect:has([data-act=add-project]) + .nav{display:none}
+      :skin .ntiles{display:flex;flex-direction:column;gap:2px} :skin .ntile{flex-direction:row;justify-content:flex-start;height:32px;padding:0 8px;border-radius:4px;color:#949ba4;gap:6px}
+      :skin .ntile .ic{display:none} :skin .ntile .tl{font-size:15px;font-weight:500;text-transform:lowercase} :skin .ntile .tl::before{content:'#';margin-right:6px;font-size:18px;font-weight:400;color:#80848e}
+      :skin .ntile:hover{background:rgba(78,80,88,.3);color:#dbdee1} :skin .ntile.on{background:#404249;color:#fff}
+      :skin .ntile .n{position:static;margin-left:auto;box-shadow:none;background:#4e5058;color:#fff} :skin .ntile .n.hot{background:#f23f43}
       :skin .nav a:not([data-cid]) .ic{display:none} :skin .nav a:not([data-cid]) .t::before{content:'#';margin-right:6px;font-size:18px;font-weight:400;color:#80848e;vertical-align:-1px}
       :skin .nav a:not([data-cid]) .t{text-transform:lowercase}
       /* the user panel */

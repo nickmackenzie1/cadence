@@ -725,6 +725,9 @@ function counts(){
   };
 }
 let showPaused = false, showFinished = false;
+// recently opened clients/projects, per device and space
+const recents = () => { try { return JSON.parse(localStorage.getItem('cadence.recent.' + SPACE) || '[]'); } catch(e){ return []; } };
+function touchRecent(id){ try { const l = [id, ...recents().filter(x => x !== id)].slice(0, 12); localStorage.setItem('cadence.recent.' + SPACE, JSON.stringify(l)); } catch(e){} }
 const isProject = c => !!c && c.kind === 'project';
 // work I'm accountable for: my own tasks, and what I've handed to dev (still on me to land)
 const onMe = x => x.owner === 'me' || x.owner === 'dev';
@@ -738,6 +741,7 @@ const NAV_ICONS = {
   waiting: '<svg viewBox="0 0 24 24"><path d="M7 3.5h10M7 20.5h10M8 3.5c0 4 8 5.5 8 8.5s-8 4.5-8 8.5M16 3.5c0 4-8 5.5-8 8.5s8 4.5 8 8.5"/></svg>',
   inbox: '<svg viewBox="0 0 24 24"><path d="M3.5 13.5l2.6-7.2A2 2 0 0 1 8 5h8a2 2 0 0 1 1.9 1.3l2.6 7.2V18a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z"/><path d="M3.5 13.5H8l1.5 2.5h5l1.5-2.5h4.5"/></svg>',
   dev: '<svg viewBox="0 0 24 24"><path d="M8.5 7.5L4 12l4.5 4.5M15.5 7.5L20 12l-4.5 4.5M13.5 5l-3 14"/></svg>',
+  grid: '<svg viewBox="0 0 24 24"><rect x="4" y="4" width="6.5" height="6.5" rx="1.5"/><rect x="13.5" y="4" width="6.5" height="6.5" rx="1.5"/><rect x="4" y="13.5" width="6.5" height="6.5" rx="1.5"/><rect x="13.5" y="13.5" width="6.5" height="6.5" rx="1.5"/></svg>',
   done: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M8.3 12.3l2.5 2.5 5-5.3"/></svg>',
   keys: '<svg viewBox="0 0 24 24"><rect x="2.5" y="6" width="19" height="12" rx="2.5"/><path d="M6 10h.01M9.5 10h.01M13 10h.01M16.5 10h.01M7.5 14h9"/></svg>',
   puzzle: '<svg viewBox="0 0 24 24"><path d="M9 4.5a2 2 0 0 1 4 0V6h3.5A1.5 1.5 0 0 1 18 7.5V11h1.5a2 2 0 0 1 0 4H18v3.5a1.5 1.5 0 0 1-1.5 1.5H13v-1.5a2 2 0 0 0-4 0V20H5.5A1.5 1.5 0 0 1 4 18.5V15h1.5a2 2 0 0 0 0-4H4V7.5A1.5 1.5 0 0 1 5.5 6H9z"/></svg>',
@@ -778,6 +782,7 @@ function devPage(o){
 }
 function renderSide(){
   const r = route(), c = counts(), o = open();
+  const ntile = (id, ic, label, n, hot, title) => `<a class="ntile ${r===id?'on':''}" href="#${id}" title="${title || label}"><span class="ic">${ic}</span><span class="tl">${label}</span>${n ? `<span class="n ${hot?'hot':''}">${n}</span>` : ''}</a>`;
   const nav = (id, ic, label, n, hot) => `<a class="${r===id?'on':''}" href="#${id}"><span class="ic">${ic}</span><span class="t">${label}</span>${n ? `<span class="n ${hot?'hot':''}">${n}</span>` : ''}</a>`;
   const all = S.clients.filter(x => !x.archived).sort((a,b) => a.name.localeCompare(b.name));
   const projects = LIFE() ? [] : all.filter(isProject), cl0 = all.filter(x => !isProject(x) || LIFE());
@@ -786,22 +791,27 @@ function renderSide(){
   $$('#side-head .space-sw button').forEach(b => { b.classList.toggle('on', b.dataset.s === SPACE); b.setAttribute('aria-selected', b.dataset.s === SPACE); });
   $('#side-head .space-sw').dataset.on = SPACE;
   $('#side-main').innerHTML = `
-    <nav class="nav">
-      ${nav('today', NAV_ICONS.today, 'Today', c.today, c.over>0)}
-      ${nav('upcoming', NAV_ICONS.upcoming, 'Upcoming', c.upcoming)}
-      ${LIFE() ? '' : nav('waiting', NAV_ICONS.waiting, 'Waiting on clients', c.waiting)}
-      ${LIFE() ? '' : nav('dev', NAV_ICONS.dev, 'Dev', c.dev, c.devLate)}
-      ${nav('inbox', NAV_ICONS.inbox, 'Inbox', c.inbox)}
-      ${nav('done', NAV_ICONS.done, 'Logbook')}
+    <nav class="ntiles ${LIFE() ? 'four' : ''}">
+      ${ntile('today', NAV_ICONS.today, 'Today', c.today, c.over>0)}
+      ${ntile('upcoming', NAV_ICONS.upcoming, 'Upcoming', c.upcoming)}
+      ${LIFE() ? '' : ntile('waiting', NAV_ICONS.waiting, 'Waiting', c.waiting, false, 'Waiting on clients')}
+      ${LIFE() ? '' : ntile('dev', NAV_ICONS.dev, 'Dev', c.dev, c.devLate)}
+      ${ntile('inbox', NAV_ICONS.inbox, 'Inbox', c.inbox)}
+      ${ntile('done', NAV_ICONS.done, 'Logbook')}
     </nav>
     ${(() => { const loose = Reg.views.filter(v => !v.group && !v.hidden), ins = Reg.views.filter(v => v.group === 'insights'); const tile = (id, ic, label) => `<a class="vt ${r===id?'on':''}" href="#${id}" aria-label="${label}"><span class="ic">${ic}</span><span class="vl">${label}</span></a>`;
       const items = (ins.length ? [tile('insights', '✦', 'Insights')] : []).concat(loose.map(v => tile('view-'+v.id, esc(v.icon||'◇'), esc(v.title)))); return items.length ? `<div class="sect">Views</div><nav class="vgrid">${items.join('')}</nav>` : ''; })()}
-    <div class="sect">${LIFE() ? 'Areas' : 'Clients'} <button data-act="add-client" title="${LIFE() ? 'Add an area' : 'Add client'}">+</button></div>
-    <nav class="nav">${clients.map(cl => clientLink(cl, r, o)).join('') || (paused.length ? '' : `<a data-act="add-client"><span class="ic">+</span><span class="t muted">${LIFE() ? 'Add an area' : 'Add your clients'}</span></a>`)}
-      ${paused.length ? `<div class="more" data-act="toggle-paused">${showPaused ? '▾' : '▸'} Paused <span class="muted">${paused.length}</span></div>${showPaused ? paused.map(cl => clientLink(cl, r, o, true)).join('') : ''}` : ''}</nav>
-    ${LIFE() ? '' : (() => { const live = projects.filter(x => x.status !== 'done'), fin = projects.filter(x => x.status === 'done');
-      return `<div class="sect">Projects <button data-act="add-project" title="New internal project">+</button></div><nav class="nav">${live.map(p => clientLink(p, r, o, p.status === 'paused')).join('') || `<a data-act="add-project"><span class="ic">+</span><span class="t muted">Internal work, side projects…</span></a>`}
-      ${fin.length ? `<div class="more" data-act="toggle-finished">${showFinished ? '▾' : '▸'} Finished <span class="muted">${fin.length}</span></div>${showFinished ? fin.map(p => clientLink(p, r, o, true)).join('') : ''}` : ''}</nav>`; })()}`;
+    ${LIFE() ? `<div class="sect">Areas <button data-act="add-client" title="Add an area">+</button></div>
+    <nav class="nav">${clients.map(cl => clientLink(cl, r, o)).join('') || (paused.length ? '' : `<a data-act="add-client"><span class="ic">+</span><span class="t muted">Add an area</span></a>`)}
+      ${paused.length ? `<div class="more" data-act="toggle-paused">${showPaused ? '▾' : '▸'} Paused <span class="muted">${paused.length}</span></div>${showPaused ? paused.map(cl => clientLink(cl, r, o, true)).join('') : ''}` : ''}</nav>` : (() => {
+      // Work: the clients and projects you've opened lately, plus anyone with overdue work; everything else is one click away
+      const live = all.filter(x => x.status !== 'done'), rec = recents().map(id => live.find(x => x.id === id)).filter(Boolean);
+      const hot = live.filter(x => !rec.includes(x) && o.some(t => t.clientId === x.id && onMe(t) && dueState(t) === 'over')).slice(0, 3);
+      let list = rec.slice(0, 4).concat(hot);
+      if (list.length < 4) list = list.concat(live.filter(x => !list.includes(x)).sort((x, y) => o.filter(t => t.clientId === y.id).length - o.filter(t => t.clientId === x.id).length).slice(0, 4 - list.length));
+      return `<div class="sect">Recent <button data-act="add-client" title="Add client">+</button></div>
+        <nav class="nav">${list.map(cl => clientLink(cl, r, o, cl.status === 'paused')).join('') || `<a data-act="add-client"><span class="ic">+</span><span class="t muted">Add your clients</span></a>`}
+        ${all.length ? `<a class="all-cl" data-act="all-clients"><span class="ic">${NAV_ICONS.grid || '▦'}</span><span class="t">All clients &amp; projects</span><span class="n">${all.length}</span></a>` : ''}</nav>`; })()}`;
   $('#side-foot').innerHTML = `${DEMO ? `<div class="demo-row"><b>●</b> Demo data<button data-act="demo-reset">Reset</button><button data-act="demo-exit">Exit</button></div>` : ''}
       ${LIFE() ? '' : `<button class="meet-btn" data-act="meeting">${S.activeMeeting ? '● Resume meeting' : '◉ Start meeting'} <kbd style="background:transparent;color:inherit;border-color:currentColor;opacity:.45">M</kbd></button>`}
       <div class="foot-row"><span class="sync ${Store.status==='synced'?'ok':''}" id="sync"><i></i><span>${DEMO ? 'Demo data — not saved' : Store.status==='synced'?(Store.server?'Synced to NAS':'Synced'):'This browser'}</span></span><button data-act="shortcuts" title="Keyboard shortcuts (?)">${NAV_ICONS.keys}</button><button data-act="theme" title="Theme">${NAV_ICONS.palette}</button><button data-act="open-plugins" title="Plugins">${NAV_ICONS.puzzle}</button><button data-act="settings" title="Settings">${NAV_ICONS.gear}</button></div>`;
@@ -939,7 +949,7 @@ function renderView(){
     d.forEach(x => { const k = ymd(new Date(x.doneAt)); (by[k] = by[k] || []).push(x); });
     html = `<div class="head"><div><h1>Logbook</h1><div class="sub">Recently completed</div></div></div>${Object.keys(by).sort().reverse().map(k => `<div class="group"><div class="group-h">${fmtDate(k)}<span class="c">${by[k].length}</span></div>${by[k].map(x => taskRow(x)).join('')}</div>`).join('') || emptyState('✓','Nothing completed yet','')}`;
   } else if(r.startsWith('client-')){
-    const c = client(r.slice(7));
+    const c = client(r.slice(7)); if(c) touchRecent(c.id);
     if(!c){ html = emptyState('?', LIFE() ? 'Area not found' : 'Client not found',''); }
     else if(LIFE()){
       // an area of your life: one calm list, no clients, meetings or chasing
@@ -1787,6 +1797,9 @@ document.addEventListener('click', e => {
       break; }
     case 'add-client': promptClient(); break;
     case 'add-project': promptProject(); break;
+    case 'all-clients': { const o = open(), items = S.clients.filter(c => !c.archived).sort((x, y) => (isProject(x) - isProject(y)) || x.name.localeCompare(y.name)).map(c => { const n = o.filter(t => t.clientId === c.id && onMe(t)).length, late = o.some(t => t.clientId === c.id && onMe(t) && dueState(t) === 'over');
+        return { id: c.id, html: `${avatar(c, 18)} ${esc(c.name)}${isProject(c) ? '<span class="muted" style="font-size:11px;margin-left:6px">project</span>' : ''}${c.status === 'paused' ? '<span class="muted" style="font-size:11px;margin-left:6px">paused</span>' : ''}${n ? `<span style="margin-left:auto;font-size:12px;${late ? 'color:var(--danger);font-weight:650' : 'color:var(--muted)'}">${n}</span>` : ''}` }; });
+      popList(a, items, it => go('client-' + it.id), { search: true, w: 280 }); break; }
     case 'm-tidy': { const r = tidyMeeting(S.activeMeeting); renderMeeting(); toast(r.changed || r.dupes ? `Tidied ${r.changed} item${r.changed === 1 ? '' : 's'}${r.dupes ? ` · removed ${r.dupes} duplicate${r.dupes === 1 ? '' : 's'}` : ''}` : 'Already tidy'); break; }
     case 'm-ai': aiWording(S.activeMeeting); break;
     case 'rv-due': { const M = S.activeMeeting, it = M && M.items.find(x => x.id === a.closest('.rv-item').dataset.iid); if(!it) break;

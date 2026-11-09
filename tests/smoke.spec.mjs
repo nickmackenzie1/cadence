@@ -103,8 +103,8 @@ test('demo mode: fake data, never written to the NAS, exits cleanly', async ({ p
   await page.goto(`http://localhost:${PORT}/?demo=1#today`);
   await expect(page.locator('.demo-row')).toBeVisible();
   await expect(page.locator('#sync')).toContainText('Demo', { timeout: 8000 });
-  const shown = await page.locator('#side-main a[href^="#client-"]').count(), folded = await page.locator('#side-main .more-cl').count() ? parseInt(await page.locator('#side-main .more-cl .t').textContent()) : 0;
-  expect(shown + folded).toBeGreaterThanOrEqual(10);   // the sidebar folds quiet clients into "+N more" instead of scrolling
+  // the sidebar shows recent clients; everything is behind "All clients & projects"
+  expect(+(await page.locator('#side-main .all-cl .n').textContent())).toBeGreaterThanOrEqual(10);
   expect(await page.evaluate(() => { const m = document.querySelector('#side-main'); return m.scrollHeight <= m.clientHeight + 1; })).toBe(true);
   await expect(page.locator('.cal-ev').first()).toBeVisible();           // sample calendar is on in demo
   await page.locator('.task .check').first().click();                     // a change in demo…
