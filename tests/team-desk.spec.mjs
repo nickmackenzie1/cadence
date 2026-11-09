@@ -215,3 +215,19 @@ test('record feed: a release date in the title becomes a "Releases" badge on the
   await expect(page.locator('.rs-press', { hasText: /Releases/ })).toHaveCount(0);
   expect(errs).toEqual([]);
 });
+
+test('typing effects: fire at the caret, Nib offers a quick-add tip, off means off', async ({ page }) => {
+  await page.addInitScript(() => { if (!sessionStorage.getItem('tfx')) { sessionStorage.setItem('tfx', 1); localStorage.setItem('cadence.typing', JSON.stringify({ mode: 'fire', helper: true })); } });
+  const errs = await open(page);
+  await page.evaluate(() => window.T.clients.add('Initech'));
+  await page.click('#qa'); await page.keyboard.type('Email Initech the quote', { delay: 20 });
+  await expect(page.locator('#tfx-cv')).toHaveCount(1);
+  await expect(page.locator('#tfx-nib.on')).toContainText('@initech');
+  await page.click('#tfx-nib [data-nb=ok]');
+  await expect(page.locator('#tfx-nib.on')).toHaveCount(0);
+  await page.evaluate(() => localStorage.setItem('cadence.typing', JSON.stringify({ mode: 'off', helper: false })));
+  await page.reload(); await expect(page.locator('#sync')).toContainText('NAS', { timeout: 8000 });
+  await page.click('#qa'); await page.keyboard.type('hello there', { delay: 10 });
+  await expect(page.locator('#tfx-cv')).toHaveCount(0);
+  expect(errs).toEqual([]);
+});
