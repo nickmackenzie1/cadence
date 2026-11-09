@@ -79,7 +79,7 @@
       try { fx = t.effects({ layer, level, tokens: token, isDark, api: apiRef }) || null; } catch (e) { console.warn('theme effects', e); }
     }
     requestAnimationFrame(() => { const m = document.querySelector('meta[name=theme-color]'); if (m) m.content = token('--bg') || m.content; });
-    if (opts.save && apiRef) apiRef.storage.set('theme', t.id);
+    if (opts.save && apiRef) { apiRef.storage.set('theme', t.id); apiRef.storage.set('recent', [t.id, ...(apiRef.storage.get('recent') || []).filter(x => x !== t.id)].slice(0, 6)); }
     const detail = { id: t.id, theme: t, dark: isDark() };
     subs.forEach(fn => { try { fn(detail); } catch (e) { console.error(e); } });
     document.dispatchEvent(new CustomEvent('cadence:theme', { detail }));
@@ -87,6 +87,37 @@
   function token(name) { return getComputedStyle(html).getPropertyValue(name.startsWith('--') ? name : '--' + name).trim(); }
   function lum(c) { const m = /^#?([0-9a-f]{6})$/i.exec(c) || /^#?([0-9a-f]{3})$/i.exec(c); if (!m) { const r = /rgba?\((\d+)\D+(\d+)\D+(\d+)/.exec(c); return r ? (0.2126 * r[1] + 0.7152 * r[2] + 0.0722 * r[3]) / 255 : 1; } let h = m[1]; if (h.length === 3) h = [...h].map(x => x + x).join(''); const n = parseInt(h, 16); return (0.2126 * (n >> 16 & 255) + 0.7152 * (n >> 8 & 255) + 0.0722 * (n & 255)) / 255; }
   function isDark() { return lum(token('--bg')) < 0.45; }
+
+  // quick switcher from the sidebar's palette button: light/dark, recent themes, a few favourites, the full gallery
+  function quick(anchorEl) {
+    document.querySelectorAll('.thq').forEach(x => x.remove());
+    if (!apiRef) return;
+    const E = apiRef.ui.esc, cur = T.get(current), adaptive = !cur.vars || cur.id === 'cadence' || (cur.light && cur.dark);
+    const recent = (apiRef.storage.get('recent') || []).filter(id => T.has(id) && id !== current).slice(0, 5);
+    const picks = ['cadence', 'dracula', 'catppuccin-mocha', 'neobrutalism', 'ninety-five', 'calm', 'tokyo-night', 'paper'].filter(id => T.has(id) && id !== current && !recent.includes(id)).slice(0, 6 - Math.min(recent.length, 3));
+    const sw = id => { const t = T.get(id), v = Object.assign({}, t.light || {}, t.vars || {}), p = t.preview || {};
+      return `<button class="thq-t ${id === current ? 'on' : ''}" data-q="${E(id)}"><span class="thq-sw" style="background:${E(p.bg || v['--bg'] || '#f7f6f3')};border-color:${E(p.line || v['--line'] || '#ddd')}"><i style="background:${E(p.accent || v['--accent'] || '#5b5bd6')}"></i><i style="background:${E(p.text || v['--text'] || '#222')}"></i></span>${E(t.name)}</button>`; };
+    const box = document.createElement('div'); box.className = 'thq';
+    box.innerHTML = `<div class="thq-h"><b>${E(cur.name)}</b><span>${adaptive ? 'Follows light & dark' : (isDark() ? 'Always dark' : 'Always light')}</span></div>
+      ${adaptive ? `<div class="seg thq-mode"><button data-m="light" class="${apiRef.ui.colorMode() === 'light' ? 'on' : ''}">☀ Light</button><button data-m="dark" class="${apiRef.ui.colorMode() === 'dark' ? 'on' : ''}">☾ Dark</button></div>` : ''}
+      ${recent.length ? `<div class="thq-l">Recent</div>${recent.map(sw).join('')}` : ''}
+      ${picks.length ? `<div class="thq-l">Try</div>${picks.map(sw).join('')}` : ''}
+      <button class="thq-all" data-q="__all">Browse all ${T.size} themes →</button>`;
+    document.body.appendChild(box);
+    const r = anchorEl.getBoundingClientRect(), h = box.offsetHeight;
+    box.style.left = Math.max(8, Math.min(innerWidth - box.offsetWidth - 8, r.left - 20)) + 'px';
+    box.style.top = Math.max(8, r.top - h - 10) + 'px';
+    const close = () => { box.remove(); removeEventListener('pointerdown', out, true); removeEventListener('keydown', esc, true); };
+    const out = e => { if (!box.contains(e.target) && e.target !== anchorEl && !anchorEl.contains(e.target)) close(); };
+    const esc = e => { if (e.key === 'Escape') close(); };
+    setTimeout(() => { addEventListener('pointerdown', out, true); addEventListener('keydown', esc, true); }, 0);
+    box.querySelectorAll('[data-m]').forEach(b => b.onclick = () => { apiRef.ui.setColorMode(b.dataset.m); close(); });
+    box.querySelectorAll('[data-q]').forEach(b => b.onclick = () => {
+      if (b.dataset.q === '__all') { close(); apiRef.ui.navigate('view-themes'); return; }
+      const prev = current; window.CadenceThemes.apply(b.dataset.q); close();
+      apiRef.ui.toast(`Theme: ${T.get(current).name}`, [{ label: 'Undo', run: () => window.CadenceThemes.apply(prev) }]);
+    });
+  }
 
   window.CadenceThemes = {
     register(t) {
@@ -99,6 +130,7 @@
     apply: id => apply(id, { save: true }),
     current: () => T.get(current), list: () => [...T.values()],
     token, isDark,
+    quick: el => quick(el),
     on(fn) { subs.add(fn); return () => subs.delete(fn); },
   };
 
@@ -144,6 +176,18 @@
           .th-cust input[type=range]{width:100%}
           .th-filter{display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap;margin:18px 0 0}
           .th-filter .pl-cats button span{opacity:.6;margin-left:3px}
+          .thq{position:fixed;z-index:70;width:250px;background:var(--panel);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow),0 18px 50px -12px rgba(0,0,0,.28);padding:10px;animation:thqin .2s cubic-bezier(.2,1.2,.4,1);color:var(--text)}
+          @keyframes thqin{from{opacity:0;transform:translateY(6px) scale(.98)}}
+          .thq-h{display:flex;align-items:baseline;justify-content:space-between;gap:8px;padding:2px 4px 8px}
+          .thq-h b{font-size:13.5px}.thq-h span{font-size:11px;color:var(--muted)}
+          .thq-mode{display:flex;margin:0 0 6px}.thq-mode button{flex:1}
+          .thq-l{font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--faint);padding:8px 4px 4px}
+          .thq-t{display:flex;align-items:center;gap:9px;width:100%;padding:6px;border-radius:8px;font-size:13px;text-align:left}
+          .thq-t:hover{background:var(--hover)} .thq-t.on{font-weight:650}
+          .thq-sw{width:26px;height:18px;border-radius:5px;border:1px solid;display:flex;align-items:flex-end;gap:2px;padding:3px;flex:none}
+          .thq-sw i{flex:1;height:5px;border-radius:2px}
+          .thq-all{display:block;width:100%;margin-top:8px;padding:8px;border-radius:9px;background:var(--hover);font-weight:600;font-size:12.5px;text-align:center}
+          .thq-all:hover{background:var(--accent-soft);color:var(--accent)}
           .th-dev{margin-top:26px;font-size:13px;color:var(--muted)}
           .th-dev code{font-family:var(--mono);font-size:12px;background:var(--hover);padding:1px 5px;border-radius:5px}
         `;

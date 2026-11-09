@@ -646,7 +646,7 @@ function makeApi(pid){
     plugins: { enabled: id => enabled(id) },
     space: () => SPACE,
     system: () => ({ demo: DEMO, space: SPACE, mode: Store.server ? 'nas' : Store.ref ? 'claude' : 'local', status: Store.status, lastSyncAt: Store.lastSyncAt || null, latency: Store.latency ?? null, ai: !!AI, health: Store.health || null, version: window.Cadence.version, plugins: Reg.defs.filter(d => enabled(d.id)).length, counts: { tasks: S.tasks.length, open: S.tasks.filter(t => !t.done).length, clients: S.clients.filter(c => !c.archived).length, meetings: S.meetings.length } }),
-    ui: { reducedMotion, toast, refreshWidgets: () => renderWidgets(), pointer: () => ({ ...lastPointer }), faviconUrl: (d, v) => faviconUrl(d, v), avatar: (c, size) => avatar(c, size), navigate: r => go(r), refresh: () => render(), copy: copyText, esc, modal: openModalHTML, close: closeModal, currentRoute: () => route() },
+    ui: { reducedMotion, toast, colorMode: () => S.settings.theme === 'dark' ? 'dark' : 'light', setColorMode: m => { S.settings.theme = m === 'dark' ? 'dark' : 'light'; save(); render(); }, refreshWidgets: () => renderWidgets(), pointer: () => ({ ...lastPointer }), faviconUrl: (d, v) => faviconUrl(d, v), avatar: (c, size) => avatar(c, size), navigate: r => go(r), refresh: () => render(), copy: copyText, esc, modal: openModalHTML, close: closeModal, currentRoute: () => route() },
     storage: { get: k => (S.pluginData[pid] || {})[k], set: (k,v) => { (S.pluginData[pid] = S.pluginData[pid] || {})[k] = v; save(); } },
     get ai(){ return AI; },
     settings: () => clone(S.settings),
@@ -707,6 +707,7 @@ const NAV_ICONS = {
   done: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M8.3 12.3l2.5 2.5 5-5.3"/></svg>',
   keys: '<svg viewBox="0 0 24 24"><rect x="2.5" y="6" width="19" height="12" rx="2.5"/><path d="M6 10h.01M9.5 10h.01M13 10h.01M16.5 10h.01M7.5 14h9"/></svg>',
   puzzle: '<svg viewBox="0 0 24 24"><path d="M9 4.5a2 2 0 0 1 4 0V6h3.5A1.5 1.5 0 0 1 18 7.5V11h1.5a2 2 0 0 1 0 4H18v3.5a1.5 1.5 0 0 1-1.5 1.5H13v-1.5a2 2 0 0 0-4 0V20H5.5A1.5 1.5 0 0 1 4 18.5V15h1.5a2 2 0 0 0 0-4H4V7.5A1.5 1.5 0 0 1 5.5 6H9z"/></svg>',
+  palette: '<svg viewBox="0 0 24 24"><path d="M12 3a9 9 0 1 0 0 18c1.1 0 1.8-.8 1.8-1.8 0-.5-.2-.9-.5-1.2-.3-.3-.5-.7-.5-1.2 0-1 .8-1.8 1.8-1.8h2.2A4.2 4.2 0 0 0 21 10.8C21 6.5 17 3 12 3z"/><circle cx="7.5" cy="11.5" r="1"/><circle cx="10.5" cy="7.5" r="1"/><circle cx="15" cy="7.5" r="1"/></svg>',
   moon: '<svg viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></svg>',
   gear: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2.8l1.6 2.3 2.8-.4.9 2.7 2.6 1.1-.5 2.8 1.8 2.2-1.8 2.2.5 2.8-2.6 1.1-.9 2.7-2.8-.4L12 21.2l-1.6-2.3-2.8.4-.9-2.7-2.6-1.1.5-2.8L2.8 12l1.8-2.2-.5-2.8 2.6-1.1.9-2.7 2.8.4z"/></svg>',
 };
@@ -732,7 +733,7 @@ function renderSide(){
       ${paused.length ? `<div class="more" data-act="toggle-paused">${showPaused ? '▾' : '▸'} Paused <span class="muted">${paused.length}</span></div>${showPaused ? paused.map(cl => clientLink(cl, r, o, true)).join('') : ''}` : ''}</nav>`;
   $('#side-foot').innerHTML = `${DEMO ? `<div class="demo-row"><b>●</b> Demo data<button data-act="demo-reset">Reset</button><button data-act="demo-exit">Exit</button></div>` : ''}
       ${LIFE() ? '' : `<button class="meet-btn" data-act="meeting">${S.activeMeeting ? '● Resume meeting' : '◉ Start meeting'} <kbd style="background:transparent;color:inherit;border-color:currentColor;opacity:.45">M</kbd></button>`}
-      <div class="foot-row"><span class="sync ${Store.status==='synced'?'ok':''}" id="sync"><i></i><span>${DEMO ? 'Demo data — not saved' : Store.status==='synced'?(Store.server?'Synced to NAS':'Synced'):'This browser'}</span></span><button data-act="shortcuts" title="Keyboard shortcuts (?)">${NAV_ICONS.keys}</button><button data-act="theme" title="Theme">${NAV_ICONS.moon}</button><button data-act="open-plugins" title="Plugins">${NAV_ICONS.puzzle}</button><button data-act="settings" title="Settings">${NAV_ICONS.gear}</button></div>`;
+      <div class="foot-row"><span class="sync ${Store.status==='synced'?'ok':''}" id="sync"><i></i><span>${DEMO ? 'Demo data — not saved' : Store.status==='synced'?(Store.server?'Synced to NAS':'Synced'):'This browser'}</span></span><button data-act="shortcuts" title="Keyboard shortcuts (?)">${NAV_ICONS.keys}</button><button data-act="theme" title="Theme">${NAV_ICONS.palette}</button><button data-act="open-plugins" title="Plugins">${NAV_ICONS.puzzle}</button><button data-act="settings" title="Settings">${NAV_ICONS.gear}</button></div>`;
   emit('render:side', {});
 }
 /* plugin sidebar widgets: rendered once per plugin rebuild; plugins update their own widget afterwards */
@@ -1568,7 +1569,10 @@ document.addEventListener('click', e => {
     case 'demo-open': window.open(location.pathname + '?demo=1' + location.hash, '_blank'); break;
     case 'demo-reset': resetDemo(); break;
     case 'demo-exit': exitDemo(); break;
-    case 'theme': S.settings.theme = S.settings.theme === 'dark' ? 'light' : 'dark'; save(); render(); break;
+    case 'theme':   // the Themes plugin offers a quick switcher; without it this is the plain light/dark toggle
+      if(window.CadenceThemes && window.CadenceThemes.quick && enabled('themes')) window.CadenceThemes.quick(a);
+      else { S.settings.theme = S.settings.theme === 'dark' ? 'light' : 'dark'; save(); render(); }
+      break;
     case 'settings': openSettings(); break;
     case 'set-tab': openSettings(a.dataset.tab); break;
     case 'set-theme': S.settings.theme = a.dataset.v; save(); render(); openSettings(); break;

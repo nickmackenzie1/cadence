@@ -205,3 +205,23 @@ Family-wide
 - Vacation planner: per-person packing lists remembered between trips, countdown, booking deadlines, pet-sitter checklist.
 - Family traditions keeper: recurring reminders for traditions (pumpkin patch, cookie day, yearly photo).
 Cross-cutting needs these imply: household sharing (two adults, maybe kids) in the Life space; per-person assignment; a "profiles/people" record kind.
+
+## Camping Planner (user spec, 2026-11-08, backlog — Life)
+One trip is the hub; the route sets the days, days set the menu, menu + weather build the packing list; the journal feeds the
+report, which feeds the next trip's lists.
+1. Trip setup: dates, destination, campsite/backcountry, who's coming (adults, kids, dog), type (car, canoe, backpacking, RV);
+   forecast near the date with flags (lows near freezing, rainy day 2); Ontario Parks opens reservations 5 months ahead
+   (Algonquin, Killarney, the Bruce fill fast) -> nudge on opening day; permits / fire bans / park alerts checklist.
+2. Packing list: base list by trip type; per-person lists (kids with sizes; picture checklist for little ones); weather-adjusted;
+   menu-linked (pancakes -> griddle, spatula, syrup); gear inventory incl. sleeping bag ratings and borrowed-gear tracking;
+   weight mode (per-item, per-pack); learns from "didn't use" / "wish I'd brought"; leaving-the-site checklist.
+3. Route maker: drive-in route with stops (gas, groceries, last real washroom, ice) and gatehouse closing time; backcountry
+   draw/import GPX, split into days (distance, elevation, portages, campsite/lake per night); pace check for the group;
+   bail-out/access points; leave-behind plan sent to a trusted person + check-in reminder; offline maps.
+4. Menu maker: day grid (B/L/D/snacks) from trip length; recipe library tagged stove/fire/no-cook, prep time, travels well;
+   perishables first, cooler-life warnings; grocery list scaled and sorted by store section + "prep at home"; cooler packing
+   order; dietary flags + kid-approved filter; bear-safe storage checklist for backcountry.
+5. Journal & report: quick daily entries (weather, highlight, wildlife, site rating, photos, voice notes); kid journal mode;
+   auto-logging photos/GPS per day; searchable site notes for next time; trip report / photo book; three "lessons learned"
+   questions feeding the next lists.
+Needs: Life space (done), weather API (key on NAS), maps/GPX (offline tiles = phone app), photo storage on the NAS.

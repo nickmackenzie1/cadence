@@ -170,6 +170,11 @@ test('themes: engine applies, persists, cleans up effects, and plugins can regis
   await page.goto(`http://localhost:${PORT}/#view-themes`);
   await expect(page.locator('.th-card')).toHaveCount(ids.length);
   await page.evaluate(() => CadenceThemes.apply('cadence'));
+  // the sidebar palette button opens the quick switcher, which reaches the gallery
+  await page.click('[data-act=theme]');
+  await expect(page.locator('.thq')).toBeVisible();
+  await page.click('.thq-all');
+  await expect(page).toHaveURL(/#view-themes/);
   expect(errs).toEqual([]);
 });
 
