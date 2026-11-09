@@ -543,7 +543,8 @@ async function handle(req, res) {
       const u = String(url.searchParams.get('url') || '');
       if (!/^https?:\/\//i.test(u) || u.length > 2000) return send(res, 400, { error: 'Bad feed URL' });
       const hit = feedCache.get(u);
-      if (hit && Date.now() - hit.at < 15 * 60 * 1000 && url.searchParams.get('refresh') !== '1') return send(res, 200, hit.data);
+      const ttl = Math.max(2, Math.min(60, +url.searchParams.get('ttl') || 15)) * 60 * 1000;   // minutes, 2–60 (status pages want fresher data)
+      if (hit && Date.now() - hit.at < ttl && url.searchParams.get('refresh') !== '1') return send(res, 200, hit.data);
       try {
         const r = await safeFetch(u, { headers: { Accept: 'application/rss+xml, application/atom+xml, application/xml, text/xml, */*' } }, 3 * 1024 * 1024);
         const data = { ...parseFeed(r.buf.toString('utf8'), r.url), fetchedAt: Date.now() };
