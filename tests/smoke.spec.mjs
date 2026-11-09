@@ -139,3 +139,33 @@ test('calendar: ICS feed is parsed and its URL is never sent back', async ({ req
   expect(cfg).toContain('calendar.example.com');
   await request.put(`http://localhost:${PORT}/api/calendar/config`, { data: { calendars: [] } });
 });
+
+test('themes: engine applies, persists, cleans up effects, and plugins can register their own', async ({ page }) => {
+  const errs = errorsOf(page); await boot(page);
+  const ids = await page.evaluate(() => CadenceThemes.list().map(t => t.id));
+  expect(ids.length).toBeGreaterThanOrEqual(15);
+  // every theme applies without errors and sets the skin attribute
+  for (const id of ids) {
+    await page.evaluate(id => CadenceThemes.apply(id), id);
+    expect(await page.evaluate(() => document.documentElement.dataset.skin || 'cadence')).toBe(id);
+  }
+  // effects layer exists for an FX theme and is removed when switching away
+  await page.evaluate(() => CadenceThemes.apply('matrix'));
+  expect(await page.locator('.th-fx canvas').count()).toBe(1);
+  await page.evaluate(() => CadenceThemes.apply('nord'));
+  expect(await page.locator('.th-fx').count()).toBe(0);
+  expect(await page.evaluate(() => CadenceThemes.token('--bg'))).toBe('#2e3440');
+  // a third-party theme
+  await page.evaluate(() => CadenceThemes.register({ id: 'test-red', name: 'Test red', vars: { '--accent': '#ff0000' } }));
+  await page.evaluate(() => CadenceThemes.apply('test-red'));
+  expect(await page.evaluate(() => CadenceThemes.token('--accent'))).toBe('#ff0000');
+  // persisted in synced plugin storage
+  await page.evaluate(() => CadenceThemes.apply('paper')); await page.waitForTimeout(300);
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('cadence.v1')).pluginData.themes.theme)).toBe('paper');
+  await page.reload(); await page.waitForTimeout(800);
+  expect(await page.evaluate(() => document.documentElement.dataset.skin)).toBe('paper');
+  await page.goto(`http://localhost:${PORT}/#view-themes`);
+  await expect(page.locator('.th-card')).toHaveCount(ids.length);
+  await page.evaluate(() => CadenceThemes.apply('cadence'));
+  expect(errs).toEqual([]);
+});

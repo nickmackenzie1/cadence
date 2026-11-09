@@ -78,6 +78,35 @@ api.island.clear('timer');
 
 Options for `show`: `title`, `sub`, `icon` + `color`, `image` (HTML, e.g. an avatar or `<img>`), `right` (small text on the right), `check`, `spin`, `progress` (0–1), `actions`, `onClick`, `key`, `sticky`, `ms`. Plain notices: the newest wins. Celebrations, sticky and keyed notices wait their turn. Live activities (a running meeting, the next calendar event) show whenever nothing else is.
 
+## Themes (`window.CadenceThemes`)
+
+The Themes plugin is a small engine that every plugin can use. A theme is a set of design tokens (CSS variables)
+plus optional CSS, fonts, stylesheets and effects. The active theme is synced like everything else.
+
+```js
+CadenceThemes.register({
+  id: 'sunset', name: 'Sunset', category: 'Fun',            // Useful · Fun · Crazy
+  tagline: 'Shown on the gallery card',
+  vars:  { '--bg': '#1b1020', '--panel': '#24152b', '--text': '#ffe9dc', '--accent': '#ff7a59' },
+  light: { … }, dark: { … },                                 // optional: follow the moon toggle instead of vars
+  font: '"My Font", system-ui', fonts: [{ family: 'My Font', src: 'vendor/my.woff2' }],
+  stylesheets: ['vendor/lib.css'], scripts: ['vendor/lib.js'], // only loaded while the theme is active
+  css: ':skin .btn { border-radius: 0 }',                     // :skin = html[data-skin="sunset"]
+  enhance(ctx) { /* DOM tweaks that are part of the look */ return () => {} },
+  effects(ctx) { ctx.layer.innerHTML = '…'; return () => {} },  // motion; skipped when Effects is Off or reduced motion
+});
+CadenceThemes.apply('sunset'); CadenceThemes.current(); CadenceThemes.list();
+CadenceThemes.token('--accent'); CadenceThemes.isDark();
+CadenceThemes.on(({ id, dark }) => …);   // or document.addEventListener('cadence:theme', e => e.detail)
+```
+
+**Tokens every plugin should use** (instead of hard-coded colours, so themes reach you): `--bg` `--panel` `--side`
+`--text` `--muted` `--faint` `--line` `--hover` `--accent` `--accent-soft` `--danger` `--danger-soft` `--ok`
+`--client` `--client-soft` `--shadow` `--mono`, and `--on-accent` (text on an accent background, defaults to white).
+`effects(ctx)` gets `ctx.layer`, a fixed overlay above the page (`pointer-events:none`); set `ctx.layer.style.zIndex = '0'`
+to draw *behind* the app (the theme's CSS then makes `.app` `position:relative; z-index:1` and panels translucent).
+Built-in themes live in `public/plugins/themes-pack.js`; open-source credits in `public/vendor/themes/CREDITS.md`.
+
 ## Task shape
 
 ```js
@@ -89,7 +118,7 @@ Options for `show`: `title`, `sub`, `icon` + `color`, `image` (HTML, e.g. an ava
 
 Bigger plugins live in their own file in `public/plugins/` and are loaded by a `<script>` tag at the bottom
 of `index.html`: `status.js` (boot sequence + system panel), `momentum.js` (gamification), `brand.js`
-(client brand colours), `havoc.js` (page destroyer, engine in `public/vendor/`), `links.js` (client quick links with Zoho detection), `haunted.js` (overdue ghosts with personalities), `stocks.js` (client share prices, history rebuilt from data), `intern.js` (pixel intern carrying waiting-on-client items), `weblinks.js` (sidebar bookmarks, `api.storage` "links"), `account.js` (Sign out), `island.js` (Dynamic-Island pill: `window.CadenceIsland.show({title, sub, icon, check, actions, sticky})`, `.live(key, {view})`, `.clear(key)`), `datepick.js` (calendar under newly added undated tasks; `window.CadenceDatePick.openAt(el, {value, onPick, onClear})`), `mural.js` (living mural view), `rss.js` (feeds: sidebar row / home shelf / Feeds view; records, cards or list; server proxy `api/feed?url=`). Copy one as a starting point.
+(client brand colours), `havoc.js` (page destroyer, engine in `public/vendor/`), `links.js` (client quick links with Zoho detection), `themes.js` (theming engine + gallery, `window.CadenceThemes`), `themes-pack.js` (20 themes), `haunted.js` (overdue ghosts with personalities), `stocks.js` (client share prices, history rebuilt from data), `intern.js` (pixel intern carrying waiting-on-client items), `weblinks.js` (sidebar bookmarks, `api.storage` "links"), `account.js` (Sign out), `island.js` (Dynamic-Island pill: `window.CadenceIsland.show({title, sub, icon, check, actions, sticky})`, `.live(key, {view})`, `.clear(key)`), `datepick.js` (calendar under newly added undated tasks; `window.CadenceDatePick.openAt(el, {value, onPick, onClear})`), `mural.js` (living mural view), `rss.js` (feeds: sidebar row / home shelf / Feeds view; records, cards or list; server proxy `api/feed?url=`). Copy one as a starting point.
 
 ## Shipping a plugin
 

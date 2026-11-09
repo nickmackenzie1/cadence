@@ -70,3 +70,16 @@ Next: (superseded, see below)
   draggable) — ORIGINAL pixel sheep, not the Stray Sheep/Poe design.
 - Ideas asked about: Letterboxd (no open API; public RSS letterboxd.com/<user>/rss/ -> rss.js 'films' skin with posters).
 - Life mode areas: Home, Health, Money, Projects (+custom). Waiting on user confirmation of the SQLite/spaces design.
+
+## Themes (2026-11-08)
+- themes.js = engine (data-skin on <html>, vars/light/dark, fonts always declared, stylesheets/scripts lazy, enhance + effects
+  hooks with cleanup, custom accent/font/corners/effects level in storage 'custom'/'effects', theme in storage 'theme', gallery
+  view 'view-themes', ⌘K 'Theme: X' / 'Next theme'). Loaded right after core.js so there's no flash.
+- themes-pack.js: Useful (paper, tufte, nord, solarized, contrast, calm), Fun (ninety-five, xp 'Luna', seven 'Aero',
+  chicago, nes, terminal, vaporwave, sketchbook), Crazy (crt, matrix, geocities, cyberpunk[augmented-ui enhance], doodle-party[css-doodle]).
+- Vendored (licenses alongside): 98.css fonts, system.css Chicago fonts, augmented-ui, css-doodle, ET Book (Tufte), OFL fonts.
+  Skipped: DOS VGA font (no license), doodle.css (no license), Apple Monaco/logo, any Microsoft assets.
+- User links to consider: Orbit (zumerlab, MIT) radial UI -> ideas: radial right-click/quick-add wheel, client 'solar system'
+  view, 24h day-clock of meetings/tasks.
+- Work/Life: user said YES to: separate spaces under one login, Life areas Home/Health/Money/Projects(+custom),
+  no clients/meetings/chasing in Life, calmer by default ('Calm' theme fits). Design SQLite with spaces.
