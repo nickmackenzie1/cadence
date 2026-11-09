@@ -616,7 +616,22 @@ function switchSpace(to){
   emit('space', { space: to });
   if(!S.lifeSynced && to === 'life'){ S.lifeSynced = true; save(); }   // a brand-new Life gets sent to the NAS
 }
-function emit(ev, payload){ for(const l of Reg.listeners) if(l.ev === ev || l.ev === '*') { try { l.fn(payload, ev); } catch(e){ console.error(`[plugin ${l.pid}]`, e); } } }
+/* errors surface instead of failing silently: a toast with the message, and a log you can copy (⌘K → Copy error log) */
+const ErrLog = (() => { let list = []; try { list = JSON.parse(sessionStorage.getItem('cadence.errors') || '[]'); } catch(e){}
+  const seen = new Set();
+  const add = (msg, stack) => { msg = String(msg || 'Unknown error').slice(0, 300);
+    const e = { at: new Date().toISOString(), route: location.hash, msg, stack: String(stack || '').split('\n').slice(0, 6).join('\n') };
+    list = list.concat([e]).slice(-30); try { sessionStorage.setItem('cadence.errors', JSON.stringify(list)); } catch(x){}
+    if(seen.has(msg)) return; seen.add(msg);
+    try { toast(`Something went wrong: ${msg.slice(0, 90)}`, [{ label: 'Copy details', run: () => copy() }]); } catch(x){} };
+  const text = () => `Cadence ${document.querySelector('meta[name=version]')?.content || ''} · ${navigator.userAgent}\n\n` + list.map(e => `${e.at} ${e.route}\n${e.msg}\n${e.stack}`).join('\n\n');
+  const copy = () => copyText(text());
+  addEventListener('error', e => { if(e.filename && !/\/(core|plugins\/[\w-]+)\.js/.test(e.filename)) return; add(e.message, e.error && e.error.stack); });
+  addEventListener('unhandledrejection', e => { const r = e.reason; if(r && /Failed to fetch|NetworkError|aborted/i.test(String(r.message || r))) return; add(r && r.message || r, r && r.stack); });
+  return { add, list: () => list.slice(), copy, text };
+})();
+window.CadenceErrors = ErrLog;
+function emit(ev, payload){ for(const l of Reg.listeners) if(l.ev === ev || l.ev === '*') { try { l.fn(payload, ev); } catch(e){ console.error(`[plugin ${l.pid}]`, e); ErrLog.add(`[${l.pid}] ${e.message}`, e.stack); } } }
 function makeApi(pid){
   return Object.freeze({
     pluginId: pid,
@@ -668,7 +683,7 @@ function rebuildPlugins(){
   for(const k of ['commands','views','parsers','extractors','taskActions','meetingActions','clientActions','sidebar','listeners','settingsPanels','widgets','chips']) Reg[k] = [];
   for(const def of Reg.defs){
     if(!enabled(def.id)) continue;
-    try { def.setup(makeApi(def.id)); } catch(e){ console.error(`Plugin ${def.id} failed`, e); }
+    try { def.setup(makeApi(def.id)); } catch(e){ console.error(`Plugin ${def.id} failed`, e); ErrLog.add(`Plugin ${def.id} failed to start: ${e.message}`, e.stack); }
   }
   if(booted) renderWidgets();
 }
@@ -792,7 +807,7 @@ function renderWidgets(){
   box.innerHTML = ''; top.innerHTML = '';
   for(const w of Reg.sidebar.slice().sort((a,b) => (a.order||0) - (b.order||0))){
     const el = document.createElement('div'); el.className = 'sw'; el.dataset.sw = w.id; (w.slot === 'top' ? top : box).appendChild(el);
-    try { w.render(el, makeApi(w.pid)); } catch(e){ console.error('[widget ' + w.id + ']', e); }
+    try { w.render(el, makeApi(w.pid)); } catch(e){ console.error('[widget ' + w.id + ']', e); ErrLog.add(`[widget ${w.id}] ${e.message}`, e.stack); }
   }
 }
 function taskRow(t, opts = {}){
@@ -1256,6 +1271,7 @@ function coreCommands(){
     ...(LIFE() ? [] : [{ title: S.activeMeeting ? 'Resume meeting' : 'Start meeting', k:'M', run: () => { closeModal(); startMeeting(); } }]),
     { title: LIFE() ? 'Add an area' : 'Add client', run: () => promptClient() },
     ...(LIFE() ? [] : [{ title:'New project', run: () => promptProject() }, { title:'Open Dev', run: () => { closeModal(); go('dev'); } }]),
+    { title:'Copy error log', run: () => { closeModal(); ErrLog.list().length ? ErrLog.copy() : toast('No errors logged this session 👍'); } },
     { title:'Toggle dark mode', run: () => { closeModal(); S.settings.theme = S.settings.theme==='dark'?'light':'dark'; save(); render(); } },
     { title:'Settings & plugins', run: () => openSettings() },
     { title:'Review sync clashes', run: () => openConflicts() },

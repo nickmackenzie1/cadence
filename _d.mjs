@@ -1,0 +1,21 @@
+import { chromium } from '@playwright/test';
+import { spawn } from 'node:child_process'; import { mkdtempSync } from 'node:fs'; import { tmpdir } from 'node:os'; import { join } from 'node:path';
+const dir = mkdtempSync(join(tmpdir(), 'r-')), PORT = 10797, B = `http://localhost:${PORT}`;
+const s = spawn(process.execPath, ['--disable-warning=ExperimentalWarning', 'server.js'], { env: { ...process.env, PORT: String(PORT), DATA_DIR: dir, TLS_DIR: join(dir, 'x') }, stdio: 'ignore' });
+for (let i = 0; i < 100; i++) { try { if ((await fetch(B + '/api/health')).ok) break; } catch {} await new Promise(r => setTimeout(r, 100)); }
+const b = await chromium.launch(), p = await b.newPage({ viewport: { width: 1300, height: 900 } });
+p.on('pageerror', e => console.log('ERR', e.message, e.stack.split('\n').slice(0,3).join(' | ')));
+p.on('console', m => { if (m.type() === 'error' && !m.text().includes('Failed to load')) console.log('console', m.text()); });
+await p.addInitScript(() => localStorage.setItem('cadence.reviewNudge', 'x'));
+await p.goto(B + '/?demo#today'); await p.waitForTimeout(2000);
+const first = async () => p.locator('#view .task .t-title').first();
+const title0 = await (await first()).textContent(); console.log('task', title0);
+await (await first()).click(); await p.waitForTimeout(300);
+console.log('editor open', await p.locator('.task.open').count());
+await p.click('.task.open [data-te=prio]'); await p.waitForTimeout(200); await p.screenshot({ path: '/tmp/d1.png' });
+const items = await p.locator('#pop button, #pop .pop-i').allTextContents(); console.log('pop', items.slice(0,6));
+await p.locator('#pop .pop-i').nth(3).click().catch(e => console.log('click fail', e.message));
+await p.waitForTimeout(300);
+console.log('prio chip', await p.locator('.task.open [data-te=prio]').textContent());
+await p.click('.task.open [data-te=due]'); await p.waitForTimeout(200); await p.screenshot({ path: '/tmp/d2.png' });
+await b.close(); s.kill();

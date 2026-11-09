@@ -289,3 +289,11 @@ Needs: Life space (done), weather API (key on NAS), maps/GPX (offline tiles = ph
   Non-AI first: Google News RSS search by client name/domain through the existing feed proxy (`/api/feed`, ttl), with
   de-dupe and an exclude-words filter for common names; optional AI pass later to keep only genuinely relevant items
   and summarise "why it matters for this client".
+- Backlog (user, 2026-11-09, "backburner"): Discord theme, inspired by radekkozak/discordian (Obsidian theme, MIT):
+  Discord's dark greys (#313338 / #2b2d31 / #1e1f22), blurple accent #5865f2, gg sans-like font stack, channel-list sidebar.
+- Backlog (user, 2026-11-09): client page gradients like Granim.js (sarcadass.github.io/granim.js): smooth animated
+  gradient transitions between brand-colour "states". Do it ourselves, no dependency: animate the ambient layer's
+  CSS custom properties (@property-registered colours) or a tiny canvas, respecting reduced motion.
+- Bug report (user, 2026-11-09 14:16): "tasks are clickable but anything I change doesn't show up". Could not
+  reproduce (all routes, two themes, edits + reload all fine). Added ErrLog: uncaught/plugin/widget errors now toast
+  with "Copy details", and ⌘K → "Copy error log". Waiting on details from the user.
