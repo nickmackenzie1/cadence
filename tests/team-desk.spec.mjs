@@ -231,3 +231,16 @@ test('typing effects: fire at the caret, Nib offers a quick-add tip, off means o
   await expect(page.locator('#tfx-cv')).toHaveCount(0);
   expect(errs).toEqual([]);
 });
+
+test('sheep: they land on things, baa when clicked, and go back in the pen', async ({ page }) => {
+  await page.addInitScript(() => { if (!sessionStorage.getItem('shp')) { sessionStorage.setItem('shp', 1); localStorage.setItem('cadence.sheep', '{"count":2}'); } });
+  const errs = await open(page);
+  await expect(page.locator('.shp')).toHaveCount(2);
+  await expect.poll(() => page.evaluate(() => window.__sheep.flock().every(s => s.on || s.state === 'hop')), { timeout: 8000 }).toBe(true);
+  await page.locator('.shp').first().click({ force: true });
+  await expect(page.locator('.shp-b.on').first()).not.toBeEmpty();
+  await page.evaluate(() => { localStorage.setItem('cadence.sheep', '{"count":0}'); });
+  await page.reload(); await expect(page.locator('#sync')).toContainText('NAS', { timeout: 8000 });
+  await expect(page.locator('.shp')).toHaveCount(0);
+  expect(errs).toEqual([]);
+});

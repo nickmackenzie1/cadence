@@ -435,7 +435,10 @@ Needs: Life space (done), weather API (key on NAS), maps/GPX (offline tiles = ph
   Also a client action "Research with AI". Dashboard widgets may now use Lucide icon names.
 
 ## Backlog: team / multiplayer (user, 2026-11-09 18:41)
-Needs real multi-user first (accounts per person on the NAS, LAN only, no Tailscale / no internet exposure).
+Needs real multi-user first. User (18:42): "users should not be NAS dependent" -> accounts/identity must not live only
+on the NAS (each person's Cadence works on its own; team features are an add-on). Open question to settle with the user:
+how teammates connect without Tailscale or exposing the NAS (e.g. a separate hosted team relay that only carries team
+data, or peer-to-peer on the same LAN). Personal data and secrets stay on each person's own NAS.
 - Team leaderboard (tasks done, chases closed, streaks; friendly, opt-in).
 - Team collaboration: shared clients/tasks, who's on what.
 - Claiming tasks ("I've got this one") from a shared pool.
