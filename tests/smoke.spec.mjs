@@ -200,3 +200,22 @@ test('dashboard: starter page, drag to move without overlaps, add from the libra
   await expect(page.locator('#db-side')).toHaveCount(0);
   expect(errs).toEqual([]);
 });
+
+test('ambient light: client pages glow in their colours with a readable accent, and it clears elsewhere', async ({ page }) => {
+  const errs = errorsOf(page); await boot(page);
+  await page.evaluate(() => Cadence.registerPlugin({ id: 'amb-test', name: 'x', setup(api) { window.AT = api; } }));
+  const cid = await page.evaluate(() => { const c = window.AT.clients.add('Glowco'); window.AT.clients.update(c.id, { color: '#ffd400' }); return c.id; });
+  await page.goto(`http://localhost:${PORT}/#client-${cid}`);
+  await expect.poll(() => page.evaluate(() => document.documentElement.classList.contains('amb-on'))).toBe(true);
+  // a very light brand colour is darkened until it reads on the page (≥ 4.5:1)
+  const ratio = await page.evaluate(() => {
+    const v = getComputedStyle(document.getElementById('view')).getPropertyValue('--accent').trim(), bg = getComputedStyle(document.documentElement).getPropertyValue('--bg').trim();
+    const L = h => { const c = [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16) / 255).map(x => x <= .03928 ? x / 12.92 : ((x + .055) / 1.055) ** 2.4); return .2126 * c[0] + .7152 * c[1] + .0722 * c[2]; };
+    const a = L(v), b = L(bg); return (Math.max(a, b) + .05) / (Math.min(a, b) + .05);
+  });
+  expect(ratio).toBeGreaterThanOrEqual(4.5);
+  await page.goto(`http://localhost:${PORT}/#today`);
+  await expect.poll(() => page.evaluate(() => document.documentElement.classList.contains('amb-on'))).toBe(false);
+  expect(await page.evaluate(() => document.getElementById('view').style.getPropertyValue('--accent'))).toBe('');
+  expect(errs).toEqual([]);
+});

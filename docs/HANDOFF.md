@@ -225,3 +225,11 @@ report, which feeds the next trip's lists.
    auto-logging photos/GPS per day; searchable site notes for next time; trip report / photo book; three "lessons learned"
    questions feeding the next lists.
 Needs: Life space (done), weather API (key on NAS), maps/GPX (offline tiles = phone app), photo storage on the NAS.
+
+## Ambient light (2026-11-09, shipped) — the client page rework
+- plugins/ambient.js: fixed #amb layer (z-index -1, sized to .main) with 5 blurred lights in the client palette
+  (brand.palette/primary/secondary/themeColor/color, greys dropped, topped up with hue-shifted siblings). html.amb-on makes
+  #view a frosted "screen" (84% bg + blur, rounded, glow shadow), hero gets the brand gradient + top stripe, stats get brand edges.
+  Colours transition (1.6s) when switching clients + a 'surge'; drift animation optional. --accent on #view = brand colour
+  darkened/lightened to >= 4.5:1 vs --bg. Settings: Bold/Subtle/Off, drift, brand accent. Themes opt out via '--ambient: off'
+  (ninety-five, chicago, terminal, crt, matrix, geocities, contrast, nes). Works for Life areas (single colour -> derived palette).

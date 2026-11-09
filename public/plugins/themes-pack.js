@@ -28,7 +28,7 @@
     dark: { '--bg': '#002b36', '--panel': '#073642', '--side': '#00252e', '--text': '#eee8d5', '--muted': '#93a1a1', '--faint': '#586e75', '--line': '#0f4250', '--hover': 'rgba(238,232,213,.05)', '--accent': '#2aa198', '--accent-soft': '#0c4a52', '--danger': '#dc322f', '--ok': '#859900', '--client': '#b58900', '--client-soft': '#2b3a2a' } });
 
   R({ id: 'contrast', name: 'High contrast', category: 'Useful', tagline: 'Maximum legibility, big focus rings.',
-    vars: { '--bg': '#000', '--panel': '#000', '--side': '#000', '--text': '#fff', '--muted': '#e6e6e6', '--faint': '#c8c8c8', '--line': '#fff', '--hover': '#262626', '--accent': '#ffd400', '--accent-soft': '#332b00', '--danger': '#ff6b6b', '--danger-soft': '#330000', '--ok': '#6bff8a', '--client': '#7ad7ff', '--client-soft': '#002633', '--shadow': 'none', '--on-accent': '#000' },
+    vars: { '--ambient': 'off', '--bg': '#000', '--panel': '#000', '--side': '#000', '--text': '#fff', '--muted': '#e6e6e6', '--faint': '#c8c8c8', '--line': '#fff', '--hover': '#262626', '--accent': '#ffd400', '--accent-soft': '#332b00', '--danger': '#ff6b6b', '--danger-soft': '#330000', '--ok': '#6bff8a', '--client': '#7ad7ff', '--client-soft': '#002633', '--shadow': 'none', '--on-accent': '#000' },
     css: `${flat} :skin :focus-visible{outline:3px solid #ffd400!important;outline-offset:2px}
       :skin .gl,:skin .stat,:skin .qa,:skin .dw-qa,:skin .modal,:skin .pl-card,:skin .db-item:not(.bare),:skin .th-card,:skin .btn{border-width:2px!important}
       :skin .t-title{font-weight:600} :skin a{text-decoration:underline}` });
@@ -44,7 +44,7 @@
   R({ id: 'ninety-five', name: 'Ninety-Five', category: 'Fun', tagline: 'Windows 95 style: bevels, teal desktop, 98.css pixel font.',
     fonts: [{ family: 'Pixelated MS Sans Serif', src: V + '98css/ms_sans_serif.woff2' }, { family: 'Pixelated MS Sans Serif', src: V + '98css/ms_sans_serif_bold.woff2', weight: 700 }],
     font: '"Pixelated MS Sans Serif", Arial, sans-serif',
-    vars: { '--bg': '#008080', '--panel': '#c0c0c0', '--side': '#c0c0c0', '--text': '#000', '--muted': '#3a3a3a', '--faint': '#808080', '--line': '#808080', '--hover': 'rgba(0,0,128,.1)', '--accent': '#000080', '--accent-soft': '#c6c6e8', '--danger': '#a00000', '--danger-soft': '#e8c8c8', '--ok': '#007000', '--client': '#7a5a00', '--client-soft': '#e6dcb4', '--shadow': 'none', '--mono': '"Courier New",monospace' },
+    vars: { '--ambient': 'off', '--bg': '#008080', '--panel': '#c0c0c0', '--side': '#c0c0c0', '--text': '#000', '--muted': '#3a3a3a', '--faint': '#808080', '--line': '#808080', '--hover': 'rgba(0,0,128,.1)', '--accent': '#000080', '--accent-soft': '#c6c6e8', '--danger': '#a00000', '--danger-soft': '#e8c8c8', '--ok': '#007000', '--client': '#7a5a00', '--client-soft': '#e6dcb4', '--shadow': 'none', '--mono': '"Courier New",monospace' },
     preview: { bg: '#008080', panel: '#fff', side: '#c0c0c0', text: '#000', accent: '#000080', line: '#808080', r: '0' },
     css: `${BEV}
       :skin *{border-radius:0!important} :skin body{font-size:12px;-webkit-font-smoothing:none}
@@ -113,7 +113,7 @@
   R({ id: 'chicago', name: 'Chicago', category: 'Fun', tagline: 'Classic Macintosh, 1-bit black and white (system.css fonts).',
     fonts: [{ family: 'ChicagoFLF', src: V + 'systemcss/ChicagoFLF.woff2' }, { family: 'ChiKareGo2', src: V + 'systemcss/ChiKareGo2.woff2' }],
     font: 'ChiKareGo2, ChicagoFLF, Geneva, sans-serif',
-    vars: { '--bg': '#fff', '--panel': '#fff', '--side': '#fff', '--text': '#000', '--muted': '#000', '--faint': '#555', '--line': '#000', '--hover': '#ddd', '--accent': '#000', '--accent-soft': '#ddd', '--danger': '#000', '--danger-soft': '#eee', '--ok': '#000', '--client': '#000', '--client-soft': '#eee', '--shadow': '2px 2px 0 #000' },
+    vars: { '--ambient': 'off', '--bg': '#fff', '--panel': '#fff', '--side': '#fff', '--text': '#000', '--muted': '#000', '--faint': '#555', '--line': '#000', '--hover': '#ddd', '--accent': '#000', '--accent-soft': '#ddd', '--danger': '#000', '--danger-soft': '#eee', '--ok': '#000', '--client': '#000', '--client-soft': '#eee', '--shadow': '2px 2px 0 #000' },
     preview: { bg: '#888', panel: '#fff', side: '#fff', text: '#000', accent: '#000', line: '#000', r: '0', extra: 'background-image:repeating-conic-gradient(#000 0 25%,#fff 0 50%);background-size:3px 3px' },
     css: `:skin body{font-size:16px;-webkit-font-smoothing:none}
       :skin .main{background:repeating-conic-gradient(#000 0 25%,#fff 0 50%) 0 0/2px 2px}
@@ -134,7 +134,7 @@
   R({ id: 'nes', name: 'NES', category: 'Fun', tagline: '8-bit console vibes, Press Start 2P (after NES.css).',
     fonts: [{ family: 'Press Start 2P', src: V + 'fonts/press-start-2p-latin-400-normal.woff2' }],
     font: '"Press Start 2P", monospace',
-    vars: { '--bg': '#fff', '--panel': '#fff', '--side': '#f2f2f2', '--text': '#212529', '--muted': '#5a6268', '--faint': '#adb5bd', '--line': '#212529', '--hover': '#e7f4fd', '--accent': '#209cee', '--accent-soft': '#d6eefc', '--danger': '#e76e55', '--danger-soft': '#fbe2dc', '--ok': '#92cc41', '--client': '#f2b400', '--client-soft': '#fff3c4', '--shadow': 'none' },
+    vars: { '--ambient': 'off', '--bg': '#fff', '--panel': '#fff', '--side': '#f2f2f2', '--text': '#212529', '--muted': '#5a6268', '--faint': '#adb5bd', '--line': '#212529', '--hover': '#e7f4fd', '--accent': '#209cee', '--accent-soft': '#d6eefc', '--danger': '#e76e55', '--danger-soft': '#fbe2dc', '--ok': '#92cc41', '--client': '#f2b400', '--client-soft': '#fff3c4', '--shadow': 'none' },
     preview: { bg: '#fff', panel: '#fff', side: '#f2f2f2', text: '#212529', accent: '#209cee', line: '#212529', r: '0' },
     css: `:skin body{font-size:10px;line-height:1.7} :skin *{border-radius:0!important}
       :skin .head h1{font-size:18px;letter-spacing:0} :skin .t-title{font-size:11px}
@@ -151,7 +151,7 @@
   R({ id: 'terminal', name: 'Terminal', category: 'Fun', tagline: 'Green phosphor, VT323, a blinking cursor.',
     fonts: [{ family: 'VT323', src: V + 'fonts/vt323-latin-400-normal.woff2' }],
     font: 'VT323, monospace',
-    vars: { '--bg': '#050a05', '--panel': '#081008', '--side': '#040804', '--text': '#33ff66', '--muted': '#22b84a', '--faint': '#167a31', '--line': '#145a25', '--hover': 'rgba(51,255,102,.08)', '--accent': '#33ff66', '--accent-soft': '#0d2a14', '--danger': '#ff5c5c', '--danger-soft': '#2a0c0c', '--ok': '#33ff66', '--client': '#ffcc33', '--client-soft': '#2a2208', '--shadow': 'none', '--on-accent': '#041004', '--mono': 'VT323, monospace' },
+    vars: { '--ambient': 'off', '--bg': '#050a05', '--panel': '#081008', '--side': '#040804', '--text': '#33ff66', '--muted': '#22b84a', '--faint': '#167a31', '--line': '#145a25', '--hover': 'rgba(51,255,102,.08)', '--accent': '#33ff66', '--accent-soft': '#0d2a14', '--danger': '#ff5c5c', '--danger-soft': '#2a0c0c', '--ok': '#33ff66', '--client': '#ffcc33', '--client-soft': '#2a2208', '--shadow': 'none', '--on-accent': '#041004', '--mono': 'VT323, monospace' },
     css: `${flat} :skin body{font-size:19px;${GLOW('#33ff66')}} :skin *{border-radius:0!important}
       :skin .head h1{font-size:34px;font-weight:400} :skin .head h1::before{content:'> ';opacity:.7}
       :skin .head h1::after{content:'█';animation:thblink 1s steps(1) infinite;font-size:.8em}
@@ -229,7 +229,7 @@
   R({ id: 'crt', name: 'CRT', category: 'Crazy', tagline: 'Amber phosphor on a dying monitor: scanlines, flicker, rolling bar.',
     fonts: [{ family: 'VT323', src: V + 'fonts/vt323-latin-400-normal.woff2' }],
     font: 'VT323, monospace',
-    vars: { '--bg': '#0d0802', '--panel': '#140c03', '--side': '#0a0601', '--text': '#ffb000', '--muted': '#c98a00', '--faint': '#7a5400', '--line': '#4a3300', '--hover': 'rgba(255,176,0,.08)', '--accent': '#ffb000', '--accent-soft': '#2a1d00', '--danger': '#ff5a36', '--ok': '#ffd060', '--client': '#ffe08a', '--client-soft': '#2a2208', '--shadow': 'none', '--on-accent': '#140c03' },
+    vars: { '--ambient': 'off', '--bg': '#0d0802', '--panel': '#140c03', '--side': '#0a0601', '--text': '#ffb000', '--muted': '#c98a00', '--faint': '#7a5400', '--line': '#4a3300', '--hover': 'rgba(255,176,0,.08)', '--accent': '#ffb000', '--accent-soft': '#2a1d00', '--danger': '#ff5a36', '--ok': '#ffd060', '--client': '#ffe08a', '--client-soft': '#2a2208', '--shadow': 'none', '--on-accent': '#140c03' },
     css: `${flat} :skin body{font-size:19px;${GLOW('#ffb000')}} :skin *{border-radius:0!important}
       :skin .app{border-radius:28px;overflow:hidden;box-shadow:inset 0 0 120px rgba(0,0,0,.9)}
       :skin .gl,:skin .stat,:skin .qa,:skin .dw-qa,:skin .pl-card,:skin .db-item:not(.bare),:skin .modal{border:1px solid var(--line);box-shadow:none}
@@ -246,7 +246,7 @@
     } });
 
   R({ id: 'matrix', name: 'Matrix', category: 'Crazy', tagline: 'Digital rain behind everything. Wake up.',
-    vars: { '--bg': '#000', '--panel': 'rgba(0,12,4,.86)', '--side': 'rgba(0,8,2,.86)', '--text': '#c8ffd6', '--muted': '#4fd27a', '--faint': '#1f7a3c', '--line': 'rgba(0,255,90,.22)', '--hover': 'rgba(0,255,90,.08)', '--accent': '#00ff5a', '--accent-soft': 'rgba(0,255,90,.12)', '--danger': '#ff4d4d', '--ok': '#00ff5a', '--client': '#d6ff4d', '--client-soft': 'rgba(214,255,77,.1)', '--shadow': '0 0 20px rgba(0,255,90,.12)', '--on-accent': '#001a08', '--mono': '"JetBrains Mono", monospace' },
+    vars: { '--ambient': 'off', '--bg': '#000', '--panel': 'rgba(0,12,4,.86)', '--side': 'rgba(0,8,2,.86)', '--text': '#c8ffd6', '--muted': '#4fd27a', '--faint': '#1f7a3c', '--line': 'rgba(0,255,90,.22)', '--hover': 'rgba(0,255,90,.08)', '--accent': '#00ff5a', '--accent-soft': 'rgba(0,255,90,.12)', '--danger': '#ff4d4d', '--ok': '#00ff5a', '--client': '#d6ff4d', '--client-soft': 'rgba(214,255,77,.1)', '--shadow': '0 0 20px rgba(0,255,90,.12)', '--on-accent': '#001a08', '--mono': '"JetBrains Mono", monospace' },
     font: '"JetBrains Mono", ui-monospace, monospace',
     css: `${flat} :skin .app{position:relative;z-index:1} :skin .main{background:transparent}
       :skin .wrap{background:rgba(0,10,3,.78);min-height:100%;box-shadow:0 0 0 1px rgba(0,255,90,.15)}
@@ -276,7 +276,7 @@
   R({ id: 'geocities', name: 'GeoCities', category: 'Crazy', tagline: 'Welcome to my homepage!!! Under construction, sparkles, a hit counter.',
     fonts: [{ family: 'Comic Neue', src: V + 'fonts/comic-neue-latin-400-normal.woff2' }, { family: 'Comic Neue', src: V + 'fonts/comic-neue-latin-700-normal.woff2', weight: 700 }],
     font: '"Comic Neue", "Comic Sans MS", cursive',
-    vars: { '--bg': '#000033', '--panel': '#ffffff', '--side': '#000080', '--text': '#000', '--muted': '#333', '--faint': '#777', '--line': '#ff00ff', '--hover': '#ffff9944', '--accent': '#0000ee', '--accent-soft': '#ccccff', '--danger': '#ff0000', '--ok': '#008000', '--client': '#ff6600', '--client-soft': '#ffe0cc', '--shadow': '4px 4px 0 #ff00ff' },
+    vars: { '--ambient': 'off', '--bg': '#000033', '--panel': '#ffffff', '--side': '#000080', '--text': '#000', '--muted': '#333', '--faint': '#777', '--line': '#ff00ff', '--hover': '#ffff9944', '--accent': '#0000ee', '--accent-soft': '#ccccff', '--danger': '#ff0000', '--ok': '#008000', '--client': '#ff6600', '--client-soft': '#ffe0cc', '--shadow': '4px 4px 0 #ff00ff' },
     preview: { bg: '#000033', panel: '#fff', side: '#000080', text: '#000', accent: '#ff00ff', line: '#ff00ff', r: '0' },
     css: `:skin body{background:radial-gradient(1px 1px at 10px 20px,#fff,transparent),radial-gradient(1px 1px at 60px 70px,#fff,transparent),radial-gradient(2px 2px at 120px 30px,#ffff99,transparent),radial-gradient(1px 1px at 160px 120px,#fff,transparent),#000033;background-size:180px 160px;font-size:15px}
       :skin .main{background:transparent} :skin *{border-radius:0!important}
