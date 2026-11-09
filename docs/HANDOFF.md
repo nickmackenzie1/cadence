@@ -350,3 +350,6 @@ Needs: Life space (done), weather API (key on NAS), maps/GPX (offline tiles = ph
 - Gradient flow (2026-11-09, shipped): ambient.js option "Header gradient flows through the brand colours" (default on).
   @property-registered --gf1..3/--gfa animated by @keyframes granim through palette rotations (22s), on the client
   hero and its top bar. Reduced motion: static.
+- Backlog (user, 2026-11-09 15:55): AI client research. From the client's website (and public sources) let AI pull
+  more about the client: what they do, size, products, recent news, notable people, brand imagery and colours,
+  "interesting things to mention in the next meeting". Store on the client record; show on the client page.
