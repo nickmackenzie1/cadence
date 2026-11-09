@@ -554,3 +554,7 @@ html.amb-on .c-hero .bg.img{opacity:.24;filter:saturate(1.1)}
 .df-h button{font-size:12px;color:var(--muted);padding:3px 7px;border-radius:7px}.df-h button:hover{background:var(--hover);color:var(--text)}
 .df-b{padding:10px 12px;overflow:auto;font-size:13.5px}
 @media (prefers-reduced-motion:reduce){.dock-fly{animation:none}}
+
+/* client hero sub-line: chip, website, last meeting with breathing room in every theme */
+.c-hero .sub{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px}
+.c-hero h1{flex-wrap:nowrap}.c-hero h1 .nm{min-width:0;overflow-wrap:anywhere}

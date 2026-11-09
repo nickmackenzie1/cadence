@@ -214,7 +214,17 @@
       :skin .side{border-right:3px solid #000}
       :skin .nav a{border:3px solid transparent;border-radius:6px} :skin .nav a.on{background:#fff;border-color:#000;box-shadow:3px 3px 0 #000;color:#000} :skin .nav a.on .ic{color:#000}
       :skin .space-sw{background:#fff;border:3px solid #000;border-radius:8px;box-shadow:3px 3px 0 #000} :skin .space-sw i{background:${p.accent};border:2px solid #000;box-shadow:none;border-radius:5px}
-      :skin .chip{border:2px solid #000;background:#fff;color:#000;border-radius:5px} :skin .chip.over{background:#ffc5c8;color:#000}
+      :skin .chip{border:2px solid #000;background:#fff;color:#000;border-radius:5px;padding:2px 8px;gap:5px;line-height:1.35;font-weight:600;font-size:11.5px} :skin .chip.over{background:#ffc5c8;color:#000}
+      :skin .chip.due{color:#000} :skin .chip.due.today{background:#b9e7de} :skin .chip.due.soon{background:#fdfd96} :skin .chip.client-owned{background:#ffe3b3} :skin .chip.dev-owned{background:${p.soft};color:#000}
+      :skin .t-meta{gap:7px;margin-top:7px} :skin .task{padding:12px 8px;gap:14px} :skin .t-title{font-size:15px}
+      :skin .glance,:skin .stats{gap:18px!important} :skin .stats{margin-bottom:26px} :skin .qa{margin:6px 0 26px}
+      :skin .group{margin-bottom:22px} :skin .group-h{padding-bottom:9px;margin-bottom:10px}
+      :skin .cols{gap:34px}
+      :skin .c-hero h1{font-size:clamp(24px,3vw,34px);line-height:1.15;gap:14px}
+      :skin .c-hero .sub .chip{font-size:12px;padding:3px 9px}
+      :skin .c-hero .head{flex-direction:column;gap:18px} :skin .c-hero .head .actions{order:-1;align-self:flex-end;justify-content:flex-end;gap:12px;margin-bottom:-58px;padding-top:0!important;max-width:60%} :skin .c-hero .actions .btn{padding:7px 14px}
+      :skin .c-hero h1{padding-top:64px}
+      :skin .playbook{gap:8px;margin:6px 0 22px} :skin .playbook .chip{background:#fff}
       :skin .check{border:2.5px solid #000;border-radius:5px} :skin .task.done .check,:skin .dw-task.done .check{background:#40d39c;border-color:#000}
       :skin .task:hover{background:rgba(255,255,255,.55)}
       :skin .group-h{font-family:"Lexend Mega",sans-serif;font-weight:800;letter-spacing:-.04em;color:#000;border-bottom:3px solid #000}

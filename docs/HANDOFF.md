@@ -314,3 +314,6 @@ Needs: Life space (done), weather API (key on NAS), maps/GPX (offline tiles = ph
   vinyl / New vinyl / Everything. `recMeta()` parses format (CD/tape/video/vinyl), new vs used, Goldmine grades
   "(media/sleeve)" + notes, pressing text, colour words tint the record. Stickers: price tag, grade seal coloured by
   grade, NEW, handwritten notes slip, pressing with colour dot.
+- Neo-Brutal UI pass (user screenshots, 2026-11-09): chips get real padding (were text-to-border), coloured due
+  chips, roomier task rows, wider gaps between hard-shadow cards, client hero puts actions in a row above the title
+  so the big Lexend name gets the full width; all themes: hero sub-line is a wrapping flex row, avatar + name never split.
