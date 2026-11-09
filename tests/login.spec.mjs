@@ -47,7 +47,7 @@ test('sign out from the command palette, and an expired session returns to login
   await expect(page.locator('#sync')).toContainText('NAS', { timeout: 8000 });
   // session disappears server-side (e.g. password changed): the next sync sends you to login
   await context.clearCookies();
-  await page.evaluate(() => fetch('api/state'));
+  await page.evaluate(() => { fetch('api/state'); }).catch(() => {});   // the app's own sync may get there first
   await expect(page).toHaveURL(/\/login\?next=/, { timeout: 5000 });
   await page.fill('#u', 'nick'); await page.fill('#p', 's3cret:pw'); await page.click('#go');
   await expect(page.locator('#sync')).toContainText('NAS', { timeout: 8000 });
