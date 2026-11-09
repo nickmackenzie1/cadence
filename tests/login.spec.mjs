@@ -51,8 +51,8 @@ test('sign out from the command palette, and an expired session returns to login
   await expect(page).toHaveURL(/\/login\?next=/, { timeout: 5000 });
   await page.fill('#u', 'nick'); await page.fill('#p', 's3cret:pw'); await page.click('#go');
   await expect(page.locator('#sync')).toContainText('NAS', { timeout: 8000 });
-  const r = await page.evaluate(() => fetch('api/logout', { method: 'POST' }).then(r => r.status));
-  expect(r).toBe(200);
+  // sign out through the browser context (same cookie jar), so a redirect in the page can't interrupt it
+  expect((await page.request.post(`${B}/api/logout`, { headers: { Origin: B } })).status()).toBe(200);
   // signed out: the next request is refused and the guard sends you back to the login page
   await page.evaluate(() => { fetch('api/state'); }).catch(() => {});
   await expect(page).toHaveURL(/\/login/, { timeout: 5000 });
