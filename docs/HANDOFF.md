@@ -94,3 +94,7 @@ Next: (superseded, see below)
 - Orbit (MIT) ideas: radial right-click wheel, client solar system, 24h day clock.
 - Letterboxd film diary skin for rss.js. More: focus aquarium, invoice radar, desk plant, weekly rewind, bills calendar.
 - Dashboard: AI chat widget later. Side panel exists (dock a page).
+- Floating sticky notes: pin any note so it follows you across every page (draggable, minimisable, synced).
+- Notifications: a proper system. Desktop notifications exist only for reminders today (Settings → General); add a
+  notification centre (history), per-plugin notification settings, Web Push (needs a service worker + HTTPS: we have it),
+  and quiet hours. Island stays the in-app surface.
