@@ -98,3 +98,9 @@ Next: (superseded, see below)
 - Notifications: a proper system. Desktop notifications exist only for reminders today (Settings → General); add a
   notification centre (history), per-plugin notification settings, Web Push (needs a service worker + HTTPS: we have it),
   and quiet hours. Island stays the in-app surface.
+- LIFE: "Good Homeowner" plugin. A guided first-run interview about the house (heating/cooling type, filter sizes,
+  eavestroughs, gutters, smoke/CO detectors, water heater, sump pump, roof, appliances, lawn/garden, pool, well/septic),
+  then it creates the recurring maintenance reminders with sensible seasonal timing (furnace filter every 1–3 months,
+  eavestroughs spring + fall, detector batteries twice a year, water heater flush yearly…). Keeps a house profile:
+  model numbers, filter sizes, paint colours, contractor contacts, warranty dates, so the details are there when needed.
+  Belongs to the Life space (Home area); dashboard widget for "this month at home".
