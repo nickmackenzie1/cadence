@@ -433,3 +433,14 @@ Needs: Life space (done), weather API (key on NAS), maps/GPX (offline tiles = ph
   text, cached 7 days in data/companies/<d>.text.json) + headlines + open tasks → api.ai.json → client.research
   {what, glance{size,hq,founded,model}, products, recent, people, talking, watch, sources}; told not to invent.
   Also a client action "Research with AI". Dashboard widgets may now use Lucide icon names.
+
+## Backlog: team / multiplayer (user, 2026-11-09 18:41)
+Needs real multi-user first (accounts per person on the NAS, LAN only, no Tailscale / no internet exposure).
+- Team leaderboard (tasks done, chases closed, streaks; friendly, opt-in).
+- Team collaboration: shared clients/tasks, who's on what.
+- Claiming tasks ("I've got this one") from a shared pool.
+- Fun lobby games / messing with each other when you're on the same page (presence: see who else is on a client page,
+  throw snowballs, poke their cursor, ghost visits).
+- Chat, but in a fun way (reactions, stickers, Island pings).
+- Virtual chat room with avatars: walk your avatar into a client's "room" (Gather-style map) and that room is the
+  client's chat channel.
