@@ -370,3 +370,11 @@ Needs: Life space (done), weather API (key on NAS), maps/GPX (offline tiles = ph
   the focused input collects 2× and keystrokes shake it off; task completion bursts at Blizzard+. Chaos levels Calm /
   Festive / Blizzard / Total chaos. Shovel (settings + ⌘K). Offered once each December via the Island. Reduced motion:
   no snow, still lights. Ids: #xm-string (lights), #xm-snow (canvas).
+- Nostalgia themes (2026-11-09, shipped, themes-more.js): Discord now builds a real server rail via enhance (Home,
+  client/project "servers" with overdue badges and the white pill, add client/project, explore plugins, Work/Life
+  switch), channel list with #channels, server-name header, user panel. MSN Messenger 7.5 homage: window chrome, your
+  display picture + status menu + personal message (shows ♫ now playing from the feed; "brb" sets Be Right Back),
+  contacts with status dots via :has(), Ctrl+G or triple-click your picture = Nudge (shake + buzz), "<client> has just
+  signed in." pop-ups, chime on task complete (not when Busy). Tones synthesized with WebAudio; state in localStorage
+  cadence.msn. LimeWire homage: search bar, striped results table, status bar (Turbo-Charged Connection, sharing N
+  tasks) and a fake .mp3 download when you complete a task. Core now dispatches DOM event `cadence:task-complete`.

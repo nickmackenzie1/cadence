@@ -10,12 +10,38 @@
       '--hover': 'rgba(78,80,88,.32)', '--accent': '#5865f2', '--on-accent': '#fff', '--accent-soft': 'rgba(88,101,242,.18)', '--danger': '#f23f43', '--danger-soft': 'rgba(242,63,67,.16)',
       '--ok': '#23a55a', '--client': '#f0b232', '--client-soft': 'rgba(240,178,50,.15)', '--shadow': '0 8px 16px rgba(0,0,0,.24)' },
     preview: { bg: '#313338', panel: '#2b2d31', side: '#1e1f22', text: '#dbdee1', accent: '#5865f2', line: '#3f4147', r: '8px' },
+    enhance: (ctx) => discordEnhance(ctx),
     css: `:skin body{font-size:14.5px}
-      /* the server rail + channel list feel */
-      :skin .side{background:#2b2d31;border-right:0;box-shadow:inset 72px 0 0 #1e1f22;padding-left:82px}
-      :skin #side-head .brand{position:absolute;left:12px;top:12px;width:48px;height:48px;border-radius:16px;background:#5865f2;overflow:hidden;font-size:0;display:grid;place-items:center;transition:border-radius .2s}
-      :skin #side-head .brand:hover{border-radius:14px}
-      :skin #side-head .brand .logo{transform:scale(1.5)} :skin #side-head .brand kbd{display:none}
+      /* the server rail (built by enhance) + channel list */
+      :skin .app{grid-template-columns:314px 1fr} @media (max-width:1180px){:skin .app{grid-template-columns:290px 1fr}}
+      :skin .side{position:relative;background:#2b2d31;border-right:0;padding-left:84px}
+      :skin .dc-rail{position:absolute;left:0;top:0;bottom:0;width:72px;background:#1e1f22;display:flex;flex-direction:column;align-items:center;gap:8px;padding:12px 0;overflow-y:auto;scrollbar-width:none}
+      :skin .dc-rail::-webkit-scrollbar{display:none}
+      :skin .dc-i{position:relative;flex:none;width:48px;height:48px;border-radius:50%;display:grid;place-items:center;background:#313338;color:#dbdee1;text-decoration:none;transition:border-radius .18s,background .18s,color .18s;font-size:22px;font-weight:300}
+      :skin .dc-i .av{width:48px!important;height:48px!important;border-radius:inherit!important;font-size:16px!important;transition:border-radius .18s}
+      :skin .dc-i:hover,:skin .dc-i.on{border-radius:16px}
+      :skin .dc-i::before{content:'';position:absolute;left:-16px;top:50%;width:8px;height:0;margin-top:0;border-radius:0 4px 4px 0;background:#fff;transition:height .18s,margin-top .18s}
+      :skin .dc-i:hover::before{height:20px;margin-top:-10px} :skin .dc-i.on::before{height:40px;margin-top:-20px}
+      :skin .dc-i[data-tip]:hover::after{content:attr(data-tip);position:fixed;left:84px;margin-top:0;transform:translateY(0);background:#111214;color:#dbdee1;font-size:14px;font-weight:600;padding:6px 10px;border-radius:6px;white-space:nowrap;z-index:200;pointer-events:none;box-shadow:0 8px 16px rgba(0,0,0,.24)}
+      :skin .dc-home{background:#313338;color:#dbdee1} :skin .dc-home.on,:skin .dc-home:hover{background:#5865f2;color:#fff}
+      :skin .dc-home svg{width:26px;height:26px}
+      :skin .dc-sep{flex:none;width:32px;height:2px;border-radius:1px;background:#35363c}
+      :skin .dc-i.proj .av{border-radius:14px!important} :skin .dc-i.proj{border-radius:14px}
+      :skin .dc-space{font-size:17px;font-weight:700;color:#dbdee1} :skin .dc-space:hover{background:#5865f2;color:#fff}
+      :skin .dc-add{color:#23a55a} :skin .dc-add:hover{background:#23a55a;color:#fff} :skin .dc-add svg{width:22px;height:22px}
+      :skin .dc-badge{position:absolute;right:-4px;bottom:-4px;min-width:16px;height:16px;padding:0 4px;border-radius:8px;background:#f23f43;color:#fff;font-size:11px;font-weight:700;line-height:16px;text-align:center;box-shadow:0 0 0 3px #1e1f22}
+      /* channel list header: the "server" name */
+      :skin #side-head{margin:-14px -10px 10px 0;padding:0 12px;height:48px;display:flex;flex-direction:column;justify-content:center;box-shadow:0 1px 0 rgba(4,4,5,.2),0 1.5px 0 rgba(6,6,7,.05),0 2px 0 rgba(4,4,5,.05)}
+      :skin #side-head .brand{font-size:15px;font-weight:700;color:#f2f3f5;gap:6px} :skin #side-head .brand .logo{display:none} :skin #side-head .brand::after{content:'⌄';margin-left:auto;font-size:16px;color:#b5bac1}
+      :skin #side-head .brand kbd{display:none} :skin #side-head .space-sw{display:none}
+      :skin #side-main .sect:has(+ .nav a[data-cid]),:skin #side-main .sect:has(+ .nav a[data-cid]) + .nav,:skin #side-main .sect:has([data-act=add-project]),:skin #side-main .sect:has([data-act=add-project]) + .nav{display:none}
+      :skin .nav a:not([data-cid]) .ic{display:none} :skin .nav a:not([data-cid]) .t::before{content:'#';margin-right:6px;font-size:18px;font-weight:400;color:#80848e;vertical-align:-1px}
+      :skin .nav a:not([data-cid]) .t{text-transform:lowercase}
+      /* the user panel */
+      :skin #side-foot{background:#232428;margin:0 -10px -10px -84px;padding:8px 10px 8px 84px;border-top:0;position:relative}
+      :skin .dc-user{display:flex;align-items:center;gap:8px;padding:2px 4px 6px} :skin .dc-me{position:relative;width:32px;height:32px;border-radius:50%;background:#5865f2;color:#fff;display:grid;place-items:center;font-weight:700}
+      :skin .dc-me i{position:absolute;right:-2px;bottom:-2px;width:10px;height:10px;border-radius:50%;background:#23a55a;box-shadow:0 0 0 3px #232428}
+      :skin .dc-who{display:flex;flex-direction:column;line-height:1.2} :skin .dc-who b{color:#f2f3f5;font-size:14px} :skin .dc-who small{color:#b5bac1;font-size:12px}
       :skin .sect{font-size:11.5px;font-weight:700;letter-spacing:.02em;text-transform:uppercase;color:#949ba4}
       :skin .sect{justify-content:flex-start;gap:4px} :skin .sect button{margin-left:auto} :skin .sect::before{content:'⌄';font-weight:400}
       :skin .nav a{border-radius:4px;color:#949ba4;height:32px;font-weight:500} :skin .nav a:hover{background:rgba(78,80,88,.3);color:#dbdee1}
@@ -100,4 +126,206 @@
       :skin .head h1{letter-spacing:-.03em;font-weight:700}
       @supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){:skin{--panel:rgba(255,255,255,.92);--side:rgba(245,247,252,.96)}}`
   });
+  /* ======================= Discord: server rail + channel list ======================= */
+  const svgHome = '<svg viewBox="0 0 24 24"><path d="M12 3.5l8.5 7.2V20a.5.5 0 0 1-.5.5h-5.2v-6h-5.6v6H4a.5.5 0 0 1-.5-.5v-9.3z" fill="currentColor"/></svg>';
+  const svgCompass = '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><path d="M15.5 8.5l-2 5-5 2 2-5z" fill="currentColor"/></svg>';
+  const myName = () => { try { return (JSON.parse(localStorage.getItem('cadence.v1') || '{}').settings || {}).myName || 'You'; } catch (e) { return 'You'; } };
+  const discordEnhance = ({ api }) => {
+    const side = document.getElementById('side'); if (!side || !api) return;
+    const rail = document.createElement('nav'); rail.className = 'dc-rail'; rail.setAttribute('aria-label', 'Clients');
+    const E = api.ui.esc;
+    let t = 0;
+    const draw = () => {
+      const r = (location.hash || '#today').slice(1), open = api.tasks.list(x => !x.done), today = api.util.todayKey();
+      const late = id => open.filter(x => x.clientId === id && x.dueDate && x.dueDate < today && x.owner !== 'client').length;
+      const cl = api.clients.list().sort((a, b) => (a.kind === 'project') - (b.kind === 'project') || a.name.localeCompare(b.name));
+      const homeOn = !r.startsWith('client-') && !r.startsWith('view-') && r !== 'plugins';
+      rail.innerHTML = `<a class="dc-i dc-home ${homeOn ? 'on' : ''}" href="#today" data-tip="Home">${svgHome}</a><i class="dc-sep"></i>` +
+        cl.map(c => { const n = late(c.id); return `<a class="dc-i ${r === 'client-' + c.id ? 'on' : ''} ${c.kind === 'project' ? 'proj' : ''}" href="#client-${E(c.id)}" data-tip="${E(c.name)}">${api.ui.avatar(c, 48)}${n ? `<b class="dc-badge">${n}</b>` : ''}</a>`; }).join('') +
+        `<a class="dc-i dc-add" data-act="add-client" data-tip="Add a client">+</a><a class="dc-i dc-add" data-act="add-project" data-tip="New project"><svg viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="14" rx="3" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 9v6M9 12h6" stroke="currentColor" stroke-width="2"/></svg></a><a class="dc-i dc-add" href="#plugins" data-tip="Explore plugins">${svgCompass}</a><i class="dc-sep"></i><a class="dc-i dc-space" data-act="space" data-s="${api.space() === 'life' ? 'work' : 'life'}" data-tip="Switch to ${api.space() === 'life' ? 'Work' : 'Life'}">${api.space() === 'life' ? 'W' : 'L'}</a>`;
+      const foot = document.getElementById('side-foot');
+      if (foot && !foot.querySelector('.dc-user')) { const nm = myName(); foot.insertAdjacentHTML('afterbegin', `<div class="dc-user"><span class="dc-me">${E((nm[0] || 'Y').toUpperCase())}<i></i></span><span class="dc-who"><b>${E(nm.split(' ')[0])}</b><small>Online</small></span></div>`); }
+    };
+    side.appendChild(rail); draw();
+    const later = () => { clearTimeout(t); t = setTimeout(draw, 60); };
+    const mo = new MutationObserver(later); ['side-main', 'side-foot'].forEach(id => { const el = document.getElementById(id); el && mo.observe(el, { childList: true }); });
+    addEventListener('hashchange', later);
+    return () => { mo.disconnect(); removeEventListener('hashchange', later); rail.remove(); document.querySelectorAll('.dc-user').forEach(x => x.remove()); };
+  };
+
+  /* ======================= MSN Messenger 7.5 (homage; no Microsoft assets) ======================= */
+  let AC = null; const ac = () => { try { AC = AC || new (window.AudioContext || window.webkitAudioContext)(); } catch (e) {} return AC; };
+  const tone = (f, at, dur, type = 'sine', vol = .08) => { const c = ac(); if (!c) return; const o = c.createOscillator(), g = c.createGain(); o.type = type; o.frequency.value = f; g.gain.setValueAtTime(0, c.currentTime + at); g.gain.linearRampToValueAtTime(vol, c.currentTime + at + .01); g.gain.exponentialRampToValueAtTime(.0001, c.currentTime + at + dur); o.connect(g).connect(c.destination); o.start(c.currentTime + at); o.stop(c.currentTime + at + dur + .05); };
+  const chime = () => { tone(988, 0, .18); tone(1319, .12, .32); };
+  const buzz = () => { for (let i = 0; i < 6; i++) tone(i % 2 ? 140 : 180, i * .07, .08, 'square', .05); };
+  const msnState = () => { try { return Object.assign({ status: 'online', pm: '' }, JSON.parse(localStorage.getItem('cadence.msn') || '{}')); } catch (e) { return { status: 'online', pm: '' }; } };
+  const msnSave = s => { try { localStorage.setItem('cadence.msn', JSON.stringify(s)); } catch (e) {} };
+  const MSN_ST = [['online', 'Online'], ['busy', 'Busy'], ['brb', 'Be Right Back'], ['away', 'Away'], ['offline', 'Appear Offline']];
+  function popup(html) {
+    let box = document.getElementById('msn-pops'); if (!box) { box = document.createElement('div'); box.id = 'msn-pops'; document.body.appendChild(box); }
+    const el = document.createElement('div'); el.className = 'msn-pop'; el.innerHTML = `<div class="mp-h">Cadence Messenger<span>×</span></div><div class="mp-b">${html}</div>`;
+    el.querySelector('span').onclick = () => el.remove(); box.appendChild(el); setTimeout(() => { el.classList.add('out'); setTimeout(() => el.remove(), 400); }, 4200);
+  }
+  function nudge(silent) {
+    const app = document.querySelector('.app'); if (!app) return;
+    app.classList.remove('msn-shake'); void app.offsetWidth; app.classList.add('msn-shake'); setTimeout(() => app.classList.remove('msn-shake'), 700);
+    if (msnState().status !== 'busy') buzz();
+    if (!silent) popup('<b>You have just sent a Nudge!</b>');
+  }
+  const msnEnhance = ({ api }) => {
+    if (!api) return;
+    const E = api.ui.esc, head = document.getElementById('side-head'), view = document.getElementById('view');
+    const card = document.createElement('div'); card.className = 'msn-me';
+    const bar = document.createElement('div'); bar.className = 'msn-title'; bar.innerHTML = '<span class="msn-buddy"><i></i><i></i></span>Cadence Messenger<span class="msn-wb"><i>_</i><i>□</i><i>×</i></span>';
+    const nowPlaying = () => { const b = document.querySelector('[data-sw=rss] .tx b'), sp = document.querySelector('[data-sw=rss] .tx span:last-child'); return b ? `♫ ${b.textContent}${sp && sp.textContent ? ' - ' + sp.textContent.replace(/^C\$\S+\s*|NEW|VG\S*|NM\S*|G\+?/g, '').trim() : ''}` : ''; };
+    const draw = () => {
+      const s = msnState(), nm = myName(), lbl = Object.fromEntries(MSN_ST)[s.status];
+      card.className = `msn-me st-${s.status}`;
+      card.innerHTML = `<button class="msn-dp" title="Click three times to nudge">${E((nm[0] || 'Y').toUpperCase())}</button>
+        <div class="msn-id"><button class="msn-name">${E(nm)} <span>(${E(lbl)})</span> ▾</button>
+        <input class="msn-pm" value="${E(s.pm)}" placeholder="${E(nowPlaying() || '<Type a personal message>')}" maxlength="80"></div>`;
+      let clicks = 0, ct = 0;
+      card.querySelector('.msn-dp').onclick = () => { clicks++; clearTimeout(ct); ct = setTimeout(() => clicks = 0, 600); if (clicks >= 3) { clicks = 0; nudge(); } };
+      card.querySelector('.msn-name').onclick = e => { const m = document.createElement('div'); m.className = 'msn-menu'; m.innerHTML = MSN_ST.map(([v, l]) => `<button data-v="${v}" class="${s.status === v ? 'on' : ''}"><i class="st-${v}"></i>${l}</button>`).join('');
+        const r = e.currentTarget.getBoundingClientRect(); m.style.left = r.left + 'px'; m.style.top = r.bottom + 4 + 'px'; document.body.appendChild(m);
+        m.onclick = ev => { const b = ev.target.closest('button'); if (b) { msnSave({ ...msnState(), status: b.dataset.v }); draw(); } m.remove(); };
+        setTimeout(() => document.addEventListener('pointerdown', function off(ev) { if (!m.contains(ev.target)) { m.remove(); document.removeEventListener('pointerdown', off, true); } }, true), 0); };
+      const pm = card.querySelector('.msn-pm');
+      pm.onchange = () => { const v = pm.value.trim(), st = msnState(); st.pm = v; if (/^brb\b/i.test(v)) st.status = 'brb'; msnSave(st); draw(); };
+      pm.onkeydown = e => { if (e.key === 'Enter') pm.blur(); };
+    };
+    head && head.after(card); view && view.parentNode.insertBefore(bar, view); draw();
+    // OG easter eggs
+    const keys = e => { if ((e.ctrlKey || e.metaKey) && (e.key === 'g' || e.key === 'G')) { e.preventDefault(); nudge(); } };
+    document.addEventListener('keydown', keys);
+    const seen = new Set();
+    const signIn = () => { const r = location.hash.slice(1); if (!r.startsWith('client-') || seen.has(r)) return; seen.add(r); const c = api.clients.get(r.slice(7)); if (c) popup(`${api.ui.avatar(c, 34)}<span><b>${E(c.name)}</b> has just signed in.</span>`); };
+    addEventListener('hashchange', signIn);
+    const done = () => { if (msnState().status !== 'busy') chime(); };
+    document.addEventListener('cadence:task-complete', done);
+    const t = setInterval(() => { const pm = card.querySelector('.msn-pm'); if (pm && !pm.value && document.activeElement !== pm) pm.placeholder = nowPlaying() || '<Type a personal message>'; }, 9000);
+    return () => { document.removeEventListener('keydown', keys); removeEventListener('hashchange', signIn); document.removeEventListener('cadence:task-complete', done); clearInterval(t); card.remove(); bar.remove(); document.getElementById('msn-pops')?.remove(); };
+  };
+
+  const MSN_BLUE = '#2f62b8';
+  R({ id: 'msn', name: 'MSN Messenger', category: 'Fun', tagline: 'Messenger 7.5 vibes. Ctrl+G sends a nudge. Clients sign in. Set your status.',
+    font: 'Tahoma,"Segoe UI",Verdana,sans-serif',
+    vars: { '--ambient': 'off', '--bg': '#ffffff', '--panel': '#ffffff', '--side': '#eef4fc', '--text': '#000000', '--muted': '#4d5a6b', '--faint': '#8a97a8', '--line': '#a5bcd9', '--hover': '#e3edfa',
+      '--accent': '#2f62b8', '--on-accent': '#fff', '--accent-soft': '#d7e5f7', '--danger': '#d32f2f', '--danger-soft': '#fbe1e1', '--ok': '#3aa63a', '--client': '#e08a00', '--client-soft': '#fff1d6', '--shadow': '0 2px 6px rgba(47,98,184,.18)' },
+    preview: { bg: 'linear-gradient(180deg,#d8e6f8,#fff 40%)', panel: '#fff', side: '#eef4fc', text: '#000', accent: MSN_BLUE, line: '#a5bcd9', r: '6px' },
+    enhance: msnEnhance,
+    css: `:skin body{font-size:12.5px;background:linear-gradient(180deg,#c9dcf5,#e9f1fb 220px,#f6f9fd)}
+      :skin .app{padding:10px;gap:10px;height:100vh;box-sizing:border-box}
+      :skin .side,:skin .main{background:linear-gradient(180deg,#dbe8f8 0,#f3f7fd 120px,#fff 260px);border:1px solid #7d9ec0;border-radius:8px;box-shadow:0 0 0 1px #fff inset,0 4px 14px rgba(47,98,184,.18);overflow:hidden}
+      :skin .main{display:flex;flex-direction:column} :skin #view{flex:1;overflow:auto}
+      :skin .msn-title{flex:none;display:flex;align-items:center;gap:8px;height:30px;padding:0 6px 0 10px;color:#fff;font-weight:700;font-size:12.5px;background:linear-gradient(180deg,#5d8fd8,#2f62b8 55%,#2556a8);text-shadow:0 1px 0 rgba(0,0,0,.25)}
+      :skin .msn-wb{margin-left:auto;display:flex;gap:3px} :skin .msn-wb i{font-style:normal;width:22px;height:20px;display:grid;place-items:center;border-radius:3px;background:linear-gradient(180deg,#7aa6e6,#3c6fc4);border:1px solid #1e4a96;font-size:11px}
+      :skin .msn-wb i:last-child{background:linear-gradient(180deg,#e8846b,#c44a2c);border-color:#8f2c16}
+      :skin .msn-buddy{position:relative;width:18px;height:16px} :skin .msn-buddy i{position:absolute;bottom:0;width:10px;height:14px;border-radius:5px 5px 3px 3px;background:radial-gradient(circle at 50% 28%,#fff 0 18%,transparent 19%),linear-gradient(#3ec43e,#1e8f1e)}
+      :skin .msn-buddy i+i{left:7px;background:radial-gradient(circle at 50% 28%,#fff 0 18%,transparent 19%),linear-gradient(#5aa0f0,#2a66c8)}
+      /* you: display picture, status, personal message */
+      :skin #side-head .brand{display:none}
+      :skin .msn-me{display:flex;gap:10px;align-items:center;padding:4px 2px 12px;margin-bottom:6px;border-bottom:1px solid #c2d4ec}
+      :skin .msn-dp{width:52px;height:52px;flex:none;border-radius:7px;display:grid;place-items:center;font-size:22px;font-weight:700;color:#fff;background:linear-gradient(135deg,#8fb8ee,#2f62b8);box-shadow:0 0 0 2px #fff,0 0 0 4px #54b948,0 0 10px 4px rgba(84,185,72,.45)}
+      :skin .msn-me.st-busy .msn-dp{box-shadow:0 0 0 2px #fff,0 0 0 4px #d83b2a,0 0 10px 4px rgba(216,59,42,.4)}
+      :skin .msn-me.st-away .msn-dp,:skin .msn-me.st-brb .msn-dp{box-shadow:0 0 0 2px #fff,0 0 0 4px #f0a20a,0 0 10px 4px rgba(240,162,10,.4)}
+      :skin .msn-me.st-offline .msn-dp{box-shadow:0 0 0 2px #fff,0 0 0 4px #9aa5b4;filter:grayscale(1)}
+      :skin .msn-id{min-width:0;flex:1;display:flex;flex-direction:column;gap:3px}
+      :skin .msn-name{text-align:left;font-weight:700;font-size:13px;color:#000;white-space:nowrap;overflow:hidden;text-overflow:ellipsis} :skin .msn-name span{font-weight:400;color:#4d5a6b}
+      :skin .msn-pm{border:1px solid transparent;background:transparent;font:italic 11.5px Tahoma,sans-serif;color:#4d5a6b;padding:2px 4px;border-radius:3px;width:100%}
+      :skin .msn-pm:hover,:skin .msn-pm:focus{border-color:#a5bcd9;background:#fff;outline:0}
+      .msn-menu{position:fixed;z-index:300;background:#fff;border:1px solid #7d9ec0;box-shadow:2px 3px 8px rgba(0,0,0,.2);padding:3px;min-width:170px;font:12px Tahoma,sans-serif}
+      .msn-menu button{display:flex;align-items:center;gap:8px;width:100%;padding:4px 8px;text-align:left}.msn-menu button:hover{background:#316ac5;color:#fff}.msn-menu button.on{font-weight:700}
+      .msn-menu i{width:10px;height:10px;border-radius:50%}.msn-menu .st-online{background:#54b948}.msn-menu .st-busy{background:#d83b2a}.msn-menu .st-brb,.msn-menu .st-away{background:#f0a20a}.msn-menu .st-offline{background:#9aa5b4}
+      /* the contact list */
+      :skin .sect{font-weight:700;color:#1e3f7a;font-size:12px;text-transform:none;letter-spacing:0;justify-content:flex-start;gap:4px} :skin .sect button{margin-left:auto} :skin .sect::before{content:'▾';color:#2f62b8}
+      :skin .nav a{border-radius:3px;border:1px solid transparent;height:26px} :skin .nav a:hover{background:#e3edfa;border-color:#b7cdea}
+      :skin .nav a.on{background:linear-gradient(180deg,#e7f0fb,#cfe0f6);border-color:#7da2ce;color:#000}
+      :skin .nav a[data-cid] .ic{position:relative} :skin .nav a[data-cid] .ic::after{content:'';position:absolute;right:-3px;bottom:-2px;width:9px;height:9px;border-radius:50%;border:1.5px solid #fff;background:#9aa5b4}
+      :skin .nav a[data-cid]:has(.n) .ic::after{background:#54b948} :skin .nav a[data-cid]:has(.n.hot) .ic::after{background:#d83b2a}
+      :skin .nav a[data-cid]:not(:has(.n)) .t{color:#7a8798}
+      :skin .vgrid .vt{border:1px solid transparent;border-radius:4px} :skin .vgrid .vt:hover,:skin .vgrid .vt.on{background:#e3edfa;border-color:#b7cdea}
+      /* buttons, inputs: Luna-era Messenger */
+      :skin .btn{border:1px solid #7d9ec0;border-radius:3px;background:linear-gradient(180deg,#fff,#e3ecf8);color:#000;box-shadow:inset 0 1px 0 #fff}
+      :skin .btn:hover{border-color:#e5a630;box-shadow:inset 0 0 0 1px #f8cf74}
+      :skin .btn.primary,:skin .meet-btn{background:linear-gradient(180deg,#6d9be0,#2f62b8);border:1px solid #1e4a96;color:#fff;border-radius:3px}
+      :skin .inp{border:1px solid #7d9ec0;border-radius:2px}
+      :skin .qa{border:1px solid #7d9ec0;border-radius:4px;background:#fff;box-shadow:inset 0 1px 2px rgba(0,0,0,.08)} :skin .qa::after{content:'Send';align-self:center;margin-right:8px;padding:4px 14px;border:1px solid #7d9ec0;border-radius:3px;background:linear-gradient(180deg,#fff,#dfe9f7);font-size:12px}
+      :skin .qa-row{display:flex} :skin .qa{display:flex;flex-direction:column}
+      :skin .head h1{font-size:20px;color:#1e3f7a;font-weight:700;letter-spacing:0}
+      :skin .gl,:skin .stat{border:1px solid #a5bcd9;border-radius:6px;background:linear-gradient(180deg,#fff,#f0f6fd);box-shadow:none}
+      :skin .group-h{color:#1e3f7a;border-bottom:1px solid #c2d4ec;font-size:12.5px} :skin .group-h::before{content:'▾ ';color:#2f62b8}
+      :skin .task{border-radius:3px} :skin .task:hover{background:#eaf2fc}
+      :skin .chip{border-radius:3px;border:1px solid #c2d4ec;background:#f3f8fe}
+      :skin .modal{border:1px solid #2f62b8;border-radius:8px;overflow:hidden} :skin .modal-h{background:linear-gradient(180deg,#5d8fd8,#2f62b8);color:#fff}
+      :skin .toast{border:1px solid #7d9ec0;border-radius:6px;background:linear-gradient(180deg,#e3edfa,#fff)}
+      /* the pop-ups in the corner */
+      #msn-pops{position:fixed;right:14px;bottom:14px;z-index:250;display:flex;flex-direction:column;gap:8px}
+      .msn-pop{width:220px;border:1px solid #7d9ec0;border-radius:6px;overflow:hidden;background:linear-gradient(180deg,#f3f8fe,#d9e7f8);box-shadow:0 6px 20px rgba(30,74,150,.3);font:12px Tahoma,sans-serif;animation:msnup .45s cubic-bezier(.2,1,.3,1)}
+      .msn-pop.out{transition:transform .4s,opacity .4s;transform:translateY(30px);opacity:0}
+      .msn-pop .mp-h{display:flex;justify-content:space-between;padding:4px 8px;color:#fff;font-weight:700;background:linear-gradient(180deg,#5d8fd8,#2f62b8)} .msn-pop .mp-h span{cursor:pointer}
+      .msn-pop .mp-b{display:flex;gap:10px;align-items:center;padding:14px 12px;min-height:46px;color:#000}
+      @keyframes msnup{from{transform:translateY(60px);opacity:0}}
+      .app.msn-shake{animation:msnshake .6s cubic-bezier(.36,.07,.19,.97)}
+      @keyframes msnshake{10%,90%{transform:translate(-2px,1px)}20%,80%{transform:translate(4px,-2px)}30%,50%,70%{transform:translate(-8px,3px)}40%,60%{transform:translate(8px,-3px)}}
+      @media (prefers-reduced-motion:reduce){.app.msn-shake{animation:none}}` });
+
+  /* ======================= LimeWire (homage; no LimeWire assets) ======================= */
+  const lwEnhance = ({ api }) => {
+    if (!api) return;
+    const main = document.querySelector('.main'); if (!main) return;
+    const bar = document.createElement('div'); bar.className = 'lw-status';
+    let dl = null;
+    const draw = () => {
+      const open = api.tasks.list(x => !x.done).length, t = api.util.todayKey(), done = api.tasks.list(x => x.done && x.doneAt && api.util.ymd(new Date(x.doneAt)) === t).length;
+      bar.innerHTML = `<span class="lw-conn"><i></i><i></i><i></i><i></i><i></i></span><b>Turbo-Charged Connection</b><span class="lw-sep"></span>Sharing ${open.toLocaleString()} task${open === 1 ? '' : 's'}<span class="lw-sep"></span>Completed today: ${done}` +
+        (dl ? `<span class="lw-dl"><span class="lw-name">${api.ui.esc(dl.name)}</span><span class="lw-prog"><i style="width:${dl.p}%"></i></span><span>${dl.p >= 100 ? 'Download complete' : dl.p + '%'}</span></span>` : '');
+    };
+    main.appendChild(bar); draw();
+    const iv = setInterval(draw, 15000);
+    const fake = e => { const t = e.detail || {}; const name = (t.title || 'task').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 40) + '.mp3'; dl = { name, p: 0 };
+      const step = () => { if (!dl) return; dl.p = Math.min(100, dl.p + Math.ceil(Math.random() * 18)); draw(); if (dl.p < 100) setTimeout(step, 180 + Math.random() * 260); else setTimeout(() => { dl = null; draw(); }, 2600); }; step(); };
+    document.addEventListener('cadence:task-complete', fake);
+    const ph = () => { const q = document.getElementById('qa'); if (q && !q.dataset.lw) { q.dataset.lw = 1; q.placeholder = 'Search for tasks… or add one: “Send SOW @acme fri”'; } };
+    const mo = new MutationObserver(ph); const v = document.getElementById('view'); v && mo.observe(v, { childList: true }); ph();
+    return () => { clearInterval(iv); document.removeEventListener('cadence:task-complete', fake); mo.disconnect(); bar.remove(); };
+  };
+  const LIME = '#4fa312';
+  R({ id: 'limewire', name: 'LimeWire', category: 'Fun', tagline: 'Peer-to-peer task sharing, circa 2005. Turbo-Charged.',
+    font: 'Tahoma,Verdana,"Segoe UI",sans-serif',
+    vars: { '--ambient': 'off', '--bg': '#eef0ea', '--panel': '#ffffff', '--side': '#e3e6de', '--text': '#1d1f1a', '--muted': '#555a50', '--faint': '#8b9084', '--line': '#a8ad9f', '--hover': '#d9efc4',
+      '--accent': LIME, '--on-accent': '#fff', '--accent-soft': '#dff2cc', '--danger': '#c62f1c', '--danger-soft': '#f8dcd6', '--ok': '#3d8f0e', '--client': '#c27a00', '--client-soft': '#fbecc9', '--shadow': 'none' },
+    preview: { bg: '#eef0ea', panel: '#fff', side: 'linear-gradient(180deg,#f2f3ef,#d3d7cc)', text: '#1d1f1a', accent: LIME, line: '#a8ad9f', r: '3px' },
+    enhance: lwEnhance,
+    css: `:skin body{font-size:12.5px}
+      :skin .side{background:linear-gradient(180deg,#f5f6f2,#dfe2d8);border-right:1px solid #9aa08f}
+      :skin #side-head .brand{color:#2f6b0b;font-weight:700} :skin #side-head .brand .logo{background:radial-gradient(circle at 35% 30%,#c8f07a,#5aa516 55%,#2f6b0b)!important;border-radius:50%}
+      :skin .main{display:flex;flex-direction:column} :skin #view{flex:1;overflow:auto}
+      :skin .nav a{border-radius:2px;height:26px} :skin .nav a.on{background:linear-gradient(180deg,#9ad35a,${LIME});color:#fff;border:1px solid #3b7d0d} :skin .nav a.on .ic{color:#fff}
+      :skin .sect{color:#3b4036;font-size:11px;font-weight:700;background:linear-gradient(180deg,#e9ebe4,#cfd3c6);border:1px solid #b0b5a6;padding:2px 8px;margin:10px -4px 4px;border-radius:2px}
+      :skin .head h1{font-size:19px;font-weight:700;letter-spacing:0;color:#2f6b0b}
+      /* the search bar */
+      :skin .qa{border:1px solid #8c9282;border-radius:3px;background:linear-gradient(180deg,#fff,#f3f4f0);box-shadow:inset 0 1px 2px rgba(0,0,0,.1);display:flex;flex-direction:column}
+      :skin .qa-row{display:flex} :skin .qa::after{content:'Search';align-self:flex-end;margin:-34px 8px 6px 0;padding:5px 18px;border:1px solid #3b7d0d;border-radius:3px;color:#fff;font-weight:700;background:linear-gradient(180deg,#9ad35a,${LIME} 60%,#3f8c0c);pointer-events:none}
+      :skin .qa .hint{display:none}
+      /* results table */
+      :skin .group{border:1px solid #a8ad9f;background:#fff;margin-bottom:14px}
+      :skin .group-h{margin:0;padding:5px 10px;border-bottom:1px solid #a8ad9f;background:linear-gradient(180deg,#f4f5f1,#d6dacd);color:#2b2e27;font-weight:700;font-size:12px}
+      :skin .group .task{border-radius:0;padding:6px 10px;border-bottom:1px solid #e3e6dc} :skin .group .task:nth-of-type(even){background:#f3f7ec}
+      :skin .group .task:hover{background:#d9efc4} :skin .task.sel{background:#b9e08f!important}
+      :skin .t-title{font-size:13px} :skin .check{border-radius:2px;border:1px solid #6b7062;background:linear-gradient(180deg,#fff,#e6e8e1)} :skin .task.done .check{background:${LIME};border-color:#3b7d0d}
+      :skin .chip{border-radius:2px;background:#eef0ea;border:1px solid #c9cdc1;font-size:11px}
+      :skin .btn{border:1px solid #8c9282;border-radius:3px;background:linear-gradient(180deg,#fff,#dcdfd5);color:#1d1f1a}
+      :skin .btn.primary,:skin .meet-btn{background:linear-gradient(180deg,#9ad35a,${LIME} 60%,#3f8c0c);border:1px solid #3b7d0d;color:#fff;border-radius:3px}
+      :skin .gl,:skin .stat{border:1px solid #a8ad9f;border-radius:3px;background:linear-gradient(180deg,#fff,#eef0e8);box-shadow:none}
+      :skin .modal{border:1px solid #6b7062;border-radius:4px} :skin .modal-h{background:linear-gradient(180deg,#f4f5f1,#d6dacd);border-bottom:1px solid #a8ad9f}
+      /* the status bar */
+      :skin .lw-status{flex:none;display:flex;align-items:center;gap:10px;height:26px;padding:0 12px;border-top:1px solid #9aa08f;background:linear-gradient(180deg,#eceee7,#d3d7cb);font-size:11.5px;color:#2b2e27;white-space:nowrap;overflow:hidden}
+      :skin .lw-conn{display:flex;align-items:flex-end;gap:2px;height:14px} :skin .lw-conn i{width:4px;background:${LIME};border:1px solid #3b7d0d}
+      :skin .lw-conn i:nth-child(1){height:4px}:skin .lw-conn i:nth-child(2){height:6px}:skin .lw-conn i:nth-child(3){height:8px}:skin .lw-conn i:nth-child(4){height:10px}:skin .lw-conn i:nth-child(5){height:12px}
+      :skin .lw-sep{width:1px;height:14px;background:#9aa08f}
+      :skin .lw-dl{margin-left:auto;display:flex;align-items:center;gap:8px} :skin .lw-name{max-width:220px;overflow:hidden;text-overflow:ellipsis}
+      :skin .lw-prog{width:140px;height:12px;border:1px solid #6b7062;background:#fff} :skin .lw-prog i{display:block;height:100%;background:repeating-linear-gradient(90deg,#7ec43a 0 7px,${LIME} 7px 9px);transition:width .2s}
+      :skin ::selection{background:${LIME};color:#fff}` });
+
 })();

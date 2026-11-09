@@ -11,6 +11,8 @@ Cadence's themes borrow fonts, techniques and code from these open-source projec
 | NES | [NES.css](https://github.com/nostalgic-css/NES.css) | MIT | component looks re-implemented on Cadence markup: pixel borders, titled containers, balloons, checkbox, progress, button colours, cursor |
 | Discord | [discordian](https://github.com/radekkozak/discordian) by Radek Kozak (Obsidian theme) | MIT | Discord palette and channel-list layout ideas (re-implemented; no Discord assets or fonts) |
 | Liquid Glass | (original) | — | Apple-style frosted glass, written for Cadence |
+| MSN Messenger | homage, inspired by [manz's MSN Messenger 7.5 demo](https://codepen.io/manz/pen/XWgWyYz) and [onurdevs/msnclone](https://github.com/onurdevs/msnclone) | — | look and features re-created in CSS; no Microsoft logos, icons or sounds (tones are synthesized) |
+| LimeWire | homage | — | 2000s P2P client look re-created in CSS; no LimeWire assets |
 | NES, Terminal, CRT, Sketchbook | Press Start 2P, VT323, Comic Neue via [Fontsource](https://fontsource.org) | SIL OFL 1.1 (`fonts/OFL-*.txt`) | webfonts |
 | Sketchbook | [PaperCSS](https://github.com/papercss/papercss) | ISC | wobbly hand-drawn border-radius technique (re-implemented) |
 | Tufte | [Tufte CSS](https://github.com/edwardtufte/tufte-css) by Dave Liepmann | MIT (`tufte/LICENSE`) | ET Book webfont (MIT, by Dmitry Krasny, Bonnie Scranton and Edward Tufte), typography rules |

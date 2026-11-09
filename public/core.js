@@ -491,6 +491,7 @@ function toggleDone(id, force){
   }
   save();
   emit(t.done ? 'task:complete' : 'task:reopen', clone(t));
+  if(t.done) try { document.dispatchEvent(new CustomEvent('cadence:task-complete', { detail: clone(t) })); } catch(e){}
 }
 function removeTask(id){ const i = S.tasks.findIndex(x => x.id === id); if(i>-1){ const [t] = S.tasks.splice(i,1); save(); emit('task:remove', clone(t)); return t; } }
 const sortTasks = arr => arr.sort((a,b) => (a.dueDate||'9999').localeCompare(b.dueDate||'9999') || (a.order ?? 1e15) - (b.order ?? 1e15) || (a.dueTime||'99').localeCompare(b.dueTime||'99') || (b.priority-a.priority) || (a.createdAt-b.createdAt));
