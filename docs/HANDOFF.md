@@ -56,3 +56,17 @@ Next: (superseded, see below)
    plugins enabled, sidebar, theme. Needs a 'space' key in storage -> design SQLite with spaces from day one.
 - Web links plugin (done): plugins/weblinks.js, sidebar 'Links' section + Settings editor + ⌘K 'Add a web link'.
 - Older: right-click menu, verify mosaic with real Wikimedia images and logos on the NAS.
+
+## Session 2026-11-08 (later)
+- Shipped fun plugins: haunted.js (ghost per overdue task, 6 personalities: sulker/nosy/judge/prankster/drama/shy,
+  seek UI targets .task[data-id] / .qa / .isl-pill, speech bubbles one at a time, flinch on completes, z-index 25 under modals),
+  stocks.js (deterministic price from history: deliveries/meetings/chases up, idle >2d and overdue down; index + tape +
+  5 weakest; ⌘K Market report; Island crash alert once/day), intern.js (SVG pixel sprite, boxes = client-owed items,
+  sleeps at N days (setting), wakes you once/day/client with Chase -> window.CadenceChase).
+- MARKETING (user's words): "it can be as simple as writing and taking notes, a place to relax, or a place to go
+  batshit crazy and make it whatever you want." / "It's whatever you want it to be, but in the end life is always a to-do list."
+- NEXT (promised): Christmas mode plugin (lights, snow, optional build-up on UI/letters/where you type, real physics,
+  chaos level from gentle to insane in settings). Desktop-pet sheep (sheep.exe-style: walks panel edges, falls, sleeps,
+  draggable) — ORIGINAL pixel sheep, not the Stray Sheep/Poe design.
+- Ideas asked about: Letterboxd (no open API; public RSS letterboxd.com/<user>/rss/ -> rss.js 'films' skin with posters).
+- Life mode areas: Home, Health, Money, Projects (+custom). Waiting on user confirmation of the SQLite/spaces design.
