@@ -14,7 +14,7 @@ function stripDates(title){
   return { title: r.title || title, dueDate: r.dueDate, dueTime: r.dueTime };
 }
 registerPlugin({
-  id:'fireflies', name:'Fireflies.ai import', version:'1.0.0', icon: '<circle cx="12" cy="12" r="3"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1"/>', color: '#ff8a3d', category: 'Meetings', tagline: 'Paste notes, get action items', builtin:true,
+  id:'fireflies', spaces: ['work'], name:'Fireflies.ai import', version:'1.0.0', icon: '<circle cx="12" cy="12" r="3"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1"/>', color: '#ff8a3d', category: 'Meetings', tagline: 'Paste notes, get action items', builtin:true,
   description:'Parses Fireflies “Action Items” sections (speaker headings or “Name: task” lines) into your items vs the client’s. Works offline, no AI needed.',
   setup(api){
     parseQuick = api.util.parse;
@@ -43,7 +43,7 @@ registerPlugin({
   }
 });
 registerPlugin({
-  id:'ai-extract', name:'Smart extraction (Claude)', version:'1.0.0', icon: '<path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/><path d="M19 16v4M17 18h4"/>', color: '#8a5cf6', category: 'Meetings', tagline: 'Claude reads transcripts for you', builtin:true,
+  id:'ai-extract', spaces: ['work'], name:'Smart extraction (Claude)', version:'1.0.0', icon: '<path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/><path d="M19 16v4M17 18h4"/>', color: '#8a5cf6', category: 'Meetings', tagline: 'Claude reads transcripts for you', builtin:true,
   description:'Uses Claude to read messy notes or full transcripts and pull out who owes what, with due dates. Falls back to the Fireflies parser when unavailable.',
   setup(api){
     api.extractors.add({ id:'ai', name:'✦ Smart (AI) — best for transcripts', available: () => !!api.ai, run: async (text, ctx, api) => {
@@ -67,7 +67,7 @@ ${text.slice(0, 60000)}
   }
 });
 registerPlugin({
-  id:'plain-lines', name:'Plain list import', version:'1.0.0', icon: '<path d="M9 6h11M9 12h11M9 18h11M4.5 6h.01M4.5 12h.01M4.5 18h.01"/>', color: '#6b7280', category: 'Meetings', tagline: 'One task per line', builtin:true,
+  id:'plain-lines', spaces: ['work'], name:'Plain list import', version:'1.0.0', icon: '<path d="M9 6h11M9 12h11M9 18h11M4.5 6h.01M4.5 12h.01M4.5 18h.01"/>', color: '#6b7280', category: 'Meetings', tagline: 'One task per line', builtin:true,
   description:'One action item per line. Supports “me:” / “c:” prefixes, ^Name, and dates.',
   setup(api){
     api.extractors.add({ id:'lines', name:'Plain list (one per line)', run: async (text) => text.split(/\r?\n/).map(l => l.replace(/^(?:[-*•]|\d+[.)])\s+/, '').trim()).filter(l => l.length > 2).map(l => {

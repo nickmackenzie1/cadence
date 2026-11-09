@@ -2,7 +2,7 @@
    (StatusIQ RSS, fetched by the NAS so nothing leaves your browser). A light in the sidebar,
    the full board on click, and an Island alert when something you watch goes down or recovers. */
 Cadence.registerPlugin({
-  id: 'zoho-status', name: 'Zoho status', version: '1.0.0', category: 'Integrations',
+  id: 'zoho-status', spaces: ['work'], name: 'Zoho status', version: '1.0.0', category: 'Integrations',
   description: 'Watches Zoho\'s public status page (Canada data centre by default) and shows a status light in the sidebar. Click it for every Zoho service. Pick the apps you care about and get an Island alert the moment one goes down, and again when it\'s back. Also available as a dashboard widget.',
   tagline: 'Is Zoho up? A light in the sidebar', color: '#e42527',
   icon: '<path d="M3 12h4l2-5 4 10 2-5h6"/>',

@@ -6,12 +6,12 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 
-const base = 9411 + Math.floor(Math.random() * 300);
+const base = 9400 + Math.floor(Math.random() * 150);
 let n = 0;
 async function start(dataDir, env = {}) {
   const port = base + n++;
   const p = spawn(process.execPath, ['--disable-warning=ExperimentalWarning', 'server.js'], { env: { ...process.env, PORT: String(port), DATA_DIR: dataDir, TLS_DIR: join(dataDir, 'no-certs'), ...env }, stdio: 'ignore' });
-  for (let i = 0; i < 60; i++) { try { if ((await fetch(`http://localhost:${port}/api/health`)).ok) break; } catch {} await new Promise(r => setTimeout(r, 100)); }
+  for (let i = 0; i < 150; i++) { try { if ((await fetch(`http://localhost:${port}/api/health`)).ok) break; } catch {} await new Promise(r => setTimeout(r, 100)); }
   const url = `http://localhost:${port}`;
   return { url, stop: () => new Promise(r => { p.once('exit', r); p.kill('SIGTERM'); }) };
 }

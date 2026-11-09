@@ -2,7 +2,7 @@
 (() => {
 const registerPlugin = def => Cadence.registerPlugin(def);
 registerPlugin({
-  id:'chase', name:'Chase client items', version:'1.0.0', icon: '<path d="M4 12h13M12 6l6 6-6 6"/>', color: '#f59e0b', category: 'Clients', tagline: 'Nudge clients on what they owe', builtin:true,
+  id:'chase', spaces: ['work'], name:'Chase client items', version:'1.0.0', icon: '<path d="M4 12h13M12 6l6 6-6 6"/>', color: '#f59e0b', category: 'Clients', tagline: 'Nudge clients on what they owe', builtin:true,
   description:'One click to write a polite reminder email listing everything a client owes you, overdue first. Marks items as chased.',
   setup(api){
     function chase(c){

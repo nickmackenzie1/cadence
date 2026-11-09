@@ -2,7 +2,7 @@
 (() => {
 const registerPlugin = def => Cadence.registerPlugin(def);
 registerPlugin({
-  id:'pulse', name:'Client Pulse', version:'1.0.0', icon: '<path d="M3 12h4l2-5 4 10 2-5h6"/>', color: '#ef4444', category: 'Clients', tagline: 'Every client at a glance', builtin:true,
+  id:'pulse', spaces: ['work'], name:'Client Pulse', version:'1.0.0', icon: '<path d="M3 12h4l2-5 4 10 2-5h6"/>', color: '#ef4444', category: 'Clients', tagline: 'Every client at a glance', builtin:true,
   description:'A one-screen overview of all clients: open work, overdue items, what they owe you, and who you haven’t touched in a while.',
   setup(api){
     api.views.add({ id:'pulse', group: 'insights', title:'Client Pulse', icon:'◎', subtitle:'Every client at a glance — sorted by what needs attention', render: (el, api) => {

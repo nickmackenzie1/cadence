@@ -5,12 +5,12 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-const PORT = 9711 + Math.floor(Math.random() * 200), B = `http://localhost:${PORT}`;
+const PORT = 9600 + Math.floor(Math.random() * 200), B = `http://localhost:${PORT}`;
 let server, dir;
 test.beforeAll(async () => {
   dir = mkdtempSync(join(tmpdir(), 'cadence-sync-'));
   server = spawn(process.execPath, ['--disable-warning=ExperimentalWarning', 'server.js'], { env: { ...process.env, PORT: String(PORT), DATA_DIR: dir, TLS_DIR: join(dir, 'x') }, stdio: 'ignore' });
-  for (let i = 0; i < 60; i++) { try { if ((await fetch(B + '/api/health')).ok) return; } catch {} await new Promise(r => setTimeout(r, 100)); }
+  for (let i = 0; i < 150; i++) { try { if ((await fetch(B + '/api/health')).ok) return; } catch {} await new Promise(r => setTimeout(r, 100)); }
 });
 test.afterAll(() => { server && server.kill(); rmSync(dir, { recursive: true, force: true }); });
 

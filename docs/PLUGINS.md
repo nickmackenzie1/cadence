@@ -16,6 +16,7 @@ Cadence.registerPlugin({
   icon: '<path d="M4 12h16"/>',  // SVG paths (24×24, drawn as white strokes), a full <svg>, an image URL, or an emoji
   color: '#2f7de1',               // the icon tile's colour
   category: 'Meetings',           // Meetings · Clients · Productivity · Look & feel · Fun · Integrations · System
+  spaces: ['work'],               // optional: 'work', 'life' or both (default both). Hidden and off in other spaces
   settings(api) { api.ui.modal('My plugin', '…') },  // adds a Settings button to the card
 
   setup(api) { /* register things */ }
@@ -51,7 +52,8 @@ api.storage.get(key) / set(key, value)        // namespaced to your plugin, sync
 api.ui.toast(msg, [{label, run}]) / navigate(route) / refresh() / copy(text) / modal(title, bodyHTML, footHTML, cls) / close() / esc(str) / currentRoute()
 api.ai                                         // async (prompt, opts) => { text }, with .json(prompt); null when AI is off
 api.settings()                                 // { myName, theme, remindLead }
-api.system()                                   // { mode: 'nas'|'claude'|'local', status, latency, lastSyncAt, ai, health, version, plugins, counts }
+api.space()                                    // 'work' | 'life'. Each space has its own data, plugins, storage and theme
+api.system()                                   // { space, mode: 'nas'|'claude'|'local', status, latency, lastSyncAt, ai, health, version, plugins, counts }
 api.ui.pointer()                               // last click {x, y, t, target}: anchor effects where the user clicked
 api.util.parse(text, ctx) / ymd(date) / fmtDate(ymd) / dueLabel(task) / addDays(date, n) / todayKey()
 ```

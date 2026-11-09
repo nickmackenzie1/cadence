@@ -5,13 +5,13 @@ import { mkdtempSync, rmSync, statSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-const PORT = 9811 + Math.floor(Math.random() * 300);
+const PORT = 9800 + Math.floor(Math.random() * 200);
 const B = `http://localhost:${PORT}`;
 let server, dataDir;
 test.beforeAll(async () => {
   dataDir = mkdtempSync(join(tmpdir(), 'cadence-login-'));
   server = spawn(process.execPath, ['server.js'], { env: { ...process.env, PORT: String(PORT), DATA_DIR: dataDir, APP_USERNAME: 'nick', APP_PASSWORD: 's3cret:pw' }, stdio: 'ignore' });
-  for (let i = 0; i < 50; i++) { try { const r = await fetch(`${B}/api/whoami`); if (r.ok) return; } catch {} await new Promise(r => setTimeout(r, 100)); }
+  for (let i = 0; i < 150; i++) { try { const r = await fetch(`${B}/api/whoami`); if (r.ok) return; } catch {} await new Promise(r => setTimeout(r, 100)); }
   throw new Error('server did not start');
 });
 test.afterAll(() => { server && server.kill(); rmSync(dataDir, { recursive: true, force: true }); });

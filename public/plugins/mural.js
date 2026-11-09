@@ -33,7 +33,7 @@
   const shade = ([r, g, b], k) => k >= 0 ? [r + (255 - r) * k, g + (255 - g) * k, b + (255 - b) * k] : [r * (1 + k), g * (1 + k), b * (1 + k)];
 
   Cadence.registerPlugin({
-    id: 'mural', name: 'Living mural', version: '1.0.0', icon: '<path d="M14 4l6 6-8 8H6v-6z"/><path d="M4 20.5c2 0 3-1 3-3"/>', color: '#ff4fa3', category: 'Look & feel', tagline: 'Rebuild a masterpiece from client logos',
+    id: 'mural', spaces: ['work'], name: 'Living mural', version: '1.0.0', icon: '<path d="M14 4l6 6-8 8H6v-6z"/><path d="M4 20.5c2 0 3-1 3-3"/>', color: '#ff4fa3', category: 'Look & feel', tagline: 'Rebuild a masterpiece from client logos',
     description: 'Mosaic: pick a public-domain painting and every task you finish lays tiles made of your clients’ logos, each placed where its colours fit, until the picture appears. Brushstrokes: every task paints a stroke in the client’s colours. Time-lapse and poster for both.',
     setup(api) {
       const store = () => Object.assign({ strokes: [] }, api.storage.get('mural') || {});

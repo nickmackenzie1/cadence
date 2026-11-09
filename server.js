@@ -152,18 +152,19 @@ function shred(S) {
   out.push({ kind: 'doc', id: 'root', data: root, pos: 0 });
   return out;
 }
-function assemble() {
+function assemble(space = 'work') {
   const S = { tasks: [], clients: [], meetings: [], pluginData: {} };
-  for (const r of db.prepare('SELECT kind, id, data FROM records WHERE deleted = 0 ORDER BY pos, rev').all()) {
+  for (const r of db.prepare('SELECT kind, id, data FROM records WHERE deleted = 0 AND space = ? ORDER BY pos, rev').all(space)) {
     const d = JSON.parse(r.data);
-    if (ARRAYS[r.kind]) S[ARRAYS[r.kind]].push(d); else if (r.kind === 'plugin') S.pluginData[r.id] = d; else if (r.kind === 'doc') Object.assign(S, d);
+    if (ARRAYS[r.kind]) S[ARRAYS[r.kind]].push(d); else if (r.kind === 'plugin') S.pluginData[r.id.replace(/^life:/, '')] = d; else if (r.kind === 'doc') Object.assign(S, d);
   }
   return S;
 }
 const nextRev = () => { const r = +db.prepare("SELECT value FROM meta WHERE key = 'rev'").get().value + 1; db.prepare("UPDATE meta SET value = ? WHERE key = 'rev'").run(String(r)); return r; };
 const curRev = () => db ? +db.prepare("SELECT value FROM meta WHERE key = 'rev'").get().value : 0;
-function putRecord(kind, id, data, pos, deleted, at, device) {
-  const rev = nextRev(), txt = J(data), space = data && data.space || 'work';
+function putRecord(kind, id, data, pos, deleted, at, device, space) {
+  const rev = nextRev(), txt = J(data);
+  space = space || (/^life:/.test(id) ? 'life' : (data && data.space) || 'work');
   db.prepare(`INSERT INTO records (kind, id, space, data, pos, rev, edited_at, device, deleted) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT(kind, id) DO UPDATE SET space = excluded.space, data = excluded.data, pos = excluded.pos, rev = excluded.rev,
       edited_at = excluded.edited_at, device = excluded.device, deleted = excluded.deleted`).run(kind, id, space, txt, pos || 0, rev, at, device || '', deleted ? 1 : 0);
@@ -177,11 +178,12 @@ function applyChanges(changes, device) {
   for (const c of changes) {
     if (!c || !c.kind || c.id == null) continue;
     const kind = String(c.kind), id = String(c.id), at = Math.min(+c.at || Date.now(), Date.now() + 60e3), base = +c.baseRev || 0;
+    const sp = /^(work|life)$/.test(c.space) ? c.space : /^life:/.test(id) ? 'life' : 'work';
     const cur = db.prepare('SELECT * FROM records WHERE kind = ? AND id = ?').get(kind, id);
-    if (!cur) { if (!c.deleted) putRecord(kind, id, c.data, c.pos, 0, at, device); continue; }
+    if (!cur) { if (!c.deleted) putRecord(kind, id, c.data, c.pos, 0, at, device, sp); continue; }
     const curData = JSON.parse(cur.data);
     if (cur.rev === base) {                                         // nobody else touched it: just apply
-      if (c.deleted ? !cur.deleted : (J(c.data) !== cur.data || cur.deleted || (c.pos != null && c.pos !== cur.pos))) putRecord(kind, id, c.deleted ? curData : c.data, c.pos ?? cur.pos, c.deleted, at, device);
+      if (c.deleted ? !cur.deleted : (J(c.data) !== cur.data || cur.deleted || (c.pos != null && c.pos !== cur.pos))) putRecord(kind, id, c.deleted ? curData : c.data, c.pos ?? cur.pos, c.deleted, at, device, cur.space);
       continue;
     }
     // someone else changed it since this device last saw it
@@ -196,13 +198,13 @@ function applyChanges(changes, device) {
     };
     if (c.deleted) {                                                 // deleted here, but edited elsewhere: keep the edit
       if (!cur.deleted && baseData && J(baseData) !== cur.data) log('(deleted)', 'kept', 'deleted', cur.device, device, cur.edited_at, at);
-      else if (!cur.deleted) putRecord(kind, id, curData, cur.pos, 1, at, device);
+      else if (!cur.deleted) putRecord(kind, id, curData, cur.pos, 1, at, device, cur.space);
       continue;
     }
-    if (cur.deleted) { putRecord(kind, id, c.data, c.pos ?? cur.pos, 0, at, device); log('(deleted)', 'restored', 'deleted', device, cur.device, at, cur.edited_at); continue; }
+    if (cur.deleted) { putRecord(kind, id, c.data, c.pos ?? cur.pos, 0, at, device, cur.space); log('(deleted)', 'restored', 'deleted', device, cur.device, at, cur.edited_at); continue; }
     const mine = c.data || {}, theirs = curData || {}, was = baseData || {};
     if (typeof mine !== 'object' || typeof theirs !== 'object' || Array.isArray(mine)) {   // not an object: whole value
-      if (J(mine) !== J(theirs)) { const newer = at >= cur.edited_at; putRecord(kind, id, newer ? mine : theirs, c.pos ?? cur.pos, 0, Math.max(at, cur.edited_at), newer ? device : cur.device); log('(value)', newer ? mine : theirs, newer ? theirs : mine, newer ? device : cur.device, newer ? cur.device : device, Math.max(at, cur.edited_at), Math.min(at, cur.edited_at)); }
+      if (J(mine) !== J(theirs)) { const newer = at >= cur.edited_at; putRecord(kind, id, newer ? mine : theirs, c.pos ?? cur.pos, 0, Math.max(at, cur.edited_at), newer ? device : cur.device, cur.space); log('(value)', newer ? mine : theirs, newer ? theirs : mine, newer ? device : cur.device, newer ? cur.device : device, Math.max(at, cur.edited_at), Math.min(at, cur.edited_at)); }
       continue;
     }
     const merged = { ...theirs };
@@ -215,7 +217,7 @@ function applyChanges(changes, device) {
       if (at >= cur.edited_at) { if (k in mine) merged[k] = mine[k]; else delete merged[k]; changed = true; log(k, mine[k], theirs[k], device, cur.device, at, cur.edited_at); }
       else log(k, theirs[k], mine[k], cur.device, device, cur.edited_at, at);
     }
-    if (changed) putRecord(kind, id, merged, cur.pos, 0, Math.max(at, cur.edited_at), device);
+    if (changed) putRecord(kind, id, merged, cur.pos, 0, Math.max(at, cur.edited_at), device, cur.space);
   }
   return conflicts;
 }
@@ -236,17 +238,18 @@ function importDoc(doc, device) {
   try {
     for (const r of recs) {
       seen.add(r.kind + '\u0000' + r.id);
-      const cur = db.prepare('SELECT data, pos, deleted FROM records WHERE kind = ? AND id = ?').get(r.kind, r.id);
-      if (!cur || cur.deleted || cur.data !== J(r.data) || cur.pos !== r.pos) putRecord(r.kind, r.id, r.data, r.pos, 0, at, device);
+      const cur = db.prepare('SELECT data, pos, deleted, space FROM records WHERE kind = ? AND id = ?').get(r.kind, r.id);
+      if (cur && cur.space !== 'work') continue;                    // never let a Work document touch Life
+      if (!cur || cur.deleted || cur.data !== J(r.data) || cur.pos !== r.pos) putRecord(r.kind, r.id, r.data, r.pos, 0, at, device, 'work');
     }
-    for (const r of db.prepare('SELECT kind, id, data, pos FROM records WHERE deleted = 0').all()) if (!seen.has(r.kind + '\u0000' + r.id)) putRecord(r.kind, r.id, JSON.parse(r.data), r.pos, 1, at, device);
+    for (const r of db.prepare("SELECT kind, id, data, pos FROM records WHERE deleted = 0 AND space = 'work'").all()) if (!seen.has(r.kind + '\u0000' + r.id)) putRecord(r.kind, r.id, JSON.parse(r.data), r.pos, 1, at, device, 'work');
     db.prepare('INSERT INTO state (id, json, updated_at) VALUES (1, ?, ?) ON CONFLICT(id) DO UPDATE SET json = excluded.json, updated_at = excluded.updated_at').run(doc.json, at);
     db.exec('COMMIT');
   } catch (e) { db.exec('ROLLBACK'); throw e; }
 }
 function syncPull(since) {
-  const rows = db.prepare('SELECT kind, id, data, pos, rev, deleted, device, edited_at FROM records WHERE rev > ? ORDER BY rev').all(+since || 0);
-  return { cursor: curRev(), records: rows.map(r => ({ kind: r.kind, id: r.id, data: JSON.parse(r.data), pos: r.pos, rev: r.rev, deleted: !!r.deleted, device: r.device, at: r.edited_at })),
+  const rows = db.prepare('SELECT kind, id, space, data, pos, rev, deleted, device, edited_at FROM records WHERE rev > ? ORDER BY rev').all(+since || 0);
+  return { cursor: curRev(), records: rows.map(r => ({ kind: r.kind, id: r.id, space: r.space, data: JSON.parse(r.data), pos: r.pos, rev: r.rev, deleted: !!r.deleted, device: r.device, at: r.edited_at })),
     docUpdatedAt: (db.prepare('SELECT updated_at FROM state WHERE id = 1').get() || {}).updated_at || 0, conflicts: db.prepare('SELECT COUNT(*) AS n FROM conflicts WHERE resolved = 0').get().n };
 }
 function syncPush(changes, device, since) {
@@ -293,9 +296,10 @@ function writeState(obj) {
 function dbInfo() {
   if (!db) return { storage, note: storageNote };
   const n = k => db.prepare('SELECT COUNT(*) AS n FROM records WHERE kind = ? AND deleted = 0').get(k).n;
+  const life = db.prepare("SELECT COUNT(*) AS n FROM records WHERE space = 'life' AND kind = 'task' AND deleted = 0").get().n;
   const size = f => { try { return fs.statSync(f).size; } catch { return 0; } };
   return { storage, file: 'cadence.db', bytes: size(DB_FILE) + size(DB_FILE + '-wal'), schema: SCHEMA, sqlite: db.prepare('SELECT sqlite_version() AS v').get().v,
-    rows: { tasks: n('task'), clients: n('client'), meetings: n('meeting'), plugins: n('plugin') }, rev: curRev(),
+    rows: { tasks: n('task'), clients: n('client'), meetings: n('meeting'), plugins: n('plugin') }, lifeTasks: life, rev: curRev(),
     deleted: db.prepare('SELECT COUNT(*) AS n FROM records WHERE deleted = 1').get().n,
     conflicts: db.prepare('SELECT COUNT(*) AS n FROM conflicts WHERE resolved = 0').get().n,
     devices: db.prepare("SELECT device, MAX(edited_at) AS at FROM records WHERE device != '' GROUP BY device ORDER BY at DESC LIMIT 10").all().map(r => ({ device: r.device, at: r.at })),

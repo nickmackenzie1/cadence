@@ -2,7 +2,7 @@
 (() => {
 const registerPlugin = def => Cadence.registerPlugin(def);
 registerPlugin({
-  id:'recap', name:'Client recap email', version:'2.0.0', icon: '<rect x="3" y="5.5" width="18" height="13" rx="2"/><path d="M3.5 7l8.5 6 8.5-6"/>', color: '#2f7de1', category: 'Meetings', tagline: 'Formatted recap & status emails', builtin:true,
+  id:'recap', spaces: ['work'], name:'Client recap email', version:'2.0.0', icon: '<rect x="3" y="5.5" width="18" height="13" rx="2"/><path d="M3.5 7l8.5 6 8.5-6"/>', color: '#2f7de1', category: 'Meetings', tagline: 'Formatted recap & status emails', builtin:true,
   description:'Formatted follow-up emails — action items for both sides in clean tables, optional AI summary. Pastes into Outlook/Gmail with formatting intact.',
   setup(api){
     const E = api.ui.esc;

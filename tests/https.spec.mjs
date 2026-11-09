@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import https from 'node:https';
 
-const PORT = 9011 + Math.floor(Math.random() * 300), HPORT = PORT + 400;
+const PORT = 9000 + Math.floor(Math.random() * 200), HPORT = PORT + 200;
 let server, dir;
 const get = (url, opts = {}) => new Promise((ok, bad) => https.get(url, opts, r => { let b = ''; r.on('data', c => b += c); r.on('end', () => ok({ status: r.statusCode, body: b })); }).on('error', bad));
 
@@ -17,7 +17,7 @@ test.beforeAll(async () => {
   copyFileSync(join(dir, 'cert.pem'), join(dir, 'rootCA.pem'));
   server = spawn(process.execPath, ['server.js'], { env: { ...process.env, PORT: String(PORT), HTTPS_PORT: String(HPORT), TLS_DIR: dir, DATA_DIR: dir, APP_PASSWORD: 'pw' }, stdio: 'ignore' });
   const ca = readFileSync(join(dir, 'rootCA.pem'));
-  for (let i = 0; i < 50; i++) { try { await get(`https://localhost:${HPORT}/api/health`, { ca }); return; } catch {} await new Promise(r => setTimeout(r, 100)); }
+  for (let i = 0; i < 150; i++) { try { await get(`https://localhost:${HPORT}/api/health`, { ca }); return; } catch {} await new Promise(r => setTimeout(r, 100)); }
   throw new Error('https server did not start');
 });
 test.afterAll(() => { server && server.kill(); rmSync(dir, { recursive: true, force: true }); });

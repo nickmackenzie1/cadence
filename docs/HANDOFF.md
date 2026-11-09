@@ -132,3 +132,45 @@ Next: (superseded, see below)
   Clash notice on Island + 'Review sync clashes' (⌘K) modal; useConflictValue applies the other value and saves.
 - Tests: tests/sync.spec.mjs (two browser contexts, offline merges, clash + flip, deletes, old-tab PUT, upgrade paths).
 - NEXT: Work/Life spaces (records.space column exists; client needs a space switch + plugin `spaces` flag), then drop state.json mirror.
+- Calendar in Life: personal calendars per space (calendar.js is Work-only for now: it matches events to clients/meetings).
+
+## Spaces (2026-11-08, shipped)
+- Each space is a full document: Work = localStorage cadence.v1, Life = cadence.life.v1 (demo: cadence.demo[.life].v1).
+  SPACE per device (localStorage cadence.space), html[data-space]. S = current doc, OTHER = other (lazy). switchSpace(to):
+  swaps docs, rebuildPlugins, emit('space'). Life seed: areas Home/Health/Money/Projects (clients with icon), Calm theme,
+  haunted+havoc off. Areas = clients with `icon` (promptArea). Life UI: no waiting/meetings/chase, 'Still on the list',
+  area page Now/Later. ⌘K 'Switch to Life/Work', ⇧L.
+- Plugins: def.spaces ['work'] for client-specific plugins (fireflies, ai-extract, plain-lines, recap, pulse, zoho-tags, prep,
+  chase, templates, brand, links, mural, stocks, intern, zoho-status, calendar). enabled() = not disabled in this space's doc
+  AND spaceOk. Widgets may have spaces too (dashboard 'waiting' is Work-only). api.space().
+- Sync: records carry space; Life plugin/doc ids prefixed 'life:'. Server assemble/state/mirror = Work only; importDoc (old
+  tabs) never touches Life. Whole-document mode (no SQLite) keeps Life on the device.
+- tests/spaces.spec.mjs.
+
+## Plugin ideas from the user (2026-11-08, backlog — build later)
+Meta / sharing
+- Ritual marketplace: share whole life systems ("Sunday reset", "post-breakup rebuild", "new parent survival") that install
+  as bundles of recurring tasks (Life). Export/import a bundle = areas + repeating tasks + optional dashboard page.
+Smart nudges
+- Location ambush: near the hardware store, "you've needed a lightbulb for 3 weeks, it's RIGHT THERE" (needs the phone app
+  + geofences; tasks tagged with a place).
+- Procrastination forecaster: learns which tasks you avoid (snoozes, reschedules, age) and shows a "chance this actually
+  happens" % like a weather forecast.
+- Energy-aware scheduler: pulls sleep data (Oura API; Apple Health via the phone app) and only surfaces hard tasks on rested
+  days; bad night → "water plants", "reply to one email". Needs task effort levels.
+- Done-list mode: for bad days, flip to show only what you've accomplished (proof you're not a failure).
+- Future-you negotiator: snoozing requires a note to future-you; future-you can reject the excuse when it comes due.
+- Regret minimizer: monthly "which of these would you regret not doing at 80?" and quietly promotes those.
+Games
+- Couple/roommate bounty board: chores with point bounties, cash out as favours ("you pick the movie"). Needs shared lists
+  between two logins.
+- Roulette mode: spin a wheel of your tasks, do whatever it lands on. No appeals.
+- Rival AI: an imaginary rival with the same list completing tasks at a believable pace, always slightly ahead.
+- Seasonal life quests: goals as an RPG skill tree ("learn to cook" → "host a dinner party" → …).
+- Death clock sort: a bucket-list maker sorted by actuarial urgency. Grim, but clarifying.
+Stakes and accountability
+- Shame escrow: put money on a task; miss it and it goes to a cause you hate (like Beeminder / stickK; needs payments,
+  so probably a link-out integration rather than holding money).
+- Grandma mode: overdue tasks trigger a disappointed-grandparent guilt-trip ("I'm not mad, I just thought you'd have called
+  the dentist by now"). Text first; voice via TTS later.
+- Public ledger: your three oldest overdue tasks become your Slack/Discord status (needs their APIs + tokens on the NAS).

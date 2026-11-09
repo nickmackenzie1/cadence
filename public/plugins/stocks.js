@@ -3,7 +3,7 @@
    push it up; ignoring them and letting their tasks go overdue sends it down. History is rebuilt from your
    data, so there is a 30-day chart from day one. Nothing extra is stored except which crashes you were told about. */
 Cadence.registerPlugin({
-  id: 'stocks', name: 'Client stock ticker', version: '1.0.0', category: 'Fun',
+  id: 'stocks', spaces: ['work'], name: 'Client stock ticker', version: '1.0.0', category: 'Fun',
   description: 'Each client gets a share price that rises when you work with them and sinks while you ignore them. Live ticker in the sidebar, a full market report from ⌘K, and a heads-up when a client crashes.',
   tagline: 'Your clients, as a stock market', color: '#1f9d63',
   icon: '<path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/>',

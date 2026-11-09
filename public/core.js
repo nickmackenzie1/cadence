@@ -46,7 +46,36 @@ const DEMO = (() => { try { const q = new URLSearchParams(location.search); if(q
 if(DEMO) document.documentElement.classList.add('demo');
 const LS_KEY = DEMO ? 'cadence.demo.v1' : 'cadence.v1';
 const blank = () => ({ v:1, clients:[], tasks:[], meetings:[], settings:{ myName:'', theme:'light', remindLead:10 }, disabled:[], userPlugins:[], pluginData:{}, activeMeeting:null, updatedAt:0 });
-let S = (() => { try { const raw = localStorage.getItem(LS_KEY); if(raw) return Object.assign(blank(), JSON.parse(raw)); } catch(e){} if(DEMO && window.CadenceDemo){ const d = Object.assign(blank(), window.CadenceDemo.build()); try { localStorage.setItem(LS_KEY, JSON.stringify(d)); } catch(e){} return d; } return blank(); })();
+/* ---------- spaces: Work and Life are two complete Cadences (own tasks, areas/clients, plugins, theme, dashboards).
+   The space you're in is per device; both sync through the same per-record sync. ---------- */
+let SPACE = (() => { try { return localStorage.getItem('cadence.space') === 'life' ? 'life' : 'work'; } catch(e){ return 'work'; } })();
+const LS_KEYS = { work: LS_KEY, life: DEMO ? 'cadence.demo.life.v1' : 'cadence.life.v1' };
+const LIFE = () => SPACE === 'life';
+const LIFE_AREAS = [['Home','🏠','#c2771c'],['Health','💚','#2f9e6b'],['Money','💰','#5b5bd6'],['Projects','🛠️','#e5484d']];
+function lifeSeed(){
+  const d = Object.assign(blank(), { lifeSeeded: Date.now() });
+  d.clients = LIFE_AREAS.map(([name, icon, color], i) => ({ id: uid('a'), name, icon, color, domain: '', status: 'active', archived: false, createdAt: Date.now() + i }));
+  d.pluginData = { themes: { theme: 'calm' } };
+  d.disabled = ['haunted', 'havoc'];   // Life starts calm; switch them on in Plugins if you like
+  try { const w = JSON.parse(localStorage.getItem(LS_KEY) || '{}'); if(w.settings && w.settings.myName) d.settings.myName = w.settings.myName; } catch(e){}
+  if(DEMO){ const a = n => d.clients.find(c => c.name === n).id, day = n => ymd(addDays(new Date(), n));
+    d.tasks = [['Change the furnace filter', 'Home', 0], ['Book dentist cleaning', 'Health', 2], ['Pay the hydro bill', 'Money', -1], ['Clean the eavestroughs', 'Home', 6], ['Sand and paint the deck', 'Projects', 12], ['Renew car insurance', 'Money', 9]]
+      .map(([title, area, n], i) => ({ id: uid('t'), title, clientId: a(area), owner: 'me', assignee: '', dueDate: day(n), dueTime: null, priority: 0, tags: [], notes: '', repeat: null, order: i, done: false, doneAt: null, createdAt: Date.now() - i * 1000 })); }
+  return d;
+}
+function loadDoc(space){
+  try { const raw = localStorage.getItem(LS_KEYS[space]); if(raw) return Object.assign(blank(), JSON.parse(raw)); } catch(e){}
+  if(space === 'life') return null;
+  if(DEMO && window.CadenceDemo){ const d = Object.assign(blank(), window.CadenceDemo.build()); try { localStorage.setItem(LS_KEY, JSON.stringify(d)); } catch(e){} return d; }
+  return blank();
+}
+let S = loadDoc(SPACE) || lifeSeed();
+let OTHER;   // the other space's document, loaded when first needed (undefined = not loaded, null = doesn't exist yet)
+function otherDoc(){ if(OTHER === undefined) OTHER = loadDoc(SPACE === 'work' ? 'life' : 'work'); return OTHER; }
+function docOf(space){ return space === SPACE ? S : otherDoc(); }
+function setDoc(space, d){ if(space === SPACE) S = d; else OTHER = d; }
+function persistDoc(space){ const d = docOf(space); if(d) try { localStorage.setItem(LS_KEYS[space], JSON.stringify(d)); } catch(e){} }
+document.documentElement.dataset.space = SPACE;
 const reducedMotion = () => S.settings.motion === 'reduce' || (S.settings.motion !== 'full' && window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 function resetDemo(){ try { localStorage.removeItem('cadence.demo.v1'); } catch(e){} location.reload(); }
 function exitDemo(){ try { sessionStorage.removeItem('cadence.demo'); } catch(e){} location.href = location.pathname; }
@@ -119,6 +148,7 @@ const Store = {
   async push(){
     if(DEMO || (!this.ref && !this.server)) return;
     if(this.server && this.mode === 'records') return this.pushRecords();
+    if(LIFE()) return;
     if(this.busy){ this.again = true; return; }
     this.busy = true;
     emit('sync', { phase:'push' }); const t0 = performance.now();
@@ -155,6 +185,7 @@ const Store = {
   },
   /* whole-document sync (servers without SQLite) */
   async pullDoc(first){
+    if(LIFE()) return;   // whole-document sync (servers without SQLite) only carries Work; Life stays on this device
     const t0 = performance.now(); emit('sync', { phase:'pull' });
     try {
       const r = await fetch('api/state', { cache:'no-store' }); if(!r.ok) throw new Error(r.status);
@@ -181,13 +212,17 @@ const Sync = {
     const br = /Edg\//.test(ua) ? 'Edge' : /Firefox\//.test(ua) ? 'Firefox' : /Chrome\//.test(ua) ? 'Chrome' : /Safari\//.test(ua) ? 'Safari' : 'Browser';
     return os + ' · ' + br;
   },
-  // the local state as records (same split as the server)
+  // the local state as records (same split as the server), for both spaces; Life's plugin/doc ids carry a 'life:' prefix
   local(){
     const m = new Map();
-    for(const [kind, key] of Object.entries(this.ARR)) (S[key] || []).forEach((x, i) => { if(x && x.id != null) m.set(this.k(kind, x.id), { kind, id: String(x.id), data: x, pos: i, h: JSON.stringify(x) }); });
-    for(const [pid, d] of Object.entries(S.pluginData || {})) m.set(this.k('plugin', pid), { kind:'plugin', id: pid, data: d, h: JSON.stringify(d) });
-    const root = {}; for(const [k, v] of Object.entries(S)) if(!['tasks','clients','meetings','pluginData','updatedAt'].includes(k)) root[k] = v;
-    m.set(this.k('doc', 'root'), { kind:'doc', id:'root', data: root, h: JSON.stringify(root) });
+    for(const space of ['work', 'life']){
+      const D = docOf(space); if(!D) continue;
+      const pre = space === 'life' ? 'life:' : '';
+      for(const [kind, key] of Object.entries(this.ARR)) (D[key] || []).forEach((x, i) => { if(x && x.id != null) m.set(this.k(kind, x.id), { kind, id: String(x.id), data: x, pos: i, space, h: JSON.stringify(x) }); });
+      for(const [pid, d] of Object.entries(D.pluginData || {})) m.set(this.k('plugin', pre + pid), { kind:'plugin', id: pre + pid, data: d, space, h: JSON.stringify(d) });
+      const root = {}; for(const [k, v] of Object.entries(D)) if(!['tasks','clients','meetings','pluginData','updatedAt'].includes(k)) root[k] = v;
+      m.set(this.k('doc', pre + 'root'), { kind:'doc', id: pre + 'root', data: root, space, h: JSON.stringify(root) });
+    }
     return m;
   },
   diff(){
@@ -196,47 +231,51 @@ const Sync = {
       const s = st.recs[k];
       if(s && !s.deleted && s.h === r.h) continue;
       st.dirty[k] = st.dirty[k] || now;
-      changes.push({ kind: r.kind, id: r.id, data: r.data, pos: s ? undefined : r.pos, baseRev: s ? s.rev : 0, at: st.dirty[k] });
+      changes.push({ kind: r.kind, id: r.id, space: r.space, data: r.data, pos: s ? undefined : r.pos, baseRev: s ? s.rev : 0, at: st.dirty[k] });
       sent.set(k, r.h);
     }
     for(const [k, s] of Object.entries(st.recs)){
       if(s.deleted || local.has(k)) continue;
       st.dirty[k] = st.dirty[k] || now;
       const [kind, id] = k.split('\u0000');
-      changes.push({ kind, id, deleted: true, baseRev: s.rev, at: st.dirty[k] });
+      changes.push({ kind, id, space: s.space || (/^life:/.test(id) ? 'life' : 'work'), deleted: true, baseRev: s.rev, at: st.dirty[k] });
       sent.set(k, null);
     }
     this.save();
     return { changes, sent };
   },
   pending(){ const local = this.local(); for(const [k, r] of local){ const s = this.st.recs[k]; if(!s || s.deleted || s.h !== r.h) return true; } return Object.entries(this.st.recs).some(([k, s]) => !s.deleted && !local.has(k)); },
-  // put one server record into S
-  put(rec){
-    const key = this.ARR[rec.kind];
+  spaceOf: rec => rec.space || (/^life:/.test(rec.id) ? 'life' : 'work'),
+  // put one server record into its space's document (creating Life if another device started it)
+  put(rec, D){
+    const space = this.spaceOf(rec);
+    if(!D){ D = docOf(space); if(!D){ D = Object.assign(blank(), {}); setDoc(space, D); } }
+    const key = this.ARR[rec.kind], id = rec.id.replace(/^life:/, '');
     if(key){
-      const arr = S[key] || (S[key] = []), i = arr.findIndex(x => String(x.id) === rec.id);
+      const arr = D[key] || (D[key] = []), i = arr.findIndex(x => String(x.id) === rec.id);
       if(rec.deleted){ if(i > -1) arr.splice(i, 1); }
       else if(i > -1) arr[i] = rec.data;
       else arr.splice(Math.min(rec.pos != null ? rec.pos : arr.length, arr.length), 0, rec.data);
-    } else if(rec.kind === 'plugin'){ S.pluginData = S.pluginData || {}; if(rec.deleted) delete S.pluginData[rec.id]; else S.pluginData[rec.id] = rec.data; }
-    else if(rec.kind === 'doc' && !rec.deleted && rec.data && typeof rec.data === 'object') Object.assign(S, rec.data);
+    } else if(rec.kind === 'plugin'){ D.pluginData = D.pluginData || {}; if(rec.deleted) delete D.pluginData[id]; else D.pluginData[id] = rec.data; }
+    else if(rec.kind === 'doc' && !rec.deleted && rec.data && typeof rec.data === 'object') Object.assign(D, rec.data);
+    return space;
   },
   // merge server records into local state; `sent` = what this device just sent (key -> json, null = deleted)
   apply(d, sent){
-    const local = this.local(), st = this.st;
+    const local = this.local(), st = this.st, touched = new Set();
     let any = false, structural = false;
     for(const rec of d.records || []){
       const k = this.k(rec.kind, rec.id), h = JSON.stringify(rec.data), l = local.get(k), s = st.recs[k];
       const localH = l ? l.h : null;
       if(sent.has(k)){
-        st.recs[k] = { rev: rec.rev, h, deleted: !!rec.deleted };
-        if(localH === sent.get(k)){ delete st.dirty[k]; if((localH !== h) || (!!rec.deleted !== !l)){ this.put(rec); any = true; structural = structural || rec.kind === 'doc' || rec.kind === 'plugin'; } }
+        st.recs[k] = { rev: rec.rev, h, deleted: !!rec.deleted, space: this.spaceOf(rec) };
+        if(localH === sent.get(k)){ delete st.dirty[k]; if((localH !== h) || (!!rec.deleted !== !l)){ const sp = this.put(rec); touched.add(sp); if(sp === SPACE){ any = true; structural = structural || rec.kind === 'doc' || rec.kind === 'plugin'; } } }
         // else: edited again while this was in flight: keep the local edit, it goes out next with the new base
       } else {
         const dirty = s ? (s.deleted ? !!l : localH !== s.h) : !!l;
         if(dirty) continue;   // local edits waiting: the server merges them on the next push
-        st.recs[k] = { rev: rec.rev, h, deleted: !!rec.deleted };
-        if(localH !== h || (!!rec.deleted !== !l)){ this.put(rec); any = true; structural = structural || rec.kind === 'doc' || rec.kind === 'plugin'; }
+        st.recs[k] = { rev: rec.rev, h, deleted: !!rec.deleted, space: this.spaceOf(rec) };
+        if(localH !== h || (!!rec.deleted !== !l)){ const sp = this.put(rec); touched.add(sp); if(sp === SPACE){ any = true; structural = structural || rec.kind === 'doc' || rec.kind === 'plugin'; } }
       }
     }
     // changes the server accepted without needing a new revision (already identical) count as synced too
@@ -245,26 +284,33 @@ const Sync = {
       if(back.has(k)) continue;
       const s = st.recs[k], l = local.get(k);
       if((l ? l.h : null) !== h) continue;
-      if(h === null){ if(s) s.deleted = true; } else st.recs[k] = { rev: s ? s.rev : 0, h, deleted: false };
+      if(h === null){ if(s) s.deleted = true; } else st.recs[k] = { rev: s ? s.rev : 0, h, deleted: false, space: l ? l.space : (s && s.space) };
       delete st.dirty[k];
     }
     st.cursor = Math.max(st.cursor || 0, d.cursor || 0);
     this.save();
+    for(const sp of touched) if(sp !== SPACE) persistDoc(sp);
     if(any){ persistLocal(); if(structural) rebuildPlugins(); render(); }
   },
   // first sync of this device: adopt the server's copy, unless this device has newer unsynced work (pre-upgrade)
   adopt(d){
     const st = this.st, recs = d.records || [];
-    const localHas = S.tasks.length || S.clients.length || S.meetings.length;
-    const localNewer = localHas && (S.updatedAt || 0) > (d.docUpdatedAt || 0);
+    const W = docOf('work'), localHas = W && (W.tasks.length || W.clients.length || W.meetings.length);
+    const localNewer = localHas && (W.updatedAt || 0) > (d.docUpdatedAt || 0);
     st.recs = {}; st.dirty = {};
-    for(const rec of recs) st.recs[this.k(rec.kind, rec.id)] = { rev: rec.rev, h: JSON.stringify(rec.data), deleted: !!rec.deleted };
+    for(const rec of recs) st.recs[this.k(rec.kind, rec.id)] = { rev: rec.rev, h: JSON.stringify(rec.data), deleted: !!rec.deleted, space: this.spaceOf(rec) };
     st.cursor = d.cursor || 0; st.init = true;
-    if(!recs.length || localNewer){ this.save(); return; }   // pushes what's different on the next save/push
-    const fresh = Object.assign(blank(), { pluginData: {} });
-    for(const r of recs.filter(r => !r.deleted).sort((a, b) => (a.pos || 0) - (b.pos || 0) || a.rev - b.rev)){ const keep = S; S = fresh; this.put(r); S = keep; }
-    fresh.updatedAt = d.docUpdatedAt || Date.now();
-    S = fresh; persistLocal(); this.save(); rebuildPlugins(); render();
+    if(!recs.length){ this.save(); return; }   // empty server: everything local goes up on the next push
+    const fresh = { work: Object.assign(blank(), { pluginData: {} }), life: null };
+    for(const r of recs.filter(r => !r.deleted).sort((a, b) => (a.pos || 0) - (b.pos || 0) || a.rev - b.rev)){
+      const sp = this.spaceOf(r); if(sp === 'life' && !fresh.life) fresh.life = Object.assign(blank(), { pluginData: {} });
+      this.put(r, fresh[sp]);
+    }
+    fresh.work.updatedAt = d.docUpdatedAt || Date.now();
+    if(!localNewer) setDoc('work', fresh.work);                       // otherwise this device's newer Work is pushed
+    if(fresh.life) setDoc('life', fresh.life);                        // a Life made only on this device (not on the server yet) is kept and pushed
+    if(SPACE === 'life' && !docOf('life')) setDoc('life', lifeSeed());
+    persistDoc('work'); persistDoc('life'); this.save(); rebuildPlugins(); render();
   },
   notify(n, quiet){
     if(!n) return;
@@ -313,7 +359,7 @@ function useConflictValue(c){
   else if(c.kind === 'doc'){ S[c.field] = c.other; }
   save(); rebuildPlugins(); render();
 }
-function persistLocal(){ try { localStorage.setItem(LS_KEY, JSON.stringify(S)); } catch(e){} }
+function persistLocal(){ try { localStorage.setItem(LS_KEYS[SPACE], JSON.stringify(S)); } catch(e){} }
 function save(){ S.updatedAt = Date.now(); persistLocal(); Store.schedule(); }
 
 /* ---------- model ops ---------- */
@@ -380,6 +426,7 @@ async function refreshCompany(cid, opts = {}){
 function avatar(c, size = 16){
   if(!c) return '';
   const img = c.domain ? `<img src="${esc(faviconUrl(c.domain, c.logoV))}" alt="" loading="lazy" onerror="this.remove()">` : '';
+  if(c.icon && !img) return `<span class="av emoji" style="--c:${c.color};width:${size}px;height:${size}px;font-size:${Math.round(size*.62)}px">${esc(c.icon)}</span>`;
   return `<span class="av" style="--c:${c.color};width:${size}px;height:${size}px;font-size:${Math.round(size*.42)}px">${esc(initials(c.name))}${img}</span>`;
 }
 function addClient(name, color, domain){
@@ -541,7 +588,25 @@ function createFromQuick(text, ctx){
    ========================================================= */
 const Reg = { defs:[], commands:[], views:[], parsers:[], extractors:[], taskActions:[], meetingActions:[], clientActions:[], sidebar:[], listeners:[], settingsPanels:[], widgets:[] };
 let AI = null;
-function enabled(pid){ return !S.disabled.includes(pid); }
+function spaceOk(pid){ const d = Reg.defs.find(x => x.id === pid); return !d || !d.spaces || d.spaces.includes(SPACE); }
+function enabled(pid){ return !S.disabled.includes(pid) && spaceOk(pid); }
+/* switch between Work and Life: the whole app swaps to the other space's data, plugins and theme */
+function switchSpace(to){
+  if(to !== 'work' && to !== 'life') to = LIFE() ? 'work' : 'life';
+  if(to === SPACE) return;
+  const prev = S, next = otherDoc() || (to === 'life' ? lifeSeed() : Object.assign(blank(), {}));
+  persistLocal();
+  OTHER = prev; S = next; SPACE = to;
+  try { localStorage.setItem('cadence.space', to); } catch(e){}
+  document.documentElement.dataset.space = to;
+  persistLocal();
+  document.body.classList.remove('space-anim'); void document.body.offsetWidth; document.body.classList.add('space-anim');
+  setTimeout(() => document.body.classList.remove('space-anim'), 700);
+  selTask = null; rebuildPlugins();
+  if(location.hash && location.hash !== '#today') location.hash = 'today'; else render();
+  emit('space', { space: to });
+  if(!S.lifeSynced && to === 'life'){ S.lifeSynced = true; save(); }   // a brand-new Life gets sent to the NAS
+}
 function emit(ev, payload){ for(const l of Reg.listeners) if(l.ev === ev || l.ev === '*') { try { l.fn(payload, ev); } catch(e){ console.error(`[plugin ${l.pid}]`, e); } } }
 function makeApi(pid){
   return Object.freeze({
@@ -574,12 +639,13 @@ function makeApi(pid){
     /* dashboard widgets: api.widgets.add({ id, title, icon?, size: 's'|'m'|'l'|'w'|'t', render(el, api, ctx) }) */
     widgets: {
       add: w => { Reg.widgets = Reg.widgets.filter(x => x.key !== pid + ':' + w.id); Reg.widgets.push({ size: 'm', ...w, pid, key: pid + ':' + w.id }); },
-      list: () => Reg.widgets.map(w => ({ key: w.key, id: w.id, pid: w.pid, title: w.title, icon: w.icon, size: w.size, description: w.description || '', fields: w.fields || [], minW: w.minW, minH: w.minH, color: (Reg.defs.find(d => d.id === w.pid) || {}).color })),
+      list: () => Reg.widgets.map(w => ({ key: w.key, id: w.id, pid: w.pid, spaces: w.spaces, title: w.title, icon: w.icon, size: w.size, description: w.description || '', fields: w.fields || [], minW: w.minW, minH: w.minH, color: (Reg.defs.find(d => d.id === w.pid) || {}).color })),
       /* draw any plugin's widget into el; ctx = { cfg, setCfg(patch), w, h, edit } */
       render: (key, el, ctx = {}) => { const w = Reg.widgets.find(x => x.key === key); if(!w) return false; try { w.render(el, makeApi(w.pid), ctx); } catch(e){ el.innerHTML = `<div class="muted" style="padding:12px;font-size:12px">Widget failed: ${esc(e.message)}</div>`; } return true; },
     },
     plugins: { enabled: id => enabled(id) },
-    system: () => ({ demo: DEMO, mode: Store.server ? 'nas' : Store.ref ? 'claude' : 'local', status: Store.status, lastSyncAt: Store.lastSyncAt || null, latency: Store.latency ?? null, ai: !!AI, health: Store.health || null, version: window.Cadence.version, plugins: Reg.defs.filter(d => enabled(d.id)).length, counts: { tasks: S.tasks.length, open: S.tasks.filter(t => !t.done).length, clients: S.clients.filter(c => !c.archived).length, meetings: S.meetings.length } }),
+    space: () => SPACE,
+    system: () => ({ demo: DEMO, space: SPACE, mode: Store.server ? 'nas' : Store.ref ? 'claude' : 'local', status: Store.status, lastSyncAt: Store.lastSyncAt || null, latency: Store.latency ?? null, ai: !!AI, health: Store.health || null, version: window.Cadence.version, plugins: Reg.defs.filter(d => enabled(d.id)).length, counts: { tasks: S.tasks.length, open: S.tasks.filter(t => !t.done).length, clients: S.clients.filter(c => !c.archived).length, meetings: S.meetings.length } }),
     ui: { reducedMotion, toast, refreshWidgets: () => renderWidgets(), pointer: () => ({ ...lastPointer }), faviconUrl: (d, v) => faviconUrl(d, v), avatar: (c, size) => avatar(c, size), navigate: r => go(r), refresh: () => render(), copy: copyText, esc, modal: openModalHTML, close: closeModal, currentRoute: () => route() },
     storage: { get: k => (S.pluginData[pid] || {})[k], set: (k,v) => { (S.pluginData[pid] = S.pluginData[pid] || {})[k] = v; save(); } },
     get ai(){ return AI; },
@@ -649,21 +715,23 @@ function renderSide(){
   const nav = (id, ic, label, n, hot) => `<a class="${r===id?'on':''}" href="#${id}"><span class="ic">${ic}</span><span class="t">${label}</span>${n ? `<span class="n ${hot?'hot':''}">${n}</span>` : ''}</a>`;
   const all = S.clients.filter(x => !x.archived).sort((a,b) => a.name.localeCompare(b.name));
   const clients = all.filter(x => x.status !== 'paused'), paused = all.filter(x => x.status === 'paused');
-  if(!$('#side-head').firstChild) $('#side-head').innerHTML = `<div class="brand"><span class="logo"></span>Cadence<kbd title="Command palette">⌘K</kbd></div>`;
+  if(!$('#side-head').firstChild) $('#side-head').innerHTML = `<div class="brand"><span class="logo"></span>Cadence<kbd title="Command palette">⌘K</kbd></div><div class="space-sw" role="tablist" aria-label="Space"><i></i><button data-act="space" data-s="work" role="tab">Work</button><button data-act="space" data-s="life" role="tab">Life</button></div>`;
+  $$('#side-head .space-sw button').forEach(b => { b.classList.toggle('on', b.dataset.s === SPACE); b.setAttribute('aria-selected', b.dataset.s === SPACE); });
+  $('#side-head .space-sw').dataset.on = SPACE;
   $('#side-main').innerHTML = `
     <nav class="nav">
       ${nav('today', NAV_ICONS.today, 'Today', c.today, c.over>0)}
       ${nav('upcoming', NAV_ICONS.upcoming, 'Upcoming', c.upcoming)}
-      ${nav('waiting', NAV_ICONS.waiting, 'Waiting on clients', c.waiting)}
+      ${LIFE() ? '' : nav('waiting', NAV_ICONS.waiting, 'Waiting on clients', c.waiting)}
       ${nav('inbox', NAV_ICONS.inbox, 'Inbox', c.inbox)}
       ${nav('done', NAV_ICONS.done, 'Logbook')}
     </nav>
     ${(() => { const loose = Reg.views.filter(v => !v.group && !v.hidden), ins = Reg.views.filter(v => v.group === 'insights'); const items = (ins.length ? [nav('insights', '✦', 'Insights')] : []).concat(loose.map(v => nav('view-'+v.id, esc(v.icon||'◇'), esc(v.title)))); return items.length ? `<div class="sect">Views</div><nav class="nav">${items.join('')}</nav>` : ''; })()}
-    <div class="sect">Clients <button data-act="add-client" title="Add client">+</button></div>
-    <nav class="nav">${clients.map(cl => clientLink(cl, r, o)).join('') || (paused.length ? '' : `<a data-act="add-client"><span class="ic">+</span><span class="t muted">Add your clients</span></a>`)}
+    <div class="sect">${LIFE() ? 'Areas' : 'Clients'} <button data-act="add-client" title="${LIFE() ? 'Add an area' : 'Add client'}">+</button></div>
+    <nav class="nav">${clients.map(cl => clientLink(cl, r, o)).join('') || (paused.length ? '' : `<a data-act="add-client"><span class="ic">+</span><span class="t muted">${LIFE() ? 'Add an area' : 'Add your clients'}</span></a>`)}
       ${paused.length ? `<div class="more" data-act="toggle-paused">${showPaused ? '▾' : '▸'} Paused <span class="muted">${paused.length}</span></div>${showPaused ? paused.map(cl => clientLink(cl, r, o, true)).join('') : ''}` : ''}</nav>`;
   $('#side-foot').innerHTML = `${DEMO ? `<div class="demo-row"><b>●</b> Demo data<button data-act="demo-reset">Reset</button><button data-act="demo-exit">Exit</button></div>` : ''}
-      <button class="meet-btn" data-act="meeting">${S.activeMeeting ? '● Resume meeting' : '◉ Start meeting'} <kbd style="background:transparent;color:inherit;border-color:currentColor;opacity:.45">M</kbd></button>
+      ${LIFE() ? '' : `<button class="meet-btn" data-act="meeting">${S.activeMeeting ? '● Resume meeting' : '◉ Start meeting'} <kbd style="background:transparent;color:inherit;border-color:currentColor;opacity:.45">M</kbd></button>`}
       <div class="foot-row"><span class="sync ${Store.status==='synced'?'ok':''}" id="sync"><i></i><span>${DEMO ? 'Demo data — not saved' : Store.status==='synced'?(Store.server?'Synced to NAS':'Synced'):'This browser'}</span></span><button data-act="shortcuts" title="Keyboard shortcuts (?)">${NAV_ICONS.keys}</button><button data-act="theme" title="Theme">${NAV_ICONS.moon}</button><button data-act="open-plugins" title="Plugins">${NAV_ICONS.puzzle}</button><button data-act="settings" title="Settings">${NAV_ICONS.gear}</button></div>`;
   emit('render:side', {});
 }
@@ -695,7 +763,7 @@ function taskRow(t, opts = {}){
 }
 const group = (title, tasks, opts = {}) => tasks.length ? `<div class="group" data-drop="${opts.drop||''}"><div class="group-h ${opts.cls||''}">${title}<span class="c">${tasks.length}</span></div>${sortTasks(tasks).map(t => taskRow(t, opts)).join('')}</div>` : '';
 function quickAdd(placeholder, ctx = {}){
-  return `<div class="qa" data-ctx='${esc(JSON.stringify(ctx))}'><div class="qa-row"><span class="plus">+</span><input id="qa" autocomplete="off" placeholder="${esc(placeholder)}"><span class="hint">@ client · ^ they owe · fri 3pm · !1 · #tag</span></div><div class="qa-chips" id="qa-chips"></div></div>`;
+  return `<div class="qa" data-ctx='${esc(JSON.stringify(ctx))}'><div class="qa-row"><span class="plus">+</span><input id="qa" autocomplete="off" placeholder="${esc(placeholder)}"><span class="hint">${LIFE() ? '@ area · fri 3pm · every week · !1 · #tag' : '@ client · ^ they owe · fri 3pm · !1 · #tag'}</span></div><div class="qa-chips" id="qa-chips"></div></div>`;
 }
 function emptyState(icon, title, sub){ return `<div class="empty"><div class="big">${icon}</div><b>${title}</b>${sub||''}</div>`; }
 
@@ -714,19 +782,20 @@ function renderView(){
     const nc = nxt && client(nxt.clientId), upcomingN = o.filter(x => x.owner === 'me' && x.dueDate && x.dueDate > t && x.dueDate <= ymd(addDays(new Date(), 7))).length;
     const glance = S.clients.length ? `<div class="glance">
         <div class="gl" data-go="today" title="Today's progress"><svg class="ring" viewBox="0 0 42 42"><circle cx="21" cy="21" r="17" stroke="color-mix(in srgb,var(--text) 8%,transparent)"/><circle cx="21" cy="21" r="17" stroke="var(--ok)" stroke-dasharray="106.8" stroke-dashoffset="${(106.8 * (1 - pct)).toFixed(1)}" style="transition:stroke-dashoffset .8s"/></svg><div class="tx"><div class="v">${doneToday}<span style="font-size:14px;color:var(--muted);font-weight:600"> / ${totalToday}</span></div><div class="l">${totalToday && doneToday === totalToday ? 'All done today 🎉' : 'done today'}</div></div></div>
-        <div class="gl ${over.length ? 'hot' : ''}" data-go="#g-over"><div class="tx"><div class="v">${over.length}</div><div class="l">${over.length ? 'overdue — clear them' : 'nothing overdue'}</div></div></div>
-        <div class="gl ${chase.length ? 'warm' : ''}" data-go="waiting"><div class="tx"><div class="v">${chase.length}</div><div class="l">${chase.length ? 'client items to chase' : 'no one to chase'}</div></div></div>
+        <div class="gl ${over.length && !LIFE() ? 'hot' : ''}" data-go="#g-over"><div class="tx"><div class="v">${over.length}</div><div class="l">${LIFE() ? (over.length ? 'still on the list' : 'all caught up') : over.length ? 'overdue — clear them' : 'nothing overdue'}</div></div></div>
+        ${LIFE() ? `<div class="gl" data-go="upcoming"><div class="tx"><div class="v">${upcomingN}</div><div class="l">coming up this week</div></div></div>` : `<div class="gl ${chase.length ? 'warm' : ''}" data-go="waiting"><div class="tx"><div class="v">${chase.length}</div><div class="l">${chase.length ? 'client items to chase' : 'no one to chase'}</div></div></div>`}
         <div class="gl" ${nxt ? `data-task="${nxt.id}"` : 'data-go="upcoming"'}><span class="ic2">${nc ? avatar(nc, 34) : nxt ? '⏰' : '🗓️'}</span><div class="tx"><div class="nx">${nxt ? esc(nxt.title) : upcomingN ? upcomingN + ' coming up this week' : 'Nothing timed today'}</div><div class="l">${nxt ? 'Next · ' + fmtTime(nxt.dueTime) + (nc ? ' · ' + esc(nc.name) : '') : 'Upcoming'}</div></div></div>
       </div>` : '';
     html = `<div class="head"><div><h1 class="hello">Good ${hr<12?'morning':hr<18?'afternoon':'evening'}${name?', '+esc(name):''}</h1><div class="sub">${new Date().toLocaleDateString(undefined,{weekday:'long',month:'long',day:'numeric'})} · ${over.length+today.length} to do${doneToday?` · ${doneToday} done today`:''}</div></div></div>
-      ${glance}${quickAdd('Add a task for today…  e.g. “Send SOW @acme 3pm”', { defaultDate:'today' })}
-      <div id="g-over"></div>${group('Overdue', over, {cls:'danger'})}${group('Today', today)}${group('Follow up — client items due', chase, {cls:'client'})}
-      ${!over.length && !today.length && !chase.length ? (S.clients.length ? emptyState('☀','Nothing due today','<span>Plan ahead in Upcoming, or start a meeting with <kbd>M</kbd>.</span>') : onboarding()) : ''}`;
+      ${glance}${quickAdd(LIFE() ? 'Add something for today…  e.g. “Call mom @health 6pm”' : 'Add a task for today…  e.g. “Send SOW @acme 3pm”', { defaultDate:'today' })}
+      <div id="g-over"></div>${LIFE() ? group('Still on the list', over, {cls:'soft'}) : group('Overdue', over, {cls:'danger'})}${group('Today', today)}${LIFE() ? '' : group('Follow up — client items due', chase, {cls:'client'})}
+      ${!over.length && !today.length && (LIFE() || !chase.length) ? (S.clients.length ? (LIFE() ? emptyState('🌿','Nothing for today','<span>Enjoy it. Plan ahead in Upcoming whenever you like.</span>') : emptyState('☀','Nothing due today','<span>Plan ahead in Upcoming, or start a meeting with <kbd>M</kbd>.</span>')) : onboarding()) : ''}`;
   } else if(r === 'upcoming'){
     const up = o.filter(x => x.dueDate && x.dueDate > t);
     const byDay = {}; up.forEach(x => (byDay[x.dueDate] = byDay[x.dueDate] || []).push(x));
     html = `<div class="head"><div><h1>Upcoming</h1><div class="sub">Everything scheduled after today</div></div></div>${quickAdd('Schedule something…  e.g. “Review blueprint @northwind next week”')}
       ${Object.keys(byDay).sort().map(k => group(`${fmtDate(k)} <span class="c" style="font-weight:400">${fromYmd(k).toLocaleDateString(undefined,{month:'short',day:'numeric'})}</span>`, byDay[k])).join('') || emptyState('◷','Nothing scheduled','Type a date like “fri”, “nov 20” or “in 3 days”.')}`;
+  } else if(r === 'waiting' && LIFE()){ location.hash = 'today'; return;
   } else if(r === 'waiting'){
     const w = o.filter(x => x.owner==='client'), by = {};
     w.forEach(x => (by[x.clientId||'_'] = by[x.clientId||'_'] || []).push(x));
@@ -740,7 +809,18 @@ function renderView(){
     html = `<div class="head"><div><h1>Logbook</h1><div class="sub">Recently completed</div></div></div>${Object.keys(by).sort().reverse().map(k => `<div class="group"><div class="group-h">${fmtDate(k)}<span class="c">${by[k].length}</span></div>${by[k].map(x => taskRow(x)).join('')}</div>`).join('') || emptyState('✓','Nothing completed yet','')}`;
   } else if(r.startsWith('client-')){
     const c = client(r.slice(7));
-    if(!c){ html = emptyState('?','Client not found',''); }
+    if(!c){ html = emptyState('?', LIFE() ? 'Area not found' : 'Client not found',''); }
+    else if(LIFE()){
+      // an area of your life: one calm list, no clients, meetings or chasing
+      const list = o.filter(x => x.clientId === c.id), t0 = todayKey();
+      const now = list.filter(x => !x.dueDate || x.dueDate <= t0), later = list.filter(x => x.dueDate && x.dueDate > t0);
+      const doneWeek = S.tasks.filter(x => x.clientId === c.id && x.done && x.doneAt && Date.now() - x.doneAt < 7 * 864e5).length;
+      html = `<div class="c-hero area"><div class="bg" style="background:radial-gradient(1200px 260px at 85% 0%, ${c.color}30, transparent 70%), linear-gradient(180deg, ${c.color}18, transparent)"></div><div class="head"><div><h1>${avatar(c, 44)}<span class="nm" contenteditable="true" spellcheck="false" data-rename="${c.id}" title="Click to rename">${esc(c.name)}</span></h1><div class="sub">${list.length} open${doneWeek ? ` · ${doneWeek} done this week` : ''}</div></div>
+        <div class="actions">${Reg.clientActions.filter(x => x.primary).map(x => `<button class="btn" data-act="client-action" data-i="${Reg.clientActions.indexOf(x)}" data-cid="${c.id}">${esc(x.label)}</button>`).join('')}<button class="btn ghost" data-act="client-menu" data-cid="${c.id}" title="More">•••</button></div></div></div>
+        ${quickAdd(`Add something for ${c.name}…  e.g. “Replace the furnace filter every 3 months”`, { clientId: c.id })}
+        ${group('Now', now, { hideClient: true }) || ''}${group('Later', later, { hideClient: true }) || ''}
+        ${!list.length ? emptyState(c.icon || '🌿', 'Nothing here yet', 'Add the first thing above. Repeating things like “every 3 months” work too.') : ''}`;
+    }
     else {
       const mine = o.filter(x => x.clientId===c.id && x.owner==='me'), theirs = o.filter(x => x.clientId===c.id && x.owner==='client');
       const mtgs = S.meetings.filter(m => m.clientId===c.id).sort((a,b) => b.start - a.start);
@@ -1077,7 +1157,8 @@ function closeModal(){ $('#scrim').classList.remove('open'); $('#modal').innerHT
 function coreCommands(){
   const cmds = [
     { title:'New task', k:'N', run: () => { closeModal(); const q = $('#qa'); if(q) q.focus(); else { go('inbox'); setTimeout(() => $('#qa') && $('#qa').focus(), 30); } } },
-    { title: S.activeMeeting ? 'Resume meeting' : 'Start meeting', k:'M', run: () => { closeModal(); startMeeting(); } },
+    { title: LIFE() ? 'Switch to Work' : 'Switch to Life', k:'⇧L', run: () => { closeModal(); switchSpace(); } },
+    ...(LIFE() ? [] : [{ title: S.activeMeeting ? 'Resume meeting' : 'Start meeting', k:'M', run: () => { closeModal(); startMeeting(); } }]),
     { title:'Add client', run: () => promptClient() },
     { title:'Toggle dark mode', run: () => { closeModal(); S.settings.theme = S.settings.theme==='dark'?'light':'dark'; save(); render(); } },
     { title:'Settings & plugins', run: () => openSettings() },
@@ -1085,9 +1166,9 @@ function coreCommands(){
     { title:'Keyboard shortcuts', k:'?', run: () => showShortcuts() },
     { title:'Go to Today', run: () => { closeModal(); go('today'); } },
     { title:'Go to Upcoming', run: () => { closeModal(); go('upcoming'); } },
-    { title:'Go to Waiting on clients', run: () => { closeModal(); go('waiting'); } },
-    ...S.clients.filter(c => !c.archived).map(c => ({ title:`Open client: ${c.name}`, run: () => { closeModal(); go('client-'+c.id); } })),
-    ...S.clients.filter(c => !c.archived).map(c => ({ title:`Start meeting with ${c.name}`, run: () => { closeModal(); startMeeting(c.id); } })),
+    ...(LIFE() ? [] : [{ title:'Go to Waiting on clients', run: () => { closeModal(); go('waiting'); } }]),
+    ...S.clients.filter(c => !c.archived).map(c => ({ title:`${LIFE() ? 'Open area' : 'Open client'}: ${c.name}`, run: () => { closeModal(); go('client-'+c.id); } })),
+    ...(LIFE() ? [] : S.clients.filter(c => !c.archived).map(c => ({ title:`Start meeting with ${c.name}`, run: () => { closeModal(); startMeeting(c.id); } }))),
     ...Reg.commands.map(c => ({ title: c.title, k: c.hint, run: () => { closeModal(); c.run(makeApi(c.pid)); } }))
   ];
   return cmds;
@@ -1113,7 +1194,25 @@ function openPalette(){
   });
   $('#pal-list').addEventListener('click', e => { const it = e.target.closest('.pal-item'); if(it) list[+it.dataset.i].run(); });
 }
+const AREA_EMOJI = ['🏠','💚','💰','🛠️','🚗','🎓','⚽','🍳','🧺','🌱','🐶','✈️','🎨','📚','👶','🎵','🏃','🛒','🧘','🎁'];
+function promptArea(existing){
+  const c = existing ? client(existing) : null;
+  let icon = c ? c.icon || '🌱' : AREA_EMOJI[S.clients.length % AREA_EMOJI.length], color = c ? c.color : COLORS[S.clients.length % COLORS.length];
+  openModalHTML(c ? 'Edit area' : 'New area', `<div class="field"><label>Name</label><input class="inp" id="ar-name" value="${esc(c ? c.name : '')}" placeholder="Kids, Car, Garden, Side project…"></div>
+    <div class="field"><label>Icon</label><div class="ar-emoji">${AREA_EMOJI.map(e => `<button data-e="${e}" class="${e === icon ? 'on' : ''}">${e}</button>`).join('')}</div></div>
+    <div class="field"><label>Colour</label><div class="swatches">${COLORS.map(x => `<button data-c="${x}" style="background:${x}" class="${x === color ? 'on' : ''}"></button>`).join('')}</div></div>`,
+    `${c ? `<button class="btn ghost danger" id="ar-arch" style="margin-right:auto">Archive</button>` : ''}<button class="btn" data-act="close-modal">Cancel</button><button class="btn primary" id="ar-save">${c ? 'Save' : 'Add area'}</button>`);
+  $$('.ar-emoji button').forEach(b => b.onclick = () => { icon = b.dataset.e; $$('.ar-emoji button').forEach(x => x.classList.toggle('on', x === b)); });
+  $$('.swatches button').forEach(b => b.onclick = () => { color = b.dataset.c; $$('.swatches button').forEach(x => x.classList.toggle('on', x === b)); });
+  const name = $('#ar-name'); name.focus();
+  const done = () => { const n = name.value.trim(); if(!n) return name.focus();
+    if(c){ c.name = n; c.icon = icon; c.color = color; } else { const a = addClient(n, color); if(a){ a.icon = icon; a.domain = ''; } }
+    save(); closeModal(); render(); if(!c){ const a = S.clients.find(x => x.name.toLowerCase() === n.toLowerCase()); if(a) go('client-' + a.id); } };
+  $('#ar-save').onclick = done; name.onkeydown = e => { if(e.key === 'Enter') done(); };
+  if(c) $('#ar-arch').onclick = () => { c.archived = true; save(); closeModal(); go('today'); };
+}
 function promptClient(existing){
+  if(LIFE()) return promptArea(existing);
   const c = existing ? client(existing) : null;
   const draft = { name: c ? c.name : '', domain: c ? (c.domain||'') : '', color: c ? c.color : COLORS[S.clients.length % COLORS.length], status: c ? (c.status||'active') : 'active', info: null, logoV: c ? c.logoV : null };
   openModalHTML(c ? 'Edit client' : 'Add client', `
@@ -1182,13 +1281,13 @@ function pluginAdds(pid){
   return out;
 }
 function renderPlugins(v){
-  const all = Reg.defs, on = all.filter(d => enabled(d.id)), off = all.filter(d => !enabled(d.id)), mine = all.filter(d => d.userCode);
+  const all = Reg.defs.filter(d => spaceOk(d.id)), on = all.filter(d => enabled(d.id)), off = all.filter(d => !enabled(d.id)), mine = all.filter(d => d.userCode);
   const tabs = [['active', 'Active', on.length], ['available', 'Turned off', off.length], ['all', 'All', all.length], ['yours', 'Yours', mine.length]];
   const base = { active: on, available: off, all, yours: mine }[plugUI.tab] || on;
   const cats = [...new Set(base.map(d => d.category || 'Other'))].sort((a, b) => PLUG_CATS.indexOf(a) - PLUG_CATS.indexOf(b));
   if(plugUI.cat !== 'All' && !cats.includes(plugUI.cat)) plugUI.cat = 'All';
   v.innerHTML = `<div class="pb">
-    <div class="pb-hero"><div><h1>Plugins</h1><div class="sub">${on.length} of ${all.length} on. Cadence is whatever you make it: switch things on, tune them, or write your own.</div></div>
+    <div class="pb-hero"><div><h1>Plugins</h1><div class="sub">${on.length} of ${all.length} on in <b>${LIFE() ? 'Life' : 'Work'}</b>. Each space has its own set. Cadence is whatever you make it: switch things on, tune them, or write your own.</div></div>
       <div class="pb-search">${NAV_ICONS.puzzle}<input id="pb-q" placeholder="Search plugins…" value="${esc(plugUI.q)}" autocomplete="off"></div></div>
     <div class="pb-tabs">${tabs.map(([k, l, n]) => `<button class="${plugUI.tab === k ? 'on' : ''}" data-act="pl-tab" data-t="${k}">${l}<span>${n}</span></button>`).join('')}<button class="pb-dev" data-act="set-tab" data-tab="dev">+ Write a plugin</button></div>
     <div class="pl-cats">${['All', ...cats].map(c => `<button class="${c === plugUI.cat ? 'on' : ''}" data-act="pl-cat" data-c="${esc(c)}">${esc(c)}</button>`).join('')}</div>
@@ -1202,7 +1301,7 @@ function renderPlugins(v){
       return `<div class="pl-card pb-card ${enabled(d.id) ? '' : 'off'} ${plugUI.open === d.id ? 'sel' : ''}" data-act="pl-open" data-pid="${esc(d.id)}" style="--pc:${esc(d.color || '#5b5bd6')}">
         <div class="pb-top">${plugIcon(d, 44)}<div class="pb-act">${hasSettings(d.id) ? `<button class="pb-gear" data-act="pl-settings" data-pid="${esc(d.id)}" title="Settings">${NAV_ICONS.gear}</button>` : ''}<button class="switch sm ${enabled(d.id) ? 'on' : ''}" data-act="toggle-plugin" data-pid="${esc(d.id)}" aria-label="Turn ${esc(d.name || d.id)} ${enabled(d.id) ? 'off' : 'on'}"></button></div></div>
         <b>${esc(d.name || d.id)}</b><span class="pb-tag">${esc(d.tagline || d.description || '')}</span>
-        <div class="pb-foot"><i>${esc(d.category || 'Other')}</i>${kinds.map(k => `<i class="k">${esc(k)}</i>`).join('')}${d.userCode ? '<i class="k">Yours</i>' : ''}</div>
+        <div class="pb-foot"><i>${esc(d.category || 'Other')}</i>${d.spaces && d.spaces.length === 1 ? `<i>${d.spaces[0] === 'work' ? 'Work only' : 'Life only'}</i>` : ''}${kinds.map(k => `<i class="k">${esc(k)}</i>`).join('')}${d.userCode ? '<i class="k">Yours</i>' : ''}</div>
       </div>`; }).join('') || `<div class="pb-empty">${plugUI.tab === 'available' && !q ? 'Everything is switched on. Bold.' : 'No plugins match.'}</div>`;
   };
   grid();
@@ -1464,6 +1563,7 @@ document.addEventListener('click', e => {
     case 'pl-close': plugUI.open = null; renderView(); break;
     case 'pl-settings': openPluginSettings(a.dataset.pid); break;
     case 'open-plugins': closeModal(); go('plugins'); break;
+    case 'space': switchSpace(a.dataset.s); break;
     case 'ins-tab': S.settings.insightsTab = a.dataset.id; persistLocal(); render(); break;
     case 'demo-open': window.open(location.pathname + '?demo=1' + location.hash, '_blank'); break;
     case 'demo-reset': resetDemo(); break;
@@ -1540,7 +1640,8 @@ document.addEventListener('keydown', e => {
   if(typing || e.metaKey || e.ctrlKey || e.altKey) return;
   if($('#meeting').classList.contains('open')) return;
   if(e.key === 'n' || e.key === 'q'){ e.preventDefault(); const q = $('#qa'); q && q.focus(); }
-  if(e.key === 'm'){ e.preventDefault(); startMeeting(); }
+  if(e.key === 'm' && !LIFE()){ e.preventDefault(); startMeeting(); }
+  if(e.key === 'L' && e.shiftKey){ e.preventDefault(); switchSpace(); }
   if(e.key === '/'){ e.preventDefault(); openPalette(); }
   if(e.key === 't') go('today');
   if(e.key === '?'){ e.preventDefault(); showShortcuts(); }

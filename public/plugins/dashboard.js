@@ -21,13 +21,13 @@ Cadence.registerPlugin({
       render(el, api, ctx) {
         const t = today(), max = +ctx.cfg.max || 8;
         const list = api.tasks.list(x => !x.done && x.owner !== 'client' && x.dueDate && x.dueDate <= t).sort((a, b) => (a.dueDate || '').localeCompare(b.dueDate || '') || (b.priority || 0) - (a.priority || 0));
-        el.innerHTML = `<div class="dw-list">${list.slice(0, max).map(x => { const c = x.clientId && ctx.cfg.clients !== false ? api.clients.get(x.clientId) : null; return `<div class="dw-task ${x.priority >= 3 ? 'p3' : ''}" data-id="${E(x.id)}"><button class="check" aria-label="Complete"></button><span class="tt">${E(x.title)}${c ? `<small>${E(c.name)}</small>` : ''}</span>${x.dueDate < t ? '<em>overdue</em>' : x.dueTime ? `<em class="t">${E(x.dueTime)}</em>` : ''}</div>`; }).join('') || '<div class="dw-empty">Nothing due. Enjoy it.</div>'}${list.length > max ? `<div class="dw-more">+${list.length - max} more</div>` : ''}</div>`;
+        el.innerHTML = `<div class="dw-list">${list.slice(0, max).map(x => { const c = x.clientId && ctx.cfg.clients !== false ? api.clients.get(x.clientId) : null; return `<div class="dw-task ${x.priority >= 3 ? 'p3' : ''}" data-id="${E(x.id)}"><button class="check" aria-label="Complete"></button><span class="tt">${E(x.title)}${c ? `<small>${E(c.name)}</small>` : ''}</span>${x.dueDate < t ? `<em>${api.space() === 'life' ? 'earlier' : 'overdue'}</em>` : x.dueTime ? `<em class="t">${E(x.dueTime)}</em>` : ''}</div>`; }).join('') || '<div class="dw-empty">Nothing due. Enjoy it.</div>'}${list.length > max ? `<div class="dw-more">+${list.length - max} more</div>` : ''}</div>`;
         el.querySelectorAll('.dw-task .check').forEach(b => b.onclick = () => { const row = b.closest('.dw-task'); row.classList.add('done'); setTimeout(() => api.tasks.complete(row.dataset.id), 320); });
         el.querySelectorAll('.dw-task .tt').forEach(t => t.onclick = () => { const x = api.tasks.get(t.closest('.dw-task').dataset.id); api.ui.navigate(x && x.clientId ? 'client-' + x.clientId : 'today'); });
       } });
     W('quickadd', { title: 'Quick add', icon: '+', size: 'w', description: 'Add a task from anywhere. Same syntax as everywhere else: @client fri 3pm !1 #tag',
       render(el, api) {
-        el.innerHTML = `<div class="dw-qa"><span>+</span><input placeholder="Add a task… @client fri 3pm !1" autocomplete="off"></div>`;
+        el.innerHTML = `<div class="dw-qa"><span>+</span><input placeholder="${api.space() === 'life' ? 'Add something… @home sat every month' : 'Add a task… @client fri 3pm !1'}" autocomplete="off"></div>`;
         const i = el.querySelector('input'); i.onkeydown = e => { if (e.key === 'Enter' && i.value.trim()) { api.tasks.quickAdd(i.value.trim(), {}); api.island.show({ check: true, title: 'Added', sub: i.value.trim(), ms: 1800 }); i.value = ''; } };
       } });
     W('clock', { title: 'Clock', icon: '◷', size: 'm', description: 'Big time, date and a greeting.',
@@ -40,11 +40,12 @@ Cadence.registerPlugin({
     W('stats', { title: 'At a glance', icon: '▦', size: 'row', minH: 1, description: 'Done today, due today, overdue, waiting on clients.',
       render(el, api) {
         const t = today(), all = api.tasks.list(), open = all.filter(x => !x.done);
-        const n = { done: all.filter(x => x.done && x.doneAt && ymd(new Date(x.doneAt)) === t).length, due: open.filter(x => x.owner !== 'client' && x.dueDate === t).length, over: open.filter(x => x.owner !== 'client' && x.dueDate && x.dueDate < t).length, wait: open.filter(x => x.owner === 'client').length };
-        el.innerHTML = `<div class="dw-stats">${[['done', 'done today', 'ok', 'today'], ['due', 'due today', '', 'today'], ['over', n.over ? 'overdue — clear them' : 'nothing overdue', 'bad', 'today'], ['wait', 'waiting on clients', 'cl', 'waiting']].map(([k, l, c, go]) => `<div class="gl ${c}" data-nav="${go}"><div class="tx"><div class="v">${n[k]}</div><div class="l">${l}</div></div></div>`).join('')}</div>`;
+        const life = api.space() === 'life', wk = api.util.ymd(api.util.addDays(new Date(), 7));
+        const n = { done: all.filter(x => x.done && x.doneAt && ymd(new Date(x.doneAt)) === t).length, due: open.filter(x => x.owner !== 'client' && x.dueDate === t).length, over: open.filter(x => x.owner !== 'client' && x.dueDate && x.dueDate < t).length, wait: life ? open.filter(x => x.dueDate && x.dueDate > t && x.dueDate <= wk).length : open.filter(x => x.owner === 'client').length };
+        el.innerHTML = `<div class="dw-stats">${[['done', 'done today', 'ok', 'today'], ['due', 'due today', '', 'today'], ['over', life ? (n.over ? 'still on the list' : 'all caught up') : n.over ? 'overdue — clear them' : 'nothing overdue', life ? '' : 'bad', 'today'], ['wait', life ? 'coming up this week' : 'waiting on clients', life ? '' : 'cl', life ? 'upcoming' : 'waiting']].map(([k, l, c, go]) => `<div class="gl ${c}" data-nav="${go}"><div class="tx"><div class="v">${n[k]}</div><div class="l">${l}</div></div></div>`).join('')}</div>`;
         el.querySelectorAll('[data-nav]').forEach(g => g.onclick = () => api.ui.navigate(g.dataset.nav));
       } });
-    W('waiting', { title: 'Waiting on clients', icon: '⧗', size: 'm', description: 'Who owes you what, oldest first.',
+    W('waiting', { title: 'Waiting on clients', icon: '⧗', size: 'm', spaces: ['work'], description: 'Who owes you what, oldest first.',
       render(el, api) {
         const by = new Map(); api.tasks.list(x => !x.done && x.owner === 'client' && x.clientId).forEach(x => { by.set(x.clientId, (by.get(x.clientId) || []).concat([x])); });
         const rows = [...by.entries()].map(([cid, xs]) => ({ c: api.clients.get(cid), n: xs.length, age: Math.max(...xs.map(x => Date.now() - (x.lastChased || x.createdAt || Date.now()))) / 864e5 })).filter(r => r.c).sort((a, b) => b.age - a.age);
@@ -76,6 +77,9 @@ Cadence.registerPlugin({
     /* ---------------- pages ---------------- */
     function starter() {
       const it = (key, x, y, w, h, cfg = {}) => ({ iid: uid(), key, x, y, w, h, cfg });
+      if (api.space() === 'life') return [{ id: 'home', name: 'Home', icon: '🌿', items: [
+        it('dashboard:clock', 0, 0, 4, 2), it('dashboard:quickadd', 4, 0, 8, 2), it('dashboard:stats', 0, 2, 12, 1),
+        it('dashboard:focus', 0, 3, 7, 5, { title: 'Today' }), it('dashboard:note', 7, 3, 5, 3, { color: 'green', text: 'This week:\n- ' }), it('weblinks:links', 7, 6, 5, 2)] }];
       return [{ id: 'home', name: 'Home', icon: '⌂', items: [
         it('dashboard:clock', 0, 0, 4, 2), it('dashboard:quickadd', 4, 0, 8, 2), it('dashboard:stats', 0, 2, 12, 1),
         it('dashboard:focus', 0, 3, 7, 5), it('dashboard:waiting', 7, 3, 5, 3), it('dashboard:note', 7, 6, 5, 2, { color: 'yellow', text: 'Drag me around in Edit mode ✨' }),
@@ -301,7 +305,7 @@ Cadence.registerPlugin({
       document.body.appendChild(box); document.body.classList.add('dash-lib');
       const list = box.querySelector('.db-libl');
       const draw = q => {
-        const ws = api.widgets.list().filter(w => !q || (w.title + ' ' + w.description).toLowerCase().includes(q));
+        const ws = api.widgets.list().filter(w => (!w.spaces || w.spaces.includes(api.space())) && (!q || (w.title + ' ' + w.description).toLowerCase().includes(q)));
         list.innerHTML = ws.map(w => `<div class="db-w" draggable="true" data-k="${E(w.key)}" style="--wc:${E(w.color || '#0ea5a4')}"><i>${E(w.icon || '◇')}</i><div><b>${E(w.title)}</b><span>${E(w.description || '')}</span><small>${E(w.pid === 'dashboard' ? 'Built in' : 'from ' + w.pid)}</small></div></div>`).join('');
         list.querySelectorAll('.db-w').forEach(n => {
           n.onclick = () => add(n.dataset.k);

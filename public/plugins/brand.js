@@ -67,7 +67,7 @@
   }
 
   Cadence.registerPlugin({
-    id: 'brand', name: 'Brand theme', version: '1.0.0', icon: '<path d="M12 3.5c4 5 6 8 6 10.5a6 6 0 01-12 0c0-2.5 2-5.5 6-10.5z"/>', color: '#d6409f', category: 'Clients', tagline: 'Client pages in their colours',
+    id: 'brand', spaces: ['work'], name: 'Brand theme', version: '1.0.0', icon: '<path d="M12 3.5c4 5 6 8 6 10.5a6 6 0 01-12 0c0-2.5 2-5.5 6-10.5z"/>', color: '#d6409f', category: 'Clients', tagline: 'Client pages in their colours',
     description: 'Client pages subtly take on each client’s brand colours, detected from their website CSS and logo.',
     setup(api) {
       const busy = new Set();

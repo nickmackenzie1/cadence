@@ -43,7 +43,7 @@
   const sameDay = (a, b) => new Date(a).toDateString() === new Date(b).toDateString();
 
   Cadence.registerPlugin({
-    id: 'calendar', name: 'Calendar', version: '1.0.0', settings: () => window.__cal.settings && window.__cal.settings(), icon: '<rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 9.5h16M8.5 3v4M15.5 3v4M12 13v3l2 1.2"/>', color: '#e5484d', category: 'Meetings', tagline: 'Meetings matched to clients',
+    id: 'calendar', spaces: ['work'], name: 'Calendar', version: '1.0.0', settings: () => window.__cal.settings && window.__cal.settings(), icon: '<rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 9.5h16M8.5 3v4M15.5 3v4M12 13v3l2 1.2"/>', color: '#e5484d', category: 'Meetings', tagline: 'Meetings matched to clients',
     description: 'Your meetings in Cadence: today’s schedule matched to clients, a heads-up before each meeting with Prep / Start, and a nudge to import Fireflies notes afterwards. Reads iCal feeds through the NAS.',
     setup(api) {
       const E = api.ui.esc, opts = () => Object.assign({ sample: false, lead: 10 }, api.storage.get('settings') || {}, api.system().demo ? { sample: true } : {});

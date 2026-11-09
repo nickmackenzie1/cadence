@@ -2,7 +2,7 @@
    one box per item. He walks slower as things get older, falls asleep when a client is slow,
    and wakes you up (on the Island) to chase them. Click him for the list. */
 Cadence.registerPlugin({
-  id: 'intern', name: 'The intern', version: '1.0.0', category: 'Fun',
+  id: 'intern', spaces: ['work'], name: 'The intern', version: '1.0.0', category: 'Fun',
   description: 'A pixel intern in the sidebar carries one box for every item a client owes you. He slows down as they get old, falls asleep when a client takes too long, and wakes you up to chase them.',
   tagline: 'Carries what clients owe you', color: '#c2771c',
   icon: '<rect x="7" y="3" width="10" height="7" rx="1"/><path d="M8 10v4h8v-4M9 14v6M15 14v6"/>',

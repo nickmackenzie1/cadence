@@ -2,7 +2,7 @@
 (() => {
 const registerPlugin = def => Cadence.registerPlugin(def);
 registerPlugin({
-  id:'templates', name:'Project templates', version:'1.0.0', icon: '<path d="M12 3.5l9 5-9 5-9-5z"/><path d="M3 13l9 5 9-5"/>', color: '#12a594', category: 'Clients', tagline: 'Kick off projects in one click', builtin:true,
+  id:'templates', spaces: ['work'], name:'Project templates', version:'1.0.0', icon: '<path d="M12 3.5l9 5-9 5-9-5z"/><path d="M3 13l9 5 9-5"/>', color: '#12a594', category: 'Clients', tagline: 'Kick off projects in one click', builtin:true,
   description:'Apply a checklist (Zoho CRM implementation, Books setup, Desk rollout, retainer…) to a client with real dates. Edit templates or save a client’s plan as a new one.',
   setup(api){
     const E = api.ui.esc;
