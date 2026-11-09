@@ -1927,6 +1927,25 @@ if(!S.fixPrep){
 }
 booted = true;
 render(); renderWidgets();
+/* a new version on the NAS: old tabs running old code against new data cause odd bugs. Background tabs with nothing
+   half-typed reload themselves; otherwise a banner asks. */
+const Build = { id: null, pending: false };
+const busyEditing = () => !!(tePending || (document.activeElement && document.activeElement.matches('input:not(#qa):not(.pop-search),textarea,[contenteditable="true"]') && document.activeElement.value !== '') || $('#modal.on, #modal:not([hidden]) .inp:focus'));
+async function checkBuild(){
+  if(DEMO) return;
+  try { const r = await fetch('api/health', { cache: 'no-store' }); if(!r.ok) return; const j = await r.json(); if(!j.build) return;
+    if(!Build.id){ Build.id = j.build; return; }
+    if(j.build !== Build.id && !Build.pending){ Build.pending = true; newBuild(); } } catch(e){}
+}
+function reloadNow(){ try { flushEdit(); persistLocal && persistLocal(); } catch(e){} location.reload(); }
+function newBuild(){
+  if(document.hidden && !busyEditing()) return reloadNow();
+  if($('#upd-bar')) return;
+  const b = document.createElement('div'); b.id = 'upd-bar'; b.innerHTML = `<span>✨ Cadence was updated on your NAS</span><button class="btn primary" id="upd-go">Reload</button><button class="upd-x" id="upd-x" title="Later">✕</button>`;
+  document.body.appendChild(b); $('#upd-go').onclick = reloadNow; $('#upd-x').onclick = () => b.remove();
+}
+document.addEventListener('visibilitychange', () => { if(document.hidden && Build.pending && !busyEditing()) reloadNow(); else if(!document.hidden) checkBuild(); });
+setTimeout(checkBuild, 2500); setInterval(checkBuild, 60000);
 if(S.activeMeeting) toast('A meeting is still in progress', [{ label:'Resume', run: () => startMeeting() }], { sticky:true });
 setInterval(checkReminders, 15000); checkReminders();
 setInterval(() => { if(!$('#meeting').classList.contains('open') && !document.activeElement.closest?.('.qa, .drawer, .modal')) { renderSide(); } }, 60000);

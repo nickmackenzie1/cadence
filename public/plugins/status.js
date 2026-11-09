@@ -76,10 +76,9 @@
       function checkBuild(h) {
         if (!h || !h.build) return;
         if (!G.build) { G.build = h.build; return; }
-        if (h.build !== G.build && !G.toldBuild) { G.toldBuild = true;
-          api.island.show({ icon: '↻', color: '#5b5bd6', title: 'Cadence was updated', sub: 'Reload to get the latest', sticky: true, actions: [{ label: 'Reload', run: () => location.reload() }, { label: 'Later', run: () => {} }] }); }
+
       }
-      api.on('sync', e => { if (e.phase === 'connected') checkBuild(e.health); });
+      // the reload offer moved into core (always on); keep the build for the status panel only
       /* ------------ periodic health ping (NAS only) */
       async function ping() {
         if (api.system().mode !== 'nas') return null;
