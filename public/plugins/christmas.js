@@ -51,7 +51,7 @@
           <div class="field"><label>Lights</label>${seg('xm-style', [['classic', 'Classic colours'], ['warm', 'Warm white'], ['candy', 'Candy cane']], o.lightStyle)}
             <div style="margin-top:8px">${seg('xm-pat', [['twinkle', 'Twinkle'], ['chase', 'Chase'], ['steady', 'Steady']], o.pattern)}</div></div>
           ${reduced() ? '<p class="muted" style="font-size:12px">Your system asks for reduced motion, so snow stays off and the lights stay still.</p>' : ''}`,
-          `<button class="btn" id="xm-shovel" style="margin-right:auto">Shovel the snow</button><button class="btn primary" id="xm-save">Done</button>`, 'wide');
+          `<button class="btn" id="xm-shovel-page">Shovel this page</button><button class="btn" id="xm-shovel" style="margin-right:auto">Shovel everything</button><button class="btn primary" id="xm-save">Done</button>`, 'wide');
         const $ = id => document.getElementById(id);
         const read = () => ({ ...draft, on: $('xm-on').checked, snow: $('xm-snow').checked, build: $('xm-build').checked, react: $('xm-react').checked, depth: $('xm-depth').checked, melt: $('xm-melt').checked, lights: $('xm-lights').checked });
         const live = () => { draft = read(); if (draft.on) { G.o = draft; G.preview && G.preview(draft); } };
@@ -63,10 +63,12 @@
         bindSliders();
         document.querySelectorAll('#modal .xm-row input').forEach(i => i.onchange = live);
         $('xm-shovel').onclick = () => { shovel(); api.ui.toast('All shovelled'); };
+        $('xm-shovel-page').onclick = () => { shovelPage(); api.ui.toast('This page is shovelled'); };
         $('xm-save').onclick = () => { setOpts(read()); api.ui.close(); };
       };
       api.commands.add({ title: 'Christmas mode…', hint: 'Lights and snow', run: () => G.settings() });
-      api.commands.add({ title: 'Shovel the snow', hint: 'Christmas mode', run: () => shovel() });
+      api.commands.add({ title: 'Shovel this page', hint: 'Christmas mode', run: () => { shovelPage(); api.ui.toast('This page is shovelled'); } });
+      api.commands.add({ title: 'Shovel everything', hint: 'Christmas mode', run: () => { shovel(); api.ui.toast('All shovelled'); } });
       // quick switches, any day of the year: snow and lights on their own
       const flip = key => { const o = opts(), wasOn = o.on, cur = wasOn && o[key], n = { ...o, [key]: !cur, on: true };
         if (!wasOn) { n.snow = key === 'snow'; n.lights = key === 'lights'; }
@@ -84,31 +86,53 @@
       }
 
       /* ---------------- lights ---------------- */
+      // the string hooks onto the Island pill (the wire swags into its sides), and the pill wears its own ring of tiny bulbs
+      let ringRO = null, ringT = 0;
       function lights(o) {
         let el = document.getElementById('xm-string');
-        if (!o.on || !o.lights) { el && el.remove(); document.getElementById('xm-glow')?.remove(); G.bulbs = null; return; }
+        if (!o.on || !o.lights) { el && el.remove(); document.getElementById('xm-glow')?.remove(); document.getElementById('xm-ring')?.remove(); ringRO && ringRO.disconnect(); ringRO = null; G.bulbs = null; return; }
         if (!el) { el = document.createElement('div'); el.id = 'xm-string'; el.setAttribute('aria-hidden', 'true'); document.body.appendChild(el); }
-        const cols = LIGHTS[o.lightStyle] || LIGHTS.classic, n = Math.ceil(innerWidth / 46);
+        const cols = LIGHTS[o.lightStyle] || LIGHTS.classic, W = innerWidth, pill = document.querySelector('.isl-pill'), pr = pill && pill.getBoundingClientRect();
+        const hook = pr && pr.width > 20 && pr.top < 60 ? { l: pr.left - 4, r: pr.right + 4, y: Math.min(34, pr.top + pr.height / 2) } : null;
+        const segs = hook ? [[0, hook.l, 4, hook.y], [hook.r, W, hook.y, 4]] : [[0, W, 4, 4]];
+        const bulbs = []; let path = '', k = 0;
+        for (const [x0, x1, yA, yB] of segs) { if (x1 - x0 < 20) continue; const n = Math.max(1, Math.round((x1 - x0) / 46)), st = (x1 - x0) / n;
+          path += `M${x0.toFixed(1)} ${yA} `;
+          for (let i = 0; i < n; i++) { const a2 = x0 + i * st, b2 = a2 + st, y0 = i === 0 ? yA : 4, y1 = i === n - 1 ? yB : 4;
+            path += `Q ${(a2 + st / 2).toFixed(1)} 26 ${b2.toFixed(1)} ${y1} `;
+            bulbs.push({ x: a2 + st / 2, y: .25 * y0 + .5 * 26 + .25 * y1, c: cols[k % cols.length], d: (k * .37) % 2.2, k: k++ }); } }
         el.className = `xm-${o.pattern} ${o.chaos >= 2 && !reduced() ? 'xm-sway' : ''}`;
-        G.bulbs = Array.from({ length: n }, (_, i) => ({ x: i * 46 + 23, c: cols[i % cols.length], d: (i * 0.37) % 2.2, k: i })); G.pattern = o.pattern;
+        G.bulbs = bulbs; G.pattern = o.pattern;
         let gl = document.getElementById('xm-glow'); if (!gl) { gl = document.createElement('div'); gl.id = 'xm-glow'; gl.setAttribute('aria-hidden', 'true'); document.body.appendChild(gl); }
-        gl.className = el.className + (window.CadenceThemes && window.CadenceThemes.isDark && window.CadenceThemes.isDark() ? ' dk' : ''); gl.innerHTML = G.bulbs.map(b => `<i style="left:${b.x}px;--c:${b.c};--d:${b.d}s;--k:${b.k}"></i>`).join('');
-        el.innerHTML = `<svg class="xm-wire" viewBox="0 0 ${n * 46} 30" preserveAspectRatio="none"><path d="${Array.from({ length: n }, (_, i) => `${i ? '' : 'M0 4 '}Q ${i * 46 + 23} 26 ${(i + 1) * 46} 4`).join(' ')}"/></svg>` +
-          Array.from({ length: n }, (_, i) => `<i style="left:${i * 46 + 23}px;--c:${cols[i % cols.length]};--d:${(i * 0.37) % 2.2}s;--k:${i}"></i>`).join('');
+        gl.className = el.className + (window.CadenceThemes && window.CadenceThemes.isDark && window.CadenceThemes.isDark() ? ' dk' : '');
+        gl.innerHTML = bulbs.map(b => `<i style="left:${b.x}px;--c:${b.c};--d:${b.d}s;--k:${b.k}"></i>`).join('');
+        el.innerHTML = `<svg class="xm-wire" width="${W}" height="40" viewBox="0 0 ${W} 40"><path d="${path}"/></svg>` + bulbs.map(b => `<i style="left:${b.x}px;top:${(b.y - 3).toFixed(1)}px;--c:${b.c};--d:${b.d}s;--k:${b.k}"></i>`).join('');
+        // the ring of mini bulbs around the pill
+        let ring = document.getElementById('xm-ring');
+        if (!pill || !pr || pr.width < 20) { ring && ring.remove(); return; }
+        if (!ring) { ring = document.createElement('div'); ring.id = 'xm-ring'; ring.setAttribute('aria-hidden', 'true'); document.body.appendChild(ring); }
+        const pad = 5, w = pr.width + pad * 2, h = pr.height + pad * 2, rad = Math.min(h / 2, (parseFloat(getComputedStyle(pill).borderTopLeftRadius) || h / 2) + pad);
+        ring.className = el.className; Object.assign(ring.style, { left: pr.left - pad + 'px', top: pr.top - pad + 'px', width: w + 'px', height: h + 'px' });
+        ring.innerHTML = `<svg width="${w}" height="${h}"><rect x="1.5" y="1.5" width="${w - 3}" height="${h - 3}" rx="${rad - 1.5}" class="xm-rw"/></svg>`;
+        const rect = ring.querySelector('rect'), len = rect.getTotalLength ? rect.getTotalLength() : 0, m = Math.max(8, Math.floor(len / 15));
+        let dots = ''; for (let i = 0; i < m; i++) { const pt = rect.getPointAtLength(len * i / m); dots += `<circle cx="${pt.x.toFixed(1)}" cy="${pt.y.toFixed(1)}" r="2.3" style="--c:${cols[i % cols.length]};--d:${((i * .29) % 2.2).toFixed(2)}s;--k:${i}"/>`; }
+        ring.querySelector('svg').insertAdjacentHTML('beforeend', dots);
+        if (!ringRO && window.ResizeObserver) { ringRO = new ResizeObserver(() => { clearTimeout(ringT); ringT = setTimeout(() => G.o && G.o.on && lights(G.o), 120); }); ringRO.observe(pill); }
       }
 
       /* ---------------- snow ---------------- */
       // sprites, drawn once: soft flakes, three crystal shapes, a bokeh disc
       const sprite = (size, draw) => { const c = document.createElement('canvas'); c.width = c.height = size; draw(c.getContext('2d'), size); return c; };
       const SOFT = sprite(32, (g, s) => { const r = g.createRadialGradient(s / 2, s / 2, 0, s / 2, s / 2, s / 2); r.addColorStop(0, 'rgba(255,255,255,1)'); r.addColorStop(.45, 'rgba(255,255,255,.85)'); r.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = r; g.fillRect(0, 0, s, s); });
+      const ICE = sprite(32, (g, s) => { const r = g.createRadialGradient(s / 2, s / 2, 0, s / 2, s / 2, s / 2); r.addColorStop(0, 'rgba(255,255,255,1)'); r.addColorStop(.38, 'rgba(236,244,255,.95)'); r.addColorStop(.62, 'rgba(176,204,240,.45)'); r.addColorStop(1, 'rgba(176,204,240,0)'); g.fillStyle = r; g.fillRect(0, 0, s, s); });
       const BOKEH = sprite(64, (g, s) => { const r = g.createRadialGradient(s / 2, s / 2, s * .1, s / 2, s / 2, s / 2); r.addColorStop(0, 'rgba(255,255,255,.55)'); r.addColorStop(.7, 'rgba(255,255,255,.35)'); r.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = r; g.fillRect(0, 0, s, s); });
-      const crystal = v => sprite(48, (g, s) => { g.translate(s / 2, s / 2); g.strokeStyle = '#fff'; g.lineCap = 'round'; g.shadowColor = 'rgba(160,190,230,.9)'; g.shadowBlur = 2;
+      const crystal = (v, edge) => sprite(48, (g, s) => { g.translate(s / 2, s / 2); g.strokeStyle = '#fff'; g.lineCap = 'round'; g.shadowColor = edge ? 'rgba(120,160,215,.95)' : 'rgba(160,190,230,.9)'; g.shadowBlur = edge ? 3 : 2;
         for (let a = 0; a < 6; a++) { g.save(); g.rotate(a * Math.PI / 3); g.lineWidth = 2; g.beginPath(); g.moveTo(0, 0); g.lineTo(0, -20); g.stroke(); g.lineWidth = 1.4;
           const br = v === 0 ? [[-8, 5], [-14, 4]] : v === 1 ? [[-6, 6], [-11, 5], [-16, 3]] : [[-10, 7], [-16, 3]];
           for (const [y, l] of br) { g.beginPath(); g.moveTo(0, y); g.lineTo(-l, y - l * .8); g.moveTo(0, y); g.lineTo(l, y - l * .8); g.stroke(); }
           if (v === 2) { g.beginPath(); g.arc(0, -20, 1.8, 0, 6.28); g.fillStyle = '#fff'; g.fill(); } g.restore(); }
         g.beginPath(); g.arc(0, 0, 2.2, 0, 6.28); g.fillStyle = '#fff'; g.fill(); });
-      const CRYS = [crystal(0), crystal(1), crystal(2)];
+      const CRYS = [crystal(0), crystal(1), crystal(2)], CRYS_L = [crystal(0, 1), crystal(1, 1), crystal(2, 1)];   // _L: a cool blue edge baked in for light themes
       // reflections: each bulb's colour, as bright as the bulb is right now (mirrors the CSS twinkle/chase timing)
       const TINT = new Map(), tint = c => { if (!TINT.has(c)) TINT.set(c, sprite(32, (g, s) => { const r = g.createRadialGradient(s / 2, s / 2, 0, s / 2, s / 2, s / 2); r.addColorStop(0, c); r.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = r; g.fillRect(0, 0, s, s); })); return TINT.get(c); };
       const bright = (b, t) => G.pattern === 'steady' ? 1 : G.pattern === 'chase' ? ((Math.floor(t / 400) + b.k % 3) % 3 === 0 ? 1 : .25) : .725 + .275 * Math.cos(2 * Math.PI * ((t / 2400 + b.d / 2.4) % 1));
@@ -123,17 +147,37 @@
         const o = G.o || defaults, z = Math.random(), near = o.depth && z > .93, far = z < .38;
         const r = (far ? rnd(.5, 1.1) : near ? rnd(5, 9) : rnd(1.1, 2.6)) * T.size;
         const crys = !far && !near && (o.style === 'crystals' || (o.style === 'mixed' && Math.random() < .28));
-        return { x: rnd(-60, innerWidth + 60), y: top ? rnd(-innerHeight, 0) : rnd(-40, -8), z, r: crys ? r * 2.2 : r, near, far, crys, spr: crys ? CRYS[(Math.random() * 3) | 0] : null,
+        return { x: rnd(-60, innerWidth + 60), y: top ? rnd(-80, innerHeight * .9) : rnd(-40, -8), z, r: crys ? r * 2.2 : r, near, far, crys, spr: crys ? (Math.random() * 3) | 0 : null,
           vy: 0, vx: 0, ph: Math.random() * 6.28, sp: rnd(.6, 1.6), rot: Math.random() * 6.28, vr: rnd(-.03, .03), o: far ? rnd(.35, .6) : near ? rnd(.25, .45) : rnd(.7, 1) };
       }
       const fallSpeed = f => (f.far ? .35 : f.near ? 1.6 : .55 + f.r * .18 * (f.crys ? .35 : 1)) * T.speed;
+      /* drifts are remembered by what they sit on and which page it's on (sidebar snow is shared by every page), so
+         they survive page changes and reloads until you shovel them */
+      const STORE = new Map(); let dirty = false;
+      try { const raw = JSON.parse(localStorage.getItem('cadence.snow') || '{}'); for (const [k, v] of Object.entries(raw)) STORE.set(k, { h: Float32Array.from(v.h, x => x / 10), w: v.w, rad: -1 }); } catch (e) {}
+      const save = () => { if (!dirty) return; dirty = false; const out = {}; let n = 0;
+        for (const [k, p] of STORE) { if (n > 400) break; let any = false; for (let j = 0; j < p.h.length; j++) if (p.h[j] > .5) { any = true; break; } if (!any) continue; out[k] = { w: Math.round(p.w), h: Array.from(p.h, x => Math.round(x * 10)) }; n++; }
+        try { localStorage.setItem('cadence.snow', JSON.stringify(out)); } catch (e) {} };
+      setInterval(save, 4000); addEventListener('pagehide', save);
+      const routeKey = () => (location.hash || '#today').slice(1);
+      function keyOf(el) {
+        const scope = el.closest('#side') ? '*' : routeKey();
+        const id = el.dataset.id || el.dataset.cid || el.dataset.sw || el.dataset.k || el.getAttribute('href') || el.dataset.act || '';
+        const cls = (el.classList[0] || el.tagName).toString();
+        if (id) return `${scope}|${cls}|${id}`;
+        const same = [...document.querySelectorAll(el.classList[0] ? '.' + CSS.escape(el.classList[0]) : el.tagName)];
+        return `${scope}|${cls}|#${same.indexOf(el)}`;
+      }
+      function resample(p, w) { const n = Math.ceil(w / BUCKET) + 1, old = p.h, h = new Float32Array(n); if (old.length > 1) for (let j = 0; j < n; j++) { const x = j / (n - 1) * (old.length - 1), a = Math.floor(x), b = Math.min(old.length - 1, a + 1); h[j] = old[a] + (old[b] - old[a]) * (x - a); } p.h = h; p.w = w; p.rad = -1; }
       function surfaces() {
         const seen = new Set();
         document.querySelectorAll(SURFACES).forEach(el => {
           if (el.closest('#xm-string')) return;
           const r = el.getBoundingClientRect(); if (r.width < 24 || r.bottom < 0 || r.top > innerHeight) return;
-          seen.add(el); if (!piles.has(el)) piles.set(el, { h: new Float32Array(Math.ceil(r.width / BUCKET) + 1), w: r.width, rad: -1 });
-          const p = piles.get(el); if (Math.abs(p.w - r.width) > 2) { p.h = new Float32Array(Math.ceil(r.width / BUCKET) + 1); p.w = r.width; p.rad = -1; }
+          seen.add(el);
+          let p = piles.get(el);
+          if (!p) { const k = keyOf(el); p = STORE.get(k); if (!p) { p = { h: new Float32Array(Math.ceil(r.width / BUCKET) + 1), w: r.width, rad: -1 }; STORE.set(k, p); } piles.set(el, p); }
+          if (Math.abs(p.w - r.width) > 2) resample(p, r.width);
           if (p.rad < 0) shape(el, p, r);
         });
         for (const el of piles.keys()) if (!seen.has(el) || !el.isConnected) piles.delete(el);
@@ -146,15 +190,16 @@
         for (let j = 0; j < p.h.length; j++) { const sl = Math.abs((p.base[Math.min(p.h.length - 1, j + 1)] - p.base[Math.max(0, j - 1)]) / (2 * BUCKET)); p.mf[j] = Math.max(.05, Math.min(1, 1 - sl * 1.1)); }
       }
       const baseY = (p, r, j) => r.top + (p.base ? p.base[j] : 0);
-      function shovel() { piles.forEach(p => p.h.fill(0)); }
-      G.shovel = shovel;
+      function shovel() { STORE.forEach(p => p.h.fill(0)); STORE.clear(); piles.clear(); dirty = true; try { localStorage.removeItem('cadence.snow'); } catch (e) {} }
+      function shovelPage() { const r = routeKey() + '|'; for (const [k, p] of STORE) if (k.startsWith(r)) { p.h.fill(0); STORE.delete(k); } piles.forEach((p, el) => { if (!el.closest('#side')) p.h.fill(0); }); piles.clear(); dirty = true; save(); }
+      G.shovel = shovel; G.shovelPage = shovelPage; G.debug = () => ({ store: STORE.size, piles: piles.size, flakes: flakes.length, raf: !!raf, cv: !!cv, max: Math.max(0, ...[...STORE.values()].map(p => Math.max(...p.h))) });
       // powder thrown into the air (bursts, splats, things knocked off)
       function powder(x, y, n, spread = 3, up = 4) { for (let i = 0; i < n && flakes.length < CAP; i++) { const f = newFlake(); f.near = f.far = f.crys = false; f.spr = null; f.r = rnd(1, 2.4) * T.size; f.o = rnd(.75, 1); f.x = x + rnd(-6, 6); f.y = y; f.vx = rnd(-spread, spread); f.vy = rnd(-up, -up * .25); f.air = 1; flakes.push(f); } }
       G.burst = (x, y, n) => powder(x, y, n, 3, 4.5);
       // a clump: a packed ball that arcs off and bursts into powder where it lands
       function clump(x, y, size, vx, vy) { if (flakes.length >= CAP) return; const f = newFlake(); Object.assign(f, { near: false, far: false, crys: false, spr: null, x, y, r: size, vx, vy, air: 1, clump: 1, o: 1 }); flakes.push(f); }
       function knock(el, strength = 1) {
-        const p = piles.get(el); if (!p) return; const r = el.getBoundingClientRect(); let moved = 0;
+        const p = piles.get(el); if (!p) return; const r = el.getBoundingClientRect(); let moved = 0; dirty = true;
         for (let j = 0; j < p.h.length; j++) { const take = p.h[j] * Math.min(1, strength); if (take < .6) continue; p.h[j] -= take; moved += take;
           const x = r.left + j * BUCKET, y = baseY(p, r, j) - p.h[j] - take;
           if (j % 3 === 0 && take > 2.5) clump(x, y, Math.min(9, 2 + take * .45) * T.size, rnd(-2.2, 2.2) * strength + (x - (r.left + r.width / 2)) * .012, -rnd(2.5, 6.5) * strength);
@@ -165,7 +210,7 @@
         const i = Math.max(0, Math.min(p.h.length - 1, Math.round((x - rect.left) / BUCKET)));
         const max = 14 * T.pile * (rect.width < 120 ? .6 : 1), mf = p.mf ? p.mf[i] : 1;
         if (max <= 0 || p.h[i] >= max * mf) { if (mf < .5) powder(x, baseY(p, rect, i) - p.h[i], 1, .6, .2); return false; }
-        p.h[i] += .9 * amt; if (i > 0) p.h[i - 1] += .35 * amt; if (i < p.h.length - 1) p.h[i + 1] += .35 * amt;
+        p.h[i] += .9 * amt; dirty = true; if (i > 0) p.h[i - 1] += .35 * amt; if (i < p.h.length - 1) p.h[i + 1] += .35 * amt;
         for (let k = 0; k < 3; k++) for (let j = 0; j < p.h.length; j++) {   // angle of repose
           const l = j > 0 ? p.h[j - 1] : -1, r = j < p.h.length - 1 ? p.h[j + 1] : -1;
           if (l >= 0 && p.h[j] - l > 2.4) { const m = (p.h[j] - l) / 3; p.h[j] -= m; p.h[j - 1] += m; }
@@ -214,7 +259,7 @@
           f.x = nx; f.y = ny;
           // draw
           const X = f.x * DPR, Y = f.y * DPR;
-          if (f.clump) { cx.globalAlpha = 1; cx.fillStyle = '#fff'; cx.shadowColor = light ? 'rgba(90,115,155,.5)' : 'rgba(0,0,0,.25)'; cx.shadowBlur = 3 * DPR;
+          if (f.clump) { cx.globalAlpha = 1; cx.fillStyle = '#fff'; cx.shadowColor = light ? 'rgba(130,165,215,.55)' : 'rgba(0,0,0,.25)'; cx.shadowBlur = 4 * DPR;
             for (const [ox, oy, k] of [[0, 0, 1], [.6, -.3, .7], [-.5, .35, .65]]) { cx.beginPath(); cx.arc(X + ox * f.r * DPR, Y + oy * f.r * DPR, f.r * k * DPR, 0, 6.283); cx.fill(); }
             cx.shadowBlur = 0; cx.shadowColor = 'transparent'; continue; }
           if (G.bulbs && !f.far && f.y < 340) { const b = bulbAt(f.x), dist = Math.hypot(f.x - b.x, f.y - 18), k = bright(b, t) * Math.max(0, 1 - dist / 340);
@@ -222,10 +267,9 @@
           cx.globalAlpha = f.o;
           if (f.near) { const s = f.r * 2.6 * DPR; cx.drawImage(BOKEH, X - s / 2, Y - s / 2, s, s); continue; }
           if (f.crys) { const s = f.r * 2 * DPR; cx.setTransform(Math.cos(f.rot), Math.sin(f.rot), -Math.sin(f.rot), Math.cos(f.rot), X, Y);
-            if (light) { cx.filter = 'drop-shadow(0 0 1px rgba(80,110,160,.8))'; } cx.drawImage(f.spr, -s / 2, -s / 2, s, s); cx.filter = 'none'; cx.setTransform(1, 0, 0, 1, 0, 0); continue; }
-          const s = f.r * 2.4 * DPR;
-          if (light && !f.far) { cx.globalAlpha = f.o * .55; cx.fillStyle = 'rgba(110,135,175,1)'; cx.beginPath(); cx.arc(X, Y + .6 * DPR, f.r * .95 * DPR, 0, 6.283); cx.fill(); cx.globalAlpha = f.o; }
-          cx.drawImage(SOFT, X - s / 2, Y - s / 2, s, s);
+            cx.drawImage((light ? CRYS_L : CRYS)[f.spr], -s / 2, -s / 2, s, s); cx.setTransform(1, 0, 0, 1, 0, 0); continue; }
+          const s = f.r * (light ? 3.2 : 2.4) * DPR;
+          cx.drawImage(light ? ICE : SOFT, X - s / 2, Y - s / 2, s, s);
         }
         while (flakes.length < want) flakes.push(newFlake(true));
         // the drifts
@@ -238,10 +282,10 @@
           for (let j = 0; j < p.h.length; j++) cx.lineTo(X(j), Yb(j) - p.h[j] * DPR);
           for (let j = p.h.length - 1; j >= 0; j--) cx.lineTo(X(j), Yb(j));
           cx.closePath();
-          const gr = cx.createLinearGradient(0, (r.top - 14) * DPR, 0, r.top * DPR); gr.addColorStop(0, '#ffffff'); gr.addColorStop(1, light ? '#e4edf8' : '#dfe8f3');
-          cx.shadowColor = light ? 'rgba(90,115,155,.55)' : 'rgba(120,150,190,.35)'; cx.shadowBlur = 5 * DPR; cx.shadowOffsetY = 1 * DPR; cx.fillStyle = gr; cx.fill();
+          const gr = cx.createLinearGradient(0, (r.top - 14) * DPR, 0, r.top * DPR); gr.addColorStop(0, '#ffffff'); gr.addColorStop(1, light ? '#d9e6f7' : '#dfe8f3');
+          cx.shadowColor = light ? 'rgba(120,155,205,.32)' : 'rgba(120,150,190,.35)'; cx.shadowBlur = (light ? 7 : 5) * DPR; cx.shadowOffsetY = 1 * DPR; cx.fillStyle = gr; cx.fill();
           cx.shadowColor = 'transparent'; cx.shadowBlur = 0; cx.shadowOffsetY = 0;
-          if (light) { cx.strokeStyle = 'rgba(140,160,195,.6)'; cx.lineWidth = DPR * .8; cx.beginPath(); let on = false;
+          if (light) { cx.strokeStyle = 'rgba(190,212,240,.9)'; cx.lineWidth = DPR; cx.beginPath(); let on = false;   // a cool blue edge, no dark rim
             for (let j = 0; j < p.h.length; j++) { const x = X(j), y = Yb(j) - p.h[j] * DPR; if (p.h[j] > .8) { on ? cx.lineTo(x, y) : cx.moveTo(x, y); on = true; } else on = false; }
             cx.stroke(); }
           // the lights glint off the drift tops in their own colours
@@ -256,12 +300,13 @@
       function size() { if (!cv) return; DPR = Math.min(2, devicePixelRatio || 1); cv.width = innerWidth * DPR; cv.height = innerHeight * DPR; }
       function snow(o) {
         const want = o.on && o.snow && !reduced();
-        if (!want) { cancelAnimationFrame(raf); raf = 0; cv && cv.remove(); cv = cx = null; flakes = []; piles.clear(); return; }
+        if (!want) { cancelAnimationFrame(raf); raf = 0; cv && cv.remove(); cv = cx = null; flakes = []; if (!o.on || !o.snow) shovel(); else { piles.clear(); save(); } return; }
         T = tuneOf(o);
         if (!cv) { cv = document.createElement('canvas'); cv.id = 'xm-snow'; cv.setAttribute('aria-hidden', 'true'); document.body.appendChild(cv); cx = cv.getContext('2d'); size(); }
         if (!raf) { last = performance.now(); raf = requestAnimationFrame(frame); }
       }
       G.preview = o => { lights(o); snow(o); };
+      G.reset = (x = {}) => setOpts({ ...opts(), on: false, ...x });
       if (!G.bound) { G.bound = true;
         addEventListener('resize', () => { size(); G.o && lights(G.o); });
         document.addEventListener('cadence:theme', () => { piles.forEach(p => p.rad = -1); setTimeout(() => G.o && lights(G.o), 60); });
@@ -291,21 +336,27 @@
       api.on('task:complete', () => { const o = G.o; if (!o || !o.on || T.gusts < 1 || reduced()) return; const c = document.querySelector('.task.done .check, .task.leaving .check'); const r = c ? c.getBoundingClientRect() : { left: innerWidth / 2, top: innerHeight / 2 }; powder(r.left + 9, r.top, Math.round(25 * T.amount), 3.5, 5); });
 
       if (!document.getElementById('xm-css')) { const st = document.createElement('style'); st.id = 'xm-css'; st.textContent = `
-        #xm-snow{position:fixed;inset:0;width:100vw;height:100vh;z-index:55;pointer-events:none}
+        #xm-snow{position:fixed;inset:0;width:100vw;height:100vh;z-index:27;pointer-events:none}
         /* light spill: each bulb's colour washes softly over the UI below it, pulsing with the bulb */
-        #xm-glow{position:fixed;left:0;right:0;top:0;height:300px;z-index:54;pointer-events:none;overflow:hidden}
+        #xm-glow{position:fixed;left:0;right:0;top:0;height:300px;z-index:26;pointer-events:none;overflow:hidden}
         #xm-glow i{position:absolute;top:-40px;width:200px;height:300px;margin-left:-100px;background:radial-gradient(closest-side,color-mix(in srgb,var(--c) 70%,transparent),transparent);opacity:.13;mix-blend-mode:normal}
         #xm-glow.dk i{opacity:.32;mix-blend-mode:screen}
         #xm-glow.xm-twinkle i{animation:xmgl 2.4s ease-in-out infinite;animation-delay:calc(var(--d) * -1)}
         #xm-glow.xm-chase i{animation:xmglc 1.2s steps(1) infinite;animation-delay:calc(var(--k) % 3 * -.4s)}
         @keyframes xmgl{50%{opacity:.04}} @keyframes xmglc{33%,66%{opacity:.03}}
         @media (prefers-reduced-motion:reduce){#xm-glow i{animation:none!important}}
-        #xm-string{position:fixed;left:0;right:0;top:-2px;height:34px;z-index:56;pointer-events:none;overflow:hidden}
-        #xm-string .xm-wire{position:absolute;left:0;top:0;width:100%;height:30px}
-        #xm-string .xm-wire path{fill:none;stroke:#2d3a2b;stroke-width:1.6;opacity:.75}
-        #xm-string i{position:absolute;top:12px;width:9px;height:14px;margin-left:-4.5px;border-radius:45% 45% 50% 50%/40% 40% 60% 60%;background:var(--c);
-          box-shadow:0 0 6px 2px var(--c),0 0 18px 4px color-mix(in srgb,var(--c) 55%,transparent);transform-origin:50% -4px}
-        #xm-string i::before{content:'';position:absolute;left:1.5px;top:-4px;width:6px;height:5px;border-radius:1px;background:#3a4a38}
+        #xm-string{position:fixed;left:0;right:0;top:-2px;height:34px;z-index:29;pointer-events:none;overflow:hidden}
+        #xm-string{height:44px!important}
+        #xm-string .xm-wire{position:absolute;left:0;top:0}
+        #xm-string .xm-wire path{fill:none;stroke:rgba(46,92,52,.5);stroke-width:1.3;stroke-linecap:round}
+        #xm-ring{position:fixed;z-index:81;pointer-events:none}
+        #xm-ring svg{display:block;overflow:visible} #xm-ring .xm-rw{fill:none;stroke:rgba(46,92,52,.45);stroke-width:1.1}
+        #xm-ring circle{fill:var(--c);filter:drop-shadow(0 0 2.5px var(--c))}
+        #xm-ring.xm-twinkle circle{animation:xmtw 2.4s ease-in-out infinite;animation-delay:calc(var(--d) * -1)}
+        #xm-ring.xm-chase circle{animation:xmch 1.2s steps(1) infinite;animation-delay:calc(var(--k) % 3 * -.4s)}
+        #xm-string i{position:absolute;top:12px;width:9px;height:14px;margin-left:-4.5px;border-radius:45% 45% 50% 50%/40% 40% 60% 60%;background:radial-gradient(circle at 35% 30%,color-mix(in srgb,var(--c) 40%,#fff),var(--c) 60%);
+          box-shadow:0 0 5px 1px color-mix(in srgb,var(--c) 85%,transparent),0 0 14px 3px color-mix(in srgb,var(--c) 40%,transparent);transform-origin:50% -4px}
+        #xm-string i::before{content:'';position:absolute;left:2px;top:-4px;width:5px;height:5px;border-radius:1.5px 1.5px .5px .5px;background:linear-gradient(90deg,#9aa3a8,#e8eef0 45%,#8a9398)}
         #xm-string.xm-twinkle i{animation:xmtw 2.4s ease-in-out infinite;animation-delay:calc(var(--d) * -1)}
         #xm-string.xm-chase i{animation:xmch 1.2s steps(1) infinite;animation-delay:calc(var(--k) % 3 * -.4s)}
         #xm-string.xm-sway i{animation-name:xmtw,xmsw;animation-duration:2.4s,3.2s;animation-iteration-count:infinite;animation-timing-function:ease-in-out}

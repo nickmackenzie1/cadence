@@ -394,3 +394,13 @@ Needs: Life space (done), weather API (key on NAS), maps/GPX (offline tiles = ph
   Actions, Tools, Help → settings/themes/add client/project/meeting/nudge/waiting/plugins/shortcuts/palette), collapsible
   "I want to…" panel (Add a Contact, Send an Instant Message → quick add, Start a Meeting, Send a Nudge; state in
   localStorage cadence.msn.iw).
+- Backlog (user, 2026-11-09 16:40): typing effects, chosen in settings: fire licking up from what you type, ice/frost
+  crystals, typewriter (clack sound + carriage-return ding on Enter, slight letter jitter), "MS Word 97" (Clippy-ish
+  original helper: "It looks like you're writing a task…" — original character, not Clippy), confetti on Enter,
+  power-mode style screen shake + sparks. Per-effect intensity; off for reduced motion.
+- Snow fixes (2026-11-09): drifts persist per page + element key (STORE, localStorage cadence.snow, sidebar shared
+  '*'), "Shovel this page" / "Shovel everything" (settings + ⌘K); stopping snow clears all drifts. Light themes: no
+  dark rims (ICE sprite, CRYS_L sprites with baked blue edge; the per-crystal canvas `filter` was ~700ms/frame
+  without GPU, removed). Lights: thin translucent wire, silver caps, the string hooks into the Island pill's sides and
+  the pill wears a ring of mini bulbs (#xm-ring, ResizeObserver on the pill). Layers now under dialogs/menus/toasts
+  (glow 26, snow 27, string 29; ring 81 above the Island). Flakes start spread over the screen. G.reset(opts) for tests.
