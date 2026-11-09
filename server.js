@@ -93,20 +93,111 @@ function sameOrigin(req) {
 }
 // pages and files you can load before signing in
 const OPEN = new Set(['/login', '/login.html', '/favicon.svg', '/manifest.webmanifest', '/icons/icon-32.png', '/icons/icon-192.png', '/icons/icon-512.png', '/api/login', '/api/logout', '/api/whoami']);
+// ---- storage: SQLite (node:sqlite, built into Node 22+) with a JSON mirror; falls back to JSON alone ----
+// Phase 1 of the move to SQLite: the app still syncs one state document, which is kept in the `state` table
+// and also split into per-record rows (`records`) ready for per-record sync and Work/Life spaces.
+// state.json is still written as a mirror, so rolling back to an older Cadence loses nothing.
+const DB_FILE = path.join(DATA_DIR, 'cadence.db');
+const SCHEMA = 1;
+let db = null, storage = 'json', storageNote = '';
+function openDb() {
+  if (/^json$/i.test(process.env.STORAGE || '')) { storageNote = 'STORAGE=json'; return; }
+  let sqlite; try { sqlite = require('node:sqlite'); } catch (e) { storageNote = 'node:sqlite unavailable (' + process.version + ')'; return; }
+  try {
+    db = new sqlite.DatabaseSync(DB_FILE);
+    db.exec(`PRAGMA journal_mode=WAL; PRAGMA synchronous=NORMAL; PRAGMA busy_timeout=4000; PRAGMA foreign_keys=ON;
+      CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT);
+      CREATE TABLE IF NOT EXISTS state (id INTEGER PRIMARY KEY CHECK (id = 1), json TEXT NOT NULL, updated_at INTEGER NOT NULL);
+      CREATE TABLE IF NOT EXISTS records (
+        kind TEXT NOT NULL, id TEXT NOT NULL, space TEXT NOT NULL DEFAULT 'work',
+        data TEXT NOT NULL, updated_at INTEGER NOT NULL, deleted INTEGER NOT NULL DEFAULT 0,
+        PRIMARY KEY (kind, id));
+      CREATE INDEX IF NOT EXISTS records_kind ON records (kind, deleted);
+      CREATE INDEX IF NOT EXISTS records_updated ON records (updated_at);`);
+    const v = db.prepare("SELECT value FROM meta WHERE key = 'schema'").get();
+    if (!v) db.prepare("INSERT INTO meta (key, value) VALUES ('schema', ?), ('created', ?)").run(String(SCHEMA), String(Date.now()));
+    storage = 'sqlite';
+    // bring in state.json on the first run, and again whenever it is newer than the database
+    // (after running an older Cadence or STORAGE=json for a while): the newest copy always wins
+    const have = db.prepare('SELECT updated_at FROM state WHERE id = 1').get();
+    let old = null; try { old = JSON.parse(fs.readFileSync(STATE_FILE, 'utf8')); } catch {}
+    if (old && typeof old.json === 'string' && (!have || (+old.updatedAt || 0) > have.updated_at)) {
+        if (!have) try { fs.copyFileSync(STATE_FILE, path.join(BACKUP_DIR, `state-before-sqlite-${new Date().toISOString().slice(0, 10)}.json`)); } catch {}
+        saveDb(old, true);
+        if (!have) db.prepare("INSERT OR REPLACE INTO meta (key, value) VALUES ('migrated_from_json', ?)").run(String(Date.now()));
+        console.log(`storage: ${have ? 'state.json was newer than the database: imported it' : 'imported state.json into SQLite'} (${(old.json.length / 1024).toFixed(0)} KB)`);
+    }
+  } catch (e) {
+    console.error('storage: SQLite failed, using JSON', e);
+    try { db && db.close(); } catch {} db = null; storage = 'json'; storageNote = 'SQLite error: ' + e.message;
+  }
+}
+// split the state document into one row per task / client / meeting / plugin / settings
+function shred(stateJson, at) {
+  let S; try { S = JSON.parse(stateJson); } catch { return []; }
+  const rows = [];
+  const add = (kind, id, obj, space) => { if (id != null) rows.push([kind, String(id), space || obj && obj.space || 'work', JSON.stringify(obj), at]); };
+  for (const t of S.tasks || []) add('task', t.id, t);
+  for (const c of S.clients || []) add('client', c.id, c);
+  for (const m of S.meetings || []) add('meeting', m.id, m);
+  for (const [pid, d] of Object.entries(S.pluginData || {})) add('plugin', pid, d);
+  if (S.settings) add('settings', 'settings', S.settings);
+  return rows;
+}
+function saveDb(obj, quiet) {
+  const at = +obj.updatedAt || Date.now();
+  db.exec('BEGIN IMMEDIATE');
+  try {
+    db.prepare('INSERT INTO state (id, json, updated_at) VALUES (1, ?, ?) ON CONFLICT(id) DO UPDATE SET json = excluded.json, updated_at = excluded.updated_at').run(obj.json, at);
+    const rows = shred(obj.json, at), seen = new Set(rows.map(r => r[0] + '\u0000' + r[1]));
+    const up = db.prepare(`INSERT INTO records (kind, id, space, data, updated_at, deleted) VALUES (?, ?, ?, ?, ?, 0)
+      ON CONFLICT(kind, id) DO UPDATE SET space = excluded.space, data = excluded.data, deleted = 0,
+        updated_at = CASE WHEN records.data = excluded.data AND records.deleted = 0 THEN records.updated_at ELSE excluded.updated_at END`);
+    for (const r of rows) up.run(...r);
+    // anything no longer in the document is marked deleted (kept, so per-record sync can tell devices later)
+    const gone = db.prepare('UPDATE records SET deleted = 1, updated_at = ? WHERE kind = ? AND id = ?');
+    for (const r of db.prepare('SELECT kind, id FROM records WHERE deleted = 0').all()) if (!seen.has(r.kind + '\u0000' + r.id)) gone.run(at, r.kind, r.id);
+    db.exec('COMMIT');
+  } catch (e) { db.exec('ROLLBACK'); throw e; }
+  if (!quiet) dailyDbBackup();
+}
+function dailyDbBackup() {
+  const day = new Date().toISOString().slice(0, 10), f = path.join(BACKUP_DIR, `cadence-${day}.db`);
+  if (fs.existsSync(f)) return;
+  try { db.exec(`VACUUM INTO '${f.replace(/'/g, "''")}'`); } catch (e) { console.error('backup failed', e.message); return; }
+  const all = fs.readdirSync(BACKUP_DIR).filter(x => /^cadence-\d{4}-\d{2}-\d{2}\.db$/.test(x)).sort();
+  while (all.length > KEEP_BACKUPS) fs.unlinkSync(path.join(BACKUP_DIR, all.shift()));
+}
 function readState() {
+  if (db) { const r = db.prepare('SELECT json, updated_at FROM state WHERE id = 1').get(); return r ? { json: r.json, updatedAt: r.updated_at } : { json: null, updatedAt: 0 }; }
   try { return JSON.parse(fs.readFileSync(STATE_FILE, 'utf8')); } catch { return { json: null, updatedAt: 0 }; }
 }
-function writeState(obj) {
+function writeJsonMirror(obj) {
   const tmp = STATE_FILE + '.tmp';
   fs.writeFileSync(tmp, JSON.stringify(obj));
   fs.renameSync(tmp, STATE_FILE);
-  // one backup per day
+  // one JSON backup per day (the database gets its own daily snapshot too)
   const day = new Date().toISOString().slice(0, 10);
-  const bf = path.join(BACKUP_DIR, `state-${day}.json`);
-  fs.copyFileSync(STATE_FILE, bf);
-  const all = fs.readdirSync(BACKUP_DIR).filter(f => f.startsWith('state-')).sort();
+  fs.copyFileSync(STATE_FILE, path.join(BACKUP_DIR, `state-${day}.json`));
+  const all = fs.readdirSync(BACKUP_DIR).filter(f => /^state-\d{4}-\d{2}-\d{2}\.json$/.test(f)).sort();
   while (all.length > KEEP_BACKUPS) fs.unlinkSync(path.join(BACKUP_DIR, all.shift()));
 }
+function writeState(obj) {
+  if (db) saveDb(obj);
+  writeJsonMirror(obj);   // phase 1: keep state.json current so an older Cadence can still read it
+}
+function dbInfo() {
+  if (!db) return { storage, note: storageNote };
+  const n = k => db.prepare('SELECT COUNT(*) AS n FROM records WHERE kind = ? AND deleted = 0').get(k).n;
+  const size = f => { try { return fs.statSync(f).size; } catch { return 0; } };
+  return { storage, file: 'cadence.db', bytes: size(DB_FILE) + size(DB_FILE + '-wal'), schema: SCHEMA, sqlite: db.prepare('SELECT sqlite_version() AS v').get().v,
+    rows: { tasks: n('task'), clients: n('client'), meetings: n('meeting'), plugins: n('plugin') },
+    deleted: db.prepare('SELECT COUNT(*) AS n FROM records WHERE deleted = 1').get().n,
+    migratedAt: +((db.prepare("SELECT value FROM meta WHERE key = 'migrated_from_json'").get() || {}).value || 0) || null };
+}
+openDb();
+const closeDb = () => { try { if (db) { db.exec('PRAGMA wal_checkpoint(TRUNCATE)'); db.close(); db = null; } } catch {} };
+for (const sig of ['SIGTERM', 'SIGINT']) process.on(sig, () => { closeDb(); process.exit(0); });
 
 // ---- favicons: fetched once per domain, cached in data/favicons ----
 const inflight = new Map();
@@ -475,7 +566,7 @@ async function handle(req, res) {
       const size = f => { try { return fs.statSync(f).size; } catch { return 0; } };
       const count = d => { try { return fs.readdirSync(d).length; } catch { return 0; } };
       return send(res, 200, { ok: true, https: !!TLS && !!req.socket.encrypted, build: buildId(), ai: !!API_KEY, model: API_KEY ? MODEL : null, version: '0.5.0', uptime: Math.round((Date.now() - STARTED) / 1000), node: process.version,
-        dataBytes: size(STATE_FILE), backups: count(BACKUP_DIR), logos: fs.readdirSync(ICON_DIR).filter(f => f.endsWith('.img')).length, companies: count(COMPANY_DIR), auth: !!PASSWORD, time: Date.now() });
+        dataBytes: db ? size(DB_FILE) + size(DB_FILE + '-wal') : size(STATE_FILE), storage, storageNote, backups: count(BACKUP_DIR), logos: fs.readdirSync(ICON_DIR).filter(f => f.endsWith('.img')).length, companies: count(COMPANY_DIR), auth: !!PASSWORD, time: Date.now() });
     }
 
     // ---- DB viewer: read-only look at the data folder (secrets are never listed by content) ----
@@ -483,7 +574,7 @@ async function handle(req, res) {
       const walk = d => { let bytes = 0, files = 0; try { for (const f of fs.readdirSync(d)) { const st = fs.statSync(path.join(d, f)); if (st.isDirectory()) { const w = walk(path.join(d, f)); bytes += w.bytes; files += w.files; } else { bytes += st.size; files++; } } } catch {} return { bytes, files }; };
       const entries = []; try { for (const f of fs.readdirSync(DATA_DIR)) { const st = fs.statSync(path.join(DATA_DIR, f)); entries.push(st.isDirectory() ? { name: f + '/', dir: true, ...walk(path.join(DATA_DIR, f)), mtime: st.mtimeMs } : { name: f, bytes: st.size, mtime: st.mtimeMs, secret: f === 'calendars.json' || f === 'sessions.json' }); } } catch {}
       let backups = []; try { backups = fs.readdirSync(BACKUP_DIR).filter(f => /^state-\d{4}-\d{2}-\d{2}\.json$/.test(f)).sort().reverse().map(f => { const st = fs.statSync(path.join(BACKUP_DIR, f)); return { name: f, bytes: st.size, mtime: st.mtimeMs }; }); } catch {}
-      return send(res, 200, { dataDir: DATA_DIR, entries, backups, keep: KEEP_BACKUPS });
+      return send(res, 200, { dataDir: DATA_DIR, entries, backups, keep: KEEP_BACKUPS, db: dbInfo() });
     }
     if (p === '/api/db/backup' && req.method === 'GET') {
       const name = url.searchParams.get('name') || '';
@@ -601,7 +692,7 @@ function loadTLS() {
   try { return { cert: fs.readFileSync(path.join(TLS_DIR, 'cert.pem')), key: fs.readFileSync(path.join(TLS_DIR, 'key.pem')) }; } catch { return null; }
 }
 const TLS = loadTLS();
-const tag = `data=${DATA_DIR}  ai=${API_KEY ? 'on' : 'off'}  auth=${PASSWORD ? 'on' : 'off'}`;
+const tag = `data=${DATA_DIR}  storage=${storage}${storageNote ? ' (' + storageNote + ')' : ''}  ai=${API_KEY ? 'on' : 'off'}  auth=${PASSWORD ? 'on' : 'off'}`;
 if (TLS) {
   require('https').createServer(TLS, handle).listen(HTTPS_PORT, () => console.log(`Cadence running on https :${HTTPS_PORT}  ${tag}  CA ${caFingerprint() || 'unknown'}`));
   // plain HTTP: nothing but a redirect (so a password is never sent unencrypted) and the public CA download

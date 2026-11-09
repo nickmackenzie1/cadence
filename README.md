@@ -9,8 +9,8 @@ public/core.js      core: state, sync, parsing, rendering, plugin host
 public/core.css     core styles
 public/plugins/     every feature beyond the core, one file each
 tests/              Playwright smoke tests
-server.js           tiny Node server: serves the app, stores data/state.json, daily backups, optional AI proxy
-Dockerfile          node:20-alpine image
+server.js           tiny Node server: serves the app, stores data in data/cadence.db (SQLite), daily backups, optional AI proxy
+Dockerfile          node:22-alpine image (built-in SQLite)
 docker-compose.yml  mounts public/ live, so UI changes need no rebuild
 deploy.sh           Synology auto-deploy: pulls from GitHub, rebuilds only when needed
 tls.sh              local HTTPS: mkcert CA + certificate made on the NAS (called by deploy.sh)
@@ -110,4 +110,5 @@ Or just open `public/index.html` in a browser (data stays in that browser).
 | `ANTHROPIC_API_KEY` | Turns on AI extraction and summaries (optional) |
 | `ANTHROPIC_MODEL`, `ANTHROPIC_MODEL_QUICK` | Override the models |
 | `HTTPS_PORT` / `TLS_DIR` | HTTPS port (8443) and where the certificate is mounted (`/certs`) |
+| `STORAGE` | `json` forces the old JSON-file storage (emergency fallback). Default: SQLite in `data/cadence.db` |
 | `KEEP_BACKUPS` | Number of daily backups to keep in `data/backups` (default 30) |
