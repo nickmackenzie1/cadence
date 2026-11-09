@@ -251,9 +251,9 @@ Needs: Life space (done), weather API (key on NAS), maps/GPX (offline tiles = ph
 ## Notes from daily use (user, 2026-11-09) — backlog unless marked
 - (SHIPPED) Internal work tracking: "for now I just set a client as Catalyst Connect". Now: Projects (see below).
 - (SHIPPED) Long task titles ran off the card in the open editor (title was a one-line <input>). Now an auto-growing textarea.
-- Zoho Desk tickets: not just a tag. A distinct way to surface and track support tickets (ticket number, status,
+- (SHIPPED, see below) Zoho Desk tickets: not just a tag. A distinct way to surface and track support tickets (ticket number, status,
   priority, SLA/age, link to Desk), maybe their own lane or view; later pull status from the Desk API.
-- Assign a task to a dev (there is a free-text `assignee` today; want a proper people list, maybe "waiting on dev" lane).
+- (SHIPPED: Team, see below; Zoho Projects URL card still open) Assign a task to a dev (there is a free-text `assignee` today; want a proper people list, maybe "waiting on dev" lane).
   Paste a Zoho Projects task URL into a task and show it (iframe if logged in? Zoho likely blocks framing with
   X-Frame-Options; fall back to a rich link card).
 - Meeting recap / action items after a meeting: needs the nice date picker (same one as the task editor), and should
@@ -268,3 +268,21 @@ Needs: Life space (done), weather API (key on NAS), maps/GPX (offline tiles = ph
   Waiting on others / Recently done. No meetings, website, industry.
 - `promptProject()` edit dialog; client dialog has "Make it a project", project dialog has "Make it a client".
 - Client-only plugins skip projects: stocks, pulse. Client actions show on project pages only with `projects: true`.
+
+## Team, Desk tickets, follow-ups (2026-11-09, shipped)
+- Team (core, Work only): `S.settings.team = [{id,name,role,color}]`; `TEAM()`, `person(name)` (full, first name or
+  prefix), `addPerson`. Task `owner: 'team'`, `assignee` = person name, `assignedAt` set when handed over.
+  Quick add `>sam` (new names get added), `^sam` goes to the team when it matches a teammate. Owner chip popover
+  lists the team. Sidebar "Team" page: person cards (open, overdue, oldest, done this week), filter by person,
+  groups per person. Client/project pages: "With the team" group. Team tasks leave my Today/counts.
+  `api.team.{list,add,find}`. Renaming a person in Manage team rewrites their tasks' assignee.
+- Core hook `api.chips.add((task, preview) => html)` adds chips to task rows and the quick-add preview.
+- Desk tickets plugin (`desk.js`, Work): `task.ticket = {no,url,status,pri,opened,closed}`, tag `desk`. Quick add
+  `tkt 4821` / `ticket 4821` / `desk 4821` / pasted desk.zoho.* ticket URL. Board view `view-tickets` (Open,
+  Escalated, On hold, Waiting on customer; drag or select to move; client filter; past-SLA first). SLA days per
+  priority in settings (clock pauses on hold / waiting on customer). Link pattern with {n}. Task ⋯ → Desk ticket… /
+  Open in Desk. Completing the task closes the ticket. Widget "Open tickets", client page button "🎫 Tickets".
+  Next: Desk API sync (OAuth token on the NAS), auto-create from Desk assignment.
+- Follow-ups / in-progress (core): `task.stage` 'doing' | 'waiting', `task.log = [{at,text}]`. Editor "Progress" chip:
+  In progress, "Did my part, follow up…" (logs the step, sets the follow-up date, stage waiting), Log a step.
+  Key F on a selected task. Rows show the stage chip and the last step under the title. Repeats start clean.
