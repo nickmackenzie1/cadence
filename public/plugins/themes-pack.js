@@ -131,21 +131,60 @@
 
   // NES.css's pixel border trick: four flat shadows give stepped "rounded" corners
   const PIX = c => `box-shadow:0 -4px ${c},0 4px ${c},-4px 0 ${c},4px 0 ${c}`;
-  R({ id: 'nes', name: 'NES', category: 'Fun', tagline: '8-bit console vibes, Press Start 2P (after NES.css).',
+  // NES: NES.css's component looks re-created on Cadence's own markup (titled pixel containers, balloons,
+  // pixel checkboxes, progress, coloured buttons and badges, pixel cursor). MIT, nostalgic-css/NES.css
+  const NESK = '#212529', PXC = (d, c = NESK) => `box-shadow:0 -${d}px ${c},0 ${d}px ${c},-${d}px 0 ${c},${d}px 0 ${c}`;
+  const NES_CUR = "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='22' height='22' shape-rendering='crispEdges'%3E%3Cpath d='M2 2h2v2h2v2h2v2h2v2h2v2h2v2h-4v2h2v2h2v2h-2v-2h-2v-2h-2v2h-2v2h-2z' fill='%23212529'/%3E%3Cpath d='M4 4h2v2h2v2h2v2h2v2h2v2h-4v2h-2v2h-2z' fill='%23fff'/%3E%3C/svg%3E\") 2 2, auto";
+  const NES_CHECK = "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 8' shape-rendering='crispEdges'%3E%3Cpath d='M6 1h1v1H6zM5 2h1v1H5zM4 3h1v1H4zM1 3h1v1H1zM2 4h1v1H2zM3 4h1v1H3zM3 5h1v1H3z' fill='%23212529'/%3E%3C/svg%3E\")";
+  R({ id: 'nes', name: 'NES', category: 'Fun', tagline: '8-bit console: NES.css boxes, balloons, pixel checkboxes and a pixel cursor.',
     fonts: [{ family: 'Press Start 2P', src: V + 'fonts/press-start-2p-latin-400-normal.woff2' }],
     font: '"Press Start 2P", monospace',
-    vars: { '--ambient': 'off', '--bg': '#fff', '--panel': '#fff', '--side': '#f2f2f2', '--text': '#212529', '--muted': '#5a6268', '--faint': '#adb5bd', '--line': '#212529', '--hover': '#e7f4fd', '--accent': '#209cee', '--accent-soft': '#d6eefc', '--danger': '#e76e55', '--danger-soft': '#fbe2dc', '--ok': '#92cc41', '--client': '#f2b400', '--client-soft': '#fff3c4', '--shadow': 'none' },
-    preview: { bg: '#fff', panel: '#fff', side: '#f2f2f2', text: '#212529', accent: '#209cee', line: '#212529', r: '0' },
-    css: `:skin body{font-size:10px;line-height:1.7} :skin *{border-radius:0!important}
-      :skin .head h1{font-size:18px;letter-spacing:0} :skin .t-title{font-size:11px}
-      :skin .gl,:skin .stat,:skin .qa,:skin .dw-qa,:skin .pl-card,:skin .db-item:not(.bare),:skin .th-card,:skin .modal,:skin .task.open{border:0!important;${PIX('#212529')}!important;margin:4px}
-      :skin .btn{border:0;${PIX('#212529')},inset -4px -4px #adafbc;background:#fff;color:#212529;padding:8px 14px;margin:4px}
-      :skin .btn.primary{background:#209cee;color:#fff;${PIX('#212529')},inset -4px -4px #006bb3}
-      :skin .btn:active{box-shadow:0 -4px #212529,0 4px #212529,-4px 0 #212529,4px 0 #212529,inset 4px 4px #adafbc}
-      :skin .check{border:3px solid #212529;width:18px;height:18px} :skin .task.done .check{background:#92cc41}
-      :skin .nav a.on{background:#209cee;color:#fff} :skin .nav a.on .ic{color:#fff}
-      :skin .nav a.on .t::before{content:'▶ '}
-      :skin .isl-pill{${PIX('#212529')}!important;background:#fff!important}` });
+    vars: { '--ambient': 'off', '--bg': '#fff', '--panel': '#fff', '--side': '#fff', '--text': NESK, '--muted': '#5a6268', '--faint': '#adb5bd', '--line': NESK, '--hover': '#e7f4fd', '--accent': '#209cee', '--on-accent': '#fff', '--accent-soft': '#d6eefc', '--danger': '#e76e55', '--danger-soft': '#fbe2dc', '--ok': '#92cc41', '--client': '#f7d51d', '--client-soft': '#fff3c4', '--shadow': 'none' },
+    preview: { bg: '#fff', panel: '#fff', side: '#fff', text: NESK, accent: '#209cee', line: NESK, r: '0' },
+    css: `:skin body{font-size:10px;line-height:1.8;cursor:${NES_CUR}} :skin *{border-radius:0!important} :skin a,:skin button,:skin .task,:skin [data-act]{cursor:${NES_CUR}}
+      :skin .head h1{font-size:18px;letter-spacing:0;color:${NESK};text-shadow:3px 3px 0 #d6eefc} :skin .t-title{font-size:11px} :skin .sub{font-size:9px}
+      /* sidebar: white with a pixel edge, blinking cursor on the active item */
+      :skin .side{border-right:4px solid ${NESK};background:#fff}
+      :skin .nav a{height:30px} :skin .nav a.on{background:#209cee;color:#fff} :skin .nav a.on .ic{color:#fff}
+      :skin .nav a.on .t::before{content:'▶ ';animation:nesblink 1s steps(1) infinite} @keyframes nesblink{50%{opacity:0}}
+      :skin .sect{font-size:8px;letter-spacing:.06em}
+      :skin .space-sw{${PXC(4)};margin:4px} :skin .space-sw i{background:#209cee;${PXC(2, '#006bb3')}}
+      /* nes-container: cards are pixel boxes */
+      :skin .gl,:skin .stat,:skin .qa,:skin .dw-qa,:skin .pl-card,:skin .db-item:not(.bare),:skin .th-card,:skin .task.open,:skin .dk-card,:skin .zl-card{border:0!important;${PXC(4)}!important;margin:8px 6px}
+      /* nes-container.with-title: groups get their heading cut into the frame */
+      :skin .group{position:relative;margin:30px 6px 26px;padding:22px 14px 10px;${PXC(4)}}
+      :skin .group-h{position:absolute;top:-12px;left:14px;margin:0;padding:0 10px;background:var(--bg);border:0!important;font-size:10px;letter-spacing:0;line-height:20px;color:${NESK}}
+      :skin .group-h .c{color:#209cee}
+      :skin .group-h.client{color:#b38b00} :skin .group-h.dev{color:#209cee}
+      /* nes-btn and its colours */
+      :skin .btn{border:0;${PXC(4)},inset -4px -4px #adafbc;background:#fff;color:${NESK};padding:8px 14px;margin:4px;font-size:10px}
+      :skin .btn:hover{background:#e7e7e7} :skin .btn:active{box-shadow:0 -4px ${NESK},0 4px ${NESK},-4px 0 ${NESK},4px 0 ${NESK},inset 4px 4px #adafbc}
+      :skin .btn.primary{background:#209cee;color:#fff;${PXC(4)},inset -4px -4px #006bb3} :skin .btn.primary:hover{background:#108de0}
+      :skin .btn.danger,:skin .btn.ghost.danger{background:#e76e55;color:#fff;${PXC(4)},inset -4px -4px #8c2022}
+      :skin .meet-btn{background:#92cc41;color:#fff;border:0;${PXC(4)},inset -4px -4px #4aa52e;margin:6px}
+      /* nes-checkbox */
+      :skin .check{width:18px;height:18px;border:0!important;background:#fff;${PXC(3)};margin:3px}
+      :skin .task.done .check,:skin .dw-task.done .check{background:#fff ${NES_CHECK} center/14px no-repeat!important}
+      :skin .task.done .check::after{display:none}
+      /* nes-badge: chips */
+      :skin .chip{border:0;background:#fff;color:${NESK};${PXC(2)};margin:2px 3px;padding:3px 7px;font-size:8px;text-transform:uppercase;letter-spacing:.02em}
+      :skin .chip.due.today{background:#92cc41;color:#fff!important} :skin .chip.due.over,:skin .chip.over{background:#e76e55;color:#fff!important} :skin .chip.client-owned{background:#f7d51d;color:${NESK}!important} :skin .chip.dev-owned{background:#209cee;color:#fff!important}
+      :skin .qa .hint{display:none}
+      :skin .te-chip{border:0;${PXC(2)};margin:3px;font-size:9px} :skin .te-chip.on{background:#d6eefc}
+      /* nes-input */
+      :skin .inp,:skin .qa input{font-family:inherit;font-size:10px} :skin .inp{border:0;${PXC(4)};margin:4px;padding:8px}
+      /* nes-balloon: toasts and the Island speak in speech bubbles */
+      :skin .toast,:skin .isl-pill{position:relative;background:#fff!important;border:0!important;${PXC(4)}!important;overflow:visible}
+      :skin .toast::after,:skin .isl-pill::after{content:'';position:absolute;left:26px;bottom:-14px;width:8px;height:8px;background:#fff;box-shadow:-4px 0 ${NESK},4px 0 ${NESK},-4px 4px ${NESK},4px 4px #fff,8px 4px ${NESK},0 8px ${NESK}}
+      /* nes-progress: project bars */
+      :skin .pj-bar{height:22px;max-width:520px;background:#fff;${PXC(4)};margin:6px 4px}
+      :skin .pj-bar i{background:repeating-linear-gradient(90deg,#92cc41 0 12px,#76c442 12px 14px)!important}
+      /* modals: a dialog box */
+      :skin .modal{border:0!important;${PXC(4)}!important} :skin .modal-h{border-bottom:4px solid ${NESK};font-size:12px}
+      :skin .pop{border:0;${PXC(4)}} :skin .pop-i:hover{background:#209cee;color:#fff}
+      :skin .vgrid .vt.on{background:#209cee;color:#fff} :skin .dock .dk{${PXC(2)};margin:2px}
+      :skin ::-webkit-scrollbar{width:12px} :skin ::-webkit-scrollbar-thumb{background:${NESK};border:3px solid #fff} :skin ::-webkit-scrollbar-track{background:#fff}
+      :skin ::selection{background:#209cee;color:#fff}` });
 
   const GLOW = c => `text-shadow:0 0 2px ${c},0 0 8px ${c}88`;
   R({ id: 'terminal', name: 'Terminal', category: 'Fun', tagline: 'Green phosphor, VT323, a blinking cursor.',

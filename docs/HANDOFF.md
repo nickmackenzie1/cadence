@@ -353,3 +353,8 @@ Needs: Life space (done), weather API (key on NAS), maps/GPX (offline tiles = ph
 - Backlog (user, 2026-11-09 15:55): AI client research. From the client's website (and public sources) let AI pull
   more about the client: what they do, size, products, recent news, notable people, brand imagery and colours,
   "interesting things to mention in the next meeting". Store on the client record; show on the client page.
+- Themes (2026-11-09, shipped): new file `plugins/themes-more.js` with Discord (server rail + channel list, # names,
+  blurple, message-box quick add) and Liquid Glass (light/dark, drifting colour mesh under frosted panels, floating
+  glass sidebar, specular edges, capsule buttons; falls back to opaque where backdrop-filter is missing). NES rewritten
+  with NES.css component looks: titled pixel containers for groups, balloon toasts/Island, pixel checkbox + check,
+  progress bar, coloured buttons/badges, pixel cursor, blinking ▶.

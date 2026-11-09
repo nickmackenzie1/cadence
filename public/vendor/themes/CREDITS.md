@@ -8,7 +8,9 @@ Cadence's themes borrow fonts, techniques and code from these open-source projec
 | Chicago | [system.css](https://github.com/sakofchit/system.css) by Sakun Acharige | MIT (`systemcss/LICENSE`) | ChiKareGo2 and ChicagoFLF fonts (recreations by @blogmywiki), 1-bit window style |
 | Cyberpunk | [augmented-ui](https://github.com/propjockey/augmented-ui) by PropJockey | BSD-2-Clause (`augmented-ui/LICENSE`) | the whole library (clipped corners, inlays) |
 | Doodle Party | [css-doodle](https://github.com/css-doodle/css-doodle) by Yuan Chuan | MIT (`css-doodle/LICENSE`) | the web component, for the generative background |
-| NES | [NES.css](https://github.com/nostalgic-css/NES.css) | MIT | pixel-border technique (re-implemented) |
+| NES | [NES.css](https://github.com/nostalgic-css/NES.css) | MIT | component looks re-implemented on Cadence markup: pixel borders, titled containers, balloons, checkbox, progress, button colours, cursor |
+| Discord | [discordian](https://github.com/radekkozak/discordian) by Radek Kozak (Obsidian theme) | MIT | Discord palette and channel-list layout ideas (re-implemented; no Discord assets or fonts) |
+| Liquid Glass | (original) | — | Apple-style frosted glass, written for Cadence |
 | NES, Terminal, CRT, Sketchbook | Press Start 2P, VT323, Comic Neue via [Fontsource](https://fontsource.org) | SIL OFL 1.1 (`fonts/OFL-*.txt`) | webfonts |
 | Sketchbook | [PaperCSS](https://github.com/papercss/papercss) | ISC | wobbly hand-drawn border-radius technique (re-implemented) |
 | Tufte | [Tufte CSS](https://github.com/edwardtufte/tufte-css) by Dave Liepmann | MIT (`tufte/LICENSE`) | ET Book webfont (MIT, by Dmitry Krasny, Bonnie Scranton and Edward Tufte), typography rules |
