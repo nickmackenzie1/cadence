@@ -296,7 +296,8 @@ Needs: Life space (done), weather API (key on NAS), maps/GPX (offline tiles = ph
   CSS custom properties (@property-registered colours) or a tiny canvas, respecting reduced motion.
 - Bug report (user, 2026-11-09 14:16): "tasks are clickable but anything I change doesn't show up". Could not
   reproduce (all routes, two themes, edits + reload all fine). Added ErrLog: uncaught/plugin/widget errors now toast
-  with "Copy details", and ⌘K → "Copy error log". Waiting on details from the user.
+  with "Copy details", and ⌘K → "Copy error log". RESOLVED: the user's hard refresh fixed it (an old tab still
+  running the previous build against new data). Idea: detect a new deploy and offer a reload.
 - Backlog (user, 2026-11-09 15:17): NES.css theme should lean into NES.css harder: use its actual components
   (nes-container with title for groups/cards, nes-btn variants, nes-checkbox for task checks, nes-progress for the
   project bar, nes-balloon for toasts/Island, pixel icons), 8-bit palette, pixel borders on chips/popovers/modals.
