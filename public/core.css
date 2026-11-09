@@ -531,3 +531,26 @@ html.amb-on .c-hero .bg.img{opacity:.24;filter:saturate(1.1)}
 .te-step span{flex:1;min-width:0;overflow-wrap:anywhere}.te-step em{font-style:normal;font-size:11.5px;color:var(--faint);white-space:nowrap}
 .te-step button{opacity:0;color:var(--faint);font-size:11px;padding:0 4px}.te-step:hover button{opacity:1}.te-step button:hover{color:var(--danger)}
 .seg.wrap{flex-wrap:wrap}
+
+/* sidebar that fits: view tiles, "+N more", widget dock */
+.vgrid{display:flex;flex-wrap:wrap;gap:3px;margin:0 0 2px}
+.vgrid .vt{position:relative;display:grid;place-items:center;width:34px;height:34px;border-radius:9px;color:var(--muted);text-decoration:none;transition:background .15s,color .15s}
+.vgrid .vt .ic{font-size:16px;line-height:1;display:grid;place-items:center}
+.vgrid .vt .vl{position:absolute;left:50%;top:calc(100% + 4px);transform:translateX(-50%);z-index:20;pointer-events:none;opacity:0;transition:opacity .12s;white-space:nowrap;font-size:11.5px;font-weight:600;padding:3px 7px;border-radius:6px;background:var(--text);color:var(--bg)}
+.vgrid .vt:hover .vl{opacity:1}
+.vgrid .vt:hover{background:var(--hover);color:var(--text)}
+.vgrid .vt.on{background:color-mix(in srgb,var(--sel,var(--accent)) 14%,transparent);color:var(--sel,var(--accent))}
+.nav a.more-cl{color:var(--muted)}.nav a.more-cl .ic{font-size:15px}.nav a.more-cl kbd{margin-left:auto;font-size:10px;opacity:.6;border:1px solid var(--line);border-radius:4px;padding:0 4px;font-family:inherit}
+.dock{display:flex;flex-wrap:wrap;gap:4px;padding:2px 0}
+.dock .dk{width:30px;height:30px;border-radius:9px;display:grid;place-items:center;color:var(--c);background:color-mix(in srgb,var(--c) 10%,transparent);transition:transform .12s,background .15s;font-weight:700;font-size:13px}
+.dock .dk svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.dock .dk:hover{background:color-mix(in srgb,var(--c) 20%,transparent);transform:translateY(-1px)}
+.dock .dk.on{background:var(--c);color:#fff}
+.swp{position:relative}.sw-dock{position:absolute;top:2px;right:2px;z-index:2;width:22px;height:22px;border-radius:6px;font-size:12px;color:var(--faint);background:var(--side);opacity:0;transition:opacity .15s}
+.swp:hover .sw-dock{opacity:1}.sw-dock:hover{color:var(--text);background:var(--hover)}
+.dock-fly{position:fixed;z-index:70;width:290px;max-height:min(70vh,560px);display:flex;flex-direction:column;background:var(--panel);border:1px solid var(--line);border-radius:14px;box-shadow:0 18px 50px rgba(0,0,0,.18),0 2px 6px rgba(0,0,0,.06);animation:dfin .18s cubic-bezier(.2,.9,.3,1);overflow:hidden}
+@keyframes dfin{from{opacity:0;transform:translateX(-6px) scale(.98)}}
+.df-h{display:flex;align-items:center;gap:6px;padding:9px 10px 9px 14px;border-bottom:1px solid var(--line);font-size:13px}.df-h b{flex:1}
+.df-h button{font-size:12px;color:var(--muted);padding:3px 7px;border-radius:7px}.df-h button:hover{background:var(--hover);color:var(--text)}
+.df-b{padding:10px 12px;overflow:auto;font-size:13.5px}
+@media (prefers-reduced-motion:reduce){.dock-fly{animation:none}}

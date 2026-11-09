@@ -301,3 +301,16 @@ Needs: Life space (done), weather API (key on NAS), maps/GPX (offline tiles = ph
 - Backlog (user, 2026-11-09 15:17): NES.css theme should lean into NES.css harder: use its actual components
   (nes-container with title for groups/cards, nes-btn variants, nes-checkbox for task checks, nes-progress for the
   project bar, nes-balloon for toasts/Island, pixel icons), 8-bit palette, pixel borders on chips/popovers/modals.
+
+## Sidebar that fits + record-store feed (2026-11-09, shipped)
+- User: "I really hate the scrolling" in the sidebar. Now: Views are a row of icon tiles (label on hover); plugin
+  sidebar widgets live in a dock (row of plugin icons above the footer) and open in a flyout beside the sidebar;
+  📌 Pin keeps one inline (`S.settings.pinnedWidgets`, keys `pid:id`; ⤓ on hover sends it back). `fitSide()` folds
+  the quietest clients/projects (fewest open tasks, never the current one, projects last) into "+N more" (searchable
+  picker) until #side-main no longer overflows. Re-fits on resize and after widgets render.
+- Feeds (records style): Something Else Records feed has no price; server `/api/feed?prices=1` reads each product
+  page on the feed's own host (price after the <h1>, or meta/JSON-LD), 4 at a time, cached 12h, 6s budget then the
+  rest fill on a later refresh (client re-asks after 45s). Per-feed "show": Vinyl only (default for records) / Used
+  vinyl / New vinyl / Everything. `recMeta()` parses format (CD/tape/video/vinyl), new vs used, Goldmine grades
+  "(media/sleeve)" + notes, pressing text, colour words tint the record. Stickers: price tag, grade seal coloured by
+  grade, NEW, handwritten notes slip, pressing with colour dot.

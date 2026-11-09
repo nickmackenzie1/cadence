@@ -14,6 +14,23 @@
       .vin .lab:after{content:"";position:absolute;left:50%;top:50%;width:12%;height:12%;margin:-6% 0 0 -6%;border-radius:50%;background:#0d0c10}
       .vin.spin{animation:vinspin 3.2s linear infinite}
       @keyframes vinspin{to{transform:rotate(360deg)}}
+      .vin.col{background:repeating-radial-gradient(circle at 50% 50%,color-mix(in srgb,var(--vc) 78%,#000) 0 1.2px,var(--vc) 1.2px 2.4px)}
+      .vin.col.clr{opacity:.82;background:repeating-radial-gradient(circle at 50% 50%,color-mix(in srgb,var(--vc) 70%,#fff) 0 1.2px,color-mix(in srgb,var(--vc) 55%,transparent) 1.2px 2.4px)}
+      /* stickers: price tag, grade seal, NEW, notes slip, pressing */
+      .rs-stk.rs-stk.rs-stk{display:flex;flex-wrap:wrap;gap:5px;align-items:center;width:auto;font-size:0;color:inherit;white-space:normal;overflow:visible}
+      .rs-stk.rs-stk.rs-stk>*{display:inline-flex;align-items:center;width:auto;flex:none;white-space:nowrap;margin:0;overflow:visible;text-overflow:clip}
+      .rs-stk.rs-stk.rs-stk .rs-grade>*{display:inline;width:auto;margin:0}
+      .rs-stk.rs-stk .rs-price{position:relative;font:700 11.5px/1 ui-rounded,system-ui,sans-serif;padding:4px 7px 4px 12px;border-radius:3px 6px 6px 3px;background:#fff6c9;color:#5a4300;box-shadow:0 1px 2px rgba(0,0,0,.18);transform:rotate(-2deg);letter-spacing:.01em}
+      .rs-stk.rs-stk .rs-price:before{content:'';position:absolute;left:4px;top:50%;width:4px;height:4px;margin-top:-2px;border-radius:50%;background:color-mix(in srgb,#5a4300 35%,transparent)}
+      .rs-stk.rs-stk .rs-grade{display:inline-flex;align-items:center;gap:3px;font:800 10.5px/1 ui-rounded,system-ui,sans-serif;padding:4px 7px;border-radius:999px;color:#fff;box-shadow:0 1px 2px rgba(0,0,0,.2),inset 0 0 0 1.5px rgba(255,255,255,.35);transform:rotate(3deg);letter-spacing:.02em}
+      .rs-stk.rs-stk .rs-grade i{font-style:normal;font-weight:700;opacity:.85;padding-left:4px;border-left:1px solid rgba(255,255,255,.45)}
+      .rs-stk.rs-stk .rs-grade.g-top{background:linear-gradient(135deg,#1f9d63,#137a4b)}.rs-stk.rs-stk .rs-grade.g-good{background:linear-gradient(135deg,#2f7de1,#1e5fb8)}.rs-stk.rs-stk .rs-grade.g-ok{background:linear-gradient(135deg,#e0912b,#c06f12)}.rs-stk.rs-stk .rs-grade.g-low{background:linear-gradient(135deg,#d44b4b,#a92f2f)}
+      .rs-stk.rs-stk .rs-new{font:800 10px/1 ui-rounded,system-ui,sans-serif;letter-spacing:.08em;padding:4px 7px;border-radius:4px;background:#e23b3b;color:#fff;transform:rotate(-3deg);box-shadow:0 1px 2px rgba(0,0,0,.2)}
+      .rs-stk.rs-stk .rs-note{white-space:normal!important;font:italic 500 11.5px/1.3 "Comic Neue","Segoe Print","Bradley Hand",cursive;padding:3px 8px;border-radius:3px;background:color-mix(in srgb,#fff6c9 55%,var(--panel));color:var(--text);box-shadow:0 1px 2px rgba(0,0,0,.12);transform:rotate(-1deg)}
+      .rs-stk.rs-stk .rs-press{display:inline-flex;align-items:center;gap:5px;font-size:11px;color:var(--muted)}.rs-stk.rs-stk .rs-press i{width:9px;height:9px;border-radius:50%;box-shadow:inset 0 0 0 1px rgba(0,0,0,.15)}
+      .rs-rec .wrap{position:relative}.rs-rec .wrap>.rs-stk{position:absolute;right:-4px;top:-6px;z-index:3;flex-direction:column;align-items:flex-end}
+      .rs-row .tx span.rs-stk{display:inline-flex;vertical-align:1px;margin-right:5px;gap:3px}.rs-row .tx .rs-stk.rs-stk>*{transform:none;padding:2px 5px;font-size:9.5px;box-shadow:none}.rs-row .tx .rs-stk .rs-price:before{display:none}
+      .rs-pin .cap>.rs-stk{margin-top:7px;opacity:1}.rs-tl-stk{display:block;margin-top:5px}
       /* sidebar row */
       .rs-row{display:flex;align-items:center;gap:10px;padding:7px 8px;border-radius:10px;cursor:pointer;text-decoration:none;color:var(--text);transition:background .15s;min-width:0}
       .rs-row:hover{background:var(--hover)}
@@ -43,8 +60,8 @@
       .rs-pin .new{position:absolute;z-index:1;left:10px;top:10px;font-size:10.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:#fff;background:#e5484d;padding:3px 7px;border-radius:999px}
       .rs-pin .cap{padding:9px 4px 18px;line-height:1.3}
       .rs-pin .cap b{display:block;font-size:13px;font-weight:650}
-      .rs-pin .cap span{display:block;font-size:12.5px;opacity:.85}
-      .rs-pin .cap i{display:block;font-style:normal;font-size:11.5px;color:var(--muted);margin-top:2px}
+      .rs-pin .cap>span{display:block;font-size:12.5px;opacity:.85}
+      .rs-pin .cap>i{display:block;font-style:normal;font-size:11.5px;color:var(--muted);margin-top:2px}
       .rs-pin.big .cap b{font-size:15px}.rs-pin.big .cap span{font-size:13.5px}
       /* timeline */
       .rs-tabs{display:inline-flex;background:var(--hover);border-radius:9px;padding:2px;margin-right:auto}
@@ -106,6 +123,45 @@
   // "Artist - Album (details) (more)" -> parts, for record-store style titles
   const split = title => { const m = title.match(/^(.+?)\s+[-–—]\s+(.+)$/); if (!m) return { a: title, b: '', d: '' }; const det = m[2].match(/^(.*?)\s*(\(.*)$/); return det ? { a: m[1], b: det[1] || m[2], d: det[2].replace(/^\(|\)$/g, '').replace(/\)\s*\(/g, ' · ') } : { a: m[1], b: m[2], d: '' }; };
 
+  /* record-store smarts: format (vinyl / CD / tape), new vs used, Goldmine grades "(VG+/NM)" = media / sleeve, with
+     any notes ("light crackle at times"), and coloured pressings ("Red Vinyl") tint the record */
+  const GR = '(M-?|NM-?|EX\\+?|VG\\+\\+|VG\\+|VG-?|G\\+|G|F|P)';
+  const gradeRe = new RegExp('^\\s*' + GR + '(?![\\w+])\\s*[,;:\\-–]?\\s*(.*)$', 'i');
+  const COLOURS = { red: '#c0262d', blue: '#2563c9', green: '#1f8a4c', yellow: '#e2b417', orange: '#e07020', pink: '#e0569a', purple: '#7a3fc4', violet: '#7a3fc4', white: '#efece6', clear: '#d8e4ea', crystal: '#d8e4ea', gold: '#c9a227', silver: '#b9bec6', grey: '#8a8f98', gray: '#8a8f98', brown: '#7a4e2d', teal: '#159a9c', magenta: '#c42b8f', cream: '#efe3c5', bone: '#e9dfc9', smoke: '#6b6b70', translucent: '', black: '' };
+  const GRADE_RANK = { 'M': 9, 'NM': 8, 'NM-': 7.5, 'EX+': 7, 'EX': 6.5, 'VG++': 6.5, 'VG+': 6, 'VG': 5, 'VG-': 4.5, 'G+': 4, 'G': 3, 'F': 2, 'P': 1 };
+  function recMeta(it) {
+    const t = it.title || '', sum = it.summary || '', groups = [...t.matchAll(/\(([^()]*)\)/g)].map(m => m[1].trim());
+    let grade = null; const pressing = [];
+    for (const g of groups) {
+      const parts = g.split('/').map(x => x.trim()), ms = parts.map(x => x.match(gradeRe));
+      if (ms[0] && (parts.length === 1 || ms[1] || ms[0][2])) grade = { media: ms[0][1].toUpperCase(), sleeve: ms[1] ? ms[1][1].toUpperCase() : '', notes: [ms[0][2], ms[1] && ms[1][2], ...parts.slice(1).filter((x, i) => !ms[i + 1])].filter(Boolean).join(' · ') };
+      else pressing.push(g);
+    }
+    const all = t + ' ' + sum;
+    const fmt = /\b(cd|compact disc)\b/i.test(all) ? 'cd' : /\b(cassette|tape)\b/i.test(all) ? 'tape' : /\b(dvd|blu-?ray|vhs)\b/i.test(all) ? 'video' : 'vinyl';
+    const isNew = /\bnew\b/i.test(groups.join(' ')) || /\bnew (lp|vinyl|cd)\b/i.test(sum);
+    const cond = grade ? 'used' : isNew ? 'new' : '';
+    const press = pressing.filter(x => !/^new( cd| lp| vinyl)?$/i.test(x)).join(' · ');
+    const cw = (press.toLowerCase().match(/\b(red|blue|green|yellow|orange|pink|purple|violet|white|clear|crystal|gold|silver|grey|gray|brown|teal|magenta|cream|bone|smoke)\b/) || [])[1];
+    return { fmt, cond, grade, pressing: press, colour: cw ? COLOURS[cw] : '', clear: /\b(clear|crystal|translucent)\b/i.test(press), reserve: /reserve/i.test(sum) };
+  }
+  const gradeTone = g => { const r = GRADE_RANK[g] || 5; return r >= 7.5 ? 'g-top' : r >= 6 ? 'g-good' : r >= 4.5 ? 'g-ok' : 'g-low'; };
+  // stickers: price tag, NEW / grade seal, notes slip
+  function stickers(it, compact) {
+    const m = it._m || (it._m = recMeta(it)), out = [];
+    if (it.price) out.push(`<span class="rs-price">${E0(it.price)}</span>`);
+    if (m.grade) out.push(`<span class="rs-grade ${gradeTone(m.grade.media)}" title="Media ${E0(m.grade.media)}${m.grade.sleeve ? ' · Sleeve ' + E0(m.grade.sleeve) : ''}"><b>${E0(m.grade.media)}</b>${m.grade.sleeve ? `<i>${E0(m.grade.sleeve)}</i>` : ''}</span>`);
+    else if (m.cond === 'new') out.push('<span class="rs-new">NEW</span>');
+    if (!compact && m.grade && m.grade.notes) out.push(`<span class="rs-note">${E0(m.grade.notes)}</span>`);
+    if (!compact && m.pressing) out.push(`<span class="rs-press">${m.colour ? `<i style="background:${m.colour}"></i>` : ''}${E0(m.pressing)}</span>`);
+    return out.length ? `<span class="rs-stk">${out.join('')}</span>` : '';
+  }
+  const E0 = x => String(x == null ? '' : x).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+  const vinStyle = it => { const m = it._m || (it._m = recMeta(it)); return m.colour ? ` col${m.clear ? ' clr' : ''}" style="--vc:${m.colour}` : ''; };
+  const showOf = f => f.show || (f.style === 'records' ? 'vinyl' : 'all');
+  const keep = f => { const sh = showOf(f); return it => { if (sh === 'all') return true; const m = it._m || (it._m = recMeta(it)); return sh === 'vinyl' ? m.fmt === 'vinyl' : sh === 'used' ? m.fmt === 'vinyl' && m.cond === 'used' : sh === 'new' ? m.fmt === 'vinyl' && m.cond !== 'used' : true; }; };
+  const view = (f, j) => ({ ...j, items: j.items.filter(keep(f)) });
+
   Cadence.registerPlugin({
     id: 'rss', name: 'Feeds', version: '1.0.0', settings: () => window.__rss.manage && window.__rss.manage(), icon: '<circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="2.5"/><path d="M12 5.5a6.5 6.5 0 016.5 6.5"/>', color: '#2a2622', category: 'Look & feel', tagline: 'Feeds as a record shelf',
     description: 'Follow RSS/Atom feeds in Cadence. Put each one in the sidebar (one slim rotating row), on the home page (a shelf), or only in the Feeds view — styled as vinyl records, cards or a list.',
@@ -113,16 +169,18 @@
       const E = api.ui.esc;
       const feeds = () => api.storage.get('feeds') || DEFAULT;
       async function load(f, force) {
-        const c = G.cache[f.url]; if (c && !force && Date.now() - c.at < 15 * 60 * 1000) return c.data;
+        const c = G.cache[f.url]; if (c && !force && Date.now() - c.at < 15 * 60 * 1000) return view(f, c.data);
         // the NAS connection is confirmed a moment after startup — give it a few seconds
         for (let i = 0; i < 20 && api.system().mode !== 'nas'; i++) await new Promise(r => setTimeout(r, 250));
         if (api.system().mode !== 'nas') throw new Error('Feeds are fetched by your NAS');
-        const r = await fetch('api/feed?url=' + encodeURIComponent(f.url) + (force ? '&refresh=1' : ''), { cache: 'no-store' });
+        const r = await fetch('api/feed?url=' + encodeURIComponent(f.url) + (force ? '&refresh=1' : '') + (f.style === 'records' ? '&prices=1' : ''), { cache: 'no-store' });
         const j = await r.json(); if (!r.ok) throw new Error(j.error || 'feed error');
-        G.cache[f.url] = { at: Date.now(), data: j }; return j;
+        // prices arrive a few at a time on first load: come back for the rest shortly
+        if (f.style === 'records' && j.items.some(it => !it.price) && !G['pr' + f.url]) { G['pr' + f.url] = 1; setTimeout(() => { G['pr' + f.url] = 0; delete G.cache[f.url]; api.ui.refreshWidgets && api.ui.refreshWidgets(); }, 45000); }
+        G.cache[f.url] = { at: Date.now(), data: j }; return view(f, j);
       }
       const recHtml = (it, f, big) => { const p = f.style === 'records' ? split(it.title) : { a: it.title, b: '', d: '' };
-        return `<a class="rs-rec" href="${E(it.link)}" target="_blank" rel="noopener" title="${E(it.title)}"><div class="wrap"><div class="vin"><div class="lab" style="background-image:url('${E(it.image)}')"></div></div><div class="sl" style="background-image:url('${E(it.image)}')"></div></div><div class="ar">${E(p.a)}</div>${p.b ? `<div class="al">${E(p.b)}</div>` : ''}<div class="dt">${E(p.d || ago(it.date))}</div></a>`; };
+        return `<a class="rs-rec" href="${E(it.link)}" target="_blank" rel="noopener" title="${E(it.title)}"><div class="wrap"><div class="vin${f.style === 'records' ? vinStyle(it) : ''}"><div class="lab" style="background-image:url('${E(it.image)}')"></div></div><div class="sl" style="background-image:url('${E(it.image)}')"></div>${f.style === 'records' ? stickers(it, true) : ''}</div><div class="ar">${E(p.a)}</div>${p.b ? `<div class="al">${E(p.b)}</div>` : ''}<div class="dt">${E(f.style === 'records' ? (recMeta(it).grade && recMeta(it).grade.notes) || recMeta(it).pressing || ago(it.date) : p.d || ago(it.date))}</div></a>`; };
       const cardHtml = it => `<a class="rs-card" href="${E(it.link)}" target="_blank" rel="noopener"><div class="im" style="background-image:url('${E(it.image)}')"></div><b>${E(it.title)}</b><span>${E(ago(it.date))}</span></a>`;
       const listHtml = it => `<a href="${E(it.link)}" target="_blank" rel="noopener">${E(it.title)}<span>${E(ago(it.date))}</span></a>`;
       /* wall (masonry) + timeline */
@@ -131,7 +189,7 @@
       function wallHtml(f, data, max) {
         const s0 = G.prevSeen != null ? G.prevSeen : seen();
         return `<div class="rs-wall">${data.items.slice(0, max).map((it, i) => { const p = parts(it, f), fresh = s0 && it.date && new Date(it.date).getTime() > s0;
-          return `<a class="rs-pin ${i % 9 === 0 ? 'big' : ''}" href="${E(it.link)}" target="_blank" rel="noopener" title="${E(it.title)}"><div class="ph">${fresh ? '<span class="new">New</span>' : ''}${it.image ? `<img src="${E(it.image)}" alt="" loading="lazy" decoding="async">` : ''}<span class="go">Open ↗</span></div><div class="cap"><b>${E(p.a)}</b>${p.b ? `<span>${E(p.b)}</span>` : ''}<i>${E(p.d || ago(it.date))}</i></div></a>`; }).join('')}</div>`;
+          return `<a class="rs-pin ${i % 9 === 0 ? 'big' : ''}" href="${E(it.link)}" target="_blank" rel="noopener" title="${E(it.title)}"><div class="ph">${fresh ? '<span class="new">New</span>' : ''}${it.image ? `<img src="${E(it.image)}" alt="" loading="lazy" decoding="async">` : ''}<span class="go">Open ↗</span></div><div class="cap"><b>${E(p.a)}</b>${p.b ? `<span>${E(p.b)}</span>` : ''}${f.style === 'records' ? stickers(it) : `<i>${E(p.d || ago(it.date))}</i>`}</div></a>`; }).join('')}</div>`;
       }
       function layoutWall(root) {
         root.querySelectorAll('.rs-wall').forEach(w => {
@@ -153,7 +211,7 @@
         for (const { it, f } of all.slice(0, 150)) {
           const dn = dayName(it.date), fresh = s0 && it.date && new Date(it.date).getTime() > s0, p = parts(it, f);
           if (dn !== cur) { cur = dn; out += `<div class="rs-day ${fresh ? 'new' : ''}">${E(dn)}</div>`; }
-          out += `<a class="rs-ti" href="${E(it.link)}" target="_blank" rel="noopener" style="animation-delay:${Math.min(n++, 20) * 25}ms">${it.image ? `<img src="${E(it.image)}" alt="" loading="lazy">` : ''}<div class="tx"><b>${E(p.a)}</b><span>${E([p.b, list.length > 1 ? f.title : ''].filter(Boolean).join(' · ') || p.d)}</span></div>${fresh ? '<span class="dot" title="New since your last visit"></span>' : ''}<span class="t">${it.date ? new Date(it.date).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : ''}</span></a>`;
+          out += `<a class="rs-ti" href="${E(it.link)}" target="_blank" rel="noopener" style="animation-delay:${Math.min(n++, 20) * 25}ms">${it.image ? `<img src="${E(it.image)}" alt="" loading="lazy">` : ''}<div class="tx"><b>${E(p.a)}</b><span>${E([p.b, list.length > 1 ? f.title : ''].filter(Boolean).join(' · ') || (f.style === 'records' ? '' : p.d))}</span>${f.style === 'records' ? `<span class="rs-tl-stk">${stickers(it)}</span>` : ''}</div>${fresh ? '<span class="dot" title="New since your last visit"></span>' : ''}<span class="t">${it.date ? new Date(it.date).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : ''}</span></a>`;
         }
         const nNew = all.filter(x => s0 && x.it.date && new Date(x.it.date).getTime() > s0).length;
         return (nNew ? `<div style="font-size:12px;color:#e5484d;font-weight:600;padding:4px 0 0">${nNew} new since your last look</div>` : '') + `<div class="rs-tl">${out}</div>`;
@@ -200,7 +258,8 @@
             const vis = row.firstElementChild;
             if (f.style === 'records') { vis.className = 'vin'; vis.innerHTML = '<span class="lab"></span>'; vis.firstChild.style.backgroundImage = `url('${it.image}')`; }
             else { vis.className = 'rs-cardmini'; vis.innerHTML = ''; vis.style.backgroundImage = it.image ? `url('${it.image}')` : ''; }
-            const tx = row.querySelector('.tx'); tx.innerHTML = `<b>${E(p.a)}</b><span>${E(p.b || f.title || '')}</span>`; if (anim) { tx.classList.remove('fade'); void tx.offsetWidth; tx.classList.add('fade'); }
+            if (f.style === 'records' && vis.className === 'vin') { const m = recMeta(it); if (m.colour) { vis.classList.add('col'); if (m.clear) vis.classList.add('clr'); vis.style.setProperty('--vc', m.colour); } else vis.style.removeProperty('--vc'); }
+            const tx = row.querySelector('.tx'); tx.innerHTML = `<b>${E(p.a)}</b><span>${f.style === 'records' ? stickers(it, true) : ''}${E(p.b || f.title || '')}</span>`; if (anim) { tx.classList.remove('fade'); void tx.offsetWidth; tx.classList.add('fade'); }
           };
           row.querySelector('.exp').addEventListener('click', e => { e.preventDefault(); e.stopPropagation(); openPanel(f); });
           row.querySelector('.vin, .rs-cardmini') && row.firstElementChild.addEventListener('click', e => { e.preventDefault(); e.stopPropagation(); openPanel(f); });
@@ -244,6 +303,7 @@
             <div>${list.map((f, i) => `<div class="rs-feedcfg" data-i="${i}"><div class="nm"><b>${E(f.title || 'Untitled')}</b><small>${E(f.url)}</small></div>
               <select class="inp" data-k="placement">${[['sidebar', 'Sidebar'], ['home', 'Home shelf'], ['view', 'Feeds view only']].map(([v, l]) => `<option value="${v}" ${f.placement === v ? 'selected' : ''}>${l}</option>`).join('')}</select>
               <select class="inp" data-k="style">${[['records', 'Records'], ['cards', 'Cards'], ['list', 'List']].map(([v, l]) => `<option value="${v}" ${f.style === v ? 'selected' : ''}>${l}</option>`).join('')}</select>
+              ${f.style === 'records' ? `<select class="inp" data-k="show" title="Which items to show">${[['vinyl', 'Vinyl only'], ['used', 'Used vinyl'], ['new', 'New vinyl'], ['all', 'Everything (incl. CDs)']].map(([v, l]) => `<option value="${v}" ${showOf(f) === v ? 'selected' : ''}>${l}</option>`).join('')}</select>` : ''}
               <button class="btn ghost danger" data-del="${i}">✕</button></div>`).join('') || '<div class="muted">No feeds.</div>'}</div>
             <div class="field"><label>Add a feed</label><div class="row"><input class="inp" id="rs-url" placeholder="https://example.com/feed.xml"><button class="btn" id="rs-add">Add</button></div><div class="muted" id="rs-msg" style="font-size:12px;margin-top:6px">The sidebar shows one slim row per feed; the home shelf sits under your day-at-a-glance.</div></div>`,
             `<button class="btn" data-act="close-modal">Cancel</button><button class="btn primary" id="rs-save">Save</button>`, 'wide');

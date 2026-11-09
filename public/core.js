@@ -725,7 +725,7 @@ let showPaused = false, showFinished = false;
 const isProject = c => !!c && c.kind === 'project';
 function clientLink(cl, r, o, isPaused){
   const n = o.filter(t => t.clientId===cl.id && t.owner==='me').length, hot = o.some(t => t.clientId===cl.id && t.owner==='me' && dueState(t)==='over');
-  return `<a class="${r==='client-'+cl.id?'on':''} ${isPaused?'paused':''}" href="#client-${cl.id}"><span class="ic">${avatar(cl, 20)}</span><span class="t">${esc(cl.name)}</span>${n?`<span class="n ${hot?'hot':''}">${n}</span>`:''}</a>`;
+  return `<a class="${r==='client-'+cl.id?'on':''} ${isPaused?'paused':''}" href="#client-${cl.id}" data-cid="${cl.id}" data-w="${(hot ? 1000 : 0) + n * 10 + (isPaused ? -5 : 0) + (isProject(cl) && !isPaused ? 60 : 0)}"><span class="ic">${avatar(cl, 20)}</span><span class="t">${esc(cl.name)}</span>${n?`<span class="n ${hot?'hot':''}">${n}</span>`:''}</a>`;
 }
 const NAV_ICONS = {
   today: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2.5v2M12 19.5v2M2.5 12h2M19.5 12h2M5.3 5.3l1.4 1.4M17.3 17.3l1.4 1.4M5.3 18.7l1.4-1.4M17.3 6.7l1.4-1.4"/></svg>',
@@ -789,7 +789,8 @@ function renderSide(){
       ${nav('inbox', NAV_ICONS.inbox, 'Inbox', c.inbox)}
       ${nav('done', NAV_ICONS.done, 'Logbook')}
     </nav>
-    ${(() => { const loose = Reg.views.filter(v => !v.group && !v.hidden), ins = Reg.views.filter(v => v.group === 'insights'); const items = (ins.length ? [nav('insights', '✦', 'Insights')] : []).concat(loose.map(v => nav('view-'+v.id, esc(v.icon||'◇'), esc(v.title)))); return items.length ? `<div class="sect">Views</div><nav class="nav">${items.join('')}</nav>` : ''; })()}
+    ${(() => { const loose = Reg.views.filter(v => !v.group && !v.hidden), ins = Reg.views.filter(v => v.group === 'insights'); const tile = (id, ic, label) => `<a class="vt ${r===id?'on':''}" href="#${id}" aria-label="${label}"><span class="ic">${ic}</span><span class="vl">${label}</span></a>`;
+      const items = (ins.length ? [tile('insights', '✦', 'Insights')] : []).concat(loose.map(v => tile('view-'+v.id, esc(v.icon||'◇'), esc(v.title)))); return items.length ? `<div class="sect">Views</div><nav class="vgrid">${items.join('')}</nav>` : ''; })()}
     <div class="sect">${LIFE() ? 'Areas' : 'Clients'} <button data-act="add-client" title="${LIFE() ? 'Add an area' : 'Add client'}">+</button></div>
     <nav class="nav">${clients.map(cl => clientLink(cl, r, o)).join('') || (paused.length ? '' : `<a data-act="add-client"><span class="ic">+</span><span class="t muted">${LIFE() ? 'Add an area' : 'Add your clients'}</span></a>`)}
       ${paused.length ? `<div class="more" data-act="toggle-paused">${showPaused ? '▾' : '▸'} Paused <span class="muted">${paused.length}</span></div>${showPaused ? paused.map(cl => clientLink(cl, r, o, true)).join('') : ''}` : ''}</nav>
@@ -799,17 +800,64 @@ function renderSide(){
   $('#side-foot').innerHTML = `${DEMO ? `<div class="demo-row"><b>●</b> Demo data<button data-act="demo-reset">Reset</button><button data-act="demo-exit">Exit</button></div>` : ''}
       ${LIFE() ? '' : `<button class="meet-btn" data-act="meeting">${S.activeMeeting ? '● Resume meeting' : '◉ Start meeting'} <kbd style="background:transparent;color:inherit;border-color:currentColor;opacity:.45">M</kbd></button>`}
       <div class="foot-row"><span class="sync ${Store.status==='synced'?'ok':''}" id="sync"><i></i><span>${DEMO ? 'Demo data — not saved' : Store.status==='synced'?(Store.server?'Synced to NAS':'Synced'):'This browser'}</span></span><button data-act="shortcuts" title="Keyboard shortcuts (?)">${NAV_ICONS.keys}</button><button data-act="theme" title="Theme">${NAV_ICONS.palette}</button><button data-act="open-plugins" title="Plugins">${NAV_ICONS.puzzle}</button><button data-act="settings" title="Settings">${NAV_ICONS.gear}</button></div>`;
+  fitSide();
   emit('render:side', {});
 }
+/* the sidebar never scrolls: if the lists don't fit, the quietest clients/projects (no open tasks, not the one you're on)
+   fold into "+N more", which opens a searchable picker */
+let sideHidden = [];
+function fitSide(){
+  const m = $('#side-main'); sideHidden = []; if(!m || !m.clientHeight) return;
+  const over = () => m.scrollHeight > m.clientHeight + 1;
+  if(!over()) return;
+  const links = [...m.querySelectorAll('a[data-cid]:not(.on)')].sort((a, b) => (+a.dataset.w) - (+b.dataset.w) || b.textContent.localeCompare(a.textContent));
+  if(!links.length) return;
+  const nav0 = links[0].closest('.nav'), more = document.createElement('a'); more.className = 'more-cl'; more.dataset.act = 'more-clients';
+  (m.querySelector('.nav a[data-cid]') ? m.querySelector('.nav a[data-cid]').closest('.nav') : nav0).appendChild(more);
+  for(const a of links){ if(!over()) break; sideHidden.push(a.dataset.cid); a.remove(); more.innerHTML = `<span class="ic">＋</span><span class="t">${sideHidden.length} more</span><kbd>⌘K</kbd>`; }
+  if(!sideHidden.length) more.remove();
+}
+let sideFitT; addEventListener('resize', () => { clearTimeout(sideFitT); sideFitT = setTimeout(() => { renderSide(); }, 120); });
 /* plugin sidebar widgets: rendered once per plugin rebuild; plugins update their own widget afterwards */
+/* plugin sidebar widgets. Top-slot ones sit above the lists. The rest live in a dock: one row of small icons that
+   open the widget in a flyout beside the sidebar. Pin a favourite to keep it inline (S.settings.pinnedWidgets). */
+const wKey = w => w.pid + ':' + w.id;
+const pinnedW = () => S.settings.pinnedWidgets || [];
+let dockOpen = null;
 function renderWidgets(){
   const box = $('#side-widgets'), top = $('#side-top'); if(!box) return;
-  box.innerHTML = ''; top.innerHTML = '';
+  const was = dockOpen; closeDock(true); box.innerHTML = ''; top.innerHTML = '';
+  let hold = $('#dock-hold'); if(!hold){ hold = document.createElement('div'); hold.id = 'dock-hold'; hold.hidden = true; document.body.appendChild(hold); } hold.innerHTML = '';
+  const dock = document.createElement('div'); dock.className = 'dock';
   for(const w of Reg.sidebar.slice().sort((a,b) => (a.order||0) - (b.order||0))){
-    const el = document.createElement('div'); el.className = 'sw'; el.dataset.sw = w.id; (w.slot === 'top' ? top : box).appendChild(el);
+    const el = document.createElement('div'); el.className = 'sw'; el.dataset.sw = w.id;
+    const def = Reg.defs.find(d => d.id === w.pid) || {}, key = wKey(w), name = w.title || def.name || w.id;
+    if(w.slot === 'top') top.appendChild(el);
+    else if(pinnedW().includes(key)){ const wrap = document.createElement('div'); wrap.className = 'swp'; wrap.innerHTML = `<button class="sw-dock" data-act="dock-unpin" data-k="${esc(key)}" title="Move ${esc(name)} to the dock">⤓</button>`; wrap.appendChild(el); box.appendChild(wrap); }
+    else { hold.appendChild(el); dock.insertAdjacentHTML('beforeend', `<button class="dk" data-act="dock-open" data-k="${esc(key)}" title="${esc(name)}" style="--c:${esc(def.color || 'var(--accent)')}">${def.icon ? `<svg viewBox="0 0 24 24">${def.icon}</svg>` : esc((name[0] || '?').toUpperCase())}</button>`); el.dataset.k = key; el.dataset.name = name; }
     try { w.render(el, makeApi(w.pid)); } catch(e){ console.error('[widget ' + w.id + ']', e); ErrLog.add(`[widget ${w.id}] ${e.message}`, e.stack); }
   }
+  if(dock.children.length) box.appendChild(dock);
+  if(was){ const b = box.querySelector(`.dk[data-k="${CSS.escape(was)}"]`); if(b) openDock(was, b); }
+  requestAnimationFrame(() => renderSide());
 }
+function openDock(key, btn){
+  if(dockOpen === key) return closeDock();
+  closeDock(true);
+  const el = $(`#dock-hold [data-k="${CSS.escape(key)}"]`); if(!el) return;
+  const fly = document.createElement('div'); fly.id = 'dock-fly'; fly.className = 'dock-fly';
+  fly.innerHTML = `<div class="df-h"><b>${esc(el.dataset.name)}</b><button data-act="dock-pin" data-k="${esc(key)}" title="Keep it in the sidebar">📌 Pin</button><button data-act="dock-close" title="Close">✕</button></div><div class="df-b"></div>`;
+  document.body.appendChild(fly); fly.querySelector('.df-b').appendChild(el);
+  const side = $('#side').getBoundingClientRect(), r = btn.getBoundingClientRect();
+  fly.style.left = Math.round(side.right + 8) + 'px'; fly.style.bottom = Math.max(10, Math.round(innerHeight - r.bottom)) + 'px';
+  dockOpen = key; $$('.dock .dk').forEach(b => b.classList.toggle('on', b.dataset.k === key));
+}
+function closeDock(quiet){
+  const fly = $('#dock-fly'); if(fly){ const el = fly.querySelector('.df-b > .sw'); if(el) ($('#dock-hold') || document.body).appendChild(el); fly.remove(); }
+  dockOpen = null; $$('.dock .dk').forEach(b => b.classList.remove('on'));
+}
+document.addEventListener('mousedown', e => { if(dockOpen && !e.target.closest('#dock-fly, .dock, #pop, #modal')) closeDock(); }, true);
+document.addEventListener('keydown', e => { if(e.key === 'Escape' && dockOpen) closeDock(); });
 function taskRow(t, opts = {}){
   if(selTask === t.id) return taskEditor(t);
   const c = client(t.clientId), ds = dueState(t);
@@ -1681,6 +1729,12 @@ document.addEventListener('click', e => {
       break; }
     case 'add-client': promptClient(); break;
     case 'add-project': promptProject(); break;
+    case 'dock-open': openDock(a.dataset.k, a); break;
+    case 'dock-close': closeDock(); break;
+    case 'dock-pin': { S.settings.pinnedWidgets = [...new Set(pinnedW().concat(a.dataset.k))]; save(); closeDock(true); renderWidgets(); toast('Pinned to the sidebar. ⤓ on hover sends it back to the dock.'); break; }
+    case 'dock-unpin': { S.settings.pinnedWidgets = pinnedW().filter(k => k !== a.dataset.k); save(); renderWidgets(); break; }
+    case 'more-clients': { const o = open(), items = sideHidden.map(id => client(id)).filter(Boolean).sort((x, y) => x.name.localeCompare(y.name)).map(c => { const n = o.filter(t => t.clientId === c.id && t.owner === 'me').length; return { id: c.id, html: `${avatar(c, 18)} ${esc(c.name)}${n ? `<span class="muted" style="margin-left:auto;font-size:12px">${n}</span>` : ''}` }; });
+      popList(a, items, it => go('client-' + it.id), { search: true, w: 240 }); break; }
     case 'step-del': { const t = S.tasks.find(x => x.id === selTask); if(!t) break; const log = (t.log || []).slice(); log.splice(+a.dataset.i, 1); updateTask(t.id, { log }); renderView(); break; }
     case 'edit-project': promptProject(a.dataset.cid); break;
     case 'toggle-finished': showFinished = !showFinished; renderSide(); break;

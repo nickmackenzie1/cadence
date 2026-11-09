@@ -488,7 +488,7 @@ function parseFeed(xml, base) {
   const head = chan.split(atom ? /<entry[\s>]/i : /<item[\s>]/i)[0];
   const out = { title: decode(tag(head, 'title')), link: atom ? abs(attr(head, 'link', 'href')) : abs(tag(head, 'link')), image: abs(tag(tag(head, 'image'), 'url') || tag(head, 'logo') || tag(head, 'icon')), items: [] };
   const blocks = chan.match(atom ? /<entry[\s>][\s\S]*?<\/entry>/gi : /<item[\s>][\s\S]*?<\/item>/gi) || [];
-  for (const b of blocks.slice(0, 40)) {
+  for (const b of blocks.slice(0, 60)) {
     const html = tag(b, 'content:encoded') || tag(b, 'content') || tag(b, 'description') || tag(b, 'summary');
     const img = attr(b, 'media:content', 'url') || attr(b, 'media:thumbnail', 'url') || (/<enclosure[^>]+type=["']image/i.test(b) ? attr(b, 'enclosure', 'url') : '') || attr(b, 'itunes:image', 'href') || (decode(html).match(/<img[^>]+src=["']([^"']+)["']/i) || [])[1] || '';
     out.items.push({
@@ -500,6 +500,34 @@ function parseFeed(xml, base) {
     });
   }
   return out;
+}
+
+// ---- prices for store feeds: many shop RSS feeds (e.g. record stores) carry no price, but each product page shows it.
+// Only pages on the feed's own site are read, a few at a time, cached for 12h on the NAS.
+const priceCache = new Map();
+async function pagePrice(link) {
+  const hit = priceCache.get(link); if (hit && Date.now() - hit.at < 12 * 3600e3) return hit.price;
+  let price = null;
+  try {
+    const r = await safeFetch(link, { headers: { Accept: 'text/html' } }, 1.5 * 1024 * 1024);
+    const html = r.buf.toString('utf8');
+    const meta = html.match(/<meta[^>]+(?:property|itemprop|name)=["'](?:og:price:amount|product:price:amount|price)["'][^>]*content=["']([\d.,]+)["']/i) || html.match(/"price"\s*:\s*"?([\d.]+)"?/);
+    const body = html.slice(Math.max(0, html.search(/<h1[\s>]/i)));   // the product's price comes after its heading; skips "Cart $0.00"
+    const text = decode(body.replace(/<script[\s\S]*?<\/script>|<style[\s\S]*?<\/style>/gi, ' ').replace(/<[^>]+>/g, ' '));
+    const vis = text.match(/(C\$|CA\$|CAD\s?\$?|US\$|\$|£|€)\s?(\d{1,4}(?:[.,]\d{2})?)/);
+    if (meta && +meta[1].replace(',', '.') > 0) price = (vis && /C/.test(vis[1]) ? 'C$' : '$') + (+meta[1].replace(',', '.')).toFixed(2);
+    else if (vis && +vis[2].replace(',', '.') > 0) price = vis[1].replace(/\s/g, '').replace(/^CAD\$?$/, 'C$') + vis[2];
+  } catch {}
+  priceCache.set(link, { at: Date.now(), price }); if (priceCache.size > 800) priceCache.delete(priceCache.keys().next().value);
+  return price;
+}
+async function addPrices(data, feedUrl, budgetMs) {
+  let host; try { host = new URL(feedUrl).hostname.replace(/^www\./, ''); } catch { return; }
+  const mine = data.items.filter(it => { try { return new URL(it.link).hostname.replace(/^www\./, '') === host; } catch { return false; } });
+  const todo = mine.filter(it => { const h = priceCache.get(it.link); return !(h && Date.now() - h.at < 12 * 3600e3); });
+  const work = (async () => { for (let i = 0; i < todo.length; i += 4) await Promise.all(todo.slice(i, i + 4).map(it => pagePrice(it.link))); })();
+  await Promise.race([work, new Promise(r => setTimeout(r, budgetMs))]);   // what's not ready yet fills in on the next refresh
+  for (const it of mine) { const h = priceCache.get(it.link); if (h && h.price) it.price = h.price; }
 }
 
 // ---- calendars: iCal (.ics) feeds -> events, with recurrence + time zones. URLs stay on the NAS. ----
@@ -763,11 +791,13 @@ async function handle(req, res) {
       if (!/^https?:\/\//i.test(u) || u.length > 2000) return send(res, 400, { error: 'Bad feed URL' });
       const hit = feedCache.get(u);
       const ttl = Math.max(2, Math.min(60, +url.searchParams.get('ttl') || 15)) * 60 * 1000;   // minutes, 2–60 (status pages want fresher data)
-      if (hit && Date.now() - hit.at < ttl && url.searchParams.get('refresh') !== '1') return send(res, 200, hit.data);
+      const wantPrices = url.searchParams.get('prices') === '1';
+      if (hit && Date.now() - hit.at < ttl && url.searchParams.get('refresh') !== '1') { if (wantPrices) await addPrices(hit.data, u, 1500); return send(res, 200, hit.data); }
       try {
         const r = await safeFetch(u, { headers: { Accept: 'application/rss+xml, application/atom+xml, application/xml, text/xml, */*' } }, 3 * 1024 * 1024);
         const data = { ...parseFeed(r.buf.toString('utf8'), r.url), fetchedAt: Date.now() };
         if (!data.items.length && !data.title) return send(res, 422, { error: 'That URL is not an RSS or Atom feed' });
+        if (wantPrices) await addPrices(data, u, 6000);
         feedCache.set(u, { at: Date.now(), data }); if (feedCache.size > 50) feedCache.delete(feedCache.keys().next().value);
         return send(res, 200, data);
       } catch (e) { return hit ? send(res, 200, hit.data) : send(res, 502, { error: 'Could not fetch feed: ' + e.message }); }
