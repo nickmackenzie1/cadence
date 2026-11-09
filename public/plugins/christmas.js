@@ -15,7 +15,11 @@
     { name: 'Total chaos', amount: 3.6, size: 1.5, speed: 1.6, wind: 1.6, gusts: 2.2, pile: 2.6 },
   ];
   const LIGHTS = { classic: ['#ff3b30', '#ffcc00', '#34c759', '#0a84ff', '#ff9f0a', '#bf5af2'], warm: ['#ffd27a', '#ffc35a', '#ffe0a3'], candy: ['#ff2d55', '#ffffff'] };
-  const SURFACES = '.gl,.stat,.qa,.head h1,.group-h,.btn,.task:not(.open),.task.open,.c-hero,.modal,.dk-card,.rs-pin .ph,.meet-btn,.space-sw,.nav a.on,.pl-card,.th-card,.db-item:not(.bare),.dock .dk,.vgrid .vt.on,.gh-card,.tm-card,.zl-card,.msn-dp,.dc-i';
+  // everything snow can land on. TEXTY ones catch it on the words themselves (the first line of text, not the empty box)
+  const SURFACES = '.gl,.stat,.qa,.group-h,.btn,.task.open,.c-hero,.modal,.dk-card,.rs-pin .ph,.meet-btn,.space-sw,.pl-card,.th-card,.db-item:not(.bare),.dock .dk,.vgrid .vt,.gh-card,.tm-card,.zl-card,.msn-dp,.dc-i,'
+    + '.check,.chip,.te-chip,.inp,.pop-i,.ntile,.nav a .t,.nav a .ic,.nav a .n,.t-title,.head h1,.head .sub,.sect,.c-desc,.gl .v,.stat .v,.dw-task,.isl-pill,.pj-bar,.rs-rec .wrap,.tile,.pb-card,.seg';
+  const TEXTY = '.group-h,.t-title,.head h1,.head .sub,.sect,.c-desc,.nav a .t,.gl .v,.stat .v';
+  const MAX_SURF = 280;
   const TUNE_KEYS = [['amount', 'Amount', .2, 4, .1], ['size', 'Flake size', .5, 2.2, .05], ['speed', 'Fall speed', .3, 2.2, .05], ['wind', 'Wind', -2, 2, .05], ['gusts', 'Gusts', 0, 3, .05], ['pile', 'Drift depth', 0, 3, .05]];
 
   Cadence.registerPlugin({
@@ -146,7 +150,7 @@
       const BUCKET = 4, CAP = 1400;
       // z: 0 far … 1 near. Only the middle band settles; the near band is soft bokeh passing in front.
       function newFlake(top) {
-        const o = G.o || defaults, z = Math.random(), near = o.depth && z > .93, far = z < .38;
+        const o = G.o || defaults, z = Math.random(), near = o.depth && z > .94, far = z < .22;
         const r = (far ? rnd(.5, 1.1) : near ? rnd(5, 9) : rnd(1.1, 2.6)) * T.size;
         const crys = !far && !near && (o.style === 'crystals' || (o.style === 'mixed' && Math.random() < .28));
         return { x: rnd(-60, innerWidth + 60), y: top ? rnd(-80, innerHeight * .9) : rnd(-40, -8), z, r: crys ? r * 2.2 : r, near, far, crys, spr: crys ? (Math.random() * 3) | 0 : null,
@@ -171,17 +175,32 @@
         return `${scope}|${cls}|#${same.indexOf(el)}`;
       }
       function resample(p, w) { const n = Math.ceil(w / BUCKET) + 1, old = p.h, h = new Float32Array(n); if (old.length > 1) for (let j = 0; j < n; j++) { const x = j / (n - 1) * (old.length - 1), a = Math.floor(x), b = Math.min(old.length - 1, a + 1); h[j] = old[a] + (old[b] - old[a]) * (x - a); } p.h = h; p.w = w; p.rad = -1; }
+      // the first line of an element's text: where snow sits on words
+      function textBox(el) {
+        const rg = document.createRange(); rg.selectNodeContents(el); const rs = rg.getClientRects(); if (!rs.length) return null;
+        const er = el.getBoundingClientRect(), t = rs[0].top; let l = Infinity, r = -Infinity, h = 0;
+        for (const x of rs) if (Math.abs(x.top - t) < 4 && x.width > 0) { l = Math.min(l, x.left); r = Math.max(r, x.right); h = Math.max(h, x.height); }
+        return r > l ? { dx: l - er.left, dy: t - er.top + h * .22, w: r - l } : null;
+      }
+      // the bottom of the window: the rare flake that gets all the way down piles up there
+      const GROUND = { ground: true, isConnected: true, contains: () => false, closest: () => null, matches: () => false, dataset: {}, classList: [], getAttribute: () => null,
+        getBoundingClientRect: () => ({ left: 0, right: innerWidth, top: innerHeight - 1, bottom: innerHeight, width: innerWidth, height: 1 }) };
+      const rectOf = (el, p) => { const r = el.getBoundingClientRect(); if (!p || !p.tb) return r; const left = r.left + p.tb.dx; return { left, right: left + p.tb.w, top: r.top + p.tb.dy, bottom: r.bottom, width: p.tb.w, height: r.height }; };
       function surfaces() {
-        const seen = new Set();
-        document.querySelectorAll(SURFACES).forEach(el => {
-          if (el.closest('#xm-string')) return;
-          const r = el.getBoundingClientRect(); if (r.width < 24 || r.bottom < 0 || r.top > innerHeight) return;
-          seen.add(el);
+        const seen = new Set(); let n = 0;
+        const add = (el, texty) => {
+          let tb = null; if (texty) { tb = textBox(el); if (!tb || tb.w < 14) return; }
+          const r0 = el.getBoundingClientRect(); if (r0.bottom < 0 || r0.top > innerHeight) return;
+          const w = tb ? tb.w : r0.width; if (w < (texty ? 14 : 16)) return;
+          if (++n > MAX_SURF) return; seen.add(el);
           let p = piles.get(el);
-          if (!p) { const k = keyOf(el); p = STORE.get(k); if (!p) { p = { h: new Float32Array(Math.ceil(r.width / BUCKET) + 1), w: r.width, rad: -1 }; STORE.set(k, p); } piles.set(el, p); }
-          if (Math.abs(p.w - r.width) > 2) resample(p, r.width);
-          if (p.rad < 0) shape(el, p, r);
-        });
+          if (!p) { const k = el === GROUND ? '*|ground' : keyOf(el); p = STORE.get(k); if (!p) { p = { h: new Float32Array(Math.ceil(w / BUCKET) + 1), w, rad: -1 }; STORE.set(k, p); } piles.set(el, p); }
+          p.tb = tb; if (el === GROUND) p.max = 3;
+          if (Math.abs(p.w - w) > 2) resample(p, w);
+          if (p.rad < 0) { if (texty || el === GROUND) { p.rad = 0; p.base = null; p.mf = null; } else shape(el, p, r0); }
+        };
+        add(GROUND, false);
+        document.querySelectorAll(SURFACES).forEach(el => { if (el.closest('#xm-string,#xm-ring,.modal-bg[hidden]')) return; add(el, el.matches(TEXTY)); });
         for (const el of piles.keys()) if (!seen.has(el) || !el.isConnected) piles.delete(el);
       }
       // the top edge's shape: rounded corners curve down, so snow sits on the curve and slides off steep parts
@@ -201,7 +220,7 @@
       // a clump: a packed ball that arcs off and bursts into powder where it lands
       function clump(x, y, size, vx, vy) { if (flakes.length >= CAP) return; const f = newFlake(); Object.assign(f, { near: false, far: false, crys: false, spr: null, x, y, r: size, vx, vy, air: 1, clump: 1, o: 1 }); flakes.push(f); }
       function knock(el, strength = 1) {
-        const p = piles.get(el); if (!p) return; const r = el.getBoundingClientRect(); let moved = 0; dirty = true;
+        const p = piles.get(el); if (!p) return; const r = rectOf(el, p); let moved = 0; dirty = true;
         for (let j = 0; j < p.h.length; j++) { const take = p.h[j] * Math.min(1, strength); if (take < .6) continue; p.h[j] -= take; moved += take;
           const x = r.left + j * BUCKET, y = baseY(p, r, j) - p.h[j] - take;
           if (j % 3 === 0 && take > 2.5) clump(x, y, Math.min(9, 2 + take * .45) * T.size, rnd(-2.2, 2.2) * strength + (x - (r.left + r.width / 2)) * .012, -rnd(2.5, 6.5) * strength);
@@ -210,7 +229,7 @@
       }
       function settle(p, rect, x, amt) {
         const i = Math.max(0, Math.min(p.h.length - 1, Math.round((x - rect.left) / BUCKET)));
-        const max = 14 * T.pile * (rect.width < 120 ? .6 : 1), mf = p.mf ? p.mf[i] : 1;
+        const max = 14 * T.pile * (p.max || (rect.width < 120 ? .6 : 1)), mf = p.mf ? p.mf[i] : 1;
         if (max <= 0 || p.h[i] >= max * mf) { if (mf < .5) powder(x, baseY(p, rect, i) - p.h[i], 1, .6, .2); return false; }
         p.h[i] += .9 * amt; dirty = true; if (i > 0) p.h[i - 1] += .35 * amt; if (i < p.h.length - 1) p.h[i + 1] += .35 * amt;
         for (let k = 0; k < 3; k++) for (let j = 0; j < p.h.length; j++) {   // angle of repose
@@ -234,7 +253,7 @@
         mouse.vx *= .9; mouse.vy *= .9; scrollKick *= .9;
         const want = Math.min(CAP, Math.round(150 * T.amount));
         cx.setTransform(1, 0, 0, 1, 0, 0); cx.clearRect(0, 0, cv.width, cv.height);
-        const rects = o.build ? [...piles.entries()].map(([el, p]) => [el, p, el.getBoundingClientRect()]) : [];
+        const rects = o.build ? [...piles.entries()].map(([el, p]) => [el, p, rectOf(el, p)]) : [];
         const focus = document.activeElement && document.activeElement.matches && document.activeElement.matches('input,textarea,[contenteditable="true"]') ? document.activeElement : null;
         const light = !(window.CadenceThemes && window.CadenceThemes.isDark && window.CadenceThemes.isDark());
         const mspd = Math.hypot(mouse.vx, mouse.vy);
@@ -254,7 +273,7 @@
             const i2 = Math.max(0, Math.min(p.h.length - 1, Math.round((nx - r.left) / BUCKET))), top = baseY(p, r, i2) - p.h[i2];
             if (f.y <= top && ny >= top) {
               if (f.clump) { powder(nx, top - 2, 6 + (f.r | 0), 2.2, 2.2); settle(p, r, nx, f.r * .5); landed = true; break; }
-              const boost = el === focus || (focus && el.contains(focus)) ? 2 : 1; landed = settle(p, r, nx, .55 * (f.crys ? 1.4 : 1) * boost) || landed; break; }
+              const boost = el === focus || (focus && el.contains(focus)) ? 2 : 1; landed = settle(p, r, nx, 1.15 * (f.crys ? 1.4 : 1) * f.r / 1.8 * boost) || landed; break; }
           }
           if (!landed && f.clump && ny > innerHeight - 4) { powder(nx, innerHeight - 6, 10, 2.6, 2.6); landed = true; }
           if (landed || ny > innerHeight + 20 || nx < -80 || nx > innerWidth + 80 || ny < -innerHeight * 1.5) { if (flakes.length > want || f.air) flakes.splice(i, 1); else Object.assign(f, newFlake()); continue; }

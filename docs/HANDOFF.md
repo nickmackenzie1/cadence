@@ -408,3 +408,7 @@ Needs: Life space (done), weather API (key on NAS), maps/GPX (offline tiles = ph
   engine each time (slowdown). Now setup() calls G.teardown() first (raf, canvas, save interval, ring observer) and
   window listeners are bound once and dispatch to G.h (the current engine). Settings are global (localStorage
   cadence.xmas, falls back to the old per-space storage) so switching spaces never "stops" the snow.
+- Snow lands everywhere (2026-11-09): SURFACES now include checkboxes, chips, editor chips, inputs, nav text/icons/
+  counts, view tiles, stat numbers, list headings and the words of titles/headings (TEXTY: first-line text box via
+  Range, snow sits on the letters). A GROUND pile along the bottom of the window catches what gets through. Far layer
+  thinned (z<.22), each landing flake deposits ~2× (scaled by flake size). Up to 280 surfaces, ~57 fps.
