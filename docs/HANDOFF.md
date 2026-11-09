@@ -317,3 +317,6 @@ Needs: Life space (done), weather API (key on NAS), maps/GPX (offline tiles = ph
 - Neo-Brutal UI pass (user screenshots, 2026-11-09): chips get real padding (were text-to-border), coloured due
   chips, roomier task rows, wider gaps between hard-shadow cards, client hero puts actions in a row above the title
   so the big Lexend name gets the full width; all themes: hero sub-line is a wrapping flex row, avatar + name never split.
+- Backlog (user, 2026-11-09 15:31): "Liquid Glass" UI theme (Apple-style): translucent panels with backdrop blur +
+  saturation, specular edge highlights, refraction-ish lensing on hover (SVG feDisplacementMap filter where
+  supported), floating pill sidebar and toolbar, content showing through. Pairs naturally with the ambient light layer.
