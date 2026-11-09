@@ -286,3 +286,7 @@ Needs: Life space (done), weather API (key on NAS), maps/GPX (offline tiles = ph
 - Follow-ups / in-progress (core): `task.stage` 'doing' | 'waiting', `task.log = [{at,text}]`. Editor "Progress" chip:
   In progress, "Did my part, follow up…" (logs the step, sets the follow-up date, stage waiting), Log a step.
   Key F on a selected task. Rows show the stage chip and the last step under the title. Repeats start clean.
+- Backlog (user, 2026-11-09): client news plugin. Related news articles per client on the client page (and a widget).
+  Non-AI first: Google News RSS search by client name/domain through the existing feed proxy (`/api/feed`, ttl), with
+  de-dupe and an exclude-words filter for common names; optional AI pass later to keep only genuinely relevant items
+  and summarise "why it matters for this client".
