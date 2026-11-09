@@ -133,4 +133,5 @@ built-in plugins in `public/index.html` and push. It goes live on the next deplo
 
 `prep` (client action + modal), `chase` (reuses the recap email via `window.CadenceRecap.open`),
 `templates` (storage-backed editor), `review` (sidebar view), `pulse` (sidebar view),
-`fireflies` / `ai-extract` / `plain-lines` (extractors), `zoho-tags` (parser).
+`fireflies` / `ai-extract` / `plain-lines` (extractors), `zoho-tags` (parser),
+`homeowner` (Life-only: multi-step modal wizard, tasks it owns via a custom field, view + widget + settings).

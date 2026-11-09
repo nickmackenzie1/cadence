@@ -98,7 +98,7 @@ Next: (superseded, see below)
 - Notifications: a proper system. Desktop notifications exist only for reminders today (Settings → General); add a
   notification centre (history), per-plugin notification settings, Web Push (needs a service worker + HTTPS: we have it),
   and quiet hours. Island stays the in-app surface.
-- LIFE: "Good Homeowner" plugin. A guided first-run interview about the house (heating/cooling type, filter sizes,
+- (SHIPPED 2026-11-09, see below) LIFE: "Good Homeowner" plugin. A guided first-run interview about the house (heating/cooling type, filter sizes,
   eavestroughs, gutters, smoke/CO detectors, water heater, sump pump, roof, appliances, lawn/garden, pool, well/septic),
   then it creates the recurring maintenance reminders with sensible seasonal timing (furnace filter every 1–3 months,
   eavestroughs spring + fall, detector batteries twice a year, water heater flush yearly…). Keeps a house profile:
@@ -191,7 +191,7 @@ Spouse / partner
 - Little things reminder: occasional nudge for small unprompted kindnesses.
 Household
 - Meal planner -> grocery list sorted by store aisle; remembers what the family actually ate vs ignored. (merges with shopping-list idea)
-- Home maintenance calendar: seasonal recurrences tuned to location (Toronto: November tire swap). (merges with Good Homeowner)
+- (SHIPPED in Good Homeowner) Home maintenance calendar: seasonal recurrences tuned to location (Toronto: November tire swap).
 - Document & renewal tracker: passports, licences, health cards, insurance, subscriptions; reminders 60–90 days out (kids' passports = 5 yrs).
 - Bills & budget pulse: recurring bills as tasks + monthly "where did the money go" review for two.
 - Emergency binder: who to call, where papers are, account info, what to do if one of you is out of commission.
@@ -233,3 +233,17 @@ Needs: Life space (done), weather API (key on NAS), maps/GPX (offline tiles = ph
   Colours transition (1.6s) when switching clients + a 'surge'; drift animation optional. --accent on #view = brand colour
   darkened/lightened to >= 4.5:1 vs --bg. Settings: Bold/Subtle/Off, drift, brand accent. Themes opt out via '--ambient: off'
   (ninety-five, chicago, terminal, crt, matrix, geocities, contrast, nes). Works for Life areas (single colour -> derived palette).
+
+## Good Homeowner (2026-11-09, shipped) — first Life plugin
+- `public/plugins/homeowner.js`, `spaces:['life']`. View `view-house` ("My home"), command "Set up home maintenance",
+  Settings button opens the interview, widget "This month at home".
+- Interview: place (type/own/climate) → heating & cooling → water → outside (houses/towns only) → safety & appliances →
+  review (untick jobs; remembered on re-run). ~50 catalogue items, each `{k, t, g, every, at, if, n}`.
+- Reminders are ordinary repeating tasks in the Life "Home" area (created with 🏠 if missing), tagged `home`, owned via
+  `task.gh = <catalogue key>`. The repeat spawn copies `gh`, so the chain stays owned. Re-running updates in place
+  and removes jobs that no longer apply; never duplicates. Warranties own `gh = warranty:<id>` (30 days before expiry).
+- First due: seasonal jobs at the start of their month; if the month is now or just passed, within the week.
+- Profile in plugin storage `profile`: answers, systems (filter size flows into the filter reminder's notes), paint,
+  pros, warranties, notes. Year strip shows how many jobs land in each month.
+- Core: repeat picker gained Every 3 months / Twice a year / Yearly; labels say "Yearly" etc.
+- Ideas next: mild/hot climate month shifts, "last done" history per job, attach photos/manuals, share with household.

@@ -31,7 +31,7 @@ test('switching to Life opens a separate, calm world; Work is untouched', async 
   await A.page.evaluate(() => window.T.tasks.add({ title: 'Work task', owner: 'me', dueDate: window.T.util.todayKey() }));
   await A.page.click('.space-sw [data-s=life]');
   await expect(A.page.locator('#side-main .sect', { hasText: 'Areas' })).toBeVisible();
-  await expect(A.page.locator('#side-main .nav a', { hasText: 'Home' })).toBeVisible();
+  await expect(A.page.locator('#side-main .nav a[href^="#client-"]', { hasText: 'Home' })).toBeVisible();
   await expect(A.page.locator('#side-main')).not.toContainText('Waiting on clients');
   await expect(A.page.locator('.meet-btn')).toHaveCount(0);
   expect(await A.page.evaluate(() => document.documentElement.dataset.skin)).toBe('calm');

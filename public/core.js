@@ -460,7 +460,7 @@ function updateTask(id, patch){
   if(['dueDate','dueTime','remindMode','remindAt'].some(k => k in patch)){ t.remindAt = computeRemind(t); t.reminded = false; }
   save(); emit('task:update', clone(t)); return t;
 }
-const REPEAT_LABEL = r => !r ? '' : r.unit === 'weekday' ? 'Weekdays' : r.unit === 'day' ? (r.n > 1 ? `Every ${r.n} days` : 'Daily') : r.unit === 'week' ? (r.n === 2 ? 'Every 2 weeks' : r.n > 1 ? `Every ${r.n} weeks` : 'Weekly') : r.unit === 'month' ? (r.n > 1 ? `Every ${r.n} months` : 'Monthly') : '';
+const REPEAT_LABEL = r => !r ? '' : r.unit === 'weekday' ? 'Weekdays' : r.unit === 'day' ? (r.n > 1 ? `Every ${r.n} days` : 'Daily') : r.unit === 'week' ? (r.n === 2 ? 'Every 2 weeks' : r.n > 1 ? `Every ${r.n} weeks` : 'Weekly') : r.unit === 'month' ? (r.n === 12 ? 'Yearly' : r.n === 6 ? 'Twice a year' : r.n === 3 ? 'Every 3 months' : r.n % 12 === 0 ? `Every ${r.n / 12} years` : r.n > 1 ? `Every ${r.n} months` : 'Monthly') : '';
 function nextOccurrence(fromKey, r){
   const step = d => {
     if(r.unit === 'day') return addDays(d, r.n || 1);
@@ -1022,7 +1022,7 @@ function editChip(t, key, el){
     }, { w: 240 });
   }
   if(key === 'repeat'){
-    const opts = [['', 'Does not repeat'], ['day:1','Daily'], ['weekday:1','Every weekday'], ['week:1','Weekly'], ['week:2','Every 2 weeks'], ['month:1','Monthly']];
+    const opts = [['', 'Does not repeat'], ['day:1','Daily'], ['weekday:1','Every weekday'], ['week:1','Weekly'], ['week:2','Every 2 weeks'], ['month:1','Monthly'], ['month:3','Every 3 months'], ['month:6','Twice a year'], ['month:12','Yearly']];
     const cur = t.repeat ? t.repeat.unit + ':' + t.repeat.n : '';
     return popList(el, opts.map(([v, l]) => ({ v, label: l, on: v === cur })), it => { if(!it.v) return up({ repeat: null }); const [unit, n] = it.v.split(':'); up({ repeat: { unit, n: +n }, ...(t.dueDate ? {} : { dueDate: todayKey() }) }); }, { w: 200 });
   }
