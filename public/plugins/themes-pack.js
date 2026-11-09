@@ -16,7 +16,7 @@
     font: 'et-book, Palatino, "Palatino Linotype", "Book Antiqua", Georgia, serif',
     vars: { '--bg': '#fffff8', '--panel': '#fffff8', '--side': '#fbfbf0', '--text': '#111', '--muted': '#6f6f66', '--faint': '#aaa99c', '--line': '#e4e4d6', '--hover': 'rgba(0,0,0,.035)', '--accent': '#7a1f1f', '--accent-soft': '#f2e8df', '--danger': '#a8321e', '--ok': '#3d6b35', '--client': '#8a6a1f', '--client-soft': '#f3ecd9', '--shadow': 'none' },
     css: `:skin body{font-size:17px} :skin .head h1{font-weight:400;font-style:italic;font-size:34px;letter-spacing:0}
-      :skin .gl,:skin .stat,:skin .qa,:skin .pl-card,:skin .modal{box-shadow:none;border-color:var(--line)} :skin .btn{border-radius:2px} :skin .btn.primary{background:#111;border-color:#111}
+      :skin .gl,:skin .stat,:skin .qa,:skin .dw-qa,:skin .pl-card,:skin .db-item:not(.bare),:skin .modal{box-shadow:none;border-color:var(--line)} :skin .btn{border-radius:2px} :skin .btn.primary{background:#111;border-color:#111}
       :skin .t-title{font-size:17px} :skin .group-h{font-style:italic;font-weight:400;font-size:15px;text-transform:none}` });
 
   R({ id: 'nord', name: 'Nord', category: 'Useful', tagline: 'Arctic, north-bluish calm for late nights.',
@@ -30,7 +30,7 @@
   R({ id: 'contrast', name: 'High contrast', category: 'Useful', tagline: 'Maximum legibility, big focus rings.',
     vars: { '--bg': '#000', '--panel': '#000', '--side': '#000', '--text': '#fff', '--muted': '#e6e6e6', '--faint': '#c8c8c8', '--line': '#fff', '--hover': '#262626', '--accent': '#ffd400', '--accent-soft': '#332b00', '--danger': '#ff6b6b', '--danger-soft': '#330000', '--ok': '#6bff8a', '--client': '#7ad7ff', '--client-soft': '#002633', '--shadow': 'none', '--on-accent': '#000' },
     css: `${flat} :skin :focus-visible{outline:3px solid #ffd400!important;outline-offset:2px}
-      :skin .gl,:skin .stat,:skin .qa,:skin .modal,:skin .pl-card,:skin .th-card,:skin .btn{border-width:2px!important}
+      :skin .gl,:skin .stat,:skin .qa,:skin .dw-qa,:skin .modal,:skin .pl-card,:skin .db-item:not(.bare),:skin .th-card,:skin .btn{border-width:2px!important}
       :skin .t-title{font-weight:600} :skin a{text-decoration:underline}` });
 
   R({ id: 'calm', name: 'Calm', category: 'Useful', tagline: 'Soft sage, no screaming reds. Made for Life mode.',
@@ -58,14 +58,16 @@
       :skin .btn,:skin .meet-btn{background:#c0c0c0!important;color:#000!important;border:0!important;box-shadow:var(--bev-out);min-height:23px}
       :skin .btn:active,:skin .meet-btn:active{box-shadow:var(--bev-in)}
       :skin .btn.primary{outline:1px solid #000;outline-offset:-1px}
-      :skin .inp,:skin .qa,:skin .task.open{background:#fff!important;border:0!important;box-shadow:var(--field)!important}
-      :skin .gl,:skin .stat,:skin .pl-card,:skin .th-card,:skin .c-hero,:skin .pop,:skin .drawer{background:#c0c0c0!important;border:0!important;box-shadow:var(--bev-out)!important}
+      :skin .inp,:skin .qa,:skin .dw-qa,:skin .task.open{background:#fff!important;border:0!important;box-shadow:var(--field)!important}
+      :skin .gl,:skin .stat,:skin .pl-card,:skin .db-item:not(.bare),:skin .th-card,:skin .c-hero,:skin .pop,:skin .drawer{background:#c0c0c0!important;border:0!important;box-shadow:var(--bev-out)!important}
       :skin .check{border:0;box-shadow:var(--field);background:#fff} :skin .task.done .check{background:#fff;color:#000}
       :skin .task:hover{background:transparent;outline:1px dotted #000;outline-offset:-2px}
       :skin .modal{background:#c0c0c0;border:0;box-shadow:var(--bev-out);padding:3px}
       :skin .modal-h{background:linear-gradient(90deg,#000080,#1084d0);color:#fff;padding:4px 6px;border:0}
       :skin .modal-h button{background:#c0c0c0;color:#000;box-shadow:var(--bev-out);width:18px;height:16px}
       :skin .modal-f{border-top:0}
+      :skin .db-item:not(.bare){padding:3px} :skin .db-item:not(.bare) .db-h{background:linear-gradient(90deg,#000080,#1084d0);color:#fff;padding:3px 6px;font-weight:700;min-height:18px}
+      :skin .dw-stats .gl{background:#c0c0c0!important}
       :skin .toast{background:#ffffe1;color:#000;border:1px solid #000;box-shadow:none} :skin .toast button{color:#000080}
       :skin .chip{background:#c0c0c0;box-shadow:var(--bev-out);color:#000}
       :skin .isl-pill{background:#c0c0c0!important;color:#000;box-shadow:var(--bev-out)!important;--isl-fg:#000;--isl-sub:#3a3a3a}
@@ -85,11 +87,12 @@
       :skin .btn{background:linear-gradient(180deg,#fff,#ecebe6 86%,#d6d0c5);border:1px solid #003c74;border-radius:3px;color:#000}
       :skin .btn:hover{box-shadow:inset -1px 1px #fff0cf,inset 1px 2px #fdd889,inset -2px 2px #fbc761,inset 2px -2px #e5a01a}
       :skin .btn.primary{color:#000;background:linear-gradient(180deg,#fff,#ecebe6 86%,#d6d0c5);box-shadow:inset 0 0 0 1px #6c9fe6}
-      :skin .inp,:skin .qa{border:1px solid #7f9db9;border-radius:0;background:#fff}
-      :skin .gl,:skin .stat,:skin .pl-card{border:1px solid #d0d0bf;border-radius:3px;background:#fff}
+      :skin .inp,:skin .qa,:skin .dw-qa{border:1px solid #7f9db9;border-radius:0;background:#fff}
+      :skin .gl,:skin .stat,:skin .pl-card,:skin .db-item:not(.bare){border:1px solid #d0d0bf;border-radius:3px;background:#fff}
       :skin .modal{border:3px solid #0831d9;border-radius:8px 8px 0 0;background:#ece9d8}
       :skin .modal-h{background:linear-gradient(#0997ff,#0053ee 8%,#0050ee 40%,#06f 88%,#003dd7);color:#fff;text-shadow:1px 1px #0f1089}
       :skin .head h1{font-family:"Trebuchet MS",Tahoma,sans-serif}
+      :skin .db-item:not(.bare){border:2px solid #0831d9!important;border-radius:6px 6px 0 0!important} :skin .db-item:not(.bare) .db-h{background:linear-gradient(#0997ff,#0053ee 8%,#0050ee 40%,#06f 88%,#003dd7);color:#fff;padding:5px 8px;text-shadow:1px 1px #0f1089;font-weight:700}
       :skin .meet-btn{background:linear-gradient(#3c8d0d,#5eac2a 12%,#3c8d0d 88%,#2b6b08)!important;color:#fff!important;font:italic 700 15px "Trebuchet MS",Tahoma;text-shadow:1px 1px 2px #1a4004;border-radius:0 12px 12px 0!important;box-shadow:inset 0 1px 0 rgba(255,255,255,.4)}` });
 
   R({ id: 'seven', name: 'Aero', category: 'Fun', tagline: 'Windows 7 style: frosted glass and soft glow (after 7.css).',
@@ -105,7 +108,7 @@
       :skin .btn{background:linear-gradient(#f2f2f2 45%,#ebebeb 45%,#cfcfcf);border:1px solid #707070;border-radius:3px;color:#000}
       :skin .btn:hover{background:linear-gradient(#eaf6fd 45%,#bee6fd 45%,#a7d9f5);border-color:#3c7fb1}
       :skin .btn.primary{color:#000;border-color:#3c7fb1;box-shadow:inset 0 0 0 1px #9ed2f5}
-      :skin .gl,:skin .stat,:skin .qa,:skin .pl-card{background:rgba(255,255,255,.8);border:1px solid rgba(120,150,180,.55);border-radius:6px}` });
+      :skin .gl,:skin .stat,:skin .qa,:skin .dw-qa,:skin .pl-card,:skin .db-item:not(.bare){background:rgba(255,255,255,.8);border:1px solid rgba(120,150,180,.55);border-radius:6px}` });
 
   R({ id: 'chicago', name: 'Chicago', category: 'Fun', tagline: 'Classic Macintosh, 1-bit black and white (system.css fonts).',
     fonts: [{ family: 'ChicagoFLF', src: V + 'systemcss/ChicagoFLF.woff2' }, { family: 'ChiKareGo2', src: V + 'systemcss/ChiKareGo2.woff2' }],
@@ -121,8 +124,9 @@
       :skin .btn:active{background:#000;color:#fff} :skin .btn.primary{color:#000;box-shadow:0 0 0 1px #fff,0 0 0 3px #000}
       :skin .nav a.on{background:#000;color:#fff} :skin .nav a.on .ic,:skin .nav a.on .n{color:#fff}
       :skin .side{border-right:1px solid #000}
-      :skin .gl,:skin .stat,:skin .qa,:skin .pl-card,:skin .modal,:skin .pop{border:1px solid #000;box-shadow:2px 2px 0 #000}
+      :skin .gl,:skin .stat,:skin .qa,:skin .dw-qa,:skin .pl-card,:skin .db-item:not(.bare),:skin .modal,:skin .pop{border:1px solid #000;box-shadow:2px 2px 0 #000}
       :skin .chip.over{text-decoration:underline wavy} :skin .check{border:1.5px solid #000}
+      :skin .db-item:not(.bare) .db-h{justify-content:center;font:16px ChicagoFLF;color:#000;border-bottom:1px solid #000;padding:2px 8px;background:repeating-linear-gradient(#fff 0 2px,#000 2px 3px) 0 4px/100% 12px no-repeat,#fff} :skin .db-item:not(.bare) .db-h .ic{display:none}
       :skin .isl-pill{background:#fff!important;color:#000;box-shadow:0 0 0 1px #000,2px 2px 0 #000!important;--isl-fg:#000;--isl-sub:#000}` });
 
   // NES.css's pixel border trick: four flat shadows give stepped "rounded" corners
@@ -134,7 +138,7 @@
     preview: { bg: '#fff', panel: '#fff', side: '#f2f2f2', text: '#212529', accent: '#209cee', line: '#212529', r: '0' },
     css: `:skin body{font-size:10px;line-height:1.7} :skin *{border-radius:0!important}
       :skin .head h1{font-size:18px;letter-spacing:0} :skin .t-title{font-size:11px}
-      :skin .gl,:skin .stat,:skin .qa,:skin .pl-card,:skin .th-card,:skin .modal,:skin .task.open{border:0!important;${PIX('#212529')}!important;margin:4px}
+      :skin .gl,:skin .stat,:skin .qa,:skin .dw-qa,:skin .pl-card,:skin .db-item:not(.bare),:skin .th-card,:skin .modal,:skin .task.open{border:0!important;${PIX('#212529')}!important;margin:4px}
       :skin .btn{border:0;${PIX('#212529')},inset -4px -4px #adafbc;background:#fff;color:#212529;padding:8px 14px;margin:4px}
       :skin .btn.primary{background:#209cee;color:#fff;${PIX('#212529')},inset -4px -4px #006bb3}
       :skin .btn:active{box-shadow:0 -4px #212529,0 4px #212529,-4px 0 #212529,4px 0 #212529,inset 4px 4px #adafbc}
@@ -154,7 +158,7 @@
       @keyframes thblink{50%{opacity:0}}
       :skin .btn{border:1px solid var(--line);background:transparent;color:var(--text)} :skin .btn::before{content:'['} :skin .btn::after{content:']'}
       :skin .btn.primary{background:#33ff66;text-shadow:none}
-      :skin .gl,:skin .stat,:skin .qa,:skin .pl-card,:skin .modal{border:1px dashed var(--line);box-shadow:none}
+      :skin .gl,:skin .stat,:skin .qa,:skin .dw-qa,:skin .pl-card,:skin .db-item:not(.bare),:skin .modal{border:1px dashed var(--line);box-shadow:none}
       :skin .check{border-radius:0} :skin .task.done .check::after{content:'x'}
       :skin .nav a.on{background:#33ff66;color:#041004;text-shadow:none} :skin .nav a.on .ic,:skin .nav a.on .n{color:#041004}
       @media (prefers-reduced-motion:reduce){:skin .head h1::after{animation:none}}` });
@@ -171,7 +175,7 @@
       :skin .wrap{background:rgba(26,11,51,.72);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);border:1px solid rgba(255,113,206,.3);border-radius:18px;margin:22px auto 40px;box-shadow:0 0 40px rgba(255,113,206,.2)}
       :skin .side{-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px)}
       :skin .head h1{background:linear-gradient(90deg,#ff71ce,#01cdfe,#05ffa1);-webkit-background-clip:text;background-clip:text;color:transparent;filter:drop-shadow(2px 2px 0 #b967ff);font-style:italic}
-      :skin .gl,:skin .stat,:skin .qa,:skin .pl-card,:skin .modal{-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px)}` });
+      :skin .gl,:skin .stat,:skin .qa,:skin .dw-qa,:skin .pl-card,:skin .db-item:not(.bare),:skin .modal{-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px)}` });
 
   const WOB = 'border-radius:255px 15px 225px 15px/15px 225px 15px 255px';
   R({ id: 'sketchbook', name: 'Sketchbook', category: 'Fun', tagline: 'Hand-drawn wobbly boxes on ruled paper (after PaperCSS).',
@@ -181,7 +185,7 @@
     preview: { r: '18px 4px 16px 4px' },
     css: `:skin body{font-size:16px} :skin .main{background:repeating-linear-gradient(transparent 0 27px,#d6e4f5 27px 28px),#fdfcf7}
       :skin .head h1{font-weight:700;font-size:30px;text-decoration:underline wavy #0071de 2px;text-underline-offset:6px}
-      :skin .btn,:skin .gl,:skin .stat,:skin .qa,:skin .pl-card,:skin .th-card,:skin .modal,:skin .pop,:skin .chip,:skin .inp{${WOB}!important;border:2px solid #41403e!important}
+      :skin .btn,:skin .gl,:skin .stat,:skin .qa,:skin .dw-qa,:skin .pl-card,:skin .db-item:not(.bare),:skin .th-card,:skin .modal,:skin .pop,:skin .chip,:skin .inp{${WOB}!important;border:2px solid #41403e!important}
       :skin .btn{box-shadow:15px 28px 25px -18px rgba(0,0,0,.2);transition:box-shadow .2s,transform .2s}
       :skin .btn:hover{box-shadow:2px 8px 8px -5px rgba(0,0,0,.3);transform:translateY(-1px)}
       :skin .check{${WOB}!important;border:2px solid #41403e}
@@ -194,7 +198,7 @@
     vars: { '--bg': '#0d0802', '--panel': '#140c03', '--side': '#0a0601', '--text': '#ffb000', '--muted': '#c98a00', '--faint': '#7a5400', '--line': '#4a3300', '--hover': 'rgba(255,176,0,.08)', '--accent': '#ffb000', '--accent-soft': '#2a1d00', '--danger': '#ff5a36', '--ok': '#ffd060', '--client': '#ffe08a', '--client-soft': '#2a2208', '--shadow': 'none', '--on-accent': '#140c03' },
     css: `${flat} :skin body{font-size:19px;${GLOW('#ffb000')}} :skin *{border-radius:0!important}
       :skin .app{border-radius:28px;overflow:hidden;box-shadow:inset 0 0 120px rgba(0,0,0,.9)}
-      :skin .gl,:skin .stat,:skin .qa,:skin .pl-card,:skin .modal{border:1px solid var(--line);box-shadow:none}
+      :skin .gl,:skin .stat,:skin .qa,:skin .dw-qa,:skin .pl-card,:skin .db-item:not(.bare),:skin .modal{border:1px solid var(--line);box-shadow:none}
       :skin .nav a.on{background:#ffb000;color:#140c03;text-shadow:none} :skin .nav a.on .ic,:skin .nav a.on .n{color:#140c03}`,
     effects({ layer, level }) {
       layer.innerHTML = `<div style="position:absolute;inset:0;background:repeating-linear-gradient(rgba(0,0,0,.28) 0 1px,transparent 1px 3px)"></div>
@@ -252,7 +256,7 @@
       :skin .nav a.on{background:#ff00ff;color:#fff} :skin .meet-btn{background:#ffff00!important;color:#000!important}
       :skin .btn{background:#c0c0c0;border:3px outset #fff;color:#000;font-weight:700}
       :skin .btn:active{border-style:inset}
-      :skin .gl,:skin .stat,:skin .qa,:skin .pl-card{border:3px double #ff00ff}
+      :skin .gl,:skin .stat,:skin .qa,:skin .dw-qa,:skin .pl-card,:skin .db-item:not(.bare){border:3px double #ff00ff}
       :skin .isl-pill{background:#000!important;--isl-fg:#ffff00;--isl-sub:#00ffff;box-shadow:0 0 0 3px #ff00ff!important}
       @media (prefers-reduced-motion:reduce){:skin .head h1,:skin .chip.over{animation:none}}`,
     effects({ layer, level }) {
