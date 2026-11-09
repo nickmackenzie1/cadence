@@ -51,4 +51,8 @@ Next: (superseded, see below)
 6. Weather plugin: API key entered in settings but STORED ON THE NAS (server proxy, like calendars.json), placeable in
    several spots (sidebar / home / island).
 7. Spotify listening stats (needs HTTPS: done; PKCE, tokens on NAS).
+8. WORK / LIFE MODES (big, decide before SQLite schema): same user, two spaces. Work = current app (clients, meetings,
+   Zoho). Life = different setup and philosophy, NO clients (personal areas/projects instead?). Each mode its own data,
+   plugins enabled, sidebar, theme. Needs a 'space' key in storage -> design SQLite with spaces from day one.
+- Web links plugin (done): plugins/weblinks.js, sidebar 'Links' section + Settings editor + ⌘K 'Add a web link'.
 - Older: right-click menu, verify mosaic with real Wikimedia images and logos on the NAS.
