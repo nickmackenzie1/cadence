@@ -617,6 +617,36 @@ function switchSpace(to){
   emit('space', { space: to });
   if(!S.lifeSynced && to === 'life'){ S.lifeSynced = true; save(); }   // a brand-new Life gets sent to the NAS
 }
+/* no emoji anywhere: every emoji that reaches the page (core, plugins, the Island, toasts, area icons in your data)
+   is swapped for the matching Lucide icon as it renders. Text you're typing (inputs, editable fields) is left alone.
+   icon('name') gives you a Lucide icon directly (also api.ui.icon). Icons: public/vendor/lucide (ISC). */
+const EMOJI_ICONS = {"✦":"sparkles","◉":"circle-dot","▦":"layout-grid","◇":"diamond","◖":"palette","◐":"palette","◑":"palette","◒":"palette","◓":"palette","☰":"menu","🏠": "house", "💚": "heart-pulse", "💰": "piggy-bank", "🛠️": "wrench", "💻": "laptop", "🏭": "factory", "🩺": "stethoscope", "⚖️": "scale", "💼": "briefcase", "🛡️": "shield", "🏗️": "construction", "🛍️": "shopping-bag", "🚚": "truck", "🎓": "graduation-cap", "🤝": "handshake", "🏨": "hotel", "📣": "megaphone", "⚡": "zap", "🚗": "car", "🏢": "building-2", "↗": "arrow-up-right", "⚙": "cog", "🎯": "target", "🎉": "party-popper", "📌": "pin", "⚠": "triangle-alert", "🔔": "bell", "✉": "mail", "▶": "play", "⏳": "hourglass", "⏰": "alarm-clock", "🗓️": "calendar-days", "🌿": "leaf", "☀": "sun", "👋": "hand", "👍": "thumbs-up", "⚽": "volleyball", "🍳": "cooking-pot", "🧺": "shirt", "🌱": "sprout", "🐶": "dog", "✈️": "plane", "🎨": "palette", "📚": "library-big", "👶": "baby", "🎵": "music", "🏃": "footprints", "🛒": "shopping-cart", "🧘": "flower-2", "🎁": "gift", "🚀": "rocket", "📦": "package", "🧪": "flask-conical", "🧭": "compass", "💡": "lightbulb", "🧰": "toolbox", "⚙️": "cog", "🗂️": "folder-kanban", "☑": "square-check", "✔": "check", "↔": "arrow-left-right", "✨": "sparkles", "📅": "calendar", "📝": "notebook-pen", "🔒": "lock", "🎫": "ticket", "👻": "ghost", "💥": "zap", "🏡": "house", "🏘️": "building", "🛋️": "sofa", "🔑": "key-round", "📄": "file-text", "❄️": "snowflake", "🌦️": "cloud-sun-rain", "☀️": "sun", "🔥": "flame", "♻️": "recycle", "♨️": "heater", "🤷": "circle-help", "🪟": "app-window", "🌬️": "wind", "🌀": "fan", "💧": "droplet", "🪵": "tree-pine", "🛢️": "cylinder", "🚰": "glass-water", "🌊": "waves", "🧂": "package-2", "🧊": "box", "🪣": "paint-bucket", "🚽": "toilet", "🏊": "waves-ladder", "🚨": "siren", "🧯": "fire-extinguisher", "🍽️": "utensils", "🛞": "life-buoy", "🧾": "receipt", "☕": "coffee", "🔗": "link", "🗡️": "sword", "💎": "gem", "🏔️": "mountain-snow", "⭐": "star", "🌟": "star", "🧹": "brush-cleaning", "📭": "mailbox", "🏆": "trophy", "👑": "crown", "🌳": "trees", "🌸": "flower", "🌻": "flower-2", "🫐": "cherry", "🖼️": "image", "🧩": "puzzle", "🖌": "paintbrush", "📈": "trending-up", "📉": "trending-down", "▫": "square", "🚧": "construction"};
+const EMO_RE = /\p{Extended_Pictographic}(?:\uFE0F|\u200D\p{Extended_Pictographic}|\p{Emoji_Modifier})*|[✦◉▦◇◖◐◑◒◓☰]/gu;
+function icon(name, cls = ''){ const d = window.LUCIDE && window.LUCIDE[name]; return d ? `<svg class="lu ${cls}" viewBox="0 0 24 24" aria-hidden="true">${d}</svg>` : ''; }
+const iconFor = e => EMOJI_ICONS[e] || EMOJI_ICONS[e.replace(/\uFE0F/g, '')] || EMOJI_ICONS[e + '\uFE0F'] || EMOJI_ICONS[e.replace(/\u200D[\s\S]*/, '')];
+const Deemoji = (() => {
+  const skip = n => { const p = n.parentElement; return !p || p.closest('script,style,textarea,svg,[contenteditable="true"],.keep-emoji'); };
+  const fix = node => {
+    if(node.nodeType === 3){ const t = node.nodeValue; if(!t || !EMO_RE.test(t)) return; EMO_RE.lastIndex = 0; if(skip(node)) return;
+      const frag = document.createDocumentFragment(); let last = 0, m, any = false;
+      while((m = EMO_RE.exec(t))){ const n = iconFor(m[0]); if(!n) continue; any = true;
+        if(m.index > last) frag.appendChild(document.createTextNode(t.slice(last, m.index)));
+        const sp = document.createElement('span'); sp.className = 'lu-w'; sp.innerHTML = icon(n); frag.appendChild(sp); last = m.index + m[0].length;
+        if(t[last] === ' ' && t[last + 1] === ' ') last++; }
+      EMO_RE.lastIndex = 0; if(!any) return;
+      if(last < t.length) frag.appendChild(document.createTextNode(t.slice(last)));
+      node.parentNode.replaceChild(frag, node); return; }
+    if(node.nodeType !== 1 || node.matches('script,style,textarea,svg,canvas')) return;
+    const w = document.createTreeWalker(node, NodeFilter.SHOW_TEXT), list = []; let n; while((n = w.nextNode())) if(EMO_RE.test(n.nodeValue)){ EMO_RE.lastIndex = 0; list.push(n); } else EMO_RE.lastIndex = 0;
+    list.forEach(fix);
+  };
+  let queue = new Set(), sched = false;
+  const flush = () => { sched = false; const q = queue; queue = new Set(); q.forEach(x => x.isConnected && fix(x)); };
+  const mo = new MutationObserver(ms => { for(const m of ms){ if(m.type === 'characterData') queue.add(m.target); else m.addedNodes.forEach(x => queue.add(x)); } if(!sched){ sched = true; queueMicrotask(flush); } });
+  const start = () => { fix(document.body); mo.observe(document.body, { childList: true, subtree: true, characterData: true }); };
+  if(document.body) start(); else addEventListener('DOMContentLoaded', start);
+  return { fix };
+})();
 /* errors surface instead of failing silently: a toast with the message, and a log you can copy (⌘K → Copy error log) */
 const ErrLog = (() => { let list = []; try { list = JSON.parse(sessionStorage.getItem('cadence.errors') || '[]'); } catch(e){}
   const seen = new Set();
@@ -675,7 +705,7 @@ function makeApi(pid){
     plugins: { enabled: id => enabled(id) },
     space: () => SPACE,
     system: () => ({ demo: DEMO, space: SPACE, mode: Store.server ? 'nas' : Store.ref ? 'claude' : 'local', status: Store.status, lastSyncAt: Store.lastSyncAt || null, latency: Store.latency ?? null, ai: !!AI, health: Store.health || null, version: window.Cadence.version, plugins: Reg.defs.filter(d => enabled(d.id)).length, counts: { tasks: S.tasks.length, open: S.tasks.filter(t => !t.done).length, clients: S.clients.filter(c => !c.archived).length, meetings: S.meetings.length } }),
-    ui: { reducedMotion, toast, colorMode: () => S.settings.theme === 'dark' ? 'dark' : 'light', setColorMode: m => { S.settings.theme = m === 'dark' ? 'dark' : 'light'; save(); render(); }, refreshWidgets: () => renderWidgets(), pointer: () => ({ ...lastPointer }), faviconUrl: (d, v) => faviconUrl(d, v), avatar: (c, size) => avatar(c, size), navigate: r => go(r), refresh: () => render(), copy: copyText, esc, modal: openModalHTML, close: closeModal, currentRoute: () => route() },
+    ui: { icon, reducedMotion, toast, colorMode: () => S.settings.theme === 'dark' ? 'dark' : 'light', setColorMode: m => { S.settings.theme = m === 'dark' ? 'dark' : 'light'; save(); render(); }, refreshWidgets: () => renderWidgets(), pointer: () => ({ ...lastPointer }), faviconUrl: (d, v) => faviconUrl(d, v), avatar: (c, size) => avatar(c, size), navigate: r => go(r), refresh: () => render(), copy: copyText, esc, modal: openModalHTML, close: closeModal, currentRoute: () => route() },
     storage: { get: k => (S.pluginData[pid] || {})[k], set: (k,v) => { (S.pluginData[pid] = S.pluginData[pid] || {})[k] = v; save(); } },
     get ai(){ return AI; },
     settings: () => clone(S.settings),

@@ -421,3 +421,8 @@ Needs: Life space (done), weather API (key on NAS), maps/GPX (offline tiles = ph
   on the client route) + up to 3 with overdue work, topped up by busiest; "All clients & projects (N)" opens a
   searchable picker (projects/paused labelled, counts, red when overdue). Life keeps its Areas list. Discord theme
   renders tiles as #channels.
+- No emoji (2026-11-09, shipped): core `Deemoji` MutationObserver swaps every emoji (and ✦◉▦◇◖◐☰) in rendered text
+  for a Lucide icon (EMOJI_ICONS map, ~125 entries) — core, plugins, Island, toasts, stored area icons; skips
+  inputs/textarea/contenteditable/.keep-emoji. `icon(name)` / `api.ui.icon(name)` for direct use. Icons bundled in
+  public/vendor/lucide/icons.js (subset, ISC, LICENSE alongside); add more with
+  `node scripts/build-icons.mjs <lucide-static dir> name…`. New code should use icon names, not emoji.

@@ -576,3 +576,10 @@ html.amb-on .c-hero .bg.img{opacity:.24;filter:saturate(1.1)}
 .ntile.on{background:color-mix(in srgb,var(--sel,var(--accent)) 13%,transparent);color:var(--sel,var(--accent))}
 .ntile.on .n:not(.hot){background:var(--sel,var(--accent));color:var(--on-accent,#fff)}
 .nav a.all-cl{color:var(--muted)}.nav a.all-cl .n{color:var(--faint)}
+
+/* Lucide icons (replacing emoji) */
+svg.lu{width:1.1em;height:1.1em;display:inline-block;vertical-align:-.17em;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.lu-w{display:inline-flex;align-items:center;justify-content:center;line-height:1}
+.av.emoji{color:var(--c);background:color-mix(in srgb,var(--c) 16%,var(--panel))!important}.av.emoji .lu-w,.av.emoji svg.lu{width:64%;height:64%}.av.emoji svg.lu{stroke-width:2.2}
+.vgrid .vt .ic svg.lu{width:18px;height:18px}
+.empty .big svg.lu{width:40px;height:40px;stroke-width:1.6;color:var(--faint)}
