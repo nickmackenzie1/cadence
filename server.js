@@ -48,14 +48,50 @@ function readBody(req, limit = 10 * 1024 * 1024) {
     req.on('error', reject);
   });
 }
-function authorized(req) {
-  if (!PASSWORD) return true;
+// ---- login: cookie sessions (stored hashed in data/sessions.json), Basic auth still accepted for scripts ----
+const SESSIONS_FILE = path.join(DATA_DIR, 'sessions.json');
+const COOKIE = 'cadence_session';
+const LONG = 30 * 864e5, SHORT = 12 * 3600e3;
+const sha = s => crypto.createHash('sha256').update(s).digest('hex');
+const PW_TAG = sha('cadence:' + USERNAME + ':' + PASSWORD).slice(0, 16);   // changing the password signs everyone out
+let sessions = (() => { try { const j = JSON.parse(fs.readFileSync(SESSIONS_FILE, 'utf8')); return j.pw === PW_TAG ? j.list || {} : {}; } catch { return {}; } })();
+let sessTimer = null;
+function saveSessions() {
+  clearTimeout(sessTimer);
+  sessTimer = setTimeout(() => { try { const tmp = SESSIONS_FILE + '.tmp'; fs.writeFileSync(tmp, JSON.stringify({ pw: PW_TAG, list: sessions }), { mode: 0o600 }); fs.renameSync(tmp, SESSIONS_FILE); } catch (e) { console.error('sessions', e.message); } }, 200);
+}
+function cookies(req) { const out = {}; for (const part of String(req.headers.cookie || '').split(';')) { const i = part.indexOf('='); if (i > 0) out[part.slice(0, i).trim()] = decodeURIComponent(part.slice(i + 1).trim()); } return out; }
+function session(req) {
+  const tok = cookies(req)[COOKIE]; if (!tok || tok.length > 100) return null;
+  const id = sha(tok), s = sessions[id];
+  if (!s) return null;
+  if (s.exp < Date.now()) { delete sessions[id]; saveSessions(); return null; }
+  if (Date.now() - (s.seen || 0) > 3600e3) { s.seen = Date.now(); if (s.keep) s.exp = Date.now() + LONG; saveSessions(); }   // sliding expiry for "keep me signed in"
+  return { id, ...s };
+}
+function safeEq(a, b) { const x = Buffer.from(sha(String(a))), y = Buffer.from(sha(String(b))); return crypto.timingSafeEqual(x, y); }
+function basicOK(req) {
   const h = req.headers.authorization || '';
   if (!h.startsWith('Basic ')) return false;
   const [u, ...p] = Buffer.from(h.slice(6), 'base64').toString().split(':');
-  const a = Buffer.from(u + ':' + p.join(':')), b = Buffer.from(USERNAME + ':' + PASSWORD);
-  return a.length === b.length && crypto.timingSafeEqual(a, b);
+  return safeEq(u, USERNAME) & safeEq(p.join(':'), PASSWORD) ? true : false;
 }
+function authorized(req) { return !PASSWORD || !!session(req) || basicOK(req); }
+// brute-force guard: per address, doubling lockout after 5 misses (max 15 min)
+const fails = new Map();
+function lockedFor(ip) { const f = fails.get(ip); return f && f.until > Date.now() ? Math.ceil((f.until - Date.now()) / 1000) : 0; }
+function noteFail(ip) { const f = fails.get(ip) || { n: 0, until: 0 }; f.n++; if (f.n >= 5) f.until = Date.now() + Math.min(15 * 60e3, 30e3 * 2 ** (f.n - 5)); fails.set(ip, f); if (fails.size > 1000) fails.delete(fails.keys().next().value); }
+function setCookie(req, res, value, maxAge) {
+  const secure = req.socket.encrypted ? '; Secure' : '';
+  res.setHeader('Set-Cookie', `${COOKIE}=${value}; Path=/; HttpOnly; SameSite=Strict${secure}${maxAge != null ? '; Max-Age=' + maxAge : ''}`);
+}
+// requests that change things must come from this app (cookie is SameSite=Strict too)
+function sameOrigin(req) {
+  const o = req.headers.origin; if (!o) return true;
+  try { return new URL(o).host === req.headers.host; } catch { return false; }
+}
+// pages and files you can load before signing in
+const OPEN = new Set(['/login', '/login.html', '/favicon.svg', '/manifest.webmanifest', '/icons/icon-32.png', '/icons/icon-192.png', '/icons/icon-512.png', '/api/login', '/api/logout', '/api/whoami']);
 function readState() {
   try { return JSON.parse(fs.readFileSync(STATE_FILE, 'utf8')); } catch { return { json: null, updatedAt: 0 }; }
 }
@@ -393,12 +429,46 @@ function sendCA(res) {
 async function handle(req, res) {
   try {
     if (TLS && new URL(req.url, 'http://x').pathname.replace(/^.*\//, '/') === '/ca.crt') return sendCA(res);
-    if (!authorized(req)) {
-      res.writeHead(401, { 'WWW-Authenticate': 'Basic realm="Cadence", charset="UTF-8"' });
-      return res.end('Login required');
-    }
     const url = new URL(req.url, 'http://x');
     const p = url.pathname.replace(/^.*?\/api\//, '/api/'); // works behind a sub-path reverse proxy
+    const leaf = p.startsWith('/api/') ? p : '/' + url.pathname.split('/').slice(-1)[0];
+    const iconish = /^\/icons\/icon-\d+\.png$/.test(url.pathname.replace(/^.*(\/icons\/)/, '/icons/'));
+    if (req.method !== 'GET' && req.method !== 'HEAD' && !sameOrigin(req)) return send(res, 403, { error: 'Cross-site request refused' });
+
+    if (p === '/api/login' && req.method === 'POST') {
+      const ip = req.socket.remoteAddress || '?';
+      const wait = lockedFor(ip); if (wait) return send(res, 429, { error: `Too many tries. Wait ${wait}s.`, wait });
+      let b = {}; try { b = JSON.parse(await readBody(req, 4096)); } catch {}
+      if (!PASSWORD) return send(res, 200, { ok: true, open: true });
+      if (!(safeEq(b.username || '', USERNAME) & safeEq(b.password || '', PASSWORD))) {
+        noteFail(ip); console.warn(`login failed from ${ip}`);
+        await new Promise(r => setTimeout(r, 400));
+        return send(res, 401, { error: 'Wrong username or password', wait: lockedFor(ip) });
+      }
+      fails.delete(ip);
+      const tok = crypto.randomBytes(32).toString('base64url'), keep = !!b.keep;
+      sessions[sha(tok)] = { created: Date.now(), seen: Date.now(), exp: Date.now() + (keep ? LONG : SHORT), keep, ua: String(req.headers['user-agent'] || '').slice(0, 120) };
+      saveSessions();
+      setCookie(req, res, tok, keep ? LONG / 1000 : null);
+      return send(res, 200, { ok: true });
+    }
+    if (p === '/api/logout' && req.method === 'POST') {
+      const s = session(req); if (s) { delete sessions[s.id]; saveSessions(); }
+      setCookie(req, res, '', 0);
+      return send(res, 200, { ok: true });
+    }
+    if (p === '/api/whoami') return send(res, 200, { httpsPort: TLS ? HTTPS_PORT : null, auth: !!PASSWORD, signedIn: authorized(req), user: authorized(req) && PASSWORD ? USERNAME : null, https: !!req.socket.encrypted });
+
+    if (!authorized(req)) {
+      if (OPEN.has(leaf) || iconish) { /* public asset */ }
+      else if (p.startsWith('/api/')) return send(res, 401, { error: 'Sign in required' });
+      else {
+        const next = url.pathname + url.search;
+        res.writeHead(302, { Location: 'login' + (next && next !== '/' ? '?next=' + encodeURIComponent(next) : ''), 'Cache-Control': 'no-store' });
+        return res.end();
+      }
+    }
+    if (leaf === '/login' && PASSWORD && authorized(req)) { res.writeHead(302, { Location: './', 'Cache-Control': 'no-store' }); return res.end(); }
 
     if (p === '/api/health') {
       const size = f => { try { return fs.statSync(f).size; } catch { return 0; } };
@@ -410,7 +480,7 @@ async function handle(req, res) {
     // ---- DB viewer: read-only look at the data folder (secrets are never listed by content) ----
     if (p === '/api/db' && req.method === 'GET') {
       const walk = d => { let bytes = 0, files = 0; try { for (const f of fs.readdirSync(d)) { const st = fs.statSync(path.join(d, f)); if (st.isDirectory()) { const w = walk(path.join(d, f)); bytes += w.bytes; files += w.files; } else { bytes += st.size; files++; } } } catch {} return { bytes, files }; };
-      const entries = []; try { for (const f of fs.readdirSync(DATA_DIR)) { const st = fs.statSync(path.join(DATA_DIR, f)); entries.push(st.isDirectory() ? { name: f + '/', dir: true, ...walk(path.join(DATA_DIR, f)), mtime: st.mtimeMs } : { name: f, bytes: st.size, mtime: st.mtimeMs, secret: f === 'calendars.json' }); } } catch {}
+      const entries = []; try { for (const f of fs.readdirSync(DATA_DIR)) { const st = fs.statSync(path.join(DATA_DIR, f)); entries.push(st.isDirectory() ? { name: f + '/', dir: true, ...walk(path.join(DATA_DIR, f)), mtime: st.mtimeMs } : { name: f, bytes: st.size, mtime: st.mtimeMs, secret: f === 'calendars.json' || f === 'sessions.json' }); } } catch {}
       let backups = []; try { backups = fs.readdirSync(BACKUP_DIR).filter(f => /^state-\d{4}-\d{2}-\d{2}\.json$/.test(f)).sort().reverse().map(f => { const st = fs.statSync(path.join(BACKUP_DIR, f)); return { name: f, bytes: st.size, mtime: st.mtimeMs }; }); } catch {}
       return send(res, 200, { dataDir: DATA_DIR, entries, backups, keep: KEEP_BACKUPS });
     }
@@ -512,6 +582,7 @@ async function handle(req, res) {
     // static files
     let rel = decodeURIComponent(url.pathname);
     if (rel.endsWith('/')) rel += 'index.html';
+    if (leaf === '/login') rel = '/login.html';
     const file = path.normalize(path.join(PUBLIC_DIR, rel));
     if (!file.startsWith(PUBLIC_DIR)) return send(res, 403, 'Forbidden', 'text/plain');
     fs.readFile(file, (err, buf) => {

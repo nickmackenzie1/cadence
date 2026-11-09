@@ -37,7 +37,8 @@ test('plain http redirects to https before asking for a password, and serves onl
 
 test('https serves the app with the certificate and keeps the login', async () => {
   const ca = readFileSync(join(dir, 'rootCA.pem'));
-  expect((await get(`https://localhost:${HPORT}/`, { ca })).status).toBe(401);
+  expect((await get(`https://localhost:${HPORT}/`, { ca })).status).toBe(302);   // to the login page
+  expect((await get(`https://localhost:${HPORT}/api/state`, { ca })).status).toBe(401);
   const h = await get(`https://localhost:${HPORT}/api/health`, { ca, auth: 'cadence:pw' });
   expect(h.status).toBe(200);
   expect(JSON.parse(h.body).https).toBe(true);

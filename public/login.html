@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sign in · Cadence</title>
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#1d1a2e">
+<meta name="robots" content="noindex">
+<style>
+:root{--bg:#f7f6f3;--panel:#fff;--text:#1d1c1a;--muted:#8a877f;--line:#e7e4dd;--accent:#5b5bd6;--danger:#d4533b;--ok:#2f9e6b;--warn:#c2771c;--field:#fbfaf8}
+@media (prefers-color-scheme:dark){.go{color:#16162e}.spin{border-color:rgba(22,22,46,.3);border-top-color:#16162e}:root{--bg:#121214;--panel:#1b1b1e;--text:#ecebe8;--muted:#8f8c86;--line:#2c2c31;--accent:#8d8df7;--danger:#ef7a62;--ok:#4cc38a;--warn:#e5a24a;--field:#151518}}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{font-family:Inter,system-ui,-apple-system,"Segoe UI",sans-serif;background:var(--bg);color:var(--text);-webkit-font-smoothing:antialiased;display:grid;place-items:center;padding:24px;overflow:hidden}
+/* slow ambient glow behind the card, in the logo's colours */
+.glow{position:fixed;inset:-20%;z-index:0;pointer-events:none;filter:blur(70px);opacity:.55}
+.glow i{position:absolute;width:46vmax;height:46vmax;border-radius:50%;mix-blend-mode:multiply;animation:drift 22s ease-in-out infinite alternate}
+@media (prefers-color-scheme:dark){.glow{opacity:.35}.glow i{mix-blend-mode:screen}}
+.glow i:nth-child(1){background:#5b5bd6;left:8%;top:12%}
+.glow i:nth-child(2){background:#b06bd6;right:6%;top:30%;animation-duration:27s;animation-delay:-6s}
+.glow i:nth-child(3){background:#ff7a8a;left:30%;bottom:4%;animation-duration:31s;animation-delay:-12s}
+@keyframes drift{to{transform:translate(8vmax,-6vmax) scale(1.15)}}
+@media (prefers-reduced-motion:reduce){.glow i{animation:none}}
+.card{position:relative;z-index:1;width:100%;max-width:380px;background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:34px 30px 26px;box-shadow:0 1px 2px rgba(0,0,0,.05),0 24px 60px rgba(0,0,0,.12);animation:in .5s cubic-bezier(.2,1.1,.4,1)}
+@keyframes in{from{opacity:0;transform:translateY(10px) scale(.98)}}
+.logo{width:52px;height:52px;display:block;margin:0 0 18px;border-radius:13px;box-shadow:0 8px 24px rgba(91,91,214,.35)}
+h1{font-size:22px;font-weight:700;letter-spacing:-.02em;margin:0 0 4px}
+.sub{color:var(--muted);font-size:14px;margin:0 0 24px}
+label{display:block;font-size:12.5px;font-weight:600;color:var(--muted);margin:0 0 6px}
+.f{margin-bottom:14px;position:relative}
+input[type=text],input[type=password]{width:100%;height:44px;border:1px solid var(--line);border-radius:10px;background:var(--field);padding:0 13px;font:inherit;font-size:15px;color:var(--text);outline:0;transition:border-color .15s,box-shadow .15s}
+input:focus{border-color:var(--accent);box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 22%,transparent)}
+.pw input{padding-right:62px}
+.show{position:absolute;right:6px;bottom:6px;height:32px;padding:0 10px;border:0;border-radius:7px;background:none;color:var(--muted);font:inherit;font-size:12.5px;font-weight:600;cursor:pointer}
+.show:hover{color:var(--text);background:color-mix(in srgb,var(--text) 6%,transparent)}
+.keep{display:flex;align-items:center;gap:9px;font-size:13.5px;color:var(--text);font-weight:500;margin:4px 0 20px;cursor:pointer;user-select:none}
+.keep input{width:16px;height:16px;accent-color:var(--accent);margin:0}
+.go{width:100%;height:46px;border:0;border-radius:11px;background:var(--accent);color:#fff;font:inherit;font-size:15px;font-weight:600;cursor:pointer;transition:filter .15s,transform .1s;display:flex;align-items:center;justify-content:center;gap:8px}
+.go:hover{filter:brightness(1.08)}.go:active{transform:scale(.99)}
+.go[disabled]{opacity:.6;cursor:default}
+.spin{width:16px;height:16px;border:2px solid rgba(255,255,255,.4);border-top-color:#fff;border-radius:50%;animation:sp .7s linear infinite;display:none}
+.busy .spin{display:block}
+@keyframes sp{to{transform:rotate(1turn)}}
+.err{min-height:20px;margin:12px 0 0;font-size:13.5px;color:var(--danger);font-weight:500;text-align:center}
+.shake{animation:shake .38s}
+@keyframes shake{20%,60%{transform:translateX(-6px)}40%,80%{transform:translateX(6px)}}
+.conn{display:flex;align-items:center;justify-content:center;gap:7px;margin-top:18px;padding-top:16px;border-top:1px solid var(--line);font-size:12.5px;color:var(--muted)}
+.conn svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.conn.ok{color:var(--ok)}.conn.warn{color:var(--warn)}
+.conn a{color:inherit;font-weight:600}
+</style>
+</head>
+<body>
+<div class="glow" aria-hidden="true"><i></i><i></i><i></i></div>
+<main class="card" id="card">
+  <img class="logo" src="favicon.svg" alt="">
+  <h1>Welcome back</h1>
+  <p class="sub">Sign in to Cadence</p>
+  <form id="f" autocomplete="on" novalidate>
+    <div class="f"><label for="u">Username</label><input type="text" id="u" name="username" autocomplete="username" autocapitalize="none" spellcheck="false" required></div>
+    <div class="f pw"><label for="p">Password</label><input type="password" id="p" name="password" autocomplete="current-password" required><button type="button" class="show" id="show" aria-label="Show password">Show</button></div>
+    <label class="keep"><input type="checkbox" id="keep" checked> Keep me signed in on this device</label>
+    <button class="go" id="go" type="submit"><span class="spin"></span><span id="go-t">Sign in</span></button>
+    <p class="err" id="err" role="alert"></p>
+  </form>
+  <div class="conn" id="conn"></div>
+</main>
+<script>
+(() => {
+  const $ = s => document.querySelector(s);
+  const q = new URLSearchParams(location.search);
+  // only ever return to a page on this site
+  const nextRaw = q.get('next') || '';
+  const next = /^\/(?!\/)[^\\]*$/.test(nextRaw) && !/^\/[^?#]*login/.test(nextRaw) ? nextRaw.replace(/^\//, '') : '';
+  const target = () => new URL(next || './', location.href.replace(/[^/]*$/, '')).href;
+  try { const u = localStorage.getItem('cadence.lastUser'); $('#u').value = u || ''; } catch (e) {}
+  ($('#u').value ? $('#p') : $('#u')).focus();
+
+  const lock = '<svg viewBox="0 0 24 24"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>';
+  const warn = '<svg viewBox="0 0 24 24"><path d="M12 3 2 20h20L12 3z"/><path d="M12 10v4M12 17h.01"/></svg>';
+  function conn(info) {
+    const c = $('#conn');
+    if (location.protocol === 'https:') { c.className = 'conn ok'; c.innerHTML = lock + 'Encrypted connection · stays on your network'; }
+    else { c.className = 'conn warn'; c.innerHTML = warn + 'Not encrypted' + (info && info.httpsPort ? ` · <a href="https://${location.hostname}:${info.httpsPort}/login">use HTTPS</a>` : ''); }
+  }
+  conn();
+  fetch('api/whoami', { cache: 'no-store' }).then(r => r.json()).then(w => { if (!w.auth || w.signedIn) location.replace(target()); }).catch(() => {});
+
+  $('#show').onclick = () => { const p = $('#p'), on = p.type === 'password'; p.type = on ? 'text' : 'password'; $('#show').textContent = on ? 'Hide' : 'Show'; $('#show').setAttribute('aria-label', on ? 'Hide password' : 'Show password'); p.focus(); };
+
+  let timer = null;
+  function countdown(sec) {
+    const go = $('#go'), t = $('#go-t'); clearInterval(timer); go.disabled = true;
+    const tick = () => { if (sec <= 0) { clearInterval(timer); go.disabled = false; t.textContent = 'Sign in'; $('#err').textContent = ''; return; } t.textContent = `Try again in ${sec--}s`; };
+    tick(); timer = setInterval(tick, 1000);
+  }
+  function fail(msg) { $('#err').textContent = msg; const c = $('#card'); c.classList.remove('shake'); void c.offsetWidth; c.classList.add('shake'); }
+
+  $('#f').onsubmit = async e => {
+    e.preventDefault();
+    const username = $('#u').value.trim(), password = $('#p').value;
+    if (!username || !password) return fail('Enter your username and password.');
+    const go = $('#go'); go.disabled = true; go.classList.add('busy'); $('#err').textContent = '';
+    try {
+      const r = await fetch('api/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username, password, keep: $('#keep').checked }) });
+      const j = await r.json().catch(() => ({}));
+      if (r.ok) { try { localStorage.setItem('cadence.lastUser', username); } catch (e) {} $('#go-t').textContent = 'Signed in'; location.replace(target()); return; }
+      go.classList.remove('busy'); go.disabled = false;
+      fail(j.error || 'Could not sign in.');
+      $('#p').select();
+      if (j.wait) countdown(j.wait);
+    } catch (err) { go.classList.remove('busy'); go.disabled = false; fail('Cadence is not reachable. Is the NAS on?'); }
+  };
+})();
+</script>
+</body>
+</html>

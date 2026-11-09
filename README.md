@@ -106,7 +106,7 @@ Or just open `public/index.html` in a browser (data stays in that browser).
 
 | Variable | Purpose |
 |---|---|
-| `APP_USERNAME` / `APP_PASSWORD` | Login (no login if the password is empty) |
+| `APP_USERNAME` / `APP_PASSWORD` | Login page (no login if the password is empty). Sessions are kept hashed in `data/sessions.json`; changing the password signs every device out. ⌘K → *Sign out* signs this device out |
 | `ANTHROPIC_API_KEY` | Turns on AI extraction and summaries (optional) |
 | `ANTHROPIC_MODEL`, `ANTHROPIC_MODEL_QUICK` | Override the models |
 | `HTTPS_PORT` / `TLS_DIR` | HTTPS port (8443) and where the certificate is mounted (`/certs`) |
