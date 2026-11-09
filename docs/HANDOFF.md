@@ -347,3 +347,6 @@ Needs: Life space (done), weather API (key on NAS), maps/GPX (offline tiles = ph
 - Backlog (user, 2026-11-09 15:52): sidebar refinement. (1) Clients list shows only the last 3–4 accessed (recents),
   rest via "+N more" / ⌘K. (2) Main nav (Today, Upcoming, Waiting on clients, Dev, Inbox, Logbook) as compact tiles
   like Views, with a tiny label underneath (and the count as a badge).
+- Gradient flow (2026-11-09, shipped): ambient.js option "Header gradient flows through the brand colours" (default on).
+  @property-registered --gf1..3/--gfa animated by @keyframes granim through palette rotations (22s), on the client
+  hero and its top bar. Reduced motion: static.

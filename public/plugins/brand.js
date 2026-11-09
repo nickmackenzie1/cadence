@@ -95,6 +95,7 @@
       function apply(c) {
         const b = c && c.brand, root = document.documentElement;
         if (!b) { document.body.classList.remove('branded'); return; }
+        if (!b.primary) b.primary = (b.palette && b.palette[0]) || c.color || '#5b5bd6';   // hand-made or partial brands
         const dark = root.dataset.theme === 'dark';
         root.style.setProperty('--b1', b.primary);
         root.style.setProperty('--b2', b.secondary || b.primary);
