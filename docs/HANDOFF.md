@@ -333,3 +333,9 @@ Needs: Life space (done), weather API (key on NAS), maps/GPX (offline tiles = ph
 - Backlog (user, 2026-11-09 15:41): feed records whose title includes a date are upcoming releases (pre-orders). Show
   them as their own card style with a small "Releases: Nov 28" badge on the top-left of the cover, nothing big; maybe
   sort/group them as "Coming soon".
+- Links on tasks (2026-11-09, shipped): plugin `zoho-link.js` ("Links on tasks", Work + Life). Any URL in quick add
+  (or task ⋯ → "Link a Zoho task, email or page…") becomes `task.ref = {url, app, appName, kind, portal, id, host}`:
+  Zoho Projects task/issue/milestone, CRM module record, Books/Creator, Gmail email (u/N + message id), Outlook email,
+  or a plain web link (favicon). Row chip opens it directly; editor shows a card via new core hook
+  `api.taskCards.add(task => html)`. No iframes: Zoho and Google block framing. Desk URLs stay with desk.js.
+  Next: Gmail subject/sender preview would need Google OAuth (token on the NAS).

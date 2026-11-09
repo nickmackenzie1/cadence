@@ -595,7 +595,7 @@ function createFromQuick(text, ctx){
 /* =========================================================
    Plugin host
    ========================================================= */
-const Reg = { defs:[], commands:[], views:[], parsers:[], extractors:[], taskActions:[], meetingActions:[], clientActions:[], sidebar:[], listeners:[], settingsPanels:[], widgets:[], chips:[] };
+const Reg = { defs:[], commands:[], views:[], parsers:[], extractors:[], taskActions:[], meetingActions:[], clientActions:[], sidebar:[], listeners:[], settingsPanels:[], widgets:[], chips:[], cards:[] };
 let AI = null;
 function spaceOk(pid){ const d = Reg.defs.find(x => x.id === pid); return !d || !d.spaces || d.spaces.includes(SPACE); }
 function enabled(pid){ return !S.disabled.includes(pid) && spaceOk(pid); }
@@ -657,6 +657,8 @@ function makeApi(pid){
     taskActions: { add: a => Reg.taskActions.push({ ...a, pid }) },
     /* extra chips on task rows (and the quick-add preview): api.chips.add((task, preview) => html or '') */
     chips: { add: fn => Reg.chips.push({ fn, pid }) },
+    /* a card under the notes in the open task editor: api.taskCards.add(task => html or '') */
+    taskCards: { add: fn => Reg.cards.push({ fn, pid }) },
     meetingActions: { add: a => Reg.meetingActions.push({ ...a, pid }) },
     clientActions: { add: a => Reg.clientActions.push({ ...a, pid }) },
     sidebar: { add: w => Reg.sidebar.push({ ...w, pid }) },
@@ -680,7 +682,7 @@ function makeApi(pid){
   });
 }
 function rebuildPlugins(){
-  for(const k of ['commands','views','parsers','extractors','taskActions','meetingActions','clientActions','sidebar','listeners','settingsPanels','widgets','chips']) Reg[k] = [];
+  for(const k of ['commands','views','parsers','extractors','taskActions','meetingActions','clientActions','sidebar','listeners','settingsPanels','widgets','chips','cards']) Reg[k] = [];
   for(const def of Reg.defs){
     if(!enabled(def.id)) continue;
     try { def.setup(makeApi(def.id)); } catch(e){ console.error(`Plugin ${def.id} failed`, e); ErrLog.add(`Plugin ${def.id} failed to start: ${e.message}`, e.stack); }
@@ -1075,6 +1077,7 @@ function taskEditor(t){
       <textarea class="te-title" data-tf="title" rows="1" spellcheck="false" aria-label="Title">${esc(t.title)}</textarea>
       <textarea class="te-notes" data-tf="notes" rows="1" placeholder="Notes">${esc(t.notes || '')}</textarea>
       ${(t.log || []).length ? `<div class="te-log">${t.log.map((l, i) => `<div class="te-step"><i></i><span>${esc(l.text)}</span><em>${esc(fmtDate(ymd(new Date(l.at))))}</em><button data-act="step-del" data-i="${i}" title="Remove this step">✕</button></div>`).join('')}</div>` : ''}
+      ${Reg.cards.map(c => { try { return c.fn(t) || ''; } catch(e){ return ''; } }).join('')}
       <div class="te-chips">
         ${chip('due', t.dueDate ? dueLabel({ dueDate: t.dueDate }) : 'Date', !!t.dueDate, ds)}
         ${t.dueDate ? chip('time', t.dueTime ? fmtTime(t.dueTime) : 'Time', !!t.dueTime) : ''}

@@ -130,3 +130,26 @@ test('in-progress work: did my part, follow up later, with a history of steps', 
   expect((await page.evaluate(() => window.T.tasks.list(x => x.title.startsWith('Get Zoho'))[0])).done).toBe(true);
   expect(errs).toEqual([]);
 });
+
+test('links on tasks: Zoho Projects, Gmail and plain links become cards', async ({ page }) => {
+  const errs = await open(page);
+  const c = await page.evaluate(() => window.T.clients.add('Linkco').id);
+  await page.evaluate(id => location.hash = 'client-' + id, c);
+  await quick(page, 'Fix the import job https://projects.zoho.com/portal/catalystconnect#taskdetail/1874000000123456/1874000000234567/1874000000345678');
+  await quick(page, 'https://crm.zoho.com/crm/org712345678/tab/Potentials/5432100000012345678');
+  await quick(page, 'Reply to Sam https://mail.google.com/mail/u/0/#inbox/FMfcgzQXJWDsKmPbqLzxkRtTvBnHbcdz');
+  await quick(page, 'Read the guide https://www.example.com/docs/setup');
+  const ts = await page.evaluate(() => window.T.tasks.list(t => t.ref).map(t => ({ title: t.title, z: t.ref })));
+  const by = app => ts.find(t => t.z.app === app);
+  expect(by('projects')).toMatchObject({ title: 'Fix the import job', z: { kind: 'Task', portal: 'catalystconnect', id: '1874000000345678' } });
+  expect(by('crm').z.kind).toBe('Potential'); expect(by('crm').title).toMatch(/^Zoho CRM potential/);
+  expect(by('gmail')).toMatchObject({ title: 'Reply to Sam', z: { kind: 'Email' } });
+  expect(by('web')).toMatchObject({ title: 'Read the guide', z: { host: 'example.com' } });
+  await expect(page.locator('.task a.chip.zl-chip[href*="mail.google.com"]')).toBeVisible();
+  await page.locator('.dp:not(.out)').waitFor({ timeout: 3000 }).catch(() => {}); await page.waitForTimeout(100);
+  await page.keyboard.press('Escape');   // the 'pick a date?' calendar after a dateless quick add
+  await page.click('#view .task .t-title >> text=Reply to Sam');
+  await expect(page.locator('.task.open .zl-card')).toContainText('Gmail email');
+  await expect(page.locator('.task.open .zl-card a.btn')).toHaveAttribute('href', /mail\.google\.com/);
+  expect(errs).toEqual([]);
+});
