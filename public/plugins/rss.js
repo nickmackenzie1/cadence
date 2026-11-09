@@ -57,6 +57,11 @@
       .rs-pin:hover .ph:after{opacity:1}
       .rs-pin .go{position:absolute;z-index:1;right:10px;bottom:10px;font-size:11.5px;font-weight:600;color:#fff;background:rgba(255,255,255,.18);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);padding:5px 10px;border-radius:999px;opacity:0;transform:translateY(4px);transition:all .3s}
       .rs-pin:hover .go{opacity:1;transform:none}
+      .rs-rel{display:inline-flex;align-items:center;gap:4px;font:700 10px/1 ui-rounded,system-ui,sans-serif;letter-spacing:.03em;text-transform:uppercase;color:#fff;background:linear-gradient(135deg,#7c4ddb,#5a2fb8);padding:4px 7px;border-radius:5px;box-shadow:0 1px 2px rgba(0,0,0,.25),inset 0 0 0 1px rgba(255,255,255,.25);white-space:nowrap}
+      .rs-rel:before{content:'';width:5px;height:5px;border-radius:50%;background:#ffd76a;box-shadow:0 0 4px #ffd76a}
+      .rs-rec .wrap>.rs-rel{position:absolute;left:-5px;top:-6px;z-index:3;transform:rotate(-3deg)}
+      .rs-corner{position:absolute;z-index:1;left:10px;top:10px;display:flex;flex-direction:column;align-items:flex-start;gap:5px}
+      .rs-corner .new{position:static!important}
       .rs-pin .new{position:absolute;z-index:1;left:10px;top:10px;font-size:10.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:#fff;background:#e5484d;padding:3px 7px;border-radius:999px}
       .rs-pin .cap{padding:9px 4px 18px;line-height:1.3}
       .rs-pin .cap b{display:block;font-size:13px;font-weight:650}
@@ -135,7 +140,7 @@
     for (const g of groups) {
       const parts = g.split('/').map(x => x.trim()), ms = parts.map(x => x.match(gradeRe));
       if (ms[0] && (parts.length === 1 || ms[1] || ms[0][2])) grade = { media: ms[0][1].toUpperCase(), sleeve: ms[1] ? ms[1][1].toUpperCase() : '', notes: [ms[0][2], ms[1] && ms[1][2], ...parts.slice(1).filter((x, i) => !ms[i + 1])].filter(Boolean).join(' · ') };
-      else pressing.push(g);
+      else if (!releaseOf(g) || !/^(?:releases?|release date|out|pre-?order|available|street date|ships?)?\s*:?\s*(?:on\s+)?[^a-z]*(?:[a-z]+\.?\s*\d|\d)[\w\s,./-]*$/i.test(g)) pressing.push(g);
     }
     const all = t + ' ' + sum;
     const fmt = /\b(cd|compact disc)\b/i.test(all) ? 'cd' : /\b(cassette|tape)\b/i.test(all) ? 'tape' : /\b(dvd|blu-?ray|vhs)\b/i.test(all) ? 'video' : 'vinyl';
@@ -149,6 +154,7 @@
   // stickers: price tag, NEW / grade seal, notes slip
   function stickers(it, compact) {
     const m = it._m || (it._m = recMeta(it)), out = [];
+    if (compact === 'row') { const rb = relBadge(it); if (rb) out.push(rb); }
     if (it.price) out.push(`<span class="rs-price">${E0(it.price)}</span>`);
     if (m.grade) out.push(`<span class="rs-grade ${gradeTone(m.grade.media)}" title="Media ${E0(m.grade.media)}${m.grade.sleeve ? ' · Sleeve ' + E0(m.grade.sleeve) : ''}"><b>${E0(m.grade.media)}</b>${m.grade.sleeve ? `<i>${E0(m.grade.sleeve)}</i>` : ''}</span>`);
     else if (m.cond === 'new') out.push('<span class="rs-new">NEW</span>');
@@ -156,6 +162,28 @@
     if (!compact && m.pressing) out.push(`<span class="rs-press">${m.colour ? `<i style="background:${m.colour}"></i>` : ''}${E0(m.pressing)}</span>`);
     return out.length ? `<span class="rs-stk">${out.join('')}</span>` : '';
   }
+  /* a date in the title ("Pre-order (Releases Dec 5)", "2026-12-05", "12/05/2026", "5 December") = an upcoming release */
+  const MON = { jan: 0, feb: 1, mar: 2, apr: 3, may: 4, jun: 5, jul: 6, aug: 7, sep: 8, sept: 8, oct: 9, nov: 10, dec: 11 };
+  const MRE = '(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|june?|july?|aug(?:ust)?|sept?(?:ember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\\.?';
+  const DATE_RES = [
+    [/\b(20\d\d)-(\d{1,2})-(\d{1,2})\b/, m => [+m[1], +m[2] - 1, +m[3]]],
+    [/\b(\d{1,2})\/(\d{1,2})\/(\d{2,4})\b/, m => { let a = +m[1], b = +m[2], y = +m[3]; if (y < 100) y += 2000; return a > 12 ? [y, b - 1, a] : [y, a - 1, b]; }],
+    [new RegExp('\\b' + MRE + '\\s+(\\d{1,2})(?:st|nd|rd|th)?(?:,?\\s+(20\\d\\d))?\\b', 'i'), m => [m[3] ? +m[3] : null, MON[m[1].toLowerCase().slice(0, 3)], +m[2]]],
+    [new RegExp('\\b(\\d{1,2})(?:st|nd|rd|th)?\\s+' + MRE + '(?:,?\\s+(20\\d\\d))?\\b', 'i'), m => [m[3] ? +m[3] : null, MON[m[2].toLowerCase().slice(0, 3)], +m[1]]],
+  ];
+  function releaseOf(title) {
+    const t = String(title || ''); if (!t) return null;
+    for (const [re, f] of DATE_RES) {
+      const m = t.match(re); if (!m) continue; let [y, mo, d] = f(m); if (mo == null || mo < 0 || mo > 11 || d < 1 || d > 31) continue;
+      const now = new Date(), today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      if (y == null) { y = now.getFullYear(); if (new Date(y, mo, d) < today - 30 * 864e5) y++; }
+      const when = new Date(y, mo, d); if (isNaN(when) || when.getDate() !== d) continue;
+      if (when < today || when - today > 400 * 864e5) return null;          // only upcoming releases get the badge
+      return { when, text: m[0], label: when.toLocaleDateString(undefined, { month: 'short', day: 'numeric', ...(y !== now.getFullYear() ? { year: 'numeric' } : {}) }) };
+    }
+    return null;
+  }
+  const relBadge = it => { const r = it._r !== undefined ? it._r : (it._r = releaseOf(it.title)); return r ? `<span class="rs-rel" title="Releases ${E0(r.when.toDateString())}">Releases ${E0(r.label)}</span>` : ''; };
   const E0 = x => String(x == null ? '' : x).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
   const vinStyle = it => { const m = it._m || (it._m = recMeta(it)); return m.colour ? ` col${m.clear ? ' clr' : ''}" style="--vc:${m.colour}` : ''; };
   const showOf = f => f.show || (f.style === 'records' ? 'vinyl' : 'all');
@@ -180,7 +208,7 @@
         G.cache[f.url] = { at: Date.now(), data: j }; return view(f, j);
       }
       const recHtml = (it, f, big) => { const p = f.style === 'records' ? split(it.title) : { a: it.title, b: '', d: '' };
-        return `<a class="rs-rec" href="${E(it.link)}" target="_blank" rel="noopener" title="${E(it.title)}"><div class="wrap"><div class="vin${f.style === 'records' ? vinStyle(it) : ''}"><div class="lab" style="background-image:url('${E(it.image)}')"></div></div><div class="sl" style="background-image:url('${E(it.image)}')"></div>${f.style === 'records' ? stickers(it, true) : ''}</div><div class="ar">${E(p.a)}</div>${p.b ? `<div class="al">${E(p.b)}</div>` : ''}<div class="dt">${E(f.style === 'records' ? (recMeta(it).grade && recMeta(it).grade.notes) || recMeta(it).pressing || ago(it.date) : p.d || ago(it.date))}</div></a>`; };
+        return `<a class="rs-rec" href="${E(it.link)}" target="_blank" rel="noopener" title="${E(it.title)}"><div class="wrap"><div class="vin${f.style === 'records' ? vinStyle(it) : ''}"><div class="lab" style="background-image:url('${E(it.image)}')"></div></div><div class="sl" style="background-image:url('${E(it.image)}')"></div>${f.style === 'records' ? stickers(it, true) : ''}${relBadge(it)}</div><div class="ar">${E(p.a)}</div>${p.b ? `<div class="al">${E(p.b)}</div>` : ''}<div class="dt">${E(f.style === 'records' ? (recMeta(it).grade && recMeta(it).grade.notes) || recMeta(it).pressing || ago(it.date) : p.d || ago(it.date))}</div></a>`; };
       const cardHtml = it => `<a class="rs-card" href="${E(it.link)}" target="_blank" rel="noopener"><div class="im" style="background-image:url('${E(it.image)}')"></div><b>${E(it.title)}</b><span>${E(ago(it.date))}</span></a>`;
       const listHtml = it => `<a href="${E(it.link)}" target="_blank" rel="noopener">${E(it.title)}<span>${E(ago(it.date))}</span></a>`;
       /* wall (masonry) + timeline */
@@ -189,7 +217,7 @@
       function wallHtml(f, data, max) {
         const s0 = G.prevSeen != null ? G.prevSeen : seen();
         return `<div class="rs-wall">${data.items.slice(0, max).map((it, i) => { const p = parts(it, f), fresh = s0 && it.date && new Date(it.date).getTime() > s0;
-          return `<a class="rs-pin ${i % 9 === 0 ? 'big' : ''}" href="${E(it.link)}" target="_blank" rel="noopener" title="${E(it.title)}"><div class="ph">${fresh ? '<span class="new">New</span>' : ''}${it.image ? `<img src="${E(it.image)}" alt="" loading="lazy" decoding="async">` : ''}<span class="go">Open ↗</span></div><div class="cap"><b>${E(p.a)}</b>${p.b ? `<span>${E(p.b)}</span>` : ''}${f.style === 'records' ? stickers(it) : `<i>${E(p.d || ago(it.date))}</i>`}</div></a>`; }).join('')}</div>`;
+          return `<a class="rs-pin ${i % 9 === 0 ? 'big' : ''}" href="${E(it.link)}" target="_blank" rel="noopener" title="${E(it.title)}"><div class="ph">${fresh || relBadge(it) ? `<span class="rs-corner">${relBadge(it)}${fresh ? '<span class="new">New</span>' : ''}</span>` : ''}${it.image ? `<img src="${E(it.image)}" alt="" loading="lazy" decoding="async">` : ''}<span class="go">Open ↗</span></div><div class="cap"><b>${E(p.a)}</b>${p.b ? `<span>${E(p.b)}</span>` : ''}${f.style === 'records' ? stickers(it) : `<i>${E(p.d || ago(it.date))}</i>`}</div></a>`; }).join('')}</div>`;
       }
       function layoutWall(root) {
         root.querySelectorAll('.rs-wall').forEach(w => {
@@ -215,7 +243,7 @@
         for (const { it, f } of all.slice(0, 150)) {
           const dn = dayName(it.date), fresh = s0 && it.date && new Date(it.date).getTime() > s0, p = parts(it, f);
           if (dn !== cur) { cur = dn; out += `<div class="rs-day ${fresh ? 'new' : ''}">${E(dn)}</div>`; }
-          out += `<a class="rs-ti" href="${E(it.link)}" target="_blank" rel="noopener" style="animation-delay:${Math.min(n++, 20) * 25}ms">${it.image ? `<img src="${E(it.image)}" alt="" loading="lazy">` : ''}<div class="tx"><b>${E(p.a)}</b><span>${E([p.b, list.length > 1 ? f.title : ''].filter(Boolean).join(' · ') || (f.style === 'records' ? '' : p.d))}</span>${f.style === 'records' ? `<span class="rs-tl-stk">${stickers(it)}</span>` : ''}</div>${fresh ? '<span class="dot" title="New since your last visit"></span>' : ''}<span class="t">${it.date ? new Date(it.date).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : ''}</span></a>`;
+          out += `<a class="rs-ti" href="${E(it.link)}" target="_blank" rel="noopener" style="animation-delay:${Math.min(n++, 20) * 25}ms">${it.image ? `<img src="${E(it.image)}" alt="" loading="lazy">` : ''}<div class="tx"><b>${E(p.a)}</b><span>${E([p.b, list.length > 1 ? f.title : ''].filter(Boolean).join(' · ') || (f.style === 'records' ? '' : p.d))}</span>${f.style === 'records' ? `<span class="rs-tl-stk">${relBadge(it)}${stickers(it)}</span>` : ''}</div>${fresh ? '<span class="dot" title="New since your last visit"></span>' : ''}<span class="t">${it.date ? new Date(it.date).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : ''}</span></a>`;
         }
         const nNew = all.filter(x => s0 && x.it.date && new Date(x.it.date).getTime() > s0).length;
         return (nNew ? `<div style="font-size:12px;color:#e5484d;font-weight:600;padding:4px 0 0">${nNew} new since your last look</div>` : '') + `<div class="rs-tl">${out}</div>`;
@@ -263,7 +291,7 @@
             if (f.style === 'records') { vis.className = 'vin'; vis.innerHTML = '<span class="lab"></span>'; vis.firstChild.style.backgroundImage = `url('${it.image}')`; }
             else { vis.className = 'rs-cardmini'; vis.innerHTML = ''; vis.style.backgroundImage = it.image ? `url('${it.image}')` : ''; }
             if (f.style === 'records' && vis.className === 'vin') { const m = recMeta(it); if (m.colour) { vis.classList.add('col'); if (m.clear) vis.classList.add('clr'); vis.style.setProperty('--vc', m.colour); } else vis.style.removeProperty('--vc'); }
-            const tx = row.querySelector('.tx'); tx.innerHTML = `<b>${E(p.a)}</b><span>${f.style === 'records' ? stickers(it, true) : ''}${E(p.b || f.title || '')}</span>`; if (anim) { tx.classList.remove('fade'); void tx.offsetWidth; tx.classList.add('fade'); }
+            const tx = row.querySelector('.tx'); tx.innerHTML = `<b>${E(p.a)}</b><span>${f.style === 'records' ? stickers(it, 'row') : ''}${E(p.b || f.title || '')}</span>`; if (anim) { tx.classList.remove('fade'); void tx.offsetWidth; tx.classList.add('fade'); }
           };
           row.querySelector('.exp').addEventListener('click', e => { e.preventDefault(); e.stopPropagation(); openPanel(f); });
           row.querySelector('.vin, .rs-cardmini') && row.firstElementChild.addEventListener('click', e => { e.preventDefault(); e.stopPropagation(); openPanel(f); });

@@ -202,3 +202,16 @@ test('client news: only headlines that mention the client, no duplicates, exclud
   await expect(page.locator('.ci-brief')).toContainText('Initrode');
   expect(errs).toEqual([]);
 });
+
+test('record feed: a release date in the title becomes a "Releases" badge on the cover', async ({ page }) => {
+  const errs = await open(page);
+  const soon = new Date(Date.now() + 20 * 864e5), iso = soon.toISOString().slice(0, 10), now = new Date().toUTCString();
+  await page.route('**/api/feed?*', r => r.fulfill({ json: { title: 'Shop', items: [
+    { title: `Band - Future Album (Releases ${iso}) (Red Vinyl)`, link: 'https://x/1', date: now, image: '' },
+    { title: 'Band - Old Album (VG+/NM)', link: 'https://x/2', date: now, image: '' } ] } }));
+  await page.evaluate(() => location.hash = 'view-feeds');
+  await expect(page.locator('.rs-rel').first()).toContainText('Releases');
+  expect(await page.locator('.rs-rel').count()).toBeGreaterThan(0);
+  await expect(page.locator('.rs-press', { hasText: /Releases/ })).toHaveCount(0);
+  expect(errs).toEqual([]);
+});
