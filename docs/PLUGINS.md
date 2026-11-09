@@ -114,7 +114,7 @@ Built-in themes live in `public/plugins/themes-pack.js`; open-source credits in 
 ## Task shape
 
 ```js
-{ id, title, clientId, owner: 'me'|'client'|'team', assignee, assignedAt, stage: 'doing'|'waiting'|null, log: [{at,text}], dueDate: 'YYYY-MM-DD'|null, dueTime: 'HH:MM'|null,
+{ id, title, clientId, owner: 'me'|'client'|'dev', assignee, assignedAt, stage: 'doing'|'waiting'|null, log: [{at,text}], dueDate: 'YYYY-MM-DD'|null, dueTime: 'HH:MM'|null,
   priority: 0-3, tags: [], notes, repeat: { unit: 'day'|'weekday'|'week'|'month', n } | null, order, lastChased, remindMode: 'auto'|'at'|'60'|'custom'|'none', remindAt, done, doneAt, createdAt, meetingId }
 ```
 Plugins may add their own fields (e.g. `ticket`, `gh`); they sync and survive repeats. `api.chips.add((task, preview) => html)` shows them on rows.

@@ -53,14 +53,13 @@ test('setup interview builds the home plan, and re-running it never duplicates',
 
   // the filter size flows into the reminder's notes
   await page.fill('[data-sys=filterSize]', '16x25x1');
-  await page.waitForTimeout(700);
-  expect(await page.evaluate(() => window.T.tasks.list(t => t.gh === 'filter')[0].notes)).toContain('16x25x1');
+  await expect.poll(() => page.evaluate(() => window.T.tasks.list(t => t.gh === 'filter')[0].notes)).toContain('16x25x1');
 
   // a warranty gets a reminder 30 days before it ends
   await page.click('[data-add=warranties]');
   await page.fill('[data-list=warranties][data-k=item]', 'Dishwasher');
   await page.fill('[data-list=warranties][data-k=expires]', '2030-06-30');
-  await page.waitForTimeout(700);
+  await expect.poll(() => page.evaluate(() => window.T.tasks.list(t => String(t.gh).startsWith('warranty:')).length)).toBe(1);
   const w = await page.evaluate(() => window.T.tasks.list(t => String(t.gh).startsWith('warranty:')));
   expect(w).toHaveLength(1); expect(w[0].dueDate).toBe('2030-05-31');
 

@@ -64,7 +64,7 @@ function lifeSeed(){
   return d;
 }
 function loadDoc(space){
-  try { const raw = localStorage.getItem(LS_KEYS[space]); if(raw) return Object.assign(blank(), JSON.parse(raw)); } catch(e){}
+  try { const raw = localStorage.getItem(LS_KEYS[space]); if(raw){ const d = Object.assign(blank(), JSON.parse(raw)); migrateOwners(d); return d; } } catch(e){}
   if(space === 'life') return null;
   if(DEMO && window.CadenceDemo){ const d = Object.assign(blank(), window.CadenceDemo.build()); try { localStorage.setItem(LS_KEY, JSON.stringify(d)); } catch(e){} return d; }
   return blank();
@@ -321,7 +321,7 @@ const Sync = {
 };
 
 /* ---------- clash review: both versions side by side, keep either ---------- */
-const FIELD_NAMES = { stage:'Progress', log:'Steps', title:'Title', dueDate:'Due date', dueTime:'Due time', priority:'Priority', notes:'Notes', owner:'Who owes it', assignee:'Assignee', tags:'Tags', done:'Done', clientId:'Client', repeat:'Repeat', name:'Name', status:'Status', settings:'Settings', disabled:'Plugins switched off', userPlugins:'Your plugins', '(deleted)':'Deleted on one device', order:'Position' };
+const FIELD_NAMES = { assignedAt:'Handed over', stage:'Progress', log:'Steps', title:'Title', dueDate:'Due date', dueTime:'Due time', priority:'Priority', notes:'Notes', owner:'Who owes it', assignee:'Assignee', tags:'Tags', done:'Done', clientId:'Client', repeat:'Repeat', name:'Name', status:'Status', settings:'Settings', disabled:'Plugins switched off', userPlugins:'Your plugins', '(deleted)':'Deleted on one device', order:'Position' };
 function conflictValue(c, v){
   if(c.field === '(deleted)') return v === 'deleted' ? 'Deleted' : 'Kept';
   if(v == null || v === '') return '<span class="muted">(empty)</span>';
@@ -373,12 +373,7 @@ function cleanDomain(v){
   return /^[a-z0-9-]+(\.[a-z0-9-]+)+$/.test(v) ? v : '';
 }
 const guessDomain = name => { const b = norm(String(name).replace(/\b(inc|corp|corporation|llc|ltd|limited|co|company|group|industries|holdings|solutions|consulting|technologies|tech)\b\.?/gi, '')); return b ? b + '.com' : ''; };
-/* the team (Work): people you hand work to. Tasks owned by them have owner 'team' and assignee = their name */
-const TEAM = () => LIFE() ? [] : (S.settings.team || []);
-const person = name => { const n = norm(name || ''); return n ? TEAM().find(p => norm(p.name) === n) || TEAM().find(p => norm(p.name).split(' ')[0] === n) || TEAM().find(p => norm(p.name).startsWith(n)) : null; };
-function addPerson(name, role){ name = String(name || '').trim(); if(!name) return null; const ex = person(name); if(ex && norm(ex.name) === norm(name)) return ex;
-  S.settings.team = S.settings.team || []; const p = { id: uid('p'), name: titleCase(name), role: role || '', color: COLORS[(S.settings.team.length + 3) % COLORS.length] }; S.settings.team.push(p); save(); return p; }
-const personAv = (name, size = 16) => { const p = person(name) || { name: name || '?', color: '#8a8f98' }; return `<span class="av" style="--c:${p.color};width:${size}px;height:${size}px;font-size:${Math.round(size*.42)}px">${esc(initials(p.name))}</span>`; };
+/* Dev (Work): a third owner next to Mine and Client's, for work handed to development. owner 'dev' */
 const daysSince = ms => ms ? Math.floor((Date.now() - ms) / 864e5) : 0;
 const initials = name => { const w = String(name||'?').replace(/[^\p{L}\p{N}\s&]/gu,'').trim().split(/\s+/).filter(x => !/^(inc|corp|llc|ltd|the|&)$/i.test(x)); return ((w[0]||'?')[0] + (w.length > 1 ? w[1][0] : (w[0]||'')[1] || '')).toUpperCase(); };
 const faviconUrl = (d, v) => Store.server ? 'api/favicon?d=' + encodeURIComponent(d) + (v ? '&v=' + v : '') : 'https://www.google.com/s2/favicons?sz=128&domain=' + encodeURIComponent(d);
@@ -454,17 +449,18 @@ function computeRemind(t){
   const lead = t.remindMode === 'at' ? 0 : t.remindMode === '60' ? 60 : (S.settings.remindLead ?? 10);
   return dueMs(t) - lead*60000;
 }
+function migrateOwners(doc){ for(const t of (doc && doc.tasks) || []) if(t.owner === 'team'){ t.owner = 'dev'; t.assignee = ''; } if(doc && doc.settings) delete doc.settings.team; }
 function addTask(p){
   if(p && p.id === undefined) delete p.id;
   const t = Object.assign({ id: uid('t'), title:'', clientId:null, owner:'me', assignee:'', dueDate:null, dueTime:null, priority:0, tags:[], notes:'', remindMode:'auto', remindAt:null, reminded:false, done:false, doneAt:null, createdAt:Date.now(), meetingId:null }, p);
   t.title = capFirst(t.title);
-  if(t.owner === 'team' && !t.assignedAt) t.assignedAt = Date.now();
+  if(t.owner === 'dev' && !t.assignedAt) t.assignedAt = Date.now();
   t.remindAt = computeRemind(t);
   S.tasks.push(t); save(); emit('task:add', clone(t)); return t;
 }
 function updateTask(id, patch){
   const t = S.tasks.find(x => x.id === id); if(!t) return;
-  if(patch.owner === 'team' && (t.owner !== 'team' || (patch.assignee && patch.assignee !== t.assignee))) patch = { ...patch, assignedAt: Date.now() };
+  if(patch.owner === 'dev' && t.owner !== 'dev') patch = { ...patch, assignedAt: Date.now() };
   Object.assign(t, patch);
   if(['dueDate','dueTime','remindMode','remindAt'].some(k => k in patch)){ t.remindAt = computeRemind(t); t.reminded = false; }
   save(); emit('task:update', clone(t)); return t;
@@ -532,9 +528,9 @@ function parseQuick(input, ctx = {}){
     cut(w.length, c ? c.name : r.newClient);
   })();
   // owner  ^ or ^Name  -> client's action item
-  take(/\s\^([\w.'-]*)(?=\s)/, m => { const p = !LIFE() && person(m[1]); if(p){ r.owner = 'team'; r.assignee = p.name; } else { r.owner = 'client'; r.assignee = m[1] || ''; } });
-  // team  >Sam  -> hand it to a teammate (added to the team if new)
-  if(!LIFE()) take(/\s>([\w.'-]+)(?=\s)/, m => { const p = person(m[1]); r.owner = 'team'; r.assignee = p ? p.name : titleCase(m[1]); if(!p) r.newPerson = r.assignee; });
+  // dev  >dev or >  -> handed to development
+  if(!LIFE()) take(/\s>(dev)?(?=\s)/i, () => { r.owner = 'dev'; r.assignee = ''; });
+  take(/\s\^([\w.'-]*)(?=\s)/, m => { if(!LIFE() && /^dev$/i.test(m[1])){ r.owner = 'dev'; r.assignee = ''; } else { r.owner = 'client'; r.assignee = m[1] || ''; } });
   // priority  !1 !2 !3  !high
   take(/\s!(1|2|3|high|med|low|!+)(?=\s)/i, m => { const v = m[1].toLowerCase(); r.priority = v==='high'||v==='1'||v.startsWith('!')&&v.length>=2 ? 3 : v==='med'||v==='2'||v==='!' ? 2 : 1; });
   // plugin syntax
@@ -581,7 +577,7 @@ function parseChips(r){
   if(r.clientId){ const c = client(r.clientId); out.push(`<span class="chip">${avatar(c,14)}${esc(c.name)}</span>`); }
   if(r.newClient) out.push(`<span class="chip">+ new client “${esc(r.newClient)}”</span>`);
   if(r.owner === 'client') out.push(`<span class="chip client-owned">↗ ${r.assignee ? esc(r.assignee) : 'Client'}’s action</span>`);
-  if(r.owner === 'team') out.push(`<span class="chip team-owned">${personAv(r.assignee, 14)} ${esc(r.assignee)}${r.newPerson ? ' (new teammate)' : ''}</span>`);
+  if(r.owner === 'dev') out.push(`<span class="chip dev-owned">⚙ Dev</span>`);
   for(const c of Reg.chips){ try { const h = c.fn(r, true); if(h) out.push(h); } catch(e){} }
   if(r.dueDate) out.push(`<span class="chip">◷ ${esc(dueLabel(r))}</span>`);
   if(r.repeat) out.push(`<span class="chip">↻ ${REPEAT_LABEL(r.repeat)}</span>`);
@@ -593,7 +589,6 @@ function createFromQuick(text, ctx){
   const r = parseQuick(text, ctx); if(!r.title) return null;
   if(r.newClient){ const c = addClient(r.newClient); r.clientId = c.id; }
   delete r.newClient;
-  if(r.newPerson) addPerson(r.newPerson); delete r.newPerson;
   return addTask(r);
 }
 
@@ -647,7 +642,6 @@ function makeApi(pid){
     taskActions: { add: a => Reg.taskActions.push({ ...a, pid }) },
     /* extra chips on task rows (and the quick-add preview): api.chips.add((task, preview) => html or '') */
     chips: { add: fn => Reg.chips.push({ fn, pid }) },
-    team: { list: () => clone(TEAM()), add: (name, role) => clone(addPerson(name, role)), find: name => clone(person(name) || null) },
     meetingActions: { add: a => Reg.meetingActions.push({ ...a, pid }) },
     clientActions: { add: a => Reg.clientActions.push({ ...a, pid }) },
     sidebar: { add: w => Reg.sidebar.push({ ...w, pid }) },
@@ -708,7 +702,7 @@ function counts(){
     over: o.filter(x => x.owner==='me' && dueState(x)==='over').length,
     upcoming: o.filter(x => x.dueDate && x.dueDate > t).length,
     waiting: o.filter(x => x.owner==='client').length,
-    team: o.filter(x => x.owner==='team').length, teamLate: o.some(x => x.owner==='team' && dueState(x)==='over'),
+    dev: o.filter(x => x.owner==='dev').length, devLate: o.some(x => x.owner==='dev' && dueState(x)==='over'),
     inbox: o.filter(x => !x.clientId).length
   };
 }
@@ -723,7 +717,7 @@ const NAV_ICONS = {
   upcoming: '<svg viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="15.5" rx="3"/><path d="M3.5 10h17M8 3v4M16 3v4"/><circle cx="8.5" cy="14.5" r=".6"/><circle cx="12" cy="14.5" r=".6"/><circle cx="15.5" cy="14.5" r=".6"/></svg>',
   waiting: '<svg viewBox="0 0 24 24"><path d="M7 3.5h10M7 20.5h10M8 3.5c0 4 8 5.5 8 8.5s-8 4.5-8 8.5M16 3.5c0 4-8 5.5-8 8.5s8 4.5 8 8.5"/></svg>',
   inbox: '<svg viewBox="0 0 24 24"><path d="M3.5 13.5l2.6-7.2A2 2 0 0 1 8 5h8a2 2 0 0 1 1.9 1.3l2.6 7.2V18a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z"/><path d="M3.5 13.5H8l1.5 2.5h5l1.5-2.5h4.5"/></svg>',
-  team: '<svg viewBox="0 0 24 24"><circle cx="9" cy="8.5" r="3.2"/><path d="M3.5 19.5c.6-3.2 2.8-5 5.5-5s4.9 1.8 5.5 5"/><circle cx="16.8" cy="9.5" r="2.5"/><path d="M15.5 14.6c2.6-.3 4.6 1.3 5 4.4"/></svg>',
+  dev: '<svg viewBox="0 0 24 24"><path d="M8.5 7.5L4 12l4.5 4.5M15.5 7.5L20 12l-4.5 4.5M13.5 5l-3 14"/></svg>',
   done: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M8.3 12.3l2.5 2.5 5-5.3"/></svg>',
   keys: '<svg viewBox="0 0 24 24"><rect x="2.5" y="6" width="19" height="12" rx="2.5"/><path d="M6 10h.01M9.5 10h.01M13 10h.01M16.5 10h.01M7.5 14h9"/></svg>',
   puzzle: '<svg viewBox="0 0 24 24"><path d="M9 4.5a2 2 0 0 1 4 0V6h3.5A1.5 1.5 0 0 1 18 7.5V11h1.5a2 2 0 0 1 0 4H18v3.5a1.5 1.5 0 0 1-1.5 1.5H13v-1.5a2 2 0 0 0-4 0V20H5.5A1.5 1.5 0 0 1 4 18.5V15h1.5a2 2 0 0 0 0-4H4V7.5A1.5 1.5 0 0 1 5.5 6H9z"/></svg>',
@@ -750,44 +744,18 @@ function projectPage(c, o){
     ${quickAdd(`Add a task to ${c.name}…  ^ if waiting on someone`, { clientId: c.id })}
     <div class="cols"><div>${group('Now', now, { hideClient: true, drop: 'owner:me' }) || ''}${group('Next', next, { hideClient: true, drop: 'owner:me' }) || (now.length ? '' : `<div class="group" data-drop="owner:me"><div class="group-h">To do</div><div class="muted drop-hint" style="padding:10px 6px">${all.length ? 'All done. 🎉' : 'Break it down: add the first task above.'}</div></div>`)}</div>
     <div>${group('Waiting on others', theirs, { hideClient: true, cls: 'client', drop: 'owner:client' }) || `<div class="group" data-drop="owner:client"><div class="group-h client">Waiting on others</div><div class="muted drop-hint" style="padding:10px 6px">Nothing blocked.</div></div>`}
-      ${group('With the team', open.filter(x => x.owner === 'team'), { hideClient: true, cls: 'team' })}
+      ${group('With dev', open.filter(x => x.owner === 'dev'), { hideClient: true, cls: 'dev' })}
       ${recent.length ? `<div class="group"><div class="group-h soft">Recently done</div>${recent.map(x => `<div class="pj-done">✓ <span>${esc(x.title)}</span><em>${esc(fmtDate(ymd(new Date(x.doneAt))))}</em></div>`).join('')}</div>` : ''}</div></div>`;
 }
-let teamFilter = '';
-function teamPage(o){
-  const team = TEAM(), all = o.filter(x => x.owner === 'team'), t0 = todayKey();
-  const names = [...new Set(team.map(p => p.name).concat(all.map(x => x.assignee || 'Team')))];
-  const card = n => { const xs = all.filter(x => (x.assignee || 'Team') === n), late = xs.filter(x => dueState(x) === 'over').length, oldest = Math.max(0, ...xs.map(x => daysSince(x.assignedAt))), p = person(n);
-    const doneWk = S.tasks.filter(x => x.owner === 'team' && x.assignee === n && x.done && x.doneAt && Date.now() - x.doneAt < 7 * 864e5).length;
-    return `<button class="tm-card ${teamFilter === n ? 'on' : ''}" data-act="team-filter" data-n="${esc(n)}">${personAv(n, 36)}<span class="tm-who"><b>${esc(n)}</b><em>${esc(p && p.role || 'Teammate')}</em></span>
-      <span class="tm-nums"><span><b>${xs.length}</b> open</span>${late ? `<span class="late"><b>${late}</b> overdue</span>` : ''}${oldest >= 2 ? `<span class="${oldest >= 7 ? 'late' : ''}">oldest <b>${oldest}d</b></span>` : ''}${doneWk ? `<span class="ok"><b>${doneWk}</b> done this week</span>` : ''}</span></button>`; };
-  const shown = teamFilter ? [teamFilter] : names;
-  const groups = shown.map(n => group(`${personAv(n, 16)} ${esc(n)}`, all.filter(x => (x.assignee || 'Team') === n), { hidePerson: true })).join('');
-  return `<div class="head"><div><h1>Team</h1><div class="sub">Work you’ve handed to developers and teammates. Type <kbd>&gt;name</kbd> in any quick add to hand something over.</div></div><div class="actions"><button class="btn" data-act="manage-team">Manage team</button></div></div>
-    ${names.length ? `<div class="tm-cards">${names.map(card).join('')}</div>` : ''}
-    ${quickAdd(teamFilter ? `Hand something to ${teamFilter}…` : 'Hand something over…  e.g. “Fix the blueprint transition @acme >sam fri”', teamFilter ? { owner: 'team', assignee: teamFilter } : { owner: 'me' })}
-    ${groups || emptyState('👥', team.length ? 'Nothing with the team right now' : 'Add your team', team.length ? 'Hand a task over from its owner chip, or type >name in quick add.' : 'Add the developers you work with, then hand them tasks from the owner chip or with >name.')}
-    ${!team.length ? `<div style="text-align:center"><button class="btn primary" data-act="manage-team">Add teammates</button></div>` : ''}`;
+function devPage(o){
+  const all = o.filter(x => x.owner === 'dev'), late = all.filter(x => dueState(x) === 'over').length, oldest = Math.max(0, ...all.map(x => daysSince(x.assignedAt)));
+  const doneWk = S.tasks.filter(x => x.owner === 'dev' && x.done && x.doneAt && Date.now() - x.doneAt < 7 * 864e5).length, by = {};
+  all.forEach(x => (by[x.clientId || '_'] = by[x.clientId || '_'] || []).push(x));
+  return `<div class="head"><div><h1>Dev</h1><div class="sub">Work handed to development. Type <kbd>&gt;dev</kbd> in any quick add, or set the owner chip to Dev.</div></div></div>
+    <div class="stats"><div class="stat"><div class="v">${all.length}</div><div class="l">With dev</div></div><div class="stat"><div class="v" style="color:${late ? 'var(--danger)' : 'inherit'}">${late}</div><div class="l">Overdue</div></div><div class="stat"><div class="v" style="color:${oldest >= 7 ? 'var(--danger)' : 'inherit'}">${oldest ? oldest + 'd' : '–'}</div><div class="l">Oldest</div></div><div class="stat"><div class="v" style="color:var(--ok)">${doneWk}</div><div class="l">Done this week</div></div></div>
+    ${quickAdd('Hand something to dev…  e.g. “Fix the blueprint transition @acme fri”', { owner: 'dev' })}
+    ${Object.keys(by).map(k => { const c = client(k); return group(c ? `${avatar(c, 16)} ${esc(c.name)}` : 'No client', by[k], { hideClient: true, hideOwner: true }); }).join('') || emptyState('⚙', 'Nothing with dev', 'Hand a task over from its owner chip, or type >dev in quick add.')}`;
 }
-function manageTeam(){
-  const draw = () => {
-    const team = S.settings.team || [];
-    openModalHTML('Your team', `<p class="muted" style="margin:0 0 12px;font-size:13px">Developers and teammates you hand work to. Their tasks leave your Today and show up on the Team page, with how long they’ve had them.</p>
-      <div class="tm-list">${team.map((p, i) => `<div class="tm-row">${personAv(p.name, 28)}<input class="inp" data-i="${i}" data-k="name" value="${esc(p.name)}"><input class="inp" data-i="${i}" data-k="role" value="${esc(p.role || '')}" placeholder="Role (e.g. Deluge dev)"><button class="tm-x" data-del="${i}" title="Remove">✕</button></div>`).join('') || '<div class="muted" style="padding:6px 0 12px">No one yet.</div>'}</div>
-      <div class="row" style="gap:8px"><input class="inp" id="tm-new" placeholder="Name"><input class="inp" id="tm-role" placeholder="Role (optional)"><button class="btn" id="tm-add">Add</button></div>`,
-      `<button class="btn primary" data-act="close-modal">Done</button>`);
-    const add = () => { const n = $('#tm-new').value.trim(); if(!n) return; addPerson(n, $('#tm-role').value.trim()); render(); draw(); setTimeout(() => $('#tm-new')?.focus(), 20); };
-    $('#tm-add').onclick = add; $('#tm-new').onkeydown = $('#tm-role').onkeydown = e => { if(e.key === 'Enter') add(); };
-    $$('#modal .tm-row input').forEach(i => i.onchange = () => { const p = S.settings.team[+i.dataset.i], v = i.value.trim(); if(!p) return;
-      if(i.dataset.k === 'name' && v && v !== p.name){ S.tasks.filter(t => t.owner === 'team' && t.assignee === p.name).forEach(t => updateTask(t.id, { assignee: v })); p.name = v; } else if(i.dataset.k === 'role') p.role = v; save(); render(); });
-    $$('#modal [data-del]').forEach(b => b.onclick = () => { const p = S.settings.team[+b.dataset.del], n = S.tasks.filter(t => t.owner === 'team' && !t.done && t.assignee === p.name).length;
-      if(n && !confirmInline(b)) return; S.settings.team.splice(+b.dataset.del, 1); save(); render(); draw(); if(n) toast(`${p.name} removed. Their ${n} open task${n > 1 ? 's stay' : ' stays'} on the Team page until reassigned.`); });
-    setTimeout(() => $('#tm-new')?.focus(), 30);
-  };
-  draw();
-}
-// second click confirms (no browser dialogs)
-function confirmInline(b){ if(b.dataset.armed){ return true; } b.dataset.armed = 1; b.textContent = 'Sure?'; b.style.width = 'auto'; setTimeout(() => { if(b.isConnected){ delete b.dataset.armed; b.textContent = '✕'; } }, 2500); return false; }
 function renderSide(){
   const r = route(), c = counts(), o = open();
   const nav = (id, ic, label, n, hot) => `<a class="${r===id?'on':''}" href="#${id}"><span class="ic">${ic}</span><span class="t">${label}</span>${n ? `<span class="n ${hot?'hot':''}">${n}</span>` : ''}</a>`;
@@ -802,7 +770,7 @@ function renderSide(){
       ${nav('today', NAV_ICONS.today, 'Today', c.today, c.over>0)}
       ${nav('upcoming', NAV_ICONS.upcoming, 'Upcoming', c.upcoming)}
       ${LIFE() ? '' : nav('waiting', NAV_ICONS.waiting, 'Waiting on clients', c.waiting)}
-      ${LIFE() ? '' : nav('team', NAV_ICONS.team, 'Team', c.team, c.teamLate)}
+      ${LIFE() ? '' : nav('dev', NAV_ICONS.dev, 'Dev', c.dev, c.devLate)}
       ${nav('inbox', NAV_ICONS.inbox, 'Inbox', c.inbox)}
       ${nav('done', NAV_ICONS.done, 'Logbook')}
     </nav>
@@ -833,8 +801,7 @@ function taskRow(t, opts = {}){
   const meta = [];
   if(c && !opts.hideClient) meta.push(`<span class="chip">${avatar(c,14)}${esc(c.name)}</span>`);
   if(t.owner === 'client' && !opts.hideOwner) meta.push(`<span class="chip client-owned">↗ ${esc(t.assignee || 'Client')}</span>`);
-  if(t.owner === 'team' && !opts.hidePerson){ const d = daysSince(t.assignedAt); meta.push(`<span class="chip team-owned" title="Handed to ${esc(t.assignee)}${d ? ' ' + d + ' days ago' : ' today'}">${personAv(t.assignee, 14)} ${esc(t.assignee || 'Team')}${!t.done && d >= 2 ? ` · ${d}d` : ''}</span>`); }
-  else if(t.owner === 'team' && !t.done){ const d = daysSince(t.assignedAt); if(d >= 2) meta.push(`<span class="chip due ${d >= 7 ? 'over' : ''}" title="With them for ${d} days">${d}d with them</span>`); }
+  if(t.owner === 'dev'){ const d = !t.done ? daysSince(t.assignedAt) : 0; if(!opts.hideOwner || d >= 2) meta.push(`<span class="chip dev-owned ${d >= 7 ? 'old' : ''}" title="With dev${d ? ' for ' + d + ' days' : ', since today'}">⚙ Dev${d >= 2 ? ` · ${d}d` : ''}</span>`); }
   for(const c of Reg.chips){ try { const h = c.fn(t, false); if(h) meta.push(h); } catch(e){} }
   if(t.dueDate) meta.push(`<span class="chip due ${ds}">${ds==='over'?'⚠ ':''}${esc(dueLabel(t))}</span>`);
   if(t.remindAt && !t.reminded && !t.done) meta.push(`<span class="chip due" title="Reminder ${new Date(t.remindAt).toLocaleString()}">🔔</span>`);
@@ -845,7 +812,7 @@ function taskRow(t, opts = {}){
   if(t.notes) meta.push(`<span class="chip due" title="Has notes">≡</span>`);
   if(t.stage && !t.done) meta.unshift(`<span class="chip stage st-${t.stage}">${t.stage === 'doing' ? '▶ In progress' : '⏳ Following up'}</span>`);
   const last = !t.done && (t.log || []).slice(-1)[0];
-  return `<div draggable="true" class="task ${t.done?'done':''} ${t.owner==='client'?'client':''} ${t.owner==='team'?'team':''} ${t.priority===3?'p3':''} ${selTask===t.id?'sel':''}" data-id="${t.id}">
+  return `<div draggable="true" class="task ${t.done?'done':''} ${t.owner==='client'?'client':''} ${t.owner==='dev'?'dev':''} ${t.priority===3?'p3':''} ${selTask===t.id?'sel':''}" data-id="${t.id}">
     <button class="check" data-act="toggle" aria-label="Complete"></button>
     <div class="t-body"><div class="t-title">${esc(t.title)}</div>${last ? `<div class="t-last" title="${t.log.length} step${t.log.length > 1 ? 's' : ''} so far">↳ ${esc(last.text)} · ${esc(fmtDate(ymd(new Date(last.at))).toLowerCase())}</div>` : ''}<div class="t-meta">${meta.join('')}</div></div></div>`;
 }
@@ -883,8 +850,8 @@ function renderView(){
     const byDay = {}; up.forEach(x => (byDay[x.dueDate] = byDay[x.dueDate] || []).push(x));
     html = `<div class="head"><div><h1>Upcoming</h1><div class="sub">Everything scheduled after today</div></div></div>${quickAdd('Schedule something…  e.g. “Review blueprint @northwind next week”')}
       ${Object.keys(byDay).sort().map(k => group(`${fmtDate(k)} <span class="c" style="font-weight:400">${fromYmd(k).toLocaleDateString(undefined,{month:'short',day:'numeric'})}</span>`, byDay[k])).join('') || emptyState('◷','Nothing scheduled','Type a date like “fri”, “nov 20” or “in 3 days”.')}`;
-  } else if((r === 'waiting' || r === 'team') && LIFE()){ location.hash = 'today'; return;
-  } else if(r === 'team'){ html = teamPage(o);
+  } else if((r === 'waiting' || r === 'dev') && LIFE()){ location.hash = 'today'; return;
+  } else if(r === 'dev'){ html = devPage(o);
   } else if(r === 'waiting'){
     const w = o.filter(x => x.owner==='client'), by = {};
     w.forEach(x => (by[x.clientId||'_'] = by[x.clientId||'_'] || []).push(x));
@@ -922,7 +889,7 @@ function renderView(){
         ${ind && ind.apps.length ? `<div class="playbook"><span class="pb-t">${ind.icon} Usually fits ${esc(ind.label.toLowerCase())}:</span>${ind.apps.map(a => `<span class="chip">${esc(a)}</span>`).join('')}${ind.tpl && enabled('templates') && window.CadenceTemplates ? `<button class="btn" data-act="pb-template" data-cid="${c.id}" data-tpl="${ind.tpl}" style="margin-left:auto;padding:4px 10px;font-size:12px">▤ ${esc(window.CadenceTemplates.name(ind.tpl) || 'Apply template')}</button>` : ''}</div>` : ''}
         <div class="stats"><div class="stat"><div class="v">${mine.length}</div><div class="l">On me</div></div><div class="stat"><div class="v" style="color:var(--client)">${theirs.length}</div><div class="l">Waiting on ${esc(c.name)}</div></div><div class="stat"><div class="v" style="color:${overdue?'var(--danger)':'inherit'}">${overdue}</div><div class="l">Overdue</div></div><div class="stat"><div class="v">${mtgs.length}</div><div class="l">Meetings</div></div></div>
         ${quickAdd(`Add a task for ${c.name}…  prefix ^ for their action item`, { clientId: c.id })}
-        <div class="cols"><div>${group('On me', mine, {hideClient:true, drop:'owner:me'}) || `<div class="group" data-drop="owner:me"><div class="group-h">On me</div><div class="muted drop-hint" style="padding:10px 6px">All clear.</div></div>`}${group('With the team', o.filter(x => x.clientId===c.id && x.owner==='team'), {hideClient:true, cls:'team'})}</div>
+        <div class="cols"><div>${group('On me', mine, {hideClient:true, drop:'owner:me'}) || `<div class="group" data-drop="owner:me"><div class="group-h">On me</div><div class="muted drop-hint" style="padding:10px 6px">All clear.</div></div>`}${group('With dev', o.filter(x => x.clientId===c.id && x.owner==='dev'), {hideClient:true, hideOwner:true, cls:'dev'})}</div>
         <div>${group('On client', theirs, {hideClient:true, cls:'client', drop:'owner:client'}) || `<div class="group" data-drop="owner:client"><div class="group-h client">On client</div><div class="muted drop-hint" style="padding:10px 6px">Nothing outstanding.</div></div>`}</div></div>
         ${mtgs.length ? `<div class="group"><div class="group-h">Meeting log<span class="c">${mtgs.length}</span></div>${mtgs.map(m => `<details class="mtg"><summary><b>${new Date(m.start).toLocaleDateString(undefined,{weekday:'short',month:'short',day:'numeric'})}</b><span class="muted">${Math.max(1,Math.round((m.end-m.start)/60000))} min · ${m.itemIds.length} action items</span></summary><div class="notes">${esc(m.notes || 'No notes.')}</div>${Reg.meetingActions.length ? `<div class="row" style="margin-top:10px;flex-wrap:wrap">${Reg.meetingActions.map((ac,i) => `<button class="btn" data-act="mlog-action" data-mid="${m.id}" data-i="${i}">${esc(ac.label)}</button>`).join('')}</div>` : ''}</details>`).join('')}</div>` : ''}`;
     }
@@ -1049,7 +1016,7 @@ function taskEditor(t){
         ${chip('due', t.dueDate ? dueLabel({ dueDate: t.dueDate }) : 'Date', !!t.dueDate, ds)}
         ${t.dueDate ? chip('time', t.dueTime ? fmtTime(t.dueTime) : 'Time', !!t.dueTime) : ''}
         <button class="te-chip ${c ? 'on' : ''}" data-te="client">${c ? avatar(c, 15) : TE_ICONS.client}<span>${c ? esc(c.name) : 'Client'}</span></button>
-        ${chip('owner', t.owner === 'client' ? (esc(t.assignee) || 'Client') + '’s' : t.owner === 'team' ? esc(t.assignee || 'Team') : 'Mine', t.owner !== 'me', t.owner === 'client' ? 'cl' : t.owner === 'team' ? 'tm' : '')}
+        ${chip('owner', t.owner === 'client' ? (esc(t.assignee) || 'Client') + '’s' : t.owner === 'dev' ? 'Dev' : 'Mine', t.owner !== 'me', t.owner === 'client' ? 'cl' : t.owner === 'dev' ? 'tm' : '')}
         ${chip('stage', STAGE_LABEL[t.stage] || 'Progress', !!t.stage, t.stage ? 'st-' + t.stage : '')}
         ${chip('repeat', t.repeat ? REPEAT_LABEL(t.repeat) : 'Repeat', !!t.repeat)}
         ${chip('prio', t.priority ? ['','Low','Medium','High'][t.priority] : 'Priority', !!t.priority, t.priority ? 'p' + t.priority : '')}
@@ -1107,17 +1074,12 @@ function editChip(t, key, el){
     return popList(el, items, it => up({ clientId: it.id }), { search: true, w: 230 });
   }
   if(key === 'owner'){
-    const team = TEAM(), ck = on => on ? '<span class="ck">✓</span>' : '';
-    return popover(el, `<div class="pop-list"><button class="pop-i ${t.owner==='me'?'on':''}" data-o="me">Mine${ck(t.owner==='me')}</button><button class="pop-i ${t.owner==='client'?'on':''}" data-o="client">Client’s action item${ck(t.owner==='client')}</button></div>
-      <div class="pop-row"><input class="inp" id="ow-cl" placeholder="Who at the client? (optional)" value="${esc(t.owner === 'client' ? t.assignee || '' : '')}"></div>
-      ${LIFE() ? '' : `<div class="pop-sect">Hand to the team</div><div class="pop-list">${team.map(p => `<button class="pop-i ${t.owner==='team' && norm(t.assignee) === norm(p.name) ? 'on' : ''}" data-p="${esc(p.name)}">${personAv(p.name, 18)} ${esc(p.name)}${p.role ? `<span class="muted" style="margin-left:6px;font-size:11.5px">${esc(p.role)}</span>` : ''}${ck(t.owner==='team' && norm(t.assignee) === norm(p.name))}</button>`).join('')}</div>
-      <div class="pop-row"><input class="inp" id="ow-new" placeholder="${team.length ? '+ Someone new' : 'Teammate’s name (e.g. a developer)'}"></div>`}`, (p, close) => {
-      const i = p.querySelector('#ow-cl'), nw = p.querySelector('#ow-new');
+    const ck = on => on ? '<span class="ck">✓</span>' : '';
+    return popover(el, `<div class="pop-list"><button class="pop-i" data-o="me">Mine${ck(t.owner==='me')}</button><button class="pop-i" data-o="client">Client’s action item${ck(t.owner==='client')}</button>${LIFE() ? '' : `<button class="pop-i" data-o="dev">⚙ Dev${ck(t.owner==='dev')}</button>`}</div><div class="pop-row"><input class="inp" placeholder="Who at the client? (optional)" value="${esc(t.owner === 'client' ? t.assignee || '' : '')}"></div>`, (p, close) => {
+      const i = p.querySelector('input');
       p.querySelectorAll('[data-o]').forEach(b => b.onclick = () => { up({ owner: b.dataset.o, assignee: b.dataset.o === 'client' ? i.value.trim() : '' }); close(); });
-      p.querySelectorAll('[data-p]').forEach(b => b.onclick = () => { up({ owner: 'team', assignee: b.dataset.p }); close(); });
       i.onkeydown = e => { if(e.key === 'Enter'){ up({ owner: 'client', assignee: i.value.trim() }); close(); } };
-      if(nw) nw.onkeydown = e => { if(e.key === 'Enter' && nw.value.trim()){ const pp = addPerson(nw.value); up({ owner: 'team', assignee: pp.name }); close(); } };
-    }, { w: 260 });
+    }, { w: 240 });
   }
   if(key === 'repeat'){
     const opts = [['', 'Does not repeat'], ['day:1','Daily'], ['weekday:1','Every weekday'], ['week:1','Weekly'], ['week:2','Every 2 weeks'], ['month:1','Monthly'], ['month:3','Every 3 months'], ['month:6','Twice a year'], ['month:12','Yearly']];
@@ -1293,7 +1255,7 @@ function coreCommands(){
     { title: LIFE() ? 'Switch to Work' : 'Switch to Life', k:'⇧L', run: () => { closeModal(); switchSpace(); } },
     ...(LIFE() ? [] : [{ title: S.activeMeeting ? 'Resume meeting' : 'Start meeting', k:'M', run: () => { closeModal(); startMeeting(); } }]),
     { title: LIFE() ? 'Add an area' : 'Add client', run: () => promptClient() },
-    ...(LIFE() ? [] : [{ title:'New project', run: () => promptProject() }, { title:'Manage team', run: () => manageTeam() }, { title:'Open Team', run: () => { closeModal(); go('team'); } }]),
+    ...(LIFE() ? [] : [{ title:'New project', run: () => promptProject() }, { title:'Open Dev', run: () => { closeModal(); go('dev'); } }]),
     { title:'Toggle dark mode', run: () => { closeModal(); S.settings.theme = S.settings.theme==='dark'?'light':'dark'; save(); render(); } },
     { title:'Settings & plugins', run: () => openSettings() },
     { title:'Review sync clashes', run: () => openConflicts() },
@@ -1703,9 +1665,7 @@ document.addEventListener('click', e => {
       break; }
     case 'add-client': promptClient(); break;
     case 'add-project': promptProject(); break;
-    case 'manage-team': manageTeam(); break;
     case 'step-del': { const t = S.tasks.find(x => x.id === selTask); if(!t) break; const log = (t.log || []).slice(); log.splice(+a.dataset.i, 1); updateTask(t.id, { log }); renderView(); break; }
-    case 'team-filter': teamFilter = teamFilter === a.dataset.n ? '' : a.dataset.n; render(); break;
     case 'edit-project': promptProject(a.dataset.cid); break;
     case 'toggle-finished': showFinished = !showFinished; renderSide(); break;
     case 'make-project': { const c = client(a.dataset.cid); if(!c) break; c.kind = 'project'; c.icon = c.icon || '🛠️'; save(); emit('client:update', clone(c)); closeModal(); render(); setTimeout(() => promptProject(c.id), 60); toast(`${c.name} is now an internal project`); break; }
@@ -1829,7 +1789,7 @@ document.addEventListener('keydown', e => {
   if(e.key === 'e' || e.key === 'Enter'){ e.preventDefault(); openTask(t.id); }
   if(e.key === 'f'){ e.preventDefault(); stepDialog(t.id); }
   if(e.key === 's'){ updateTask(t.id, { dueDate: ymd(addDays(new Date(), 1)) }); render(); toast(`Snoozed “${t.title}” to tomorrow`); }
-  if(e.key === 'o'){ updateTask(t.id, { owner: t.owner === 'me' ? 'client' : 'me' }); render(); }
+  if(e.key === 'o'){ updateTask(t.id, { owner: t.owner === 'me' ? 'client' : t.owner === 'client' && !LIFE() ? 'dev' : 'me' }); render(); }
   if(['0','1','2','3'].includes(e.key)){ updateTask(t.id, { priority: +e.key }); render(); }
   if(e.key === 'Delete' || e.key === 'Backspace'){ e.preventDefault(); const gone = removeTask(t.id); kbId = null; if(selTask === t.id) closeDrawer(); render(); toast(`Deleted “${gone.title}”`, [{ label:'Undo', run: () => { S.tasks.push(gone); save(); render(); } }]); }
 });

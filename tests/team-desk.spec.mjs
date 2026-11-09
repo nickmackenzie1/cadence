@@ -24,47 +24,39 @@ async function open(page) {
 }
 const quick = async (page, text) => { await page.fill('#qa', text); await page.press('#qa', 'Enter'); };
 
-test('hand tasks to developers: >name, the owner chip, the Team page', async ({ page }) => {
+test('hand tasks to dev: >dev, the owner chip, the Dev page', async ({ page }) => {
   const errs = await open(page);
   await page.evaluate(() => window.T.clients.add('Acme'));
-  await page.evaluate(() => location.hash = 'team');
-  await expect(page.locator('#view')).toContainText('Add your team');
-  await page.click('#view [data-act=manage-team] >> nth=0');
-  await page.fill('#tm-new', 'Sam Patel'); await page.fill('#tm-role', 'Deluge dev'); await page.press('#tm-new', 'Enter');
-  await expect(page.locator('#modal .tm-row')).toHaveCount(1);
-  await page.click('#modal [data-act=close-modal]');
-  // >sam matches the teammate by first name; >riley adds a new one
+  await page.evaluate(() => location.hash = 'dev');
+  await expect(page.locator('#view')).toContainText('Nothing with dev');
   await page.evaluate(() => location.hash = 'today');
-  await quick(page, 'Fix the blueprint transition @acme >sam');
-  await quick(page, 'Build the Books sync >riley tomorrow');
-  await quick(page, 'Send SOW @acme ^sam');   // ^ matching a teammate goes to the team too
+  await page.fill('#qa', 'Fix the blueprint transition @acme >dev ');
+  await expect(page.locator('#qa-chips')).toContainText('Dev');
+  await page.press('#qa', 'Enter');
+  await quick(page, 'Build the Books sync ^dev tomorrow');
+  await quick(page, 'Send SOW @acme ^bob');
   const ts = await page.evaluate(() => window.T.tasks.list().map(t => ({ title: t.title, owner: t.owner, a: t.assignee, at: !!t.assignedAt })));
-  expect(ts.find(t => t.title.startsWith('Fix')).a).toBe('Sam Patel');
-  expect(ts.find(t => t.title.startsWith('Build')).a).toBe('Riley');
-  expect(ts.every(t => t.owner === 'team' && t.at)).toBe(true);
-  expect(await page.evaluate(() => window.T.team.list().map(p => p.name))).toEqual(['Sam Patel', 'Riley']);
-  // they leave my Today, and show on the Team page
-  await expect(page.locator('#side-main a[href="#team"] .n')).toHaveText('3');
-  await page.evaluate(() => location.hash = 'team');
-  await expect(page.locator('.tm-card')).toHaveCount(2);
-  await expect(page.locator('.tm-card', { hasText: 'Sam Patel' })).toContainText('2 open');
-  await page.click('.tm-card:has-text("Riley")');
-  await expect(page.locator('#view .task')).toHaveCount(1);
-  // hand one back to me from the owner chip
-  await page.click('#view .task .t-title');
+  expect(ts.find(t => t.title.startsWith('Fix'))).toMatchObject({ title: 'Fix the blueprint transition', owner: 'dev', at: true });
+  expect(ts.find(t => t.title.startsWith('Build')).owner).toBe('dev');
+  expect(ts.find(t => t.title.startsWith('Send'))).toMatchObject({ owner: 'client', a: 'bob' });
+  // they leave my Today and show on the Dev page
+  await expect(page.locator('#side-main a[href="#dev"] .n')).toHaveText('2');
+  await page.evaluate(() => location.hash = 'dev');
+  await expect(page.locator('#view .task')).toHaveCount(2);
+  // hand one back to me from the owner chip, then to dev again
+  await page.click('#view .task .t-title >> text=Build the Books sync');
   await page.click('.task.open [data-te=owner]');
   await page.click('.pop-i[data-o=me]');
   await page.keyboard.press('Escape');
   expect(await page.evaluate(() => window.T.tasks.list(t => t.title.startsWith('Build'))[0].owner)).toBe('me');
-  // and to Sam from the popover
   await page.evaluate(() => location.hash = 'upcoming');
   await page.click('#view .task .t-title >> text=Build the Books sync');
   await page.click('.task.open [data-te=owner]');
-  await page.click('.pop-i[data-p="Sam Patel"]');
-  expect(await page.evaluate(() => window.T.tasks.list(t => t.title.startsWith('Build'))[0].assignee)).toBe('Sam Patel');
-  // client page shows "With the team"
+  await page.click('.pop-i[data-o=dev]');
+  expect(await page.evaluate(() => window.T.tasks.list(t => t.title.startsWith('Build'))[0].owner)).toBe('dev');
+  // client page shows "With dev"
   await page.evaluate(() => location.hash = 'client-' + window.T.clients.list()[0].id);
-  await expect(page.locator('.group-h.team')).toContainText('With the team');
+  await expect(page.locator('.group-h.dev')).toContainText('With dev');
   expect(errs).toEqual([]);
 });
 
