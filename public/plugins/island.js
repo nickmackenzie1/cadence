@@ -9,9 +9,23 @@
     st.textContent = `
       .isl{position:fixed;top:10px;left:calc(276px + (100vw - 276px) / 2);transform:translateX(-50%);z-index:80;pointer-events:none}
       @media (max-width:900px){.isl{left:50%}}
-      .isl-pill{pointer-events:auto;position:relative;background:#0d0c10;color:#f2f0f7;border-radius:22px;box-shadow:0 10px 30px rgba(0,0,0,.22),0 0 0 1px rgba(255,255,255,.05) inset;overflow:hidden;
-        width:var(--w,120px);height:var(--h,30px);transition:width .75s cubic-bezier(.32,1.22,.42,1),height .75s cubic-bezier(.32,1.22,.42,1),border-radius .75s cubic-bezier(.32,1.22,.42,1),box-shadow .5s;cursor:default;font:500 12.5px/1.25 Inter,ui-sans-serif,system-ui,sans-serif}
-      .isl-pill.big{border-radius:24px;box-shadow:0 18px 50px rgba(0,0,0,.32),0 0 0 1px rgba(255,255,255,.06) inset}
+      /* themed: at rest it is part of the UI (panel colour, hairline border); a notice makes it surface */
+      .isl-pill{--isl-fg:var(--text,#1d1c1a);--isl-sub:var(--muted,#8a877f);--isl-line:var(--line,#e7e4dd);--isl-hover:var(--hover,rgba(0,0,0,.04));--glow:var(--accent,#5b5bd6);
+        pointer-events:auto;position:relative;color:var(--isl-fg);border-radius:22px;overflow:hidden;
+        background:color-mix(in srgb,var(--panel,#fff) 72%,transparent);-webkit-backdrop-filter:blur(14px) saturate(1.4);backdrop-filter:blur(14px) saturate(1.4);
+        box-shadow:0 0 0 1px var(--isl-line) inset,0 1px 2px rgba(0,0,0,.04);
+        width:var(--w,120px);height:var(--h,30px);transform:translateY(0) scale(1);
+        transition:width .75s cubic-bezier(.32,1.22,.42,1),height .75s cubic-bezier(.32,1.22,.42,1),border-radius .75s cubic-bezier(.32,1.22,.42,1),box-shadow .6s ease,background .6s ease,transform .6s cubic-bezier(.3,1.5,.5,1);cursor:default;font:500 12.5px/1.25 Inter,ui-sans-serif,system-ui,sans-serif}
+      .isl-pill.big{border-radius:24px}
+      .isl-pill.up{background:var(--panel,#fff);transform:translateY(4px) scale(1.02);
+        box-shadow:0 0 0 1px color-mix(in srgb,var(--glow) 38%,var(--isl-line)) inset,0 14px 38px -8px rgba(0,0,0,.22),0 4px 12px rgba(0,0,0,.06),0 0 0 5px color-mix(in srgb,var(--glow) 12%,transparent),0 10px 44px -6px color-mix(in srgb,var(--glow) 45%,transparent)}
+      .isl-pill.up::before{content:'';position:absolute;inset:0;border-radius:inherit;pointer-events:none;background:radial-gradient(120% 140% at 50% -30%,color-mix(in srgb,var(--glow) 16%,transparent),transparent 70%)}
+      .isl-pill.ping::after{content:'';position:absolute;inset:0;border-radius:inherit;pointer-events:none;box-shadow:0 0 0 0 color-mix(in srgb,var(--glow) 55%,transparent);animation:islring .9s ease-out}
+      @keyframes islring{to{box-shadow:0 0 0 14px transparent}}
+      [data-theme=dark] .isl-pill{background:color-mix(in srgb,var(--panel,#1b1b1e) 80%,transparent);box-shadow:0 0 0 1px var(--isl-line) inset}
+      [data-theme=dark] .isl-pill.up{background:color-mix(in srgb,var(--panel,#1b1b1e) 88%,#fff);
+        box-shadow:0 0 0 1px color-mix(in srgb,var(--glow) 50%,transparent) inset,0 16px 44px -8px rgba(0,0,0,.6),0 0 0 5px color-mix(in srgb,var(--glow) 16%,transparent),0 8px 50px -4px color-mix(in srgb,var(--glow) 55%,transparent)}
+      @media (prefers-reduced-motion:reduce){.isl-pill,.isl-pill.up{transform:none}.isl-pill.ping::after{animation:none}}
       .isl-pill.click{cursor:pointer}
       .isl-c{position:absolute;inset:0;display:flex;align-items:center;gap:10px;padding:0 14px;white-space:nowrap;transition:opacity .38s ease, filter .45s ease, transform .6s cubic-bezier(.32,1.2,.42,1)}
       .isl-c.leaving{opacity:0;filter:blur(6px);transform:scale(.94);transition-duration:.28s,.3s,.35s}
@@ -20,43 +34,43 @@
       .isl-row{display:flex;align-items:center;gap:10px;min-width:0}
       .isl-ico{width:20px;height:20px;border-radius:50%;display:grid;place-items:center;flex:none;font-size:13px;background:var(--ic,#2a2833);color:#fff}
       .isl-t{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;max-width:300px}
-      .isl-t b{font-weight:650;color:#fff}
-      .isl-t small{display:block;color:#9d99ad;font-size:11px;margin-top:1px;overflow:hidden;text-overflow:ellipsis}
-      .isl-right{color:#9d99ad;font-variant-numeric:tabular-nums;font-size:12px;flex:none}
+      .isl-t b{font-weight:650;color:var(--isl-fg)}
+      .isl-t small{display:block;color:var(--isl-sub);font-size:11px;margin-top:1px;overflow:hidden;text-overflow:ellipsis}
+      .isl-right{color:var(--isl-sub);font-variant-numeric:tabular-nums;font-size:12px;flex:none}
       .isl-acts{display:flex;gap:2px;justify-content:flex-end;margin-right:-6px}
       .isl-acts.inline{margin:0 -6px 0 4px;flex:none}
-      .isl-acts button{background:none;color:#a9a5b8;border-radius:999px;padding:5px 8px;font:600 12px/1 Inter,ui-sans-serif,system-ui;border:0;cursor:pointer;transition:color .15s,background .15s}
-      .isl-acts button:hover{color:#fff;background:rgba(255,255,255,.08)}
-      .isl-acts button.pri{color:#a8a6ff}
-      .isl-acts button.pri:hover{color:#c9c8ff}
-      .isl-sep{width:1px;height:14px;background:rgba(255,255,255,.12);flex:none;margin-left:2px}
+      .isl-acts button{background:none;color:var(--isl-sub);border-radius:999px;padding:5px 8px;font:600 12px/1 Inter,ui-sans-serif,system-ui;border:0;cursor:pointer;transition:color .15s,background .15s}
+      .isl-acts button:hover{color:var(--isl-fg);background:var(--isl-hover)}
+      .isl-acts button.pri{color:var(--accent,#5b5bd6)}
+      .isl-acts button.pri:hover{color:var(--accent,#5b5bd6);background:color-mix(in srgb,var(--accent,#5b5bd6) 12%,transparent)}
+      .isl-sep{width:1px;height:14px;background:var(--isl-line);flex:none;margin-left:2px}
       .isl-dot{width:7px;height:7px;border-radius:50%;background:#3fc37a;flex:none;box-shadow:0 0 0 3px rgba(63,195,122,.18);transition:background .3s, box-shadow .3s}
       .isl-dot.busy{background:#f5b041;box-shadow:0 0 0 3px rgba(245,176,65,.22);animation:islp 1s infinite}
       .isl-dot.err{background:#ff5a5a;box-shadow:0 0 0 3px rgba(255,90,90,.22)}
-      .isl-dot.off{background:#6b6878;box-shadow:none}
+      .isl-dot.off{background:var(--faint,#b9b5ac);box-shadow:none}
       .isl-dot.rec{background:#ff3b3b;box-shadow:0 0 0 3px rgba(255,59,59,.25);animation:islp 1.4s infinite}
       @keyframes islp{50%{opacity:.45}}
-      .isl-time{font-variant-numeric:tabular-nums;color:#d8d5e2;font-weight:600;letter-spacing:.01em}
+      .isl-time{font-variant-numeric:tabular-nums;color:var(--isl-fg);font-weight:600;letter-spacing:.01em}
       .isl-check{width:20px;height:20px;border-radius:50%;background:#3fc37a;display:grid;place-items:center;flex:none}
       .isl-check svg{width:13px;height:13px;stroke:#fff;stroke-width:3;fill:none;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:20;stroke-dashoffset:20;animation:islck .45s .12s forwards}
       @keyframes islck{to{stroke-dashoffset:0}}
-      .isl-spin{width:14px;height:14px;border:2px solid #4a4757;border-top-color:#b28cff;border-radius:50%;animation:islsp .7s linear infinite;flex:none}
+      .isl-spin{width:14px;height:14px;border:2px solid var(--isl-line);border-top-color:var(--accent,#5b5bd6);border-radius:50%;animation:islsp .7s linear infinite;flex:none}
       @keyframes islsp{to{transform:rotate(360deg)}}
-      .isl-bar{height:3px;border-radius:9px;background:#2a2833;overflow:hidden}
+      .isl-bar{height:3px;border-radius:9px;background:var(--isl-line);overflow:hidden}
       .isl-bar i{display:block;height:100%;background:linear-gradient(90deg,#5b5bd6,#b06bd6,#ff7a8a);transition:width .35s}
       .isl-img{width:20px;height:20px;flex:none;display:grid;place-items:center}
       .isl-img img{width:20px;height:20px;border-radius:5px;object-fit:cover;display:block}
       .isl-img .av{width:20px!important;height:20px!important}
       .isl-row+.isl-bar{margin-top:-1px}
       /* celebrate */
-      .isl-pill.cel{box-shadow:0 18px 50px rgba(0,0,0,.35),0 0 0 1px rgba(255,255,255,.08) inset,0 0 40px -6px color-mix(in srgb,var(--glow,#ffb020) 55%,transparent)}
+      .isl-pill.cel.up{box-shadow:0 0 0 1px color-mix(in srgb,var(--glow) 45%,transparent) inset,0 18px 50px -8px rgba(0,0,0,.28),0 0 0 6px color-mix(in srgb,var(--glow) 16%,transparent),0 0 56px -4px color-mix(in srgb,var(--glow) 65%,transparent)}
       .isl-cel{position:relative;display:flex;align-items:center;gap:12px;padding:2px 2px 2px 0;min-width:260px}
       .isl-badge{width:40px;height:40px;border-radius:13px;flex:none;display:grid;place-items:center;font-size:22px;background:radial-gradient(circle at 30% 25%,color-mix(in srgb,var(--ic) 70%,#fff),var(--ic) 60%,color-mix(in srgb,var(--ic) 70%,#000));box-shadow:0 0 0 1px rgba(255,255,255,.18) inset,0 6px 18px -4px var(--ic);animation:islpop .7s cubic-bezier(.3,1.6,.5,1) both}
       .isl-badge .av{width:40px!important;height:40px!important;border-radius:13px!important}
       .isl-eye{display:block;font-size:10px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--ic);margin-bottom:1px}
       .isl-cel .isl-t b{font-size:14px}
-      .isl-xp{font:800 13px/1 Inter,ui-sans-serif,system-ui;color:#0d0c10;background:var(--ic);padding:5px 8px;border-radius:999px;flex:none;animation:islpop .6s .25s cubic-bezier(.3,1.6,.5,1) both}
-      .isl-shine{position:absolute;inset:-12px -20px;background:linear-gradient(105deg,transparent 35%,rgba(255,255,255,.14) 50%,transparent 65%);transform:translateX(-100%);animation:islshine 1.4s .3s ease-out;pointer-events:none}
+      .isl-xp{font:800 13px/1 Inter,ui-sans-serif,system-ui;color:#16151a;background:var(--ic);padding:5px 8px;border-radius:999px;flex:none;animation:islpop .6s .25s cubic-bezier(.3,1.6,.5,1) both}
+      .isl-shine{position:absolute;inset:-12px -20px;background:linear-gradient(105deg,transparent 35%,color-mix(in srgb,var(--glow) 22%,transparent) 50%,transparent 65%);transform:translateX(-100%);animation:islshine 1.4s .3s ease-out;pointer-events:none}
       .isl-cel i{position:absolute;top:50%;left:var(--x);width:4px;height:7px;border-radius:1px;background:var(--c);opacity:0;animation:islconf 1.1s var(--d) ease-out both;pointer-events:none}
       @keyframes islpop{from{transform:scale(.3) rotate(-14deg);opacity:0}}
       @keyframes islshine{to{transform:translateX(100%)}}
@@ -153,16 +167,26 @@
     }
     const v = view(n);
     const c = morph({ html: v.html, stack: v.stack, actions: n.actions, onClick: n.onClick, h: v.stack ? 0 : 34, minW: n.progress != null ? 240 : 0 });
-    G.pill.classList.toggle('cel', v.cls === 'cel'); if (v.cls === 'cel') G.pill.style.setProperty('--glow', n.color || '#ffb020');
+    G.pill.classList.toggle('cel', v.cls === 'cel');
+    surface(n.color || (v.cls === 'cel' ? '#ffb020' : n.check ? '#3fc37a' : ''), !soft);
     if (v.cls === 'cel') c.querySelectorAll('.isl-cel i').forEach((d, k) => { d.style.setProperty('--x', (Math.random() * 100) + '%'); d.style.setProperty('--d', (k * 70) + 'ms'); d.style.setProperty('--c', ['#ffd166', '#7cf7d4', '#ff4fa3', '#5cc8ff', '#b28cff'][k % 5]); });
   }
+  // a notice brings the pill up out of the UI (lift + glow in the notice's colour, one ring pulse); idle sinks it back
+  const glowable = c => { const m = /^#([0-9a-f]{6})$/i.exec(c || ''); if (!m) return !!c; const n = parseInt(m[1], 16), l = (0.2126 * (n >> 16 & 255) + 0.7152 * (n >> 8 & 255) + 0.0722 * (n & 255)) / 255; return l > 0.22; };
+  function surface(color, ping) {
+    const p = G.pill; if (!glowable(color)) color = '';
+    if (color) p.style.setProperty('--glow', color); else p.style.removeProperty('--glow');
+    p.classList.add('up');
+    if (ping) { p.classList.remove('ping'); void p.offsetWidth; p.classList.add('ping'); clearTimeout(G.pt); G.pt = setTimeout(() => p.classList.remove('ping'), 950); }
+  }
+  function sink() { G.pill.classList.remove('up', 'ping', 'cel'); }
   function next() {
-    const n = G.queue.shift(); if (!n) { G.cur = null; G.pill.classList.remove('cel'); idle(); return; }
+    const n = G.queue.shift(); if (!n) { G.cur = null; sink(); idle(); return; }
     G.cur = n; render(n);
     clearTimeout(G.t);
     if (!n.sticky && n.progress == null && !n.spin) G.t = setTimeout(dismiss, n.ms || (n.style === 'celebrate' ? 5200 : (n.actions || []).length ? 6000 : n.sub ? 4600 : 3600));
   }
-  function dismiss() { clearTimeout(G.t); G.cur = null; G.pill.classList.remove('cel'); setTimeout(() => { if (!G.cur) next(); }, 220); }
+  function dismiss() { clearTimeout(G.t); G.cur = null; if (!G.queue.length) sink(); else G.pill.classList.remove('cel'); setTimeout(() => { if (!G.cur) next(); }, 220); }
   function update(n) { if (G.cur === n) render(n, true); }
 
   window.CadenceIsland = {

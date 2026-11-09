@@ -37,7 +37,8 @@ Next: (superseded, see below)
   server: cookie cadence_session (HttpOnly, SameSite=Strict, Secure on https), sessions hashed in data/sessions.json (0600),
   keyed to a password tag (password change = all signed out), 'keep me signed in' 30d sliding else 12h, lockout after 5 misses
   (30s doubling, max 15m), Origin check on non-GET, Basic auth still accepted for scripts. tests/login.spec.mjs.
-- ISLAND (user ask): match theme (light in light mode, blend in when idle), 'surface' (lift + glow) on a notification.
+- ISLAND (done): themed via core CSS vars (panel/text/line); idle = translucent panel + hairline (blends in);
+  notices add .up (lift, shadow, ring + glow in notice colour via --glow, dark colours fall back to accent) + one .ping ring.
 - Plan order: HTTPS (done) -> login page (cookie session, replaces Basic auth) -> SQLite (node:sqlite, Node 22 image).
 
 ## Backlog (user ideas, 2026-11-08)
