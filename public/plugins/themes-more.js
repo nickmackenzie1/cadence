@@ -195,6 +195,26 @@
       pm.onkeydown = e => { if (e.key === 'Enter') pm.blur(); };
     };
     head && head.after(card); view && view.parentNode.insertBefore(bar, view); draw();
+    // Windows XP: the contact list is its own window, with a menu bar and an "I want to…" panel
+    const side = document.getElementById('side');
+    const sbar = document.createElement('div'); sbar.className = 'msn-title msn-side-title'; sbar.innerHTML = '<span class="msn-buddy"><i></i><i></i></span>Cadence Messenger<span class="msn-wb"><i>_</i><i>□</i><i>×</i></span>';
+    const MENUS = { File: [['Settings', 'settings'], ['Themes', 'theme']], Contacts: [['Add a contact', 'add-client'], ['New project', 'add-project']], Actions: [['Start a meeting', 'meeting'], ['Send a Nudge', '#nudge'], ['Waiting on clients', '#go:waiting']], Tools: [['Plugins', 'open-plugins'], ['Keyboard shortcuts', 'shortcuts']], Help: [['Command palette (⌘K)', '#palette']] };
+    const menubar = document.createElement('div'); menubar.className = 'msn-menubar'; menubar.innerHTML = Object.keys(MENUS).map(m => `<button data-m="${m}">${m}</button>`).join('');
+    const iwant = document.createElement('div'); iwant.className = 'msn-iwant';
+    const iwOpen = () => { try { return localStorage.getItem('cadence.msn.iw') === '1'; } catch (e) { return false; } };
+    iwant.classList.toggle('open', iwOpen());
+    iwant.innerHTML = `<button class="iw-h" data-iw="toggle">I want to…<span>▾</span></button><button data-act="add-client"><i class="iw-add"></i>Add a Contact</button><button data-iw="im"><i class="iw-im"></i>Send an Instant Message</button><button data-act="meeting"><i class="iw-mt"></i>Start a Meeting</button><button data-iw="nudge"><i class="iw-nd"></i>Send a Nudge</button>`;
+    const run = v => { if (v === '#nudge') return nudge(); if (v === '#palette') return document.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', metaKey: true, ctrlKey: true, bubbles: true }));
+      if (v.startsWith('#go:')) { location.hash = v.slice(4); return; } const b = document.createElement('button'); b.dataset.act = v; b.hidden = true; document.body.appendChild(b); b.click(); b.remove(); };
+    menubar.onclick = e => { const b = e.target.closest('[data-m]'); if (!b) return; document.querySelector('.msn-menu')?.remove();
+      const m = document.createElement('div'); m.className = 'msn-menu'; m.innerHTML = MENUS[b.dataset.m].map(([l, v]) => `<button data-v="${v}">${l}</button>`).join('');
+      const r = b.getBoundingClientRect(); m.style.left = r.left + 'px'; m.style.top = r.bottom + 'px'; document.body.appendChild(m);
+      m.onclick = ev => { const x = ev.target.closest('[data-v]'); m.remove(); if (x) run(x.dataset.v); };
+      setTimeout(() => document.addEventListener('pointerdown', function off(ev) { if (!m.contains(ev.target)) { m.remove(); document.removeEventListener('pointerdown', off, true); } }, true), 0); };
+    iwant.onclick = e => { const b = e.target.closest('[data-iw]'); if (!b) return;
+      if (b.dataset.iw === 'toggle') { const o = !iwant.classList.contains('open'); iwant.classList.toggle('open', o); try { localStorage.setItem('cadence.msn.iw', o ? '1' : '0'); } catch (x) {} setTimeout(() => window.dispatchEvent(new Event('resize')), 30); return; }
+      if (b.dataset.iw === 'nudge') nudge(); else { const q = document.getElementById('qa'); if (q) q.focus(); else location.hash = 'inbox'; } };
+    if (side) { side.prepend(menubar); side.prepend(sbar); const foot = document.getElementById('side-foot'); foot && side.insertBefore(iwant, foot); }
     // OG easter eggs
     const keys = e => { if ((e.ctrlKey || e.metaKey) && (e.key === 'g' || e.key === 'G')) { e.preventDefault(); nudge(); } };
     document.addEventListener('keydown', keys);
@@ -204,7 +224,7 @@
     const done = () => { if (msnState().status !== 'busy') chime(); };
     document.addEventListener('cadence:task-complete', done);
     const t = setInterval(() => { const pm = card.querySelector('.msn-pm'); if (pm && !pm.value && document.activeElement !== pm) pm.placeholder = nowPlaying() || '<Type a personal message>'; }, 9000);
-    return () => { document.removeEventListener('keydown', keys); removeEventListener('hashchange', signIn); document.removeEventListener('cadence:task-complete', done); clearInterval(t); card.remove(); bar.remove(); document.getElementById('msn-pops')?.remove(); };
+    return () => { document.removeEventListener('keydown', keys); removeEventListener('hashchange', signIn); document.removeEventListener('cadence:task-complete', done); clearInterval(t); card.remove(); bar.remove(); sbar.remove(); menubar.remove(); iwant.remove(); document.getElementById('msn-pops')?.remove(); };
   };
 
   const MSN_BLUE = '#2f62b8';
@@ -214,9 +234,25 @@
       '--accent': '#2f62b8', '--on-accent': '#fff', '--accent-soft': '#d7e5f7', '--danger': '#d32f2f', '--danger-soft': '#fbe1e1', '--ok': '#3aa63a', '--client': '#e08a00', '--client-soft': '#fff1d6', '--shadow': '0 2px 6px rgba(47,98,184,.18)' },
     preview: { bg: 'linear-gradient(180deg,#d8e6f8,#fff 40%)', panel: '#fff', side: '#eef4fc', text: '#000', accent: MSN_BLUE, line: '#a5bcd9', r: '6px' },
     enhance: msnEnhance,
-    css: `:skin body{font-size:12.5px;background:linear-gradient(180deg,#c9dcf5,#e9f1fb 220px,#f6f9fd)}
-      :skin .app{padding:10px;gap:10px;height:100vh;box-sizing:border-box}
-      :skin .side,:skin .main{background:linear-gradient(180deg,#dbe8f8 0,#f3f7fd 120px,#fff 260px);border:1px solid #7d9ec0;border-radius:8px;box-shadow:0 0 0 1px #fff inset,0 4px 14px rgba(47,98,184,.18);overflow:hidden}
+    css: `:skin body{font-size:12.5px;background:
+          radial-gradient(60% 18% at 22% 16%,rgba(255,255,255,.85),transparent 70%),radial-gradient(40% 12% at 70% 10%,rgba(255,255,255,.7),transparent 70%),radial-gradient(30% 10% at 88% 26%,rgba(255,255,255,.55),transparent 70%),
+          radial-gradient(130% 60% at 30% 108%,#69b33d 0 48%,#4a9a2b 62%,transparent 63%),radial-gradient(120% 55% at 85% 112%,#5aa833 0 46%,transparent 47%),
+          linear-gradient(180deg,#2f6fd0 0%,#4c8fe0 30%,#86bcf0 62%,#bfdcf6 78%) fixed}
+      :skin .app{padding:12px;gap:14px;height:100vh;box-sizing:border-box;grid-template-columns:300px 1fr}
+      /* Luna windows: thick blue frame, rounded top, glossy title bar */
+      :skin .side,:skin .main{background:linear-gradient(180deg,#dbe8f8 0,#f3f7fd 120px,#fff 260px);border:3px solid #0a52d6;border-top:0;border-radius:9px 9px 0 0;box-shadow:inset 0 0 0 1px #3b80f2,3px 4px 14px rgba(0,0,0,.35);overflow:hidden}
+      :skin .side{padding-top:0}
+      :skin .msn-title{background:linear-gradient(180deg,#0997ff 0%,#0053ee 8%,#0050ee 40%,#0066ff 88%,#0066ff 93%,#005bff 95%,#003dd7 96%,#003dd7 100%)!important;height:30px;border-radius:7px 7px 0 0;font:700 13px Trebuchet MS,Tahoma,sans-serif;text-shadow:1px 1px #0f1089}
+      :skin .msn-side-title{margin:0 -10px 0;padding:0 6px 0 10px}
+      :skin .msn-wb i{border:1px solid #fff!important;border-radius:3px!important;background:linear-gradient(180deg,#3c8cf3,#1b5fd8)!important;width:21px!important;height:21px!important;box-shadow:inset 1px 1px 0 rgba(255,255,255,.4)}
+      :skin .msn-wb i:last-child{background:linear-gradient(180deg,#e88466,#d33b16)!important}
+      :skin .msn-menubar{display:flex;gap:2px;margin:0 -10px 10px;padding:2px 6px;background:#ece9d8;border-bottom:1px solid #b8b49f}
+      :skin .msn-menubar button{padding:2px 8px;font:12px Tahoma,sans-serif;color:#000;border-radius:0} :skin .msn-menubar button:hover{background:#316ac5;color:#fff}
+      :skin .msn-iwant{margin:6px -10px 0;border-top:1px solid #a5bcd9;background:linear-gradient(180deg,#eef4fc,#dce8f8);padding-bottom:6px}
+      :skin .msn-iwant .iw-h{display:flex!important;justify-content:space-between;padding:4px 10px!important;color:#fff!important;font-weight:700;font-size:12px;background:linear-gradient(180deg,#7ca7e6,#3d6fc4);margin-bottom:4px;text-decoration:none!important}
+      :skin .msn-iwant:not(.open){padding-bottom:0} :skin .msn-iwant:not(.open) > button:not(.iw-h){display:none} :skin .msn-iwant:not(.open) .iw-h{margin-bottom:0} :skin .msn-iwant:not(.open) .iw-h span{transform:rotate(-90deg)}
+      :skin .msn-iwant button{display:flex;align-items:center;gap:8px;width:100%;padding:3px 12px;font:12px Tahoma,sans-serif;color:#0b3a8c;text-align:left} :skin .msn-iwant button:hover{text-decoration:underline}
+      :skin .msn-iwant i{width:14px;height:14px;border-radius:3px;flex:none} :skin .iw-add{background:radial-gradient(circle,#fff 0 22%,transparent 23%),#3aa63a} :skin .iw-im{background:linear-gradient(135deg,#7ab8ff,#2f62b8)} :skin .iw-mt{background:linear-gradient(135deg,#ffcf5a,#e08a00)} :skin .iw-nd{background:linear-gradient(135deg,#ff8c7a,#d83b2a)}
       :skin .main{display:flex;flex-direction:column} :skin #view{flex:1;overflow:auto;width:100%;box-sizing:border-box}
       :skin .msn-title{flex:none;display:flex;align-items:center;gap:8px;height:30px;padding:0 6px 0 10px;color:#fff;font-weight:700;font-size:12.5px;background:linear-gradient(180deg,#5d8fd8,#2f62b8 55%,#2556a8);text-shadow:0 1px 0 rgba(0,0,0,.25)}
       :skin .msn-wb{margin-left:auto;display:flex;gap:3px} :skin .msn-wb i{font-style:normal;width:22px;height:20px;display:grid;place-items:center;border-radius:3px;background:linear-gradient(180deg,#7aa6e6,#3c6fc4);border:1px solid #1e4a96;font-size:11px}

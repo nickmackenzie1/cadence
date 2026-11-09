@@ -389,3 +389,8 @@ Needs: Life space (done), weather API (key on NAS), maps/GPX (offline tiles = ph
   LimeWire/MSN: #view full width (flex column bug), Search/Send buttons positioned inside the box.
 - Backlog (user, 2026-11-09 16:23): meeting screen becomes the client's screen when a client is chosen: their logo,
   brand colours (ambient), description, open items, last meeting notes.
+- MSN Messenger XP pass (2026-11-09, shipped): CSS Bliss-style desktop (sky, clouds, green hills), Luna window frames
+  for the contact list and main window with glossy title bars and XP caption buttons, working menu bar (File, Contacts,
+  Actions, Tools, Help → settings/themes/add client/project/meeting/nudge/waiting/plugins/shortcuts/palette), collapsible
+  "I want to…" panel (Add a Contact, Send an Instant Message → quick add, Start a Meeting, Send a Nudge; state in
+  localStorage cadence.msn.iw).
