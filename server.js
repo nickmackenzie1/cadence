@@ -784,6 +784,20 @@ async function handle(req, res) {
       if (refresh) { for (const f of [path.join(ICON_DIR, d + '.img'), path.join(ICON_DIR, d + '.none'), path.join(BANNER_DIR, d + '.img')]) { try { fs.unlinkSync(f); } catch {} } }
       return send(res, 200, await companyInfo(d, refresh));
     }
+    // a client's website as plain text (homepage + about page), for AI research. Cached a week on the NAS.
+    if (p === '/api/sitetext') {
+      const d = String(url.searchParams.get('d') || '').toLowerCase();
+      if (!DOMAIN_RE.test(d)) return send(res, 400, { error: 'Bad domain' });
+      const f = path.join(COMPANY_DIR, d + '.text.json');
+      try { const j = JSON.parse(fs.readFileSync(f, 'utf8')); if (Date.now() - j.at < 7 * 864e5 && url.searchParams.get('refresh') !== '1') return send(res, 200, j); } catch {}
+      const strip = h => decode(String(h).replace(/<(script|style|noscript|svg|nav|footer|header)[\s\S]*?<\/\1>/gi, ' ').replace(/<[^>]+>/g, ' ')).replace(/\s+/g, ' ').trim();
+      const pages = [];
+      for (const u of [`https://${d}/`, `https://www.${d}/`]) { try { const r = await safeFetch(u, { headers: { Accept: 'text/html' } }, 2 * 1024 * 1024); pages.push({ url: r.url, text: strip(r.buf.toString('utf8')).slice(0, 6000) }); break; } catch {} }
+      for (const sub of ['about', 'about-us', 'company']) { if (pages.length > 1) break; try { const r = await safeFetch(`https://${d}/${sub}`, { headers: { Accept: 'text/html' } }, 2 * 1024 * 1024); if (/html/i.test(r.type)) pages.push({ url: r.url, text: strip(r.buf.toString('utf8')).slice(0, 5000) }); } catch {} }
+      const out = { at: Date.now(), domain: d, pages };
+      try { fs.writeFileSync(f, JSON.stringify(out)); } catch {}
+      return send(res, 200, out);
+    }
     // image proxy (mural mosaic targets): raster images only, SSRF-safe, small memory cache
     if (p === '/api/img') {
       const u = url.searchParams.get('url') || '';

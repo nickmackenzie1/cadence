@@ -185,3 +185,20 @@ test('a ticket opened with Zoho support on a client\'s behalf is tracked as a fo
   await expect(page.locator('.dk-card .dk-via')).toHaveText('Zoho support');
   expect(errs).toEqual([]);
 });
+
+test('client news: only headlines that mention the client, no duplicates, excludes respected', async ({ page }) => {
+  const errs = await open(page);
+  const now = new Date().toUTCString();
+  await page.route('**/api/feed?*', r => r.fulfill({ json: { title: 'News', items: [
+    { title: 'Initrode wins regional award - Daily', link: 'https://x/1', date: now },
+    { title: 'Initrode wins regional award - Other Paper', link: 'https://x/2', date: now },
+    { title: 'Weather turns cold - Daily', link: 'https://x/3', date: now },
+    { title: 'Initrode recipe contest - Food', link: 'https://x/4', date: now } ] } }));
+  const id = await page.evaluate(() => window.T.clients.add('Initrode').id);
+  await page.evaluate(id => location.hash = 'client-' + id, id);
+  await expect(page.locator('.ci-news .ci-item')).toHaveCount(2);
+  await page.click('.ci-news [data-ci=cfg]'); await page.fill('#ci-x', 'recipe'); await page.click('#ci-save');
+  await expect(page.locator('.ci-news .ci-item')).toHaveCount(1);
+  await expect(page.locator('.ci-brief')).toContainText('Initrode');
+  expect(errs).toEqual([]);
+});

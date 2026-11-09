@@ -426,3 +426,10 @@ Needs: Life space (done), weather API (key on NAS), maps/GPX (offline tiles = ph
   inputs/textarea/contenteditable/.keep-emoji. `icon(name)` / `api.ui.icon(name)` for direct use. Icons bundled in
   public/vendor/lucide/icons.js (subset, ISC, LICENSE alongside); add more with
   `node scripts/build-icons.mjs <lucide-static dir> name…`. New code should use icon names, not emoji.
+- Client intel (2026-11-09, shipped): plugins/client-intel.js (Work). Client page gets two cards below the task
+  columns. News: Google News RSS via /api/feed (ttl 60), kept only if the headline mentions the client name or domain
+  root (unless a custom search is set), deduped, per-client exclude words / custom query / off (plugin storage cfg),
+  last items cached for the "Client news" dashboard widget. Research: server /api/sitetext?d= (homepage + about page as
+  text, cached 7 days in data/companies/<d>.text.json) + headlines + open tasks → api.ai.json → client.research
+  {what, glance{size,hq,founded,model}, products, recent, people, talking, watch, sources}; told not to invent.
+  Also a client action "Research with AI". Dashboard widgets may now use Lucide icon names.
