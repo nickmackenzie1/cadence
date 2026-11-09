@@ -358,3 +358,9 @@ Needs: Life space (done), weather API (key on NAS), maps/GPX (offline tiles = ph
   glass sidebar, specular edges, capsule buttons; falls back to opaque where backdrop-filter is missing). NES rewritten
   with NES.css component looks: titled pixel containers for groups, balloon toasts/Island, pixel checkbox + check,
   progress bar, coloured buttons/badges, pixel cursor, blinking ▶.
+- Support tickets (desk.js 1.1, 2026-11-09): user clarified tickets are mostly ones he OPENS with Zoho (partner support,
+  on a client's behalf). `ticket.via` = 'zoho' | 'desk' | 'other' (+ vendor). Quick add: `zs 12345` / "zoho ticket" /
+  "partner ticket" = Zoho; `desk 4821` = our Desk; `tkt`/`ticket` = settings default (Zoho). Tags zoho-support / desk /
+  support. Zoho/other tickets start as stage 'waiting' with log "Opened Zoho support ticket #N" and a check-back date
+  (settings: followDays, default 2). Board filter All / Zoho support / Our Desk / Other; cards show a via badge.
+  Pair with Links on tasks (paste the support email's Gmail link).

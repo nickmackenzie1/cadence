@@ -64,13 +64,14 @@ test('Desk tickets: quick add, chips, board, SLA, closing with the task', async 
   const errs = await open(page);
   await page.evaluate(() => window.T.clients.add('Acme'));
   // the view can re-render under us after a sync pull; retype until the preview shows
-  await expect(async () => { await page.fill('#qa', ''); await page.fill('#qa', 'Sync error on Deals @acme tkt 4821 '); await expect(page.locator('#qa-chips')).toContainText('#4821', { timeout: 1000 }); }).toPass({ timeout: 10000 });
+  await expect(async () => { await page.fill('#qa', ''); await page.fill('#qa', 'Sync error on Deals @acme desk 4821 '); await expect(page.locator('#qa-chips')).toContainText('#4821', { timeout: 1000 }); }).toPass({ timeout: 10000 });
   await page.press('#qa', 'Enter');
   await quick(page, 'Portal login loop @acme https://desk.zoho.com/agent/acme/acme/tickets/details/123456789012345 !1');
   const ks = await page.evaluate(() => window.T.tasks.list(t => t.ticket).map(t => ({ title: t.title, k: t.ticket, tags: t.tags })));
   expect(ks).toHaveLength(2);
   expect(ks[0].title).toBe('Sync error on Deals'); expect(ks[0].k.no).toBe('4821'); expect(ks[0].tags).toContain('desk');
   expect(ks[1].k.url).toContain('desk.zoho.com'); expect(ks[1].title).toBe('Portal login loop');
+  expect(ks.every(t => t.k.via === 'desk')).toBe(true);
   await expect(page.locator('.task .chip.tkt', { hasText: '#4821' })).toBeVisible();
   await expect(page.locator('.task .chip.tkt', { hasText: 'Desk ticket' })).toBeVisible();
   // age one past its SLA (normal = 4 days)
@@ -92,7 +93,7 @@ test('Desk tickets: quick add, chips, board, SLA, closing with the task', async 
   await quick(page, 'Check the workflow');
   await page.click('#view .task .t-title >> text=Check the workflow');
   await page.click('.task.open [data-te=more]');
-  await page.click('.pop-i:has-text("Desk ticket")');
+  await page.click('.pop-i:has-text("Support ticket")');
   await page.fill('#dk-no', '5000'); await page.click('#modal [data-seg=pri] [data-v=urgent]'); await page.click('#dk-save');
   const k = await page.evaluate(() => window.T.tasks.list(t => t.title === 'Check the workflow')[0].ticket);
   expect(k.no).toBe('5000'); expect(k.pri).toBe('urgent');
@@ -163,5 +164,24 @@ test('paste a Projects link straight into an open task', async ({ page }) => {
   await page.press('.task.open [data-zl-paste]', 'Enter');
   await expect(page.locator('.task.open .zl-card')).toContainText('Zoho Projects task');
   expect(await page.evaluate(() => window.T.tasks.list(t => t.title === 'Paste target')[0].ref.id)).toBe('1874000000999999');
+  expect(errs).toEqual([]);
+});
+
+test('a ticket opened with Zoho support on a client\'s behalf is tracked as a follow-up', async ({ page }) => {
+  const errs = await open(page);
+  const c = await page.evaluate(() => window.T.clients.add('Zsco').id);
+  await page.evaluate(id => location.hash = 'client-' + id, c);
+  await quick(page, 'Webhook not firing on Deals zs 112233');
+  const t = await page.evaluate(() => window.T.tasks.list(t => t.ticket && t.ticket.no === '112233')[0]);
+  expect(t.title).toBe('Webhook not firing on Deals');
+  expect(t.ticket.via).toBe('zoho'); expect(t.tags).toContain('zoho-support');
+  expect(t.stage).toBe('waiting'); expect(t.log[0].text).toBe('Opened Zoho support ticket #112233');
+  const in2 = await page.evaluate(() => window.T.util.ymd(window.T.util.addDays(new Date(), 2)));
+  expect(t.dueDate).toBe(in2);
+  await expect(page.locator('.task .chip.tkt', { hasText: '112233' })).toContainText('Zoho support');
+  await page.evaluate(() => location.hash = 'view-tickets');
+  await page.click('#dk-vf [data-v=zoho]');
+  await expect(page.locator('.dk-card')).toHaveCount(1);
+  await expect(page.locator('.dk-card .dk-via')).toHaveText('Zoho support');
   expect(errs).toEqual([]);
 });
