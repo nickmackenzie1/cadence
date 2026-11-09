@@ -153,3 +153,15 @@ test('links on tasks: Zoho Projects, Gmail and plain links become cards', async 
   await expect(page.locator('.task.open .zl-card a.btn')).toHaveAttribute('href', /mail\.google\.com/);
   expect(errs).toEqual([]);
 });
+
+test('paste a Projects link straight into an open task', async ({ page }) => {
+  const errs = await open(page);
+  await page.evaluate(() => { window.T.tasks.add({ title: 'Paste target', dueDate: window.T.util.todayKey() }); window.T.ui.refresh(); });
+  await page.evaluate(() => location.hash = 'today');
+  await page.click('#view .task .t-title >> text=Paste target');
+  await page.fill('.task.open [data-zl-paste]', 'https://projects.zoho.com/portal/acme#taskdetail/1/2/1874000000999999');
+  await page.press('.task.open [data-zl-paste]', 'Enter');
+  await expect(page.locator('.task.open .zl-card')).toContainText('Zoho Projects task');
+  expect(await page.evaluate(() => window.T.tasks.list(t => t.title === 'Paste target')[0].ref.id)).toBe('1874000000999999');
+  expect(errs).toEqual([]);
+});

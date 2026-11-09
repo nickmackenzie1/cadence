@@ -273,7 +273,7 @@ Needs: Life space (done), weather API (key on NAS), maps/GPX (offline tiles = ph
 - Dev (core, Work only). User: "no specific people, just DEV". Task `owner: 'dev'` (third owner next to me/client),
   `assignedAt` set when handed over. Quick add `>dev`, `>` or `^dev`. Owner chip: Mine / Client's / Dev; key O cycles.
   Sidebar "Dev" page: stats (with dev, overdue, oldest, done this week), grouped by client. Client/project pages:
-  "With dev". Dev tasks leave my Today. Chip shows age after 2 days, red after 7. (An earlier same-day build had
+  "With dev". Dev tasks STAY on my Today (user: "it's still on me"; `onMe(x)` = me|dev for Today/counts). Chip shows age after 2 days, red after 7. (An earlier same-day build had
   named teammates with owner 'team'; loadDoc migrates those to 'dev'.)
 - Core hook `api.chips.add((task, preview) => html)` adds chips to task rows and the quick-add preview.
 - Desk tickets plugin (`desk.js`, Work): `task.ticket = {no,url,status,pri,opened,closed}`, tag `desk`. Quick add
@@ -339,3 +339,8 @@ Needs: Life space (done), weather API (key on NAS), maps/GPX (offline tiles = ph
   or a plain web link (favicon). Row chip opens it directly; editor shows a card via new core hook
   `api.taskCards.add(task => html)`. No iframes: Zoho and Google block framing. Desk URLs stay with desk.js.
   Next: Gmail subject/sender preview would need Google OAuth (token on the NAS).
+- state.json retired (2026-11-09): SQLite mode no longer mirrors state.json on every write. At startup a state.json
+  newer than the DB is imported (rollback path), then moved to backups/state-retired-<time>.json. A readable
+  backups/state-YYYY-MM-DD.json snapshot is written once a day (dailyJsonBackup) next to the daily .db snapshot.
+  STORAGE=json still works as an emergency fallback (copy the latest snapshot to data/state.json first).
+- Links on tasks: open editor shows a "Paste a Zoho Projects task, email or any link" box when the task has none.

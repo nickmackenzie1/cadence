@@ -1,4 +1,4 @@
-// Storage: moving an existing NAS from state.json to SQLite, keeping the JSON mirror, and rolling back safely.
+// Storage: moving an existing NAS from state.json to SQLite (then retiring state.json), daily JSON snapshots, and rolling back safely.
 import { test, expect } from '@playwright/test';
 import { spawn } from 'node:child_process';
 import { mkdtempSync, rmSync, writeFileSync, readFileSync, existsSync, readdirSync, mkdirSync } from 'node:fs';
@@ -22,7 +22,7 @@ let dir;
 test.beforeEach(() => { dir = mkdtempSync(join(tmpdir(), 'cadence-store-')); mkdirSync(join(dir, 'backups')); });
 test.afterEach(() => rmSync(dir, { recursive: true, force: true }));
 
-test('an existing state.json is imported into SQLite unchanged, and kept as a safety copy', async () => {
+test('an existing state.json is imported into SQLite unchanged, then retired to backups', async () => {
   const old = doc([{ id: 't1', title: 'One' }, { id: 't2', title: 'Two' }], 1000);
   writeFileSync(join(dir, 'state.json'), JSON.stringify(old));
   const s = await start(dir);
@@ -32,9 +32,13 @@ test('an existing state.json is imported into SQLite unchanged, and kept as a sa
   const info = (await (await fetch(s.url + '/api/db')).json()).db;
   expect(info.rows).toEqual({ tasks: 2, clients: 1, meetings: 0, plugins: 1 });
   expect(readdirSync(join(dir, 'backups')).some(f => f.startsWith('state-before-sqlite-'))).toBe(true);
-  // a write goes to the database, the mirror and the daily backups; removed records are kept, marked deleted
+  // state.json is moved aside so a stale copy can never win again
+  expect(existsSync(join(dir, 'state.json'))).toBe(false);
+  expect(readdirSync(join(dir, 'backups')).some(f => f.startsWith('state-retired-'))).toBe(true);
+  // a write goes to the database and the daily backups (one readable JSON snapshot a day); removed records are kept, marked deleted
   expect((await put(s.url, doc([{ id: 't1', title: 'One, edited' }], 2000))).status).toBe(200);
-  expect(JSON.parse(readFileSync(join(dir, 'state.json'), 'utf8')).updatedAt).toBe(2000);
+  expect(existsSync(join(dir, 'state.json'))).toBe(false);
+  expect(readdirSync(join(dir, 'backups')).some(f => /^state-\d{4}-\d{2}-\d{2}\.json$/.test(f))).toBe(true);
   expect(readdirSync(join(dir, 'backups')).some(f => /^cadence-\d{4}-\d{2}-\d{2}\.db$/.test(f))).toBe(true);
   // stale writes are still refused
   expect((await put(s.url, doc([], 1500))).status).toBe(409);

@@ -97,7 +97,8 @@ const OPEN = new Set(['/login', '/login.html', '/favicon.svg', '/manifest.webman
 // Every task, client, meeting, plugin's data and the rest of the settings ("doc") is its own record with a revision.
 // Devices sync records (GET/POST /api/sync) and edits merge field by field; a real clash (same field changed on two
 // devices) keeps the newest edit and is logged in `conflicts` so you can pick the other one.
-// /api/state (one document) still works for older tabs, and state.json is still written as a safety mirror.
+// /api/state (one document) still works for older tabs. state.json is no longer mirrored on every write (2026-11-09):
+// a readable JSON snapshot goes to backups/ once a day, and any state.json found at startup is imported if newer, then retired.
 const DB_FILE = path.join(DATA_DIR, 'cadence.db');
 const SCHEMA = 2;
 const ARRAYS = { task: 'tasks', client: 'clients', meeting: 'meetings' };
@@ -138,6 +139,8 @@ function openDb() {
       if (!cur) db.prepare("INSERT OR REPLACE INTO meta (key, value) VALUES ('migrated_from_json', ?)").run(String(Date.now()));
       console.log(`storage: ${cur ? 'state.json was newer than the database: imported it' : 'imported state.json into SQLite'} (${(old.json.length / 1024).toFixed(0)} KB)`);
     }
+    // the database is the only live copy now: move state.json aside so a stale copy can never win later
+    if (fs.existsSync(STATE_FILE)) { try { fs.renameSync(STATE_FILE, path.join(BACKUP_DIR, `state-retired-${new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19)}.json`)); console.log('storage: state.json retired to backups/'); } catch (e) { console.error('storage: could not retire state.json', e.message); } }
   } catch (e) {
     console.error('storage: SQLite failed, using JSON', e);
     try { db && db.close(); } catch {} db = null; storage = 'json'; storageNote = 'SQLite error: ' + e.message;
@@ -221,12 +224,12 @@ function applyChanges(changes, device) {
   }
   return conflicts;
 }
-// write the assembled document to the state table + state.json (for older tabs and as a safety copy)
+// write the assembled document to the state table (for older tabs), plus a readable JSON snapshot once a day
 function refreshDoc() {
   const S = assemble(), at = Date.now(); S.updatedAt = at;
   const doc = { json: JSON.stringify(S), updatedAt: at };
   db.prepare('INSERT INTO state (id, json, updated_at) VALUES (1, ?, ?) ON CONFLICT(id) DO UPDATE SET json = excluded.json, updated_at = excluded.updated_at').run(doc.json, at);
-  writeJsonMirror(doc);
+  dailyJsonBackup(doc);
   dailyDbBackup();
   return doc;
 }
@@ -288,9 +291,17 @@ function writeJsonMirror(obj) {
   const all = fs.readdirSync(BACKUP_DIR).filter(f => /^state-\d{4}-\d{2}-\d{2}\.json$/.test(f)).sort();
   while (all.length > KEEP_BACKUPS) fs.unlinkSync(path.join(BACKUP_DIR, all.shift()));
 }
+// one readable JSON copy per day in backups/ (SQLite mode); kept KEEP_BACKUPS days
+function dailyJsonBackup(doc) {
+  const f = path.join(BACKUP_DIR, `state-${new Date().toISOString().slice(0, 10)}.json`);
+  if (fs.existsSync(f)) return;
+  try { fs.writeFileSync(f + '.tmp', JSON.stringify(doc)); fs.renameSync(f + '.tmp', f);
+    const all = fs.readdirSync(BACKUP_DIR).filter(x => /^state-\d{4}-\d{2}-\d{2}\.json$/.test(x)).sort();
+    while (all.length > KEEP_BACKUPS) fs.unlinkSync(path.join(BACKUP_DIR, all.shift())); } catch (e) { console.error('backup: json snapshot failed', e.message); }
+}
 // whole-document write (older tabs, STORAGE=json)
 function writeState(obj) {
-  if (db) { importDoc(obj, 'older tab'); writeJsonMirror(readState()); dailyDbBackup(); }
+  if (db) { importDoc(obj, 'older tab'); dailyJsonBackup(readState()); dailyDbBackup(); }
   else writeJsonMirror(obj);
 }
 function dbInfo() {

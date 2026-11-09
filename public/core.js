@@ -715,8 +715,8 @@ function render(){
 function counts(){
   const t = todayKey(), o = open();
   return {
-    today: o.filter(x => x.owner==='me' && x.dueDate && x.dueDate <= t).length,
-    over: o.filter(x => x.owner==='me' && dueState(x)==='over').length,
+    today: o.filter(x => onMe(x) && x.dueDate && x.dueDate <= t).length,
+    over: o.filter(x => onMe(x) && dueState(x)==='over').length,
     upcoming: o.filter(x => x.dueDate && x.dueDate > t).length,
     waiting: o.filter(x => x.owner==='client').length,
     dev: o.filter(x => x.owner==='dev').length, devLate: o.some(x => x.owner==='dev' && dueState(x)==='over'),
@@ -725,6 +725,8 @@ function counts(){
 }
 let showPaused = false, showFinished = false;
 const isProject = c => !!c && c.kind === 'project';
+// work I'm accountable for: my own tasks, and what I've handed to dev (still on me to land)
+const onMe = x => x.owner === 'me' || x.owner === 'dev';
 function clientLink(cl, r, o, isPaused){
   const n = o.filter(t => t.clientId===cl.id && t.owner==='me').length, hot = o.some(t => t.clientId===cl.id && t.owner==='me' && dueState(t)==='over');
   return `<a class="${r==='client-'+cl.id?'on':''} ${isPaused?'paused':''}" href="#client-${cl.id}" data-cid="${cl.id}" data-w="${(hot ? 1000 : 0) + n * 10 + (isPaused ? -5 : 0) + (isProject(cl) && !isPaused ? 60 : 0)}"><span class="ic">${avatar(cl, 20)}</span><span class="t">${esc(cl.name)}</span>${n?`<span class="n ${hot?'hot':''}">${n}</span>`:''}</a>`;
@@ -892,14 +894,14 @@ function renderView(){
   let html = '';
   if(r === 'today'){
     const hr = new Date().getHours(), name = (S.settings.myName||'').split(' ')[0];
-    const over = o.filter(x => x.owner==='me' && dueState(x)==='over' );
-    const today = o.filter(x => x.owner==='me' && x.dueDate===t && dueState(x)!=='over');
+    const over = o.filter(x => onMe(x) && dueState(x)==='over' );
+    const today = o.filter(x => onMe(x) && x.dueDate===t && dueState(x)!=='over');
     const chase = o.filter(x => x.owner==='client' && x.dueDate && x.dueDate <= t);
     const doneToday = S.tasks.filter(x => x.done && x.doneAt && ymd(new Date(x.doneAt))===t).length;
     const totalToday = doneToday + over.length + today.length, pct = totalToday ? doneToday / totalToday : 0;
     const timed = today.filter(x => x.dueTime).sort((a,b) => a.dueTime.localeCompare(b.dueTime));
     const nowHM = `${pad(new Date().getHours())}:${pad(new Date().getMinutes())}`, nxt = timed.find(x => x.dueTime >= nowHM) || timed[0];
-    const nc = nxt && client(nxt.clientId), upcomingN = o.filter(x => x.owner === 'me' && x.dueDate && x.dueDate > t && x.dueDate <= ymd(addDays(new Date(), 7))).length;
+    const nc = nxt && client(nxt.clientId), upcomingN = o.filter(x => onMe(x) && x.dueDate && x.dueDate > t && x.dueDate <= ymd(addDays(new Date(), 7))).length;
     const glance = S.clients.length ? `<div class="glance">
         <div class="gl" data-go="today" title="Today's progress"><svg class="ring" viewBox="0 0 42 42"><circle cx="21" cy="21" r="17" stroke="color-mix(in srgb,var(--text) 8%,transparent)"/><circle cx="21" cy="21" r="17" stroke="var(--ok)" stroke-dasharray="106.8" stroke-dashoffset="${(106.8 * (1 - pct)).toFixed(1)}" style="transition:stroke-dashoffset .8s"/></svg><div class="tx"><div class="v">${doneToday}<span style="font-size:14px;color:var(--muted);font-weight:600"> / ${totalToday}</span></div><div class="l">${totalToday && doneToday === totalToday ? 'All done today 🎉' : 'done today'}</div></div></div>
         <div class="gl ${over.length && !LIFE() ? 'hot' : ''}" data-go="#g-over"><div class="tx"><div class="v">${over.length}</div><div class="l">${LIFE() ? (over.length ? 'still on the list' : 'all caught up') : over.length ? 'overdue — clear them' : 'nothing overdue'}</div></div></div>

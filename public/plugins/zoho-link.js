@@ -50,13 +50,17 @@ Cadence.registerPlugin({
     api.chips.add((t, preview) => { const z = refOf(t); if (!z) return '';
       return preview ? `<span class="chip zl-chip">${mark(z.app, z)}${E(z.app === 'web' ? z.host : z.kind)} link</span>`
         : `<a class="chip zl-chip" href="${E(z.url)}" target="_blank" rel="noopener" onclick="event.stopPropagation()" title="Open ${E(label(z))}">${mark(z.app, z)}${E(z.app === 'web' ? z.host : z.kind)} ↗</a>`; });
-    api.taskCards.add(t => { const z = refOf(t); if (!z) return '';
+    api.taskCards.add(t => { const z = refOf(t); if (!z) return `<div class="zl-paste"><svg viewBox="0 0 24 24"><path d="M10 14a4 4 0 0 0 5.66 0l3-3a4 4 0 0 0-5.66-5.66l-1 1"/><path d="M14 10a4 4 0 0 0-5.66 0l-3 3a4 4 0 0 0 5.66 5.66l1-1"/></svg><input data-zl-paste="${E(t.id)}" placeholder="Paste a Zoho Projects task, email or any link" spellcheck="false"></div>`;
       const sub = z.app === 'web' ? z.url.replace(/^https?:\/\/(www\.)?/, '') : [z.portal && E(z.portal), z.id && '#' + E(z.id.slice(-8))].filter(Boolean).join(' · ') || E(new URL(z.url).hostname);
       return `<div class="zl-card">${mark(z.app, z)}<div class="zl-tx"><b>${E(label(z))}</b><span>${z.app === 'web' ? E(sub) : sub}</span></div>
         <a class="btn" href="${E(z.url)}" target="_blank" rel="noopener">Open${z.app === 'web' ? '' : ' in ' + E(z.appName.replace('Zoho ', ''))}</a><button class="zl-x" data-zl-rm="${E(t.id)}" title="Remove link">✕</button></div>`; });
     if (!window.__zlBound) { window.__zlBound = true;
       document.addEventListener('click', e => { const b = e.target.closest('[data-zl-rm]'); if (b) { e.stopPropagation(); window.__zlApi.tasks.update(b.dataset.zlRm, { ref: null, zoho: null }); window.__zlApi.ui.refresh(); } }, true); }
-    window.__zlApi = api;
+    window.__zlApi = api; window.__zlParse = parse;
+    if (!window.__zlPasteBound) { window.__zlPasteBound = true;
+      const take = i => { const z = window.__zlParse(i.value.trim()); if (!z) { i.classList.add('bad'); return; } window.__zlApi.tasks.update(i.dataset.zlPaste, { ref: z, zoho: null }); window.__zlApi.ui.refresh(); };
+      document.addEventListener('paste', e => { const i = e.target.closest && e.target.closest('[data-zl-paste]'); if (i) setTimeout(() => take(i), 0); }, true);
+      document.addEventListener('keydown', e => { const i = e.target.closest && e.target.closest('[data-zl-paste]'); if (i && e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); take(i); } if (i) i.classList.remove('bad'); }, true); }
 
     function link(task) {
       api.ui.modal('Link to this task', `<div class="muted" style="margin:-4px 0 12px;font-size:13px">${E(task.title)}</div><div class="field"><label>Zoho Projects task, Gmail or Outlook email, or any link</label><input class="inp" id="zl-url" value="${E(refOf(task) ? refOf(task).url : '')}" placeholder="https://projects.zoho.com/portal/…   or   https://mail.google.com/mail/u/0/#inbox/…"></div><div class="muted" id="zl-msg" style="font-size:12px"></div>`,
@@ -78,6 +82,10 @@ Cadence.registerPlugin({
       .zl-card .zl-mark{width:32px;height:32px;border-radius:9px}.zl-card .zl-mark svg{width:20px;height:20px}
       .zl-tx{flex:1;min-width:0;display:flex;flex-direction:column}.zl-tx b{font-size:13.5px}.zl-tx span{font-size:12px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
       .zl-card .btn{text-decoration:none;padding:6px 12px;font-size:12.5px}
+      .zl-paste{display:flex;align-items:center;gap:8px;margin:6px 0 8px;padding:6px 10px;border:1px dashed var(--line);border-radius:10px;color:var(--faint)}
+      .zl-paste svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;flex:none}
+      .zl-paste input{flex:1;min-width:0;border:0;outline:0;background:none;font:inherit;font-size:12.5px;color:var(--text)}
+      .zl-paste:focus-within{border-style:solid;border-color:var(--accent);color:var(--accent)}.zl-paste input.bad{color:var(--danger)}
       .zl-x{color:var(--faint);padding:4px 6px;border-radius:6px;font-size:12px}.zl-x:hover{background:var(--hover);color:var(--danger)}
     `; document.head.appendChild(st); }
   }
