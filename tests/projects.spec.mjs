@@ -104,3 +104,20 @@ test('meeting review tidies action items and uses the date picker', async ({ pag
   await expect(page.locator('.dp, .dp-pop, [class*=dp]').first()).toBeVisible();
   expect(errs).toEqual([]);
 });
+
+test('Christmas mode: lights, snow that settles on the page, and the shovel', async ({ page }) => {
+  const errs = []; page.on('pageerror', e => errs.push(String(e)));
+  await page.addInitScript(() => localStorage.setItem('cadence.reviewNudge', 'x'));
+  await page.goto(B + '/#today');
+  await expect(page.locator('#sync')).toContainText('NAS', { timeout: 8000 });
+  await page.evaluate(() => window.__xmas.settings());
+  await page.check('#xm-on'); await page.click('#xm-chaos [data-v="3"]'); await page.click('#xm-save');
+  await expect(page.locator('#xm-string i').first()).toBeVisible();
+  await expect(page.locator('#xm-snow')).toBeAttached();
+  await page.waitForTimeout(4000);
+  // turning it off removes everything
+  await page.evaluate(() => window.__xmas.settings()); await page.uncheck('#xm-on'); await page.click('#xm-save');
+  await expect(page.locator('#xm-snow')).toHaveCount(0);
+  await expect(page.locator('#xm-string')).toHaveCount(0);
+  expect(errs).toEqual([]);
+});

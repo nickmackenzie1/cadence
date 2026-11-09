@@ -364,3 +364,9 @@ Needs: Life space (done), weather API (key on NAS), maps/GPX (offline tiles = ph
   support. Zoho/other tickets start as stage 'waiting' with log "Opened Zoho support ticket #N" and a check-back date
   (settings: followDays, default 2). Board filter All / Zoho support / Our Desk / Other; cards show a via badge.
   Pair with Links on tasks (paste the support email's Gmail link).
+- Christmas mode (2026-11-09, shipped): plugins/christmas.js (Work + Life). String lights (classic / warm / candy;
+  twinkle / chase / steady; sway at Blizzard+), canvas snow with wind, gusts, mouse plough, flakes settling on SURFACES
+  (cards, buttons, headings, tasks, quick add…) as per-element heightmaps with angle of repose, sliding off the ends;
+  the focused input collects 2× and keystrokes shake it off; task completion bursts at Blizzard+. Chaos levels Calm /
+  Festive / Blizzard / Total chaos. Shovel (settings + ⌘K). Offered once each December via the Island. Reduced motion:
+  no snow, still lights. Ids: #xm-string (lights), #xm-snow (canvas).
