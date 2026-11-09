@@ -185,6 +185,8 @@
     preview: { r: '18px 4px 16px 4px' },
     css: `:skin body{font-size:16px} :skin .main{background:repeating-linear-gradient(transparent 0 27px,#d6e4f5 27px 28px),#fdfcf7}
       :skin .head h1{font-weight:700;font-size:30px;text-decoration:underline wavy #0071de 2px;text-underline-offset:6px}
+      :skin .c-hero .head h1{text-decoration:none} :skin .c-hero h1 .nm{text-decoration:underline wavy #0071de 2px;text-underline-offset:9px;text-decoration-skip-ink:none;padding-bottom:4px}
+      :skin .c-hero .sub{margin-top:4px!important}
       :skin .btn,:skin .gl,:skin .stat,:skin .qa,:skin .dw-qa,:skin .pl-card,:skin .db-item:not(.bare),:skin .th-card,:skin .modal,:skin .pop,:skin .chip,:skin .inp{${WOB}!important;border:2px solid #41403e!important}
       :skin .btn{box-shadow:15px 28px 25px -18px rgba(0,0,0,.2);transition:box-shadow .2s,transform .2s}
       :skin .btn:hover{box-shadow:2px 8px 8px -5px rgba(0,0,0,.3);transform:translateY(-1px)}
