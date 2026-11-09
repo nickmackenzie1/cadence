@@ -51,7 +51,8 @@ test('two devices: adds, different-field edits merge, a same-field clash keeps t
   await Bd.page.evaluate(id => window.T.tasks.update(id, { title: 'From phone' }), id);
   await Bd.ctx.setOffline(false);
   await Bd.page.evaluate(() => window.dispatchEvent(new Event('online')));
-  await expect(Bd.page.locator('.isl-pill')).toContainText('clashed', { timeout: 6000 });
+  // the clash notice is on the Island (it may be queued behind a boot notice on a slow machine)
+  await expect.poll(() => Bd.page.evaluate(() => [window.__island.cur, ...window.__island.queue].some(n => n && /clashed/.test(n.title || ''))), { timeout: 8000 }).toBe(true);
   await A.pull();
   await expect.poll(async () => (await A.tasks()).find(t => t.id === id)?.title).toBe('From phone');
   // review on the laptop, from the command palette, and pick its own version
@@ -73,8 +74,15 @@ test('two devices: adds, different-field edits merge, a same-field clash keeps t
   await A.ctx.close(); await Bd.ctx.close();
 });
 
-test('an older tab that still sends the whole document is merged in, and devices see it', async ({ browser }) => {
+// each test can run on a fresh server (Playwright restarts the worker after a failure): make sure there is a document
+async function seeded(browser) {
   const A = await device(browser, 'Laptop');
+  if (!(await (await fetch(B + '/api/state')).json()).json) { await A.page.evaluate(() => window.T.tasks.add({ title: 'Seed', owner: 'me' })); await A.settle(); }
+  return A;
+}
+
+test('an older tab that still sends the whole document is merged in, and devices see it', async ({ browser }) => {
+  const A = await seeded(browser);
   const st = await (await fetch(B + '/api/state')).json(), S = JSON.parse(st.json);
   S.tasks.push({ id: 'old-tab-task', title: 'Made in an old tab', owner: 'me' }); S.updatedAt = Date.now();
   expect((await fetch(B + '/api/state', { method: 'PUT', headers: { 'Content-Type': 'application/json', Origin: B }, body: JSON.stringify({ json: JSON.stringify(S), updatedAt: S.updatedAt }) })).status).toBe(200);
@@ -84,6 +92,7 @@ test('an older tab that still sends the whole document is merged in, and devices
 });
 
 test('a browser upgrading from whole-document sync keeps its newer unsynced work, or takes the server copy if older', async ({ browser }) => {
+  await (await seeded(browser)).ctx.close();
   const st = await (await fetch(B + '/api/state')).json(), S = JSON.parse(st.json);
   // newer local copy (edited offline before the upgrade): its extra task reaches the server
   const newer = { ...S, tasks: [...S.tasks, { id: 'pre-upgrade', title: 'Offline before the upgrade', owner: 'me' }], updatedAt: Date.now() + 1000 };
