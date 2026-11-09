@@ -114,3 +114,21 @@ Next: (superseded, see below)
 - Node 22 image (CMD silences ExperimentalWarning), CI node 22. /api/health: storage, storageNote. /api/db: db{rows…}.
 - NEXT (phase 2): per-record sync API (GET /api/records?since=, PUT /api/records batch with per-record updated_at, conflict = newest
   per record), client switches from whole-document sync; then drop the JSON mirror; then spaces (space column + UI switch).
+- Toasts (e.g. "Theme: X · Undo") should come out of the top bar / Island instead of floating bottom-centre, and STACK when
+  several arrive close together. Slick, emerging from the UI naturally. (core toast() -> Island stack; keep actions.)
+
+## SQLite phase 2: per-record sync (2026-11-08, shipped)
+- Schema 2: records(kind task|client|meeting|plugin|doc, id, space, data, pos, rev, edited_at, device, deleted), history (every
+  version, 60 days, base for 3-way merge), conflicts (cid, field, kept/other + devices/times, resolved), meta.rev counter.
+  'doc'/'root' = every top-level key except tasks/clients/meetings/pluginData/updatedAt. Schema 1 -> 2 rebuilds records from state.
+- API: GET /api/sync?since=rev -> {cursor, records, docUpdatedAt, conflicts(count)}; POST /api/sync {device, since, changes:[{kind,id,
+  data|deleted, pos(new only), baseRev, at}]} -> applies, 3-way field merge vs history[baseRev]; same field both changed -> newest
+  `at` wins + conflicts row (plugin kind + internal doc fields = silent/resolved). Edit beats delete. Returns records since + newConflicts.
+  GET /api/conflicts, POST /api/conflicts/resolve {cid}. /api/state GET/PUT still work (older tabs): PUT = importDoc (record-level).
+  After each sync push: state table + state.json mirror refreshed (assembled doc), daily backup.
+- Client (core.js): Store.mode 'records' when health.storage==='sqlite' else 'doc' (old path). `Sync` object: localStorage
+  '<LS_KEY>.sync' {init, cursor, recs{key:{rev,h,deleted}}, dirty{key:firstSeenAt}}; diff() vs recs, apply() keeps local
+  unsent edits, adopt() on first run (server copy unless local S.updatedAt newer). Device name: localStorage 'cadence.device' or UA.
+  Clash notice on Island + 'Review sync clashes' (⌘K) modal; useConflictValue applies the other value and saves.
+- Tests: tests/sync.spec.mjs (two browser contexts, offline merges, clash + flip, deletes, old-tab PUT, upgrade paths).
+- NEXT: Work/Life spaces (records.space column exists; client needs a space switch + plugin `spaces` flag), then drop state.json mirror.

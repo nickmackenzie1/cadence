@@ -93,73 +93,174 @@ function sameOrigin(req) {
 }
 // pages and files you can load before signing in
 const OPEN = new Set(['/login', '/login.html', '/favicon.svg', '/manifest.webmanifest', '/icons/icon-32.png', '/icons/icon-192.png', '/icons/icon-512.png', '/api/login', '/api/logout', '/api/whoami']);
-// ---- storage: SQLite (node:sqlite, built into Node 22+) with a JSON mirror; falls back to JSON alone ----
-// Phase 1 of the move to SQLite: the app still syncs one state document, which is kept in the `state` table
-// and also split into per-record rows (`records`) ready for per-record sync and Work/Life spaces.
-// state.json is still written as a mirror, so rolling back to an older Cadence loses nothing.
+// ---- storage: SQLite (node:sqlite, built into Node 22+); falls back to a JSON file ----
+// Every task, client, meeting, plugin's data and the rest of the settings ("doc") is its own record with a revision.
+// Devices sync records (GET/POST /api/sync) and edits merge field by field; a real clash (same field changed on two
+// devices) keeps the newest edit and is logged in `conflicts` so you can pick the other one.
+// /api/state (one document) still works for older tabs, and state.json is still written as a safety mirror.
 const DB_FILE = path.join(DATA_DIR, 'cadence.db');
-const SCHEMA = 1;
+const SCHEMA = 2;
+const ARRAYS = { task: 'tasks', client: 'clients', meeting: 'meetings' };
 let db = null, storage = 'json', storageNote = '';
+const J = v => JSON.stringify(v === undefined ? null : v);
 function openDb() {
   if (/^json$/i.test(process.env.STORAGE || '')) { storageNote = 'STORAGE=json'; return; }
   let sqlite; try { sqlite = require('node:sqlite'); } catch (e) { storageNote = 'node:sqlite unavailable (' + process.version + ')'; return; }
   try {
     db = new sqlite.DatabaseSync(DB_FILE);
-    db.exec(`PRAGMA journal_mode=WAL; PRAGMA synchronous=NORMAL; PRAGMA busy_timeout=4000; PRAGMA foreign_keys=ON;
+    db.exec(`PRAGMA journal_mode=WAL; PRAGMA synchronous=NORMAL; PRAGMA busy_timeout=4000;
       CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT);
-      CREATE TABLE IF NOT EXISTS state (id INTEGER PRIMARY KEY CHECK (id = 1), json TEXT NOT NULL, updated_at INTEGER NOT NULL);
-      CREATE TABLE IF NOT EXISTS records (
-        kind TEXT NOT NULL, id TEXT NOT NULL, space TEXT NOT NULL DEFAULT 'work',
-        data TEXT NOT NULL, updated_at INTEGER NOT NULL, deleted INTEGER NOT NULL DEFAULT 0,
-        PRIMARY KEY (kind, id));
-      CREATE INDEX IF NOT EXISTS records_kind ON records (kind, deleted);
-      CREATE INDEX IF NOT EXISTS records_updated ON records (updated_at);`);
-    const v = db.prepare("SELECT value FROM meta WHERE key = 'schema'").get();
-    if (!v) db.prepare("INSERT INTO meta (key, value) VALUES ('schema', ?), ('created', ?)").run(String(SCHEMA), String(Date.now()));
+      CREATE TABLE IF NOT EXISTS state (id INTEGER PRIMARY KEY CHECK (id = 1), json TEXT NOT NULL, updated_at INTEGER NOT NULL);`);
+    const ver = +((db.prepare("SELECT value FROM meta WHERE key = 'schema'").get() || {}).value || 0);
+    if (ver < 2) db.exec('DROP TABLE IF EXISTS records');   // phase-1 rows are rebuilt from the state document below
+    db.exec(`CREATE TABLE IF NOT EXISTS records (
+        kind TEXT NOT NULL, id TEXT NOT NULL, space TEXT NOT NULL DEFAULT 'work', data TEXT NOT NULL,
+        pos REAL NOT NULL DEFAULT 0, rev INTEGER NOT NULL, edited_at INTEGER NOT NULL, device TEXT NOT NULL DEFAULT '',
+        deleted INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (kind, id));
+      CREATE INDEX IF NOT EXISTS records_rev ON records (rev);
+      CREATE TABLE IF NOT EXISTS history (kind TEXT NOT NULL, id TEXT NOT NULL, rev INTEGER NOT NULL, data TEXT NOT NULL,
+        deleted INTEGER NOT NULL, device TEXT NOT NULL DEFAULT '', edited_at INTEGER NOT NULL, PRIMARY KEY (kind, id, rev));
+      CREATE TABLE IF NOT EXISTS conflicts (cid INTEGER PRIMARY KEY AUTOINCREMENT, kind TEXT NOT NULL, id TEXT NOT NULL, field TEXT NOT NULL,
+        title TEXT NOT NULL DEFAULT '', kept TEXT, other TEXT, kept_device TEXT, other_device TEXT, kept_at INTEGER, other_at INTEGER,
+        at INTEGER NOT NULL, resolved INTEGER NOT NULL DEFAULT 0);`);
+    db.prepare("INSERT OR IGNORE INTO meta (key, value) VALUES ('created', ?), ('rev', '0')").run(String(Date.now()));
     storage = 'sqlite';
+    const have = db.prepare('SELECT updated_at FROM state WHERE id = 1').get();
+    if (ver < 2 && have) importDoc(readState(), 'migration');   // schema 1 -> 2
+    db.prepare("INSERT OR REPLACE INTO meta (key, value) VALUES ('schema', ?)").run(String(SCHEMA));
     // bring in state.json on the first run, and again whenever it is newer than the database
     // (after running an older Cadence or STORAGE=json for a while): the newest copy always wins
-    const have = db.prepare('SELECT updated_at FROM state WHERE id = 1').get();
     let old = null; try { old = JSON.parse(fs.readFileSync(STATE_FILE, 'utf8')); } catch {}
-    if (old && typeof old.json === 'string' && (!have || (+old.updatedAt || 0) > have.updated_at)) {
-        if (!have) try { fs.copyFileSync(STATE_FILE, path.join(BACKUP_DIR, `state-before-sqlite-${new Date().toISOString().slice(0, 10)}.json`)); } catch {}
-        saveDb(old, true);
-        if (!have) db.prepare("INSERT OR REPLACE INTO meta (key, value) VALUES ('migrated_from_json', ?)").run(String(Date.now()));
-        console.log(`storage: ${have ? 'state.json was newer than the database: imported it' : 'imported state.json into SQLite'} (${(old.json.length / 1024).toFixed(0)} KB)`);
+    const cur = db.prepare('SELECT updated_at FROM state WHERE id = 1').get();
+    if (old && typeof old.json === 'string' && (!cur || (+old.updatedAt || 0) > cur.updated_at)) {
+      if (!cur) try { fs.copyFileSync(STATE_FILE, path.join(BACKUP_DIR, `state-before-sqlite-${new Date().toISOString().slice(0, 10)}.json`)); } catch {}
+      importDoc(old, 'state.json');
+      if (!cur) db.prepare("INSERT OR REPLACE INTO meta (key, value) VALUES ('migrated_from_json', ?)").run(String(Date.now()));
+      console.log(`storage: ${cur ? 'state.json was newer than the database: imported it' : 'imported state.json into SQLite'} (${(old.json.length / 1024).toFixed(0)} KB)`);
     }
   } catch (e) {
     console.error('storage: SQLite failed, using JSON', e);
     try { db && db.close(); } catch {} db = null; storage = 'json'; storageNote = 'SQLite error: ' + e.message;
   }
 }
-// split the state document into one row per task / client / meeting / plugin / settings
-function shred(stateJson, at) {
-  let S; try { S = JSON.parse(stateJson); } catch { return []; }
-  const rows = [];
-  const add = (kind, id, obj, space) => { if (id != null) rows.push([kind, String(id), space || obj && obj.space || 'work', JSON.stringify(obj), at]); };
-  for (const t of S.tasks || []) add('task', t.id, t);
-  for (const c of S.clients || []) add('client', c.id, c);
-  for (const m of S.meetings || []) add('meeting', m.id, m);
-  for (const [pid, d] of Object.entries(S.pluginData || {})) add('plugin', pid, d);
-  if (S.settings) add('settings', 'settings', S.settings);
-  return rows;
+// the document <-> records
+function shred(S) {
+  const out = [];
+  for (const [kind, key] of Object.entries(ARRAYS)) (S[key] || []).forEach((x, i) => { if (x && x.id != null) out.push({ kind, id: String(x.id), data: x, pos: i }); });
+  for (const [pid, d] of Object.entries(S.pluginData || {})) out.push({ kind: 'plugin', id: pid, data: d, pos: 0 });
+  const root = {}; for (const [k, v] of Object.entries(S)) if (!['tasks', 'clients', 'meetings', 'pluginData', 'updatedAt'].includes(k)) root[k] = v;
+  out.push({ kind: 'doc', id: 'root', data: root, pos: 0 });
+  return out;
 }
-function saveDb(obj, quiet) {
-  const at = +obj.updatedAt || Date.now();
+function assemble() {
+  const S = { tasks: [], clients: [], meetings: [], pluginData: {} };
+  for (const r of db.prepare('SELECT kind, id, data FROM records WHERE deleted = 0 ORDER BY pos, rev').all()) {
+    const d = JSON.parse(r.data);
+    if (ARRAYS[r.kind]) S[ARRAYS[r.kind]].push(d); else if (r.kind === 'plugin') S.pluginData[r.id] = d; else if (r.kind === 'doc') Object.assign(S, d);
+  }
+  return S;
+}
+const nextRev = () => { const r = +db.prepare("SELECT value FROM meta WHERE key = 'rev'").get().value + 1; db.prepare("UPDATE meta SET value = ? WHERE key = 'rev'").run(String(r)); return r; };
+const curRev = () => db ? +db.prepare("SELECT value FROM meta WHERE key = 'rev'").get().value : 0;
+function putRecord(kind, id, data, pos, deleted, at, device) {
+  const rev = nextRev(), txt = J(data), space = data && data.space || 'work';
+  db.prepare(`INSERT INTO records (kind, id, space, data, pos, rev, edited_at, device, deleted) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ON CONFLICT(kind, id) DO UPDATE SET space = excluded.space, data = excluded.data, pos = excluded.pos, rev = excluded.rev,
+      edited_at = excluded.edited_at, device = excluded.device, deleted = excluded.deleted`).run(kind, id, space, txt, pos || 0, rev, at, device || '', deleted ? 1 : 0);
+  db.prepare('INSERT OR REPLACE INTO history (kind, id, rev, data, deleted, device, edited_at) VALUES (?, ?, ?, ?, ?, ?, ?)').run(kind, id, rev, txt, deleted ? 1 : 0, device || '', at);
+  return rev;
+}
+const titleOf = (kind, d) => (d && (d.title || d.name)) || (kind === 'doc' ? 'Settings' : kind === 'plugin' ? 'Plugin data' : kind);
+// apply a batch of record changes from a device; 3-way merge per field against the version the device started from
+function applyChanges(changes, device) {
+  const conflicts = [];
+  for (const c of changes) {
+    if (!c || !c.kind || c.id == null) continue;
+    const kind = String(c.kind), id = String(c.id), at = Math.min(+c.at || Date.now(), Date.now() + 60e3), base = +c.baseRev || 0;
+    const cur = db.prepare('SELECT * FROM records WHERE kind = ? AND id = ?').get(kind, id);
+    if (!cur) { if (!c.deleted) putRecord(kind, id, c.data, c.pos, 0, at, device); continue; }
+    const curData = JSON.parse(cur.data);
+    if (cur.rev === base) {                                         // nobody else touched it: just apply
+      if (c.deleted ? !cur.deleted : (J(c.data) !== cur.data || cur.deleted || (c.pos != null && c.pos !== cur.pos))) putRecord(kind, id, c.deleted ? curData : c.data, c.pos ?? cur.pos, c.deleted, at, device);
+      continue;
+    }
+    // someone else changed it since this device last saw it
+    const b = base && db.prepare('SELECT data, deleted FROM history WHERE kind = ? AND id = ? AND rev = ?').get(kind, id, base);
+    const baseData = b ? JSON.parse(b.data) : null;
+    // things you edit yourself are worth a look; plugin bookkeeping and internal fields are settled silently (newest wins)
+    const quiet = kind === 'plugin';
+    const log = (field, kept, other, keptDev, otherDev, keptAt, otherAt) => {
+      const q = quiet || (kind === 'doc' && !['settings', 'disabled', 'userPlugins'].includes(field));
+      const r = db.prepare(`INSERT INTO conflicts (kind, id, field, title, kept, other, kept_device, other_device, kept_at, other_at, at, resolved) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(kind, id, field, String(titleOf(kind, curData)).slice(0, 200), J(kept), J(other), keptDev, otherDev, keptAt, otherAt, Date.now(), q ? 1 : 0);
+      if (!q) conflicts.push(+r.lastInsertRowid);
+    };
+    if (c.deleted) {                                                 // deleted here, but edited elsewhere: keep the edit
+      if (!cur.deleted && baseData && J(baseData) !== cur.data) log('(deleted)', 'kept', 'deleted', cur.device, device, cur.edited_at, at);
+      else if (!cur.deleted) putRecord(kind, id, curData, cur.pos, 1, at, device);
+      continue;
+    }
+    if (cur.deleted) { putRecord(kind, id, c.data, c.pos ?? cur.pos, 0, at, device); log('(deleted)', 'restored', 'deleted', device, cur.device, at, cur.edited_at); continue; }
+    const mine = c.data || {}, theirs = curData || {}, was = baseData || {};
+    if (typeof mine !== 'object' || typeof theirs !== 'object' || Array.isArray(mine)) {   // not an object: whole value
+      if (J(mine) !== J(theirs)) { const newer = at >= cur.edited_at; putRecord(kind, id, newer ? mine : theirs, c.pos ?? cur.pos, 0, Math.max(at, cur.edited_at), newer ? device : cur.device); log('(value)', newer ? mine : theirs, newer ? theirs : mine, newer ? device : cur.device, newer ? cur.device : device, Math.max(at, cur.edited_at), Math.min(at, cur.edited_at)); }
+      continue;
+    }
+    const merged = { ...theirs };
+    let changed = false;
+    for (const k of new Set([...Object.keys(mine), ...Object.keys(theirs), ...Object.keys(was)])) {
+      const m = J(mine[k]), t = J(theirs[k]), w = J(was[k]);
+      if (m === t || m === w) continue;                              // same, or only they changed it
+      if (t === w || !baseData && t === 'null') { if (k in mine) merged[k] = mine[k]; else delete merged[k]; changed = true; continue; }   // only this device changed it
+      // both changed the same field differently: newest edit wins, the other is kept for review
+      if (at >= cur.edited_at) { if (k in mine) merged[k] = mine[k]; else delete merged[k]; changed = true; log(k, mine[k], theirs[k], device, cur.device, at, cur.edited_at); }
+      else log(k, theirs[k], mine[k], cur.device, device, cur.edited_at, at);
+    }
+    if (changed) putRecord(kind, id, merged, cur.pos, 0, Math.max(at, cur.edited_at), device);
+  }
+  return conflicts;
+}
+// write the assembled document to the state table + state.json (for older tabs and as a safety copy)
+function refreshDoc() {
+  const S = assemble(), at = Date.now(); S.updatedAt = at;
+  const doc = { json: JSON.stringify(S), updatedAt: at };
+  db.prepare('INSERT INTO state (id, json, updated_at) VALUES (1, ?, ?) ON CONFLICT(id) DO UPDATE SET json = excluded.json, updated_at = excluded.updated_at').run(doc.json, at);
+  writeJsonMirror(doc);
+  dailyDbBackup();
+  return doc;
+}
+// a whole document (first import, older tabs, migration): each record that differs is written, newest-wins per record
+function importDoc(doc, device) {
+  let S; try { S = JSON.parse(doc.json); } catch { return; }
+  const at = +doc.updatedAt || Date.now(), recs = shred(S), seen = new Set();
   db.exec('BEGIN IMMEDIATE');
   try {
-    db.prepare('INSERT INTO state (id, json, updated_at) VALUES (1, ?, ?) ON CONFLICT(id) DO UPDATE SET json = excluded.json, updated_at = excluded.updated_at').run(obj.json, at);
-    const rows = shred(obj.json, at), seen = new Set(rows.map(r => r[0] + '\u0000' + r[1]));
-    const up = db.prepare(`INSERT INTO records (kind, id, space, data, updated_at, deleted) VALUES (?, ?, ?, ?, ?, 0)
-      ON CONFLICT(kind, id) DO UPDATE SET space = excluded.space, data = excluded.data, deleted = 0,
-        updated_at = CASE WHEN records.data = excluded.data AND records.deleted = 0 THEN records.updated_at ELSE excluded.updated_at END`);
-    for (const r of rows) up.run(...r);
-    // anything no longer in the document is marked deleted (kept, so per-record sync can tell devices later)
-    const gone = db.prepare('UPDATE records SET deleted = 1, updated_at = ? WHERE kind = ? AND id = ?');
-    for (const r of db.prepare('SELECT kind, id FROM records WHERE deleted = 0').all()) if (!seen.has(r.kind + '\u0000' + r.id)) gone.run(at, r.kind, r.id);
+    for (const r of recs) {
+      seen.add(r.kind + '\u0000' + r.id);
+      const cur = db.prepare('SELECT data, pos, deleted FROM records WHERE kind = ? AND id = ?').get(r.kind, r.id);
+      if (!cur || cur.deleted || cur.data !== J(r.data) || cur.pos !== r.pos) putRecord(r.kind, r.id, r.data, r.pos, 0, at, device);
+    }
+    for (const r of db.prepare('SELECT kind, id, data, pos FROM records WHERE deleted = 0').all()) if (!seen.has(r.kind + '\u0000' + r.id)) putRecord(r.kind, r.id, JSON.parse(r.data), r.pos, 1, at, device);
+    db.prepare('INSERT INTO state (id, json, updated_at) VALUES (1, ?, ?) ON CONFLICT(id) DO UPDATE SET json = excluded.json, updated_at = excluded.updated_at').run(doc.json, at);
     db.exec('COMMIT');
   } catch (e) { db.exec('ROLLBACK'); throw e; }
-  if (!quiet) dailyDbBackup();
+}
+function syncPull(since) {
+  const rows = db.prepare('SELECT kind, id, data, pos, rev, deleted, device, edited_at FROM records WHERE rev > ? ORDER BY rev').all(+since || 0);
+  return { cursor: curRev(), records: rows.map(r => ({ kind: r.kind, id: r.id, data: JSON.parse(r.data), pos: r.pos, rev: r.rev, deleted: !!r.deleted, device: r.device, at: r.edited_at })),
+    docUpdatedAt: (db.prepare('SELECT updated_at FROM state WHERE id = 1').get() || {}).updated_at || 0, conflicts: db.prepare('SELECT COUNT(*) AS n FROM conflicts WHERE resolved = 0').get().n };
+}
+function syncPush(changes, device, since) {
+  db.exec('BEGIN IMMEDIATE');
+  let ids;
+  try { ids = applyChanges(changes, device); db.exec('COMMIT'); } catch (e) { db.exec('ROLLBACK'); throw e; }
+  if (changes.length) refreshDoc();
+  const out = syncPull(since);
+  out.newConflicts = ids.length ? listConflicts(ids) : [];
+  return out;
+}
+function listConflicts(ids) {
+  const rows = ids ? db.prepare(`SELECT * FROM conflicts WHERE cid IN (${ids.map(() => '?').join(',')})`).all(...ids) : db.prepare('SELECT * FROM conflicts WHERE resolved = 0 ORDER BY cid DESC LIMIT 100').all();
+  return rows.map(r => ({ cid: r.cid, kind: r.kind, id: r.id, field: r.field, title: r.title, kept: JSON.parse(r.kept), other: JSON.parse(r.other), keptDevice: r.kept_device, otherDevice: r.other_device, keptAt: r.kept_at, otherAt: r.other_at, at: r.at }));
 }
 function dailyDbBackup() {
   const day = new Date().toISOString().slice(0, 10), f = path.join(BACKUP_DIR, `cadence-${day}.db`);
@@ -167,6 +268,8 @@ function dailyDbBackup() {
   try { db.exec(`VACUUM INTO '${f.replace(/'/g, "''")}'`); } catch (e) { console.error('backup failed', e.message); return; }
   const all = fs.readdirSync(BACKUP_DIR).filter(x => /^cadence-\d{4}-\d{2}-\d{2}\.db$/.test(x)).sort();
   while (all.length > KEEP_BACKUPS) fs.unlinkSync(path.join(BACKUP_DIR, all.shift()));
+  // keep 60 days of record history (the newest version of every record always stays)
+  try { db.prepare('DELETE FROM history WHERE edited_at < ? AND rev NOT IN (SELECT rev FROM records)').run(Date.now() - 60 * 864e5); } catch {}
 }
 function readState() {
   if (db) { const r = db.prepare('SELECT json, updated_at FROM state WHERE id = 1').get(); return r ? { json: r.json, updatedAt: r.updated_at } : { json: null, updatedAt: 0 }; }
@@ -182,17 +285,20 @@ function writeJsonMirror(obj) {
   const all = fs.readdirSync(BACKUP_DIR).filter(f => /^state-\d{4}-\d{2}-\d{2}\.json$/.test(f)).sort();
   while (all.length > KEEP_BACKUPS) fs.unlinkSync(path.join(BACKUP_DIR, all.shift()));
 }
+// whole-document write (older tabs, STORAGE=json)
 function writeState(obj) {
-  if (db) saveDb(obj);
-  writeJsonMirror(obj);   // phase 1: keep state.json current so an older Cadence can still read it
+  if (db) { importDoc(obj, 'older tab'); writeJsonMirror(readState()); dailyDbBackup(); }
+  else writeJsonMirror(obj);
 }
 function dbInfo() {
   if (!db) return { storage, note: storageNote };
   const n = k => db.prepare('SELECT COUNT(*) AS n FROM records WHERE kind = ? AND deleted = 0').get(k).n;
   const size = f => { try { return fs.statSync(f).size; } catch { return 0; } };
   return { storage, file: 'cadence.db', bytes: size(DB_FILE) + size(DB_FILE + '-wal'), schema: SCHEMA, sqlite: db.prepare('SELECT sqlite_version() AS v').get().v,
-    rows: { tasks: n('task'), clients: n('client'), meetings: n('meeting'), plugins: n('plugin') },
+    rows: { tasks: n('task'), clients: n('client'), meetings: n('meeting'), plugins: n('plugin') }, rev: curRev(),
     deleted: db.prepare('SELECT COUNT(*) AS n FROM records WHERE deleted = 1').get().n,
+    conflicts: db.prepare('SELECT COUNT(*) AS n FROM conflicts WHERE resolved = 0').get().n,
+    devices: db.prepare("SELECT device, MAX(edited_at) AS at FROM records WHERE device != '' GROUP BY device ORDER BY at DESC LIMIT 10").all().map(r => ({ device: r.device, at: r.at })),
     migratedAt: +((db.prepare("SELECT value FROM meta WHERE key = 'migrated_from_json'").get() || {}).value || 0) || null };
 }
 openDb();
@@ -580,6 +686,24 @@ async function handle(req, res) {
       const name = url.searchParams.get('name') || '';
       if (!/^state-\d{4}-\d{2}-\d{2}\.json$/.test(name)) return send(res, 400, { error: 'Bad name' });
       try { return send(res, 200, JSON.parse(fs.readFileSync(path.join(BACKUP_DIR, name), 'utf8'))); } catch { return send(res, 404, { error: 'Not found' }); }
+    }
+
+    // ---- per-record sync ----
+    if (p === '/api/sync' && req.method === 'GET') {
+      if (!db) return send(res, 501, { error: 'Record sync needs SQLite storage' });
+      return send(res, 200, syncPull(url.searchParams.get('since')));
+    }
+    if (p === '/api/sync' && req.method === 'POST') {
+      if (!db) return send(res, 501, { error: 'Record sync needs SQLite storage' });
+      const body = JSON.parse(await readBody(req));
+      if (!Array.isArray(body.changes) || body.changes.length > 5000) return send(res, 400, { error: 'Bad payload' });
+      return send(res, 200, syncPush(body.changes, String(body.device || '').slice(0, 60), body.since));
+    }
+    if (p === '/api/conflicts' && req.method === 'GET') return send(res, 200, { conflicts: db ? listConflicts() : [] });
+    if (p === '/api/conflicts/resolve' && req.method === 'POST') {
+      const body = JSON.parse(await readBody(req, 64 * 1024));
+      if (db) for (const cid of [].concat(body.cid || [])) db.prepare('UPDATE conflicts SET resolved = 1 WHERE cid = ?').run(+cid);
+      return send(res, 200, { ok: true });
     }
 
     if (p === '/api/state' && req.method === 'GET') return send(res, 200, readState());

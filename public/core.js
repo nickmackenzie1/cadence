@@ -75,8 +75,8 @@ const Store = {
       }, err => { clearTimeout(t); console.warn('db', err); this.setStatus('local'); });
     }catch(e){ console.warn(e); }
   },
-  /* self-hosted mode (Synology / Docker): server.js exposes api/state + api/ai */
-  server:false,
+  /* self-hosted mode (Synology / Docker): server.js exposes api/sync (per-record) + api/state (whole document, fallback) + api/ai */
+  server:false, mode:'records',
   async initServer(){
     if(location.protocol === 'file:') return;
     try {
@@ -90,12 +90,71 @@ const Store = {
         AI = f; rebuildPlugins();
       }
       if(DEMO) return; // demo data never touches the NAS copy
+      this.mode = info.storage === 'sqlite' ? 'records' : 'doc';
       await this.pull(true);
       setInterval(() => this.pull(false), 20000);
       document.addEventListener('visibilitychange', () => { if(!document.hidden) this.pull(false); });
+      addEventListener('online', () => this.push());
     } catch(e){ console.warn('No Cadence server found, using browser storage', e); }
   },
   async pull(first){
+    if(this.mode === 'doc') return this.pullDoc(first);
+    if(this.busy) return;
+    const t0 = performance.now(); emit('sync', { phase:'pull' });
+    try {
+      const fresh = first && !Sync.st.init;
+      const r = await fetch('api/sync?since=' + (fresh ? 0 : Sync.st.cursor), { cache:'no-store' });
+      if(r.status === 501){ this.mode = 'doc'; return this.pullDoc(first); }
+      if(!r.ok) throw new Error(r.status);
+      const d = await r.json();
+      this.latency = Math.round(performance.now() - t0); this.lastSyncAt = Date.now();
+      if(fresh) Sync.adopt(d); else Sync.apply(d, new Map());
+      if(Sync.pending()) this.schedule();
+      this.setStatus('synced'); emit('sync', { phase:'pulled', ms: this.latency, first });
+      if(d.conflicts && !Sync.told){ Sync.told = true; Sync.notify(d.conflicts, true); }
+    } catch(e){ this.setStatus('local'); emit('sync', { phase:'error', error: String(e.message || e) }); }
+  },
+  setStatus(s){ this.status = s; const el = $('#sync'); if(el){ el.className = 'sync' + (s==='synced'?' ok':''); el.lastChild.textContent = DEMO ? 'Demo data — not saved' : s==='synced' ? (this.server ? 'Synced to NAS' : 'Synced') : 'This browser'; } },
+  schedule(){ if(DEMO || (!this.ref && !this.server)) return; clearTimeout(this.timer); this.timer = setTimeout(()=>this.push(), 700); },
+  async push(){
+    if(DEMO || (!this.ref && !this.server)) return;
+    if(this.server && this.mode === 'records') return this.pushRecords();
+    if(this.busy){ this.again = true; return; }
+    this.busy = true;
+    emit('sync', { phase:'push' }); const t0 = performance.now();
+    try {
+      if(this.server){ const r = await fetch('api/state', { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ json: JSON.stringify(S), updatedAt: S.updatedAt }) }); if(r.status === 409){ this.busy = false; return this.pullDoc(false); } if(!r.ok) throw new Error('HTTP ' + r.status); }
+      else await this.ref.set({ json: JSON.stringify(S), updatedAt: S.updatedAt });
+      this.latency = Math.round(performance.now() - t0); this.lastSyncAt = Date.now();
+      this.setStatus('synced'); emit('sync', { phase:'saved', ms: this.latency }); }
+    catch(e){ console.warn('sync failed', e); emit('sync', { phase:'error', error: String(e.message || e) }); if(e && e.code === 'quota_exceeded') toast('Sync storage is full — archive old tasks in Settings.'); }
+    this.busy = false;
+    if(this.again){ this.again = false; this.push(); }
+  },
+  /* per-record sync: send only what changed since the server last confirmed it; the server merges field by field */
+  async pushRecords(){
+    if(this.busy){ this.again = true; return; }
+    if(!Sync.st.init) return this.pull(true);
+    const { changes, sent } = Sync.diff();
+    if(!changes.length) return;
+    this.busy = true; emit('sync', { phase:'push' }); const t0 = performance.now();
+    try {
+      const r = await fetch('api/sync', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ device: Sync.device(), since: Sync.st.cursor, changes }) });
+      if(r.status === 501){ this.mode = 'doc'; this.busy = false; return this.push(); }
+      if(!r.ok) throw new Error('HTTP ' + r.status);
+      const d = await r.json();
+      Sync.apply(d, sent);
+      this.latency = Math.round(performance.now() - t0); this.lastSyncAt = Date.now();
+      this.setStatus('synced'); emit('sync', { phase:'saved', ms: this.latency, records: changes.length });
+      if(d.newConflicts && d.newConflicts.length) Sync.notify(d.newConflicts.length);
+    } catch(e){ console.warn('sync failed', e); this.setStatus('local'); emit('sync', { phase:'error', error: String(e.message || e) }); }
+    this.busy = false;
+    // more edits arrived meanwhile: send them (bounded, so a stubborn record can never spin)
+    this.spins = Sync.pending() ? (this.spins || 0) + 1 : 0;
+    if(this.again || (this.spins && this.spins < 4)){ this.again = false; setTimeout(() => this.push(), 50 * (this.spins || 1)); }
+  },
+  /* whole-document sync (servers without SQLite) */
+  async pullDoc(first){
     const t0 = performance.now(); emit('sync', { phase:'pull' });
     try {
       const r = await fetch('api/state', { cache:'no-store' }); if(!r.ok) throw new Error(r.status);
@@ -106,24 +165,154 @@ const Store = {
       else if(first && (d.updatedAt||0) < (S.updatedAt||0)) this.push();
       this.setStatus('synced'); emit('sync', { phase:'pulled', ms: this.latency, first });
     } catch(e){ this.setStatus('local'); emit('sync', { phase:'error', error: String(e.message || e) }); }
-  },
-  setStatus(s){ this.status = s; const el = $('#sync'); if(el){ el.className = 'sync' + (s==='synced'?' ok':''); el.lastChild.textContent = DEMO ? 'Demo data — not saved' : s==='synced' ? (this.server ? 'Synced to NAS' : 'Synced') : 'This browser'; } },
-  schedule(){ if(DEMO || (!this.ref && !this.server)) return; clearTimeout(this.timer); this.timer = setTimeout(()=>this.push(), 700); },
-  async push(){
-    if(DEMO || (!this.ref && !this.server)) return;
-    if(this.busy){ this.again = true; return; }
-    this.busy = true;
-    emit('sync', { phase:'push' }); const t0 = performance.now();
-    try {
-      if(this.server){ const r = await fetch('api/state', { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ json: JSON.stringify(S), updatedAt: S.updatedAt }) }); if(r.status === 409){ this.busy = false; return this.pull(false); } if(!r.ok) throw new Error('HTTP ' + r.status); }
-      else await this.ref.set({ json: JSON.stringify(S), updatedAt: S.updatedAt });
-      this.latency = Math.round(performance.now() - t0); this.lastSyncAt = Date.now();
-      this.setStatus('synced'); emit('sync', { phase:'saved', ms: this.latency }); }
-    catch(e){ console.warn('sync failed', e); emit('sync', { phase:'error', error: String(e.message || e) }); if(e && e.code === 'quota_exceeded') toast('Sync storage is full — archive old tasks in Settings.'); }
-    this.busy = false;
-    if(this.again){ this.again = false; this.push(); }
   }
 };
+
+/* ---------- per-record sync state (survives reloads, so offline edits are sent later) ---------- */
+const Sync = {
+  KEY: LS_KEY + '.sync', ARR: { task:'tasks', client:'clients', meeting:'meetings' }, told: false,
+  st: (() => { try { return Object.assign({ init:false, cursor:0, recs:{}, dirty:{} }, JSON.parse(localStorage.getItem(LS_KEY + '.sync') || '{}')); } catch(e){ return { init:false, cursor:0, recs:{}, dirty:{} }; } })(),
+  save(){ try { localStorage.setItem(this.KEY, JSON.stringify(this.st)); } catch(e){} },
+  k: (kind, id) => kind + '\u0000' + id,
+  device(){
+    let d = ''; try { d = localStorage.getItem('cadence.device') || ''; } catch(e){}
+    if(d) return d;
+    const ua = navigator.userAgent, os = /iPhone/.test(ua) ? 'iPhone' : /iPad/.test(ua) ? 'iPad' : /Android/.test(ua) ? 'Android' : /Mac/.test(ua) ? 'Mac' : /Windows/.test(ua) ? 'Windows' : /Linux/.test(ua) ? 'Linux' : 'Device';
+    const br = /Edg\//.test(ua) ? 'Edge' : /Firefox\//.test(ua) ? 'Firefox' : /Chrome\//.test(ua) ? 'Chrome' : /Safari\//.test(ua) ? 'Safari' : 'Browser';
+    return os + ' · ' + br;
+  },
+  // the local state as records (same split as the server)
+  local(){
+    const m = new Map();
+    for(const [kind, key] of Object.entries(this.ARR)) (S[key] || []).forEach((x, i) => { if(x && x.id != null) m.set(this.k(kind, x.id), { kind, id: String(x.id), data: x, pos: i, h: JSON.stringify(x) }); });
+    for(const [pid, d] of Object.entries(S.pluginData || {})) m.set(this.k('plugin', pid), { kind:'plugin', id: pid, data: d, h: JSON.stringify(d) });
+    const root = {}; for(const [k, v] of Object.entries(S)) if(!['tasks','clients','meetings','pluginData','updatedAt'].includes(k)) root[k] = v;
+    m.set(this.k('doc', 'root'), { kind:'doc', id:'root', data: root, h: JSON.stringify(root) });
+    return m;
+  },
+  diff(){
+    const local = this.local(), now = Date.now(), changes = [], sent = new Map(), st = this.st;
+    for(const [k, r] of local){
+      const s = st.recs[k];
+      if(s && !s.deleted && s.h === r.h) continue;
+      st.dirty[k] = st.dirty[k] || now;
+      changes.push({ kind: r.kind, id: r.id, data: r.data, pos: s ? undefined : r.pos, baseRev: s ? s.rev : 0, at: st.dirty[k] });
+      sent.set(k, r.h);
+    }
+    for(const [k, s] of Object.entries(st.recs)){
+      if(s.deleted || local.has(k)) continue;
+      st.dirty[k] = st.dirty[k] || now;
+      const [kind, id] = k.split('\u0000');
+      changes.push({ kind, id, deleted: true, baseRev: s.rev, at: st.dirty[k] });
+      sent.set(k, null);
+    }
+    this.save();
+    return { changes, sent };
+  },
+  pending(){ const local = this.local(); for(const [k, r] of local){ const s = this.st.recs[k]; if(!s || s.deleted || s.h !== r.h) return true; } return Object.entries(this.st.recs).some(([k, s]) => !s.deleted && !local.has(k)); },
+  // put one server record into S
+  put(rec){
+    const key = this.ARR[rec.kind];
+    if(key){
+      const arr = S[key] || (S[key] = []), i = arr.findIndex(x => String(x.id) === rec.id);
+      if(rec.deleted){ if(i > -1) arr.splice(i, 1); }
+      else if(i > -1) arr[i] = rec.data;
+      else arr.splice(Math.min(rec.pos != null ? rec.pos : arr.length, arr.length), 0, rec.data);
+    } else if(rec.kind === 'plugin'){ S.pluginData = S.pluginData || {}; if(rec.deleted) delete S.pluginData[rec.id]; else S.pluginData[rec.id] = rec.data; }
+    else if(rec.kind === 'doc' && !rec.deleted && rec.data && typeof rec.data === 'object') Object.assign(S, rec.data);
+  },
+  // merge server records into local state; `sent` = what this device just sent (key -> json, null = deleted)
+  apply(d, sent){
+    const local = this.local(), st = this.st;
+    let any = false, structural = false;
+    for(const rec of d.records || []){
+      const k = this.k(rec.kind, rec.id), h = JSON.stringify(rec.data), l = local.get(k), s = st.recs[k];
+      const localH = l ? l.h : null;
+      if(sent.has(k)){
+        st.recs[k] = { rev: rec.rev, h, deleted: !!rec.deleted };
+        if(localH === sent.get(k)){ delete st.dirty[k]; if((localH !== h) || (!!rec.deleted !== !l)){ this.put(rec); any = true; structural = structural || rec.kind === 'doc' || rec.kind === 'plugin'; } }
+        // else: edited again while this was in flight: keep the local edit, it goes out next with the new base
+      } else {
+        const dirty = s ? (s.deleted ? !!l : localH !== s.h) : !!l;
+        if(dirty) continue;   // local edits waiting: the server merges them on the next push
+        st.recs[k] = { rev: rec.rev, h, deleted: !!rec.deleted };
+        if(localH !== h || (!!rec.deleted !== !l)){ this.put(rec); any = true; structural = structural || rec.kind === 'doc' || rec.kind === 'plugin'; }
+      }
+    }
+    // changes the server accepted without needing a new revision (already identical) count as synced too
+    const back = new Set((d.records || []).map(r => this.k(r.kind, r.id)));
+    for(const [k, h] of sent){
+      if(back.has(k)) continue;
+      const s = st.recs[k], l = local.get(k);
+      if((l ? l.h : null) !== h) continue;
+      if(h === null){ if(s) s.deleted = true; } else st.recs[k] = { rev: s ? s.rev : 0, h, deleted: false };
+      delete st.dirty[k];
+    }
+    st.cursor = Math.max(st.cursor || 0, d.cursor || 0);
+    this.save();
+    if(any){ persistLocal(); if(structural) rebuildPlugins(); render(); }
+  },
+  // first sync of this device: adopt the server's copy, unless this device has newer unsynced work (pre-upgrade)
+  adopt(d){
+    const st = this.st, recs = d.records || [];
+    const localHas = S.tasks.length || S.clients.length || S.meetings.length;
+    const localNewer = localHas && (S.updatedAt || 0) > (d.docUpdatedAt || 0);
+    st.recs = {}; st.dirty = {};
+    for(const rec of recs) st.recs[this.k(rec.kind, rec.id)] = { rev: rec.rev, h: JSON.stringify(rec.data), deleted: !!rec.deleted };
+    st.cursor = d.cursor || 0; st.init = true;
+    if(!recs.length || localNewer){ this.save(); return; }   // pushes what's different on the next save/push
+    const fresh = Object.assign(blank(), { pluginData: {} });
+    for(const r of recs.filter(r => !r.deleted).sort((a, b) => (a.pos || 0) - (b.pos || 0) || a.rev - b.rev)){ const keep = S; S = fresh; this.put(r); S = keep; }
+    fresh.updatedAt = d.docUpdatedAt || Date.now();
+    S = fresh; persistLocal(); this.save(); rebuildPlugins(); render();
+  },
+  notify(n, quiet){
+    if(!n) return;
+    const msg = n === 1 ? '1 change clashed with another device' : `${n} changes clashed with other devices`;
+    const show = window.CadenceIsland && enabled('island') ? (o => window.CadenceIsland.show(o)) : (o => toast(o.title, o.actions));
+    show({ icon:'⇄', color:'#f5a524', title: msg, sub: quiet ? 'Newest edits were kept' : 'Kept the newest. Review?', actions:[{ label:'Review', run: () => openConflicts() }], ms: 9000 });
+  }
+};
+
+/* ---------- clash review: both versions side by side, keep either ---------- */
+const FIELD_NAMES = { title:'Title', dueDate:'Due date', dueTime:'Due time', priority:'Priority', notes:'Notes', owner:'Who owes it', assignee:'Assignee', tags:'Tags', done:'Done', clientId:'Client', repeat:'Repeat', name:'Name', status:'Status', settings:'Settings', disabled:'Plugins switched off', userPlugins:'Your plugins', '(deleted)':'Deleted on one device', order:'Position' };
+function conflictValue(c, v){
+  if(c.field === '(deleted)') return v === 'deleted' ? 'Deleted' : 'Kept';
+  if(v == null || v === '') return '<span class="muted">(empty)</span>';
+  if(c.field === 'priority') return ['None','Low','Medium','High'][v] || esc(String(v));
+  if(c.field === 'clientId'){ const cl = client(v); return esc(cl ? cl.name : v); }
+  if(c.field === 'done') return v ? 'Done' : 'Not done';
+  if(c.field === 'dueDate') return esc(fmtDate(v));
+  if(typeof v === 'object') return `<code style="font-size:11px">${esc(JSON.stringify(v).slice(0, 160))}</code>`;
+  return esc(String(v));
+}
+async function openConflicts(){
+  let list = [];
+  try { list = (await (await fetch('api/conflicts', { cache:'no-store' })).json()).conflicts || []; } catch(e){ return toast('Could not load clashes'); }
+  if(!list.length){ closeModal(); return toast('No clashes to review'); }
+  const when = t => t ? new Date(t).toLocaleString([], { month:'short', day:'numeric', hour:'numeric', minute:'2-digit' }) : '';
+  openModalHTML('Sync clashes', `<p class="muted" style="margin:0 0 12px;font-size:13px">These were changed on two devices at once. The newest edit was kept; pick the other one if that's the right one.</p>
+    <div class="cf-list">${list.map(c => { const live = Sync.ARR[c.kind] && (S[Sync.ARR[c.kind]] || []).find(x => String(x.id) === c.id); return `<div class="cf" data-cid="${c.cid}"><div class="cf-h"><b>${esc((live && (live.title || live.name)) || c.title || c.kind)}</b><span>${esc(FIELD_NAMES[c.field] || c.field)}</span></div>
+      <div class="cf-row"><div class="cf-opt on"><small>Kept · ${esc(c.keptDevice || 'a device')} · ${esc(when(c.keptAt))}</small><div>${conflictValue(c, c.kept)}</div><button class="btn" data-keep="kept">Keep this</button></div>
+      <div class="cf-opt"><small>${esc(c.otherDevice || 'a device')} · ${esc(when(c.otherAt))}</small><div>${conflictValue(c, c.other)}</div><button class="btn" data-keep="other">Use this instead</button></div></div></div>`; }).join('')}</div>`,
+    `<button class="btn" id="cf-all">Keep everything as it is</button><button class="btn primary" data-act="close-modal">Done</button>`, 'wide');
+  const resolve = async ids => { try { await fetch('api/conflicts/resolve', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ cid: ids }) }); } catch(e){} };
+  $$('.cf').forEach(el => el.querySelectorAll('[data-keep]').forEach(b => b.onclick = async () => {
+    const c = list.find(x => x.cid === +el.dataset.cid);
+    if(b.dataset.keep === 'other') useConflictValue(c);
+    await resolve([c.cid]); el.classList.add('done'); setTimeout(() => { el.remove(); if(!$$('.cf').length){ closeModal(); toast('All clashes sorted'); } }, 250);
+  }));
+  $('#cf-all').onclick = async () => { await resolve(list.map(c => c.cid)); closeModal(); toast('Kept the newest everywhere'); };
+}
+function useConflictValue(c){
+  const key = Sync.ARR[c.kind];
+  if(c.field === '(deleted)'){
+    if(c.other === 'deleted'){ if(key){ S[key] = S[key].filter(x => String(x.id) !== c.id); } }
+  } else if(key){ const x = S[key].find(r => String(r.id) === c.id); if(x){ if(c.other === null || c.other === undefined) delete x[c.field]; else x[c.field] = c.other; } }
+  else if(c.kind === 'plugin'){ const d = S.pluginData[c.id]; if(d && typeof d === 'object') d[c.field] = c.other; }
+  else if(c.kind === 'doc'){ S[c.field] = c.other; }
+  save(); rebuildPlugins(); render();
+}
 function persistLocal(){ try { localStorage.setItem(LS_KEY, JSON.stringify(S)); } catch(e){} }
 function save(){ S.updatedAt = Date.now(); persistLocal(); Store.schedule(); }
 
@@ -892,6 +1081,7 @@ function coreCommands(){
     { title:'Add client', run: () => promptClient() },
     { title:'Toggle dark mode', run: () => { closeModal(); S.settings.theme = S.settings.theme==='dark'?'light':'dark'; save(); render(); } },
     { title:'Settings & plugins', run: () => openSettings() },
+    { title:'Review sync clashes', run: () => openConflicts() },
     { title:'Keyboard shortcuts', k:'?', run: () => showShortcuts() },
     { title:'Go to Today', run: () => { closeModal(); go('today'); } },
     { title:'Go to Upcoming', run: () => { closeModal(); go('upcoming'); } },
