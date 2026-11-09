@@ -26,7 +26,7 @@
       .rs-stk.rs-stk .rs-grade i{font-style:normal;font-weight:700;opacity:.85;padding-left:4px;border-left:1px solid rgba(255,255,255,.45)}
       .rs-stk.rs-stk .rs-grade.g-top{background:linear-gradient(135deg,#1f9d63,#137a4b)}.rs-stk.rs-stk .rs-grade.g-good{background:linear-gradient(135deg,#2f7de1,#1e5fb8)}.rs-stk.rs-stk .rs-grade.g-ok{background:linear-gradient(135deg,#e0912b,#c06f12)}.rs-stk.rs-stk .rs-grade.g-low{background:linear-gradient(135deg,#d44b4b,#a92f2f)}
       .rs-stk.rs-stk .rs-new{font:800 10px/1 ui-rounded,system-ui,sans-serif;letter-spacing:.08em;padding:4px 7px;border-radius:4px;background:#e23b3b;color:#fff;transform:rotate(-3deg);box-shadow:0 1px 2px rgba(0,0,0,.2)}
-      .rs-stk.rs-stk .rs-note{white-space:normal!important;font:italic 500 11.5px/1.3 "Comic Neue","Segoe Print","Bradley Hand",cursive;padding:3px 8px;border-radius:3px;background:color-mix(in srgb,#fff6c9 55%,var(--panel));color:var(--text);box-shadow:0 1px 2px rgba(0,0,0,.12);transform:rotate(-1deg)}
+      .rs-stk.rs-stk.rs-stk .rs-note{white-space:normal;flex:1 1 auto;max-width:100%;min-width:0;overflow-wrap:anywhere;font:italic 500 11.5px/1.3 "Comic Neue","Segoe Print","Bradley Hand",cursive;padding:3px 8px;border-radius:3px;background:color-mix(in srgb,#fff6c9 55%,var(--panel));color:var(--text);box-shadow:0 1px 2px rgba(0,0,0,.12);transform:rotate(-1deg)}
       .rs-stk.rs-stk .rs-press{display:inline-flex;align-items:center;gap:5px;font-size:11px;color:var(--muted)}.rs-stk.rs-stk .rs-press i{width:9px;height:9px;border-radius:50%;box-shadow:inset 0 0 0 1px rgba(0,0,0,.15)}
       .rs-rec .wrap{position:relative}.rs-rec .wrap>.rs-stk{position:absolute;right:-4px;top:-6px;z-index:3;flex-direction:column;align-items:flex-end}
       .rs-row .tx span.rs-stk{display:inline-flex;vertical-align:1px;margin-right:5px;gap:3px}.rs-row .tx .rs-stk.rs-stk>*{transform:none;padding:2px 5px;font-size:9.5px;box-shadow:none}.rs-row .tx .rs-stk .rs-price:before{display:none}
@@ -198,6 +198,10 @@
             if (!img) return fit(pin);
             const done = () => { img.classList.add('in'); fit(pin); };
             if (img.complete && img.naturalWidth) done(); else { pin.style.gridRowEnd = 'span 60'; img.onload = done; img.onerror = () => { img.remove(); fit(pin); }; } });
+          // captions can grow after layout (sticker font loads, prices arrive): re-fit any pin whose height changes
+          if (!w._pro) { w._pro = new ResizeObserver(es => es.forEach(e => { const pin = e.target, h = Math.ceil(e.contentRect.height); if (pin._h !== h) { pin._h = h; fit(pin); } })); }
+          w.querySelectorAll('.rs-pin').forEach(pin => w._pro.observe(pin));
+          if (document.fonts && !w._fonts) { w._fonts = 1; document.fonts.ready.then(() => w.querySelectorAll('.rs-pin').forEach(fit)); }
           if (!w._ro) { let last = w.clientWidth; w._ro = new ResizeObserver(() => { if (Math.abs(w.clientWidth - last) < 2) return; last = w.clientWidth; w.querySelectorAll('.rs-pin').forEach(fit); }); w._ro.observe(w); }
         });
       }

@@ -82,3 +82,25 @@ test('a new build on the NAS offers a reload', async ({ page }) => {
   await expect(page.locator('#upd-bar')).toBeVisible();
   await expect(page.locator('#upd-bar')).toContainText('updated');
 });
+
+test('meeting review tidies action items and uses the date picker', async ({ page }) => {
+  const errs = []; page.on('pageerror', e => errs.push(String(e)));
+  await page.addInitScript(() => localStorage.setItem('cadence.reviewNudge', 'x'));
+  await page.goto(B + '/#today');
+  await expect(page.locator('#sync')).toContainText('NAS', { timeout: 8000 });
+  await page.evaluate(() => Cadence.registerPlugin({ id: 'test-hook3', name: 'test', setup(api) { window.T = api; } }));
+  await page.evaluate(() => { const c = window.T.clients.add('Tidyco'); location.hash = 'client-' + c.id; });
+  await page.click('#view [data-act=meeting]');
+  for (const line of ['- [ ] Sarah will send the SOW by friday (12:41)', 'Action item: I\'ll update the blueprint.', '• update the blueprint']) { await page.fill('#m-in', line); await page.press('#m-in', 'Enter'); }
+  await page.click('[data-act=m-review]');
+  const titles = await page.locator('.rv-item [data-rv=title]').evaluateAll(els => els.map(e => e.value));
+  expect(titles).toContain('Send the SOW');
+  expect(titles).toContain('Update the blueprint');
+  expect(titles.filter(t => t === 'Update the blueprint')).toHaveLength(1);   // duplicate removed
+  await expect(page.locator('.rv-item', { hasText: 'Sarah' })).toBeVisible();
+  await expect(page.locator('.rv-item:has([value="Send the SOW"]) .rv-due')).toHaveClass(/on/);
+  // the nicer date picker
+  await page.click('.rv-item:has([value="Update the blueprint"]) .rv-due');
+  await expect(page.locator('.dp, .dp-pop, [class*=dp]').first()).toBeVisible();
+  expect(errs).toEqual([]);
+});

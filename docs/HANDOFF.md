@@ -325,3 +325,8 @@ Needs: Life space (done), weather API (key on NAS), maps/GPX (offline tiles = ph
   project icons (picker becomes icon + colour), views/nav, plugin UI (🎫 🏡 🔥 📌 ⚙ ✨ etc.), stickers, toasts, Island,
   Good Homeowner options, empty states. Store icon names (e.g. 'wrench') instead of emoji; migrate existing records.
   Don't add new emojis in the meantime.
+- Meeting review (2026-11-09, shipped): `tidyText`/`tidyMeeting` run once on entering review (+ "Tidy up" button):
+  strip bullets/checkboxes/"Action item:"/timestamps, "Sarah will…" → assignee Sarah (client) or me if it matches
+  settings.myName, "I'll…" mine, "They will…" client, dates pulled via parseQuick into dueDate, dedupe, capitalise.
+  Due uses CadenceDatePick (fallback native picker). "Fix wording with AI" when the NAS has a key (AI.json).
+- Feed wall: long grade notes wrap; pins re-fit via ResizeObserver + fonts.ready (were overlapping).

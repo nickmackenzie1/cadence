@@ -1649,10 +1649,10 @@ function renderMeeting(){
     $('#m-notes').addEventListener('input', e => { M.notes = e.target.value; clearTimeout(notesTimer); notesTimer = setTimeout(save, 500); });
   } else {
     const inc = M.items.filter(i => i.include).length;
-    el.innerHTML = `<div class="m-head"><b style="font-size:15px">Review action items</b>${clientSel}<span class="muted">${elapsed(M.start)} meeting</span><span style="margin-left:auto"></span><button class="btn ghost" data-act="m-back">← Back to meeting</button><button class="btn ghost danger" data-act="m-discard">Discard</button></div>
+    el.innerHTML = `<div class="m-head"><b style="font-size:15px">Review action items</b>${clientSel}<span class="muted">${elapsed(M.start)} meeting</span><span style="margin-left:auto"></span><button class="btn" data-act="m-tidy" title="Clean up bullets, prefixes, names, dates and duplicates">Tidy up</button>${AI ? '<button class="btn" data-act="m-ai" title="Rewrite titles as clear tasks">Fix wording with AI</button>' : ''}<button class="btn ghost" data-act="m-back">← Back to meeting</button><button class="btn ghost danger" data-act="m-discard">Discard</button></div>
       <div style="flex:1;overflow:auto"><div class="wrap" style="padding-top:28px">
         <p class="muted" style="margin-top:0">Tidy up titles and due dates, then create the tasks. Client items go to <b>Waiting on clients</b> so you can chase them.</p>
-        ${['me','client'].map(o => { const list = M.items.filter(i => i.owner === o); return `<div class="group"><div class="group-h ${o==='client'?'client':''}">${o==='me'?'On me':'On '+esc(c?c.name:'client')}<span class="c">${list.length}</span></div>${list.map(i => `<div class="rv-item" data-iid="${i.id}"><input type="checkbox" data-rv="include" ${i.include?'checked':''}><input type="text" data-rv="title" value="${esc(i.title)}"><input type="date" data-rv="dueDate" value="${i.dueDate||''}"><button class="sw btn ghost" data-act="m-swap" title="Switch owner">⇄</button></div>`).join('') || '<div class="muted" style="padding:8px 0">None</div>'}</div>`; }).join('')}
+        ${['me','client'].map(o => { const list = M.items.filter(i => i.owner === o); return `<div class="group"><div class="group-h ${o==='client'?'client':''}">${o==='me'?'On me':'On '+esc(c?c.name:'client')}<span class="c">${list.length}</span></div>${list.map(i => `<div class="rv-item" data-iid="${i.id}"><input type="checkbox" data-rv="include" ${i.include?'checked':''}><input type="text" data-rv="title" value="${esc(i.title)}">${i.assignee ? `<span class="chip client-owned">${esc(i.assignee)}</span>` : ''}<button class="te-chip rv-due ${i.dueDate ? 'on ' + dueState(i) : ''}" data-act="rv-due">${TE_ICONS.due || ''}<span>${i.dueDate ? esc(dueLabel(i)) : 'Date'}</span></button><button class="sw btn ghost" data-act="m-swap" title="Switch owner">⇄</button></div>`).join('') || '<div class="muted" style="padding:8px 0">None</div>'}</div>`; }).join('')}
         <div class="row" style="gap:6px;margin:-8px 0 20px"><span class="muted" style="font-size:12px;align-self:center">Set due for all client items:</span>${[['+2d',2],['+1w',7]].map(([l,n]) => `<button class="btn" data-act="m-bulkdue" data-n="${n}">${l}</button>`).join('')}</div>
       </div></div>
       <div class="m-input" style="display:flex;gap:8px;justify-content:flex-end;align-items:center;flex-wrap:wrap">${Reg.meetingActions.map((a,i) => `<button class="btn" data-act="m-action" data-i="${i}">${esc(a.label)}</button>`).join('')}<button class="btn primary" data-act="m-commit" ${inc?'':'disabled'}>Create ${inc} task${inc===1?'':'s'} &amp; finish</button></div>`;
@@ -1660,6 +1660,51 @@ function renderMeeting(){
   }
   $('#m-client').addEventListener('change', e => { M.clientId = e.target.value || null; save(); renderMeeting(); });
   $$('.m-item .tt', el).forEach(t => t.addEventListener('blur', () => { const it = M.items.find(x => x.id === t.closest('.m-item').dataset.iid); if(it){ it.title = t.textContent.trim() || it.title; save(); } }));
+}
+/* tidy meeting action items without AI: bullets, checkboxes, "Action:" prefixes and timestamps go; "Sarah will send
+   the SOW by Friday" becomes "Send the SOW" owned by Sarah, due Friday; "I'll…" is mine; duplicates go; capitalised. */
+function tidyText(raw){
+  let t = String(raw || '').replace(/\s+/g, ' ').trim(), owner = null, assignee = null;
+  t = t.replace(/^\s*(?:[-*•–—·>]+|\d+[.)]|\[[ xX]?\]|\(\s?\)|[☐☑✓✔])\s*/, '').replace(/^\s*(?:[-*•–—·>]+|\[[ xX]?\])\s*/, '');
+  t = t.replace(/^(?:action items?|action|todo|to-do|ai|next steps?|follow[- ]up)\s*[:\-–]\s*/i, '');
+  t = t.replace(/\s*[\[(]\s*\d{1,2}:\d{2}(?::\d{2})?\s*[\])]\s*$/, '').replace(/\s*[-–]\s*\d{1,2}:\d{2}\s*$/, '');
+  const me = norm((S.settings.myName || '').split(' ')[0] || '');
+  let m;
+  if((m = t.match(/^(?:i|we)(?:'ll|’ll| will| need to| should| have to| must| can| are going to| am going to)\s+(.+)$/i))){ owner = 'me'; t = m[1]; }
+  else if((m = t.match(/^(?:they|the client|client)(?:'ll|’ll| will| need to| should| have to| must| to)\s+(.+)$/i))){ owner = 'client'; t = m[1]; }
+  else if((m = t.match(/^([A-Z][a-zA-Z'’-]+(?:\s[A-Z][a-zA-Z'’-]+)?)\s*(?::|will|to|should|needs to|has to|is going to|'ll|’ll)\s+(.+)$/)) && !/^(please|follow|send|set|get|make|call|email|check|review|update|add|create|book|schedule|share|confirm|ask|fix|build|test|draft|finish|start|look|reply|prepare|zoho)$/i.test(m[1])){
+    const who = m[1].trim(); t = m[2];
+    if(me && norm(who.split(' ')[0]) === me) owner = 'me'; else { owner = 'client'; assignee = who; }
+  }
+  t = t.replace(/^(?:please|pls|need to|needs to|to)\s+/i, '').replace(/[\s.;,]+$/, '');
+  return { title: capFirst(t), owner, assignee };
+}
+function tidyMeeting(M){
+  const seen = new Set(); let changed = 0, dupes = 0;
+  M.items = M.items.filter(it => {
+    const before = JSON.stringify([it.title, it.owner, it.assignee, it.dueDate]);
+    const r = tidyText(it.title);
+    let title = r.title;
+    if(!it.dueDate){ const q = parseQuick(title, { clientId: M.clientId }); if(q.dueDate && q.title){ it.dueDate = q.dueDate; it.dueTime = it.dueTime || q.dueTime; title = q.title; } }
+    it.title = capFirst(title.replace(/[\s.;,]+$/, '')) || it.title;
+    if(r.owner) it.owner = r.owner; if(r.assignee) it.assignee = r.assignee;
+    const key = norm(it.title).replace(/[^a-z0-9]+/g, ' ').trim();
+    if(seen.has(key + '|' + it.owner)){ dupes++; return false; } seen.add(key + '|' + it.owner);
+    if(JSON.stringify([it.title, it.owner, it.assignee, it.dueDate]) !== before) changed++;
+    return true;
+  });
+  M.tidied = true; save();
+  return { changed, dupes };
+}
+async function aiWording(M){
+  if(!AI || !AI.json) return toast('AI isn’t set up on your NAS');
+  const items = M.items.filter(i => i.include);
+  const j = job('aiword', 'Claude is polishing the wording', { sub: `${items.length} action items` });
+  try {
+    const out = await AI.json(`Rewrite these meeting action items as short, clear task titles: start with a verb, keep names, numbers and product names (e.g. Zoho CRM), no trailing punctuation, no dates (they are stored separately). Return a JSON array of {"id","title"} in the same order.\n\n${JSON.stringify(items.map(i => ({ id: i.id, title: i.title })))}`, { modelTier: 'fast' });
+    let n = 0; for(const o of (Array.isArray(out) ? out : [])){ const it = M.items.find(x => x.id === o.id); if(it && o.title && o.title !== it.title){ it.title = capFirst(String(o.title).slice(0, 200)); n++; } }
+    save(); renderMeeting(); j.done({ title: n ? `Reworded ${n} item${n === 1 ? '' : 's'}` : 'Already clear', sub: 'Undo isn’t needed: edit any title inline' });
+  } catch(e){ j.dismiss(); toast('AI wording failed: ' + e.message); }
 }
 function commitMeeting(){
   const M = S.activeMeeting; if(!M) return;
@@ -1729,6 +1774,13 @@ document.addEventListener('click', e => {
       break; }
     case 'add-client': promptClient(); break;
     case 'add-project': promptProject(); break;
+    case 'm-tidy': { const r = tidyMeeting(S.activeMeeting); renderMeeting(); toast(r.changed || r.dupes ? `Tidied ${r.changed} item${r.changed === 1 ? '' : 's'}${r.dupes ? ` · removed ${r.dupes} duplicate${r.dupes === 1 ? '' : 's'}` : ''}` : 'Already tidy'); break; }
+    case 'm-ai': aiWording(S.activeMeeting); break;
+    case 'rv-due': { const M = S.activeMeeting, it = M && M.items.find(x => x.id === a.closest('.rv-item').dataset.iid); if(!it) break;
+      const set = k => { it.dueDate = k; if(!k) it.dueTime = null; save(); renderMeeting(); };
+      if(window.CadenceDatePick) window.CadenceDatePick.openAt(a, { value: it.dueDate, title: it.title, onPick: set, onClear: () => set(null) });
+      else { const d = document.createElement('input'); d.type = 'date'; d.value = it.dueDate || ''; d.style.cssText = 'position:fixed;opacity:0'; document.body.appendChild(d); d.onchange = () => { set(d.value || null); d.remove(); }; d.showPicker ? d.showPicker() : d.click(); }
+      break; }
     case 'dock-open': openDock(a.dataset.k, a); break;
     case 'dock-close': closeDock(); break;
     case 'dock-pin': { S.settings.pinnedWidgets = [...new Set(pinnedW().concat(a.dataset.k))]; save(); closeDock(true); renderWidgets(); toast('Pinned to the sidebar. ⤓ on hover sends it back to the dock.'); break; }
@@ -1797,7 +1849,7 @@ document.addEventListener('click', e => {
     case 'm-del': { M.items = M.items.filter(i => i.id !== a.closest('[data-iid]').dataset.iid); save(); renderMeeting(); break; }
     case 'm-swap': { const it = M.items.find(i => i.id === a.closest('[data-iid]').dataset.iid); it.owner = it.owner === 'me' ? 'client' : 'me'; save(); renderMeeting(); break; }
     case 'm-hide': hideMeeting(); toast('Meeting still running — resume from the sidebar'); break;
-    case 'm-review': M.phase = 'review'; save(); renderMeeting(); break;
+    case 'm-review': M.phase = 'review'; if(!M.tidied) tidyMeeting(M); save(); renderMeeting(); break;
     case 'm-back': M.phase = 'live'; save(); renderMeeting(); break;
     case 'm-discard': openModalHTML('Discard meeting?', `<p style="margin:0">All ${M.items.length} captured items and notes will be lost.</p>`, `<button class="btn" data-act="close-modal">Keep</button><button class="btn primary" style="background:var(--danger);border-color:var(--danger)" data-act="m-discard-yes">Discard</button>`); break;
     case 'm-discard-yes': S.activeMeeting = null; save(); closeModal(); hideMeeting(); break;
