@@ -180,8 +180,26 @@
         const rg = document.createRange(); rg.selectNodeContents(el); const rs = rg.getClientRects(); if (!rs.length) return null;
         const er = el.getBoundingClientRect(), t = rs[0].top; let l = Infinity, r = -Infinity, h = 0;
         for (const x of rs) if (Math.abs(x.top - t) < 4 && x.width > 0) { l = Math.min(l, x.left); r = Math.max(r, x.right); h = Math.max(h, x.height); }
-        return r > l ? { dx: l - er.left, dy: t - er.top + h * .22, w: r - l } : null;
+        return r > l ? { dx: l - er.left, dy: t - er.top, w: r - l, h } : null;
       }
+      // the real top of every letter, column by column: render the text off-screen in the same font and scan it.
+      // Snow then sits on the letters (ascenders hold more), and falls through the gaps between words.
+      const GCV = document.createElement('canvas'), GX = GCV.getContext('2d', { willReadFrequently: true });
+      function glyphs(el, p, tb) {
+        const cs = getComputedStyle(el), n = p.h.length, W = Math.max(1, Math.ceil(tb.w)), H = Math.max(4, Math.ceil(tb.h) + 2);
+        let txt = (el.textContent || '').replace(/\s+/g, ' ').trim(); if (cs.textTransform === 'uppercase') txt = txt.toUpperCase();
+        GCV.width = W; GCV.height = H; GX.font = `${cs.fontStyle} ${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`; if ('letterSpacing' in GX) GX.letterSpacing = cs.letterSpacing === 'normal' ? '0px' : cs.letterSpacing;
+        while (txt.length > 1 && GX.measureText(txt).width > W + 3) txt = txt.replace(/\s*\S+$/, '');   // first line only
+        const m = GX.measureText(txt), asc = m.fontBoundingBoxAscent || parseFloat(cs.fontSize) * .95;
+        GX.clearRect(0, 0, W, H); GX.fillStyle = '#000'; GX.textBaseline = 'alphabetic'; GX.fillText(txt, 0, asc);
+        const d = GX.getImageData(0, 0, W, H).data;
+        p.base = new Float32Array(n); p.hole = new Uint8Array(n); p.mf = null;
+        for (let j = 0; j < n; j++) { let top = H; for (let x = j * BUCKET; x < Math.min(W, j * BUCKET + BUCKET); x++) for (let y = 0; y < top; y++) if (d[(y * W + x) * 4 + 3] > 60) { top = y; break; }
+          if (top >= H) p.hole[j] = 1; else p.base[j] = top; }
+        p.rad = 0;
+      }
+      // every spot holds snow a bit differently: that's what makes peaks and dips instead of a flat line
+      const lumps = n => { const a = new Float32Array(n); for (let j = 0; j < n; j++) a[j] = .35 + Math.random() * 1.3; for (let k = 0; k < 2; k++) for (let j = 1; j < n - 1; j++) a[j] = (a[j - 1] + a[j] * 2 + a[j + 1]) / 4; return a; };
       // the bottom of the window: the rare flake that gets all the way down piles up there
       const GROUND = { ground: true, isConnected: true, contains: () => false, closest: () => null, matches: () => false, dataset: {}, classList: [], getAttribute: () => null,
         getBoundingClientRect: () => ({ left: 0, right: innerWidth, top: innerHeight - 1, bottom: innerHeight, width: innerWidth, height: 1 }) };
@@ -197,7 +215,8 @@
           if (!p) { const k = el === GROUND ? '*|ground' : keyOf(el); p = STORE.get(k); if (!p) { p = { h: new Float32Array(Math.ceil(w / BUCKET) + 1), w, rad: -1 }; STORE.set(k, p); } piles.set(el, p); }
           p.tb = tb; if (el === GROUND) p.max = 3;
           if (Math.abs(p.w - w) > 2) resample(p, w);
-          if (p.rad < 0) { if (texty || el === GROUND) { p.rad = 0; p.base = null; p.mf = null; } else shape(el, p, r0); }
+          if (!p.n || p.n.length !== p.h.length) p.n = lumps(p.h.length);
+          if (p.rad < 0) { if (texty) glyphs(el, p, tb); else if (el === GROUND) { p.rad = 0; p.base = null; p.mf = null; p.hole = null; } else { p.hole = null; shape(el, p, r0); } }
         };
         add(GROUND, false);
         document.querySelectorAll(SURFACES).forEach(el => { if (el.closest('#xm-string,#xm-ring,.modal-bg[hidden]')) return; add(el, el.matches(TEXTY)); });
@@ -229,13 +248,19 @@
       }
       function settle(p, rect, x, amt) {
         const i = Math.max(0, Math.min(p.h.length - 1, Math.round((x - rect.left) / BUCKET)));
+        if (p.hole && p.hole[i]) return false;
+        if (p.n) amt *= p.n[i];
         const max = 14 * T.pile * (p.max || (rect.width < 120 ? .6 : 1)), mf = p.mf ? p.mf[i] : 1;
         if (max <= 0 || p.h[i] >= max * mf) { if (mf < .5) powder(x, baseY(p, rect, i) - p.h[i], 1, .6, .2); return false; }
-        p.h[i] += .9 * amt; dirty = true; if (i > 0) p.h[i - 1] += .35 * amt; if (i < p.h.length - 1) p.h[i + 1] += .35 * amt;
-        for (let k = 0; k < 3; k++) for (let j = 0; j < p.h.length; j++) {   // angle of repose
-          const l = j > 0 ? p.h[j - 1] : -1, r = j < p.h.length - 1 ? p.h[j + 1] : -1;
-          if (l >= 0 && p.h[j] - l > 2.4) { const m = (p.h[j] - l) / 3; p.h[j] -= m; p.h[j - 1] += m; }
-          if (r >= 0 && p.h[j] - r > 2.4) { const m = (p.h[j] - r) / 3; p.h[j] -= m; p.h[j + 1] += m; }
+        const ok = j => j >= 0 && j < p.h.length && !(p.hole && p.hole[j]);
+        p.h[i] += amt; dirty = true; if (ok(i - 1)) p.h[i - 1] += .22 * amt; if (ok(i + 1)) p.h[i + 1] += .22 * amt;
+        for (let k = 0; k < 2; k++) for (let j = 0; j < p.h.length; j++) {   // angle of repose: steep enough for peaks, not spikes
+          if (!ok(j)) { p.h[j] = 0; continue; }
+          const tb = j > 0 && ok(j - 1), ta = j < p.h.length - 1 && ok(j + 1);
+          if (tb && p.h[j] - p.h[j - 1] > 3.6) { const m = (p.h[j] - p.h[j - 1]) / 4; p.h[j] -= m; p.h[j - 1] += m; }
+          if (ta && p.h[j] - p.h[j + 1] > 3.6) { const m = (p.h[j] - p.h[j + 1]) / 4; p.h[j] -= m; p.h[j + 1] += m; }
+          // at the edge of a letter or word, snow that's too tall tumbles off
+          if ((!tb || !ta) && p.h[j] > 4.5 && Math.random() < .3) { p.h[j] -= 1.2; powder(rect.left + j * BUCKET, baseY(p, rect, j) - p.h[j], 1, .7, .2); }
         }
         if (p.mf) for (let j = 0; j < p.h.length; j++) { const cap = max * p.mf[j]; if (p.h[j] > cap) { if (Math.random() < .3) powder(rect.left + j * BUCKET, baseY(p, rect, j) - p.h[j], 1, .7, .2); p.h[j] = cap; } }
         for (const e of [0, p.h.length - 1]) if (p.h[e] > 3.5) { p.h[e] -= 1.5; if (Math.random() < .5) powder(rect.left + e * BUCKET + (e ? 4 : -4), rect.top - p.h[e], 1, .8, .2); }
@@ -270,10 +295,12 @@
           let landed = false;
           if (o.build && f.vy > 0 && !f.far && !f.near) for (const [el, p, r] of rects) {
             if (nx < r.left || nx > r.right) continue;
-            const i2 = Math.max(0, Math.min(p.h.length - 1, Math.round((nx - r.left) / BUCKET))), top = baseY(p, r, i2) - p.h[i2];
+            const i2 = Math.max(0, Math.min(p.h.length - 1, Math.round((nx - r.left) / BUCKET)));
+            if (p.hole && p.hole[i2]) continue;   // between words: falls on through
+            const top = baseY(p, r, i2) - p.h[i2];
             if (f.y <= top && ny >= top) {
               if (f.clump) { powder(nx, top - 2, 6 + (f.r | 0), 2.2, 2.2); settle(p, r, nx, f.r * .5); landed = true; break; }
-              const boost = el === focus || (focus && el.contains(focus)) ? 2 : 1; landed = settle(p, r, nx, 1.15 * (f.crys ? 1.4 : 1) * f.r / 1.8 * boost) || landed; break; }
+              const boost = el === focus || (focus && el.contains(focus)) ? 2 : 1; landed = settle(p, r, nx + Math.max(-8, Math.min(8, wind * 3)), 1.15 * (f.crys ? 1.4 : 1) * f.r / 1.8 * boost) || landed; break; }
           }
           if (!landed && f.clump && ny > innerHeight - 4) { powder(nx, innerHeight - 6, 10, 2.6, 2.6); landed = true; }
           if (landed || ny > innerHeight + 20 || nx < -80 || nx > innerWidth + 80 || ny < -innerHeight * 1.5) { if (flakes.length > want || f.air) flakes.splice(i, 1); else Object.assign(f, newFlake()); continue; }
@@ -299,10 +326,12 @@
           if (o.melt) for (let j = 0; j < p.h.length; j++) if (p.h[j] > 0) p.h[j] = Math.max(0, p.h[j] - .004 * dt);
           let any = false; for (let j = 0; j < p.h.length; j++) if (p.h[j] > 1.2) { any = true; break; } if (!any) continue;
           const X = j => Math.min(r.right, r.left + j * BUCKET) * DPR, Yb = j => baseY(p, r, j) * DPR;
-          cx.beginPath(); cx.moveTo(X(0), Yb(0));
-          for (let j = 0; j < p.h.length; j++) cx.lineTo(X(j), Yb(j) - p.h[j] * DPR);
-          for (let j = p.h.length - 1; j >= 0; j--) cx.lineTo(X(j), Yb(j));
-          cx.closePath();
+          // one smooth shape per run of solid ground (letters, words); curves through midpoints for soft peaks
+          cx.beginPath();
+          for (let j0 = 0; j0 < p.h.length;) { if (p.hole && p.hole[j0]) { j0++; continue; } let j1 = j0; while (j1 + 1 < p.h.length && !(p.hole && p.hole[j1 + 1])) j1++;
+            const top = j => Yb(j) - p.h[j] * DPR; cx.moveTo(X(j0), Yb(j0)); cx.lineTo(X(j0), top(j0));
+            for (let j = j0; j < j1; j++) { const mx = (X(j) + X(j + 1)) / 2, my = (top(j) + top(j + 1)) / 2; cx.quadraticCurveTo(X(j), top(j), mx, my); }
+            cx.lineTo(X(j1), top(j1)); for (let j = j1; j >= j0; j--) cx.lineTo(X(j), Yb(j)); cx.closePath(); j0 = j1 + 1; }
           const gr = cx.createLinearGradient(0, (r.top - 14) * DPR, 0, r.top * DPR); gr.addColorStop(0, '#ffffff'); gr.addColorStop(1, light ? '#d9e6f7' : '#dfe8f3');
           cx.shadowColor = light ? 'rgba(120,155,205,.32)' : 'rgba(120,150,190,.35)'; cx.shadowBlur = (light ? 7 : 5) * DPR; cx.shadowOffsetY = 1 * DPR; cx.fillStyle = gr; cx.fill();
           cx.shadowColor = 'transparent'; cx.shadowBlur = 0; cx.shadowOffsetY = 0;

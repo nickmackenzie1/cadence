@@ -412,3 +412,7 @@ Needs: Life space (done), weather API (key on NAS), maps/GPX (offline tiles = ph
   counts, view tiles, stat numbers, list headings and the words of titles/headings (TEXTY: first-line text box via
   Range, snow sits on the letters). A GROUND pile along the bottom of the window catches what gets through. Far layer
   thinned (z<.22), each landing flake deposits ~2× (scaled by flake size). Up to 280 surfaces, ~57 fps.
+- Snow on letters (2026-11-09): TEXTY surfaces get a glyph profile (glyphs(): render the first line off-screen in the
+  element's computed font, scan per 4px bucket for the topmost ink; gaps = p.hole, flakes fall through). All piles
+  are lumpy (p.n per-bucket holding factor), deposits shift downwind, repose allows 3.6px steps, edges of letters/
+  words shed snow, drifts drawn as smooth quadratic curves per solid run.
