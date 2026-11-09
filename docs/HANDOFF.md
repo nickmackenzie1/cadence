@@ -104,3 +104,13 @@ Next: (superseded, see below)
   eavestroughs spring + fall, detector batteries twice a year, water heater flush yearly…). Keeps a house profile:
   model numbers, filter sizes, paint colours, contractor contacts, warranty dates, so the details are there when needed.
   Belongs to the Life space (Home area); dashboard widget for "this month at home".
+
+## SQLite phase 1 (2026-11-08, shipped)
+- server.js storage layer: node:sqlite DatabaseSync at data/cadence.db (WAL). Tables: meta(schema=1, created, migrated_from_json),
+  state(id=1 json, updated_at) = the synced document (API unchanged), records(kind task|client|meeting|plugin|settings, id,
+  space default 'work', data JSON, updated_at (only bumps when data changes), deleted flag).
+- Startup: imports state.json when DB empty OR state.json.updatedAt > DB (rollback/STORAGE=json safety). JSON mirror still written
+  every save. Daily VACUUM INTO backups/cadence-YYYY-MM-DD.db. SIGTERM checkpoints + closes. STORAGE=json forces JSON.
+- Node 22 image (CMD silences ExperimentalWarning), CI node 22. /api/health: storage, storageNote. /api/db: db{rows…}.
+- NEXT (phase 2): per-record sync API (GET /api/records?since=, PUT /api/records batch with per-record updated_at, conflict = newest
+  per record), client switches from whole-document sync; then drop the JSON mirror; then spaces (space column + UI switch).
