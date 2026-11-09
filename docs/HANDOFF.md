@@ -344,3 +344,6 @@ Needs: Life space (done), weather API (key on NAS), maps/GPX (offline tiles = ph
   backups/state-YYYY-MM-DD.json snapshot is written once a day (dailyJsonBackup) next to the daily .db snapshot.
   STORAGE=json still works as an emergency fallback (copy the latest snapshot to data/state.json first).
 - Links on tasks: open editor shows a "Paste a Zoho Projects task, email or any link" box when the task has none.
+- Backlog (user, 2026-11-09 15:52): sidebar refinement. (1) Clients list shows only the last 3–4 accessed (recents),
+  rest via "+N more" / ⌘K. (2) Main nav (Today, Upcoming, Waiting on clients, Dev, Inbox, Logbook) as compact tiles
+  like Views, with a tiny label underneath (and the count as a badge).

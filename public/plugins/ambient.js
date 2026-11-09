@@ -8,20 +8,21 @@ Cadence.registerPlugin({
   tagline: 'Client pages glow in their brand colours', color: '#ff5c8a',
   icon: '<rect x="4" y="6" width="16" height="11" rx="2"/><path d="M2 4l2 2M22 4l-2 2M2 19l2-2M22 19l-2-2M9 21h6"/>',
   settings(api) {
-    const o = Object.assign({ level: 'bold', drift: true, accent: true }, api.storage.get('opts') || {});
+    const o = Object.assign({ level: 'bold', drift: true, accent: true, flow: true }, api.storage.get('opts') || {});
     api.ui.modal('Ambient light', `
       <div class="field"><label>Intensity</label><div class="seg" id="am-lv">${[['bold', 'Bold'], ['subtle', 'Subtle'], ['off', 'Off']].map(([k, l]) => `<button data-v="${k}" class="${o.level === k ? 'on' : ''}">${l}</button>`).join('')}</div></div>
       <label style="display:flex;gap:8px;align-items:center;margin:8px 0"><input type="checkbox" id="am-dr" ${o.drift ? 'checked' : ''}> Lights drift slowly (like a living room at night)</label>
+      <label style="display:flex;gap:8px;align-items:center;margin:8px 0"><input type="checkbox" id="am-fl" ${o.flow ? 'checked' : ''}> Header gradient flows through the brand colours</label>
       <label style="display:flex;gap:8px;align-items:center;margin:8px 0"><input type="checkbox" id="am-ac" ${o.accent ? 'checked' : ''}> Buttons and checks use the client's colour</label>
       <p class="muted" style="font-size:12.5px;margin:10px 0 0">Colours come from the Brand plugin (logo and website) or the client's own colour. Some retro themes switch the glow off.</p>`,
       `<button class="btn primary" id="am-save">Done</button>`);
     let level = o.level;
     document.querySelectorAll('#am-lv button').forEach(b => b.onclick = () => { level = b.dataset.v; document.querySelectorAll('#am-lv button').forEach(x => x.classList.toggle('on', x === b)); });
-    document.getElementById('am-save').onclick = () => { api.storage.set('opts', { level, drift: document.getElementById('am-dr').checked, accent: document.getElementById('am-ac').checked }); api.ui.close(); window.__amb && window.__amb.update(true); };
+    document.getElementById('am-save').onclick = () => { api.storage.set('opts', { level, drift: document.getElementById('am-dr').checked, flow: document.getElementById('am-fl').checked, accent: document.getElementById('am-ac').checked }); api.ui.close(); window.__amb && window.__amb.update(true); };
   },
   setup(api) {
     const A = window.__amb = window.__amb || {};
-    const opts = () => Object.assign({ level: 'bold', drift: true, accent: true }, api.storage.get('opts') || {});
+    const opts = () => Object.assign({ level: 'bold', drift: true, accent: true, flow: true }, api.storage.get('opts') || {});
     const html = document.documentElement;
 
     /* ---------- colour helpers ---------- */
@@ -67,6 +68,23 @@ Cadence.registerPlugin({
         @keyframes ambdrift{50%{translate:4vmax -3vmax;scale:1.08}100%{translate:-3vmax 4vmax;scale:.94}}
         #amb.surge i{transform:scale(1.22);opacity:calc(var(--o,.6) + .15)}
         @media (prefers-reduced-motion:reduce){html.amb-drift #amb i{animation:none}#amb.surge i{transform:none}}
+        /* gradient flow (after Granim.js, no library): registered colour properties let the browser animate smoothly
+           between "states" of the brand palette; the angle turns slowly too */
+        @property --gf1{syntax:'<color>';inherits:true;initial-value:transparent}
+        @property --gf2{syntax:'<color>';inherits:true;initial-value:transparent}
+        @property --gf3{syntax:'<color>';inherits:true;initial-value:transparent}
+        @property --gfa{syntax:'<angle>';inherits:true;initial-value:120deg}
+        @keyframes granim{
+          0%,100%{--gf1:var(--amb1);--gf2:var(--amb2);--gf3:var(--amb3);--gfa:115deg}
+          33%{--gf1:var(--amb2);--gf2:var(--amb3);--gf3:var(--amb4);--gfa:160deg}
+          66%{--gf1:var(--amb3);--gf2:var(--amb4);--gf3:var(--amb1);--gfa:205deg}}
+        html.amb-on.amb-flow .c-hero .bg:not(.img){background:
+            linear-gradient(var(--gfa),color-mix(in srgb,var(--gf1) 46%,transparent),color-mix(in srgb,var(--gf2) 34%,transparent) 50%,color-mix(in srgb,var(--gf3) 42%,transparent)),
+            linear-gradient(180deg,color-mix(in srgb,var(--amb3) 14%,transparent),transparent)!important;
+          animation:granim 22s ease-in-out infinite}
+        html.amb-on.amb-flow.amb-subtle .c-hero .bg:not(.img){opacity:.6}
+        html.amb-on.amb-flow .c-hero::after{background:linear-gradient(90deg,var(--gf1),var(--gf2),var(--gf3));animation:granim 22s ease-in-out infinite}
+        @media (prefers-reduced-motion:reduce){html.amb-on.amb-flow .c-hero .bg:not(.img),html.amb-on.amb-flow .c-hero::after{animation:none;--gf1:var(--amb1);--gf2:var(--amb2);--gf3:var(--amb3)}}
         /* the screen: the page column stays calm and readable on top of the glow */
         html.amb-on .main{background:transparent}
         html.amb-on #view{background:color-mix(in srgb,var(--bg) 84%,transparent);-webkit-backdrop-filter:blur(26px) saturate(1.25);backdrop-filter:blur(26px) saturate(1.25);
@@ -93,7 +111,7 @@ Cadence.registerPlugin({
     const view = () => document.getElementById('view');
     const ACCENT_VARS = ['--accent', '--accent-soft', '--on-accent', '--amb1', '--amb2', '--amb3', '--amb4'];
     function off() {
-      html.classList.remove('amb-on', 'amb-subtle', 'amb-drift'); A.cid = null;
+      html.classList.remove('amb-on', 'amb-subtle', 'amb-drift', 'amb-flow'); A.cid = null;
       const v = view(); if (v) ACCENT_VARS.forEach(k => v.style.removeProperty(k));
     }
     function update(force) {
@@ -106,7 +124,7 @@ Cadence.registerPlugin({
       const pal = palette(c), v = view();
       const changed = A.cid !== c.id;
       layer.querySelectorAll('i').forEach((el, i) => { el.style.setProperty('--c', pal[i % pal.length]); el.style.setProperty('--o', o.level === 'bold' ? (i === 4 ? .45 : .62) : .32); });
-      html.classList.add('amb-on'); html.classList.toggle('amb-subtle', o.level === 'subtle'); html.classList.toggle('amb-drift', !!o.drift);
+      html.classList.add('amb-on'); html.classList.toggle('amb-subtle', o.level === 'subtle'); html.classList.toggle('amb-drift', !!o.drift); html.classList.toggle('amb-flow', !!o.flow);
       if (v) {
         pal.slice(0, 4).forEach((x, i) => v.style.setProperty('--amb' + (i + 1), x));
         if (o.accent) {
