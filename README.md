@@ -81,7 +81,7 @@ Each device needs to trust the CA once:
 
 If the NAS gets a new IP the certificate is reissued automatically with the same CA, so devices don't need to
 trust anything again. Add extra names (e.g. a local DNS name) with `CERT_HOSTS="cadence.lan"` in the task's command,
-or turn HTTPS off with `HTTPS=off`.
+turn HTTPS off with `HTTPS=off`, or move it to another port with `HTTPS_PORT=9443` (if something else on the NAS already uses 8443).
 
 To change your password or AI key later, edit the task's command. The next run applies it and restarts the container.
 

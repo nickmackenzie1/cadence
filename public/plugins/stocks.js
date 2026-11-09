@@ -7,7 +7,21 @@ Cadence.registerPlugin({
   description: 'Each client gets a share price that rises when you work with them and sinks while you ignore them. Live ticker in the sidebar, a full market report from ⌘K, and a heads-up when a client crashes.',
   tagline: 'Your clients, as a stock market', color: '#1f9d63',
   icon: '<path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/>',
+  settings(api) {
+    const o = Object.assign({ rows: 5, sort: 'weak', alerts: true, tape: true }, api.storage.get('opts') || {});
+    api.ui.modal('Client stock ticker', `
+      <div class="field"><label>Rows in the sidebar</label><select class="inp" id="sk-rows">${[3, 5, 8, 12].map(n => `<option ${n === o.rows ? 'selected' : ''}>${n}</option>`).join('')}</select></div>
+      <div class="field"><label>Show first</label><select class="inp" id="sk-sort">${[['weak', 'Weakest stocks (who needs you)'], ['movers', 'Biggest movers today'], ['best', 'Best performers'], ['name', 'A to Z']].map(([k, l]) => `<option value="${k}" ${k === o.sort ? 'selected' : ''}>${l}</option>`).join('')}</select></div>
+      <label style="display:flex;gap:8px;align-items:center;margin:4px 0"><input type="checkbox" id="sk-tape" ${o.tape ? 'checked' : ''}> Scrolling ticker tape</label>
+      <label style="display:flex;gap:8px;align-items:center;margin:4px 0"><input type="checkbox" id="sk-alerts" ${o.alerts ? 'checked' : ''}> Tell me on the Island when a client crashes</label>`,
+      `<button class="btn primary" id="sk-save">Save</button>`);
+    document.getElementById('sk-save').onclick = () => {
+      api.storage.set('opts', { rows: +document.getElementById('sk-rows').value, sort: document.getElementById('sk-sort').value, tape: document.getElementById('sk-tape').checked, alerts: document.getElementById('sk-alerts').checked });
+      api.ui.close(); api.ui.refreshWidgets();
+    };
+  },
   setup(api) {
+    const opts = () => Object.assign({ rows: 5, sort: 'weak', alerts: true, tape: true }, api.storage.get('opts') || {});
     if (!document.getElementById('stk-css')) {
       const st = document.createElement('style'); st.id = 'stk-css';
       st.textContent = `
@@ -105,10 +119,11 @@ Cadence.registerPlugin({
     function draw(el) {
       const m = market(); if (!m.length) { el.style.display = 'none'; return; } el.style.display = '';
       const idx = m.reduce((s, x) => s + x.now, 0) / m.length, idxDay = m.reduce((s, x) => s + x.day, 0) / m.length;
-      const rows = m.slice().sort((a, b) => a.now - b.now).slice(0, 5);   // weakest first: the ones that need you
+      const o = opts(), SORT = { weak: (a, b) => a.now - b.now, movers: (a, b) => Math.abs(b.day) - Math.abs(a.day), best: (a, b) => b.month - a.month, name: (a, b) => a.c.name.localeCompare(b.c.name) };
+      const rows = m.slice().sort(SORT[o.sort] || SORT.weak).slice(0, o.rows);   // default: weakest first, the ones that need you
       const E = api.ui.esc;
       el.innerHTML = `<div class="stk"><div class="stk-h" data-rep>Cadence index <b class="${cls(idxDay)}">${idx.toFixed(1)} ${pct(idxDay)}</b></div>
-        ${m.length > 5 ? `<div class="stk-tape"><span style="--d:${Math.max(18, m.length * 3)}s">${m.map(x => `<i>${E(x.sym)} <b class="${cls(x.day)}">${x.now.toFixed(1)}</b></i>`).join('')}</span></div>` : ''}
+        ${o.tape && m.length > o.rows ? `<div class="stk-tape"><span style="--d:${Math.max(18, m.length * 3)}s">${m.map(x => `<i>${E(x.sym)} <b class="${cls(x.day)}">${x.now.toFixed(1)}</b></i>`).join('')}</span></div>` : ''}
         ${rows.map(x => `<div class="stk-r ${x.now < 70 ? 'crash' : ''}" data-c="${E(x.c.id)}" title="${E(x.c.name)} · ${pct(x.month)} this month${x.idleDays != null ? ' · last touched ' + x.idleDays + 'd ago' : ''}"><span class="sym">${E(x.sym)}</span>${spark(x.pts)}<span class="px">${x.now.toFixed(1)}<small class="${cls(x.day)}">${pct(x.day)}</small></span></div>`).join('')}</div>`;
       el.querySelector('[data-rep]').onclick = report;
       el.querySelectorAll('[data-c]').forEach(r => r.onclick = () => api.ui.navigate('client-' + r.dataset.c));
@@ -126,7 +141,7 @@ Cadence.registerPlugin({
 
     // a heads-up when a client crashes (below 70, or down 8%+ today) — once per client per day
     function alerts() {
-      if (api.system().demo) return;
+      if (api.system().demo || !opts().alerts) return;
       const seen = api.storage.get('alerted') || {}, today = api.util.todayKey();
       const crash = market().filter(x => (x.now < 70 || x.day < -0.08) && seen[x.c.id] !== today).sort((a, b) => a.now - b.now)[0];
       if (!crash) return;

@@ -350,7 +350,7 @@ function createFromQuick(text, ctx){
 /* =========================================================
    Plugin host
    ========================================================= */
-const Reg = { defs:[], commands:[], views:[], parsers:[], extractors:[], taskActions:[], meetingActions:[], clientActions:[], sidebar:[], listeners:[] };
+const Reg = { defs:[], commands:[], views:[], parsers:[], extractors:[], taskActions:[], meetingActions:[], clientActions:[], sidebar:[], listeners:[], settingsPanels:[], widgets:[] };
 let AI = null;
 function enabled(pid){ return !S.disabled.includes(pid); }
 function emit(ev, payload){ for(const l of Reg.listeners) if(l.ev === ev || l.ev === '*') { try { l.fn(payload, ev); } catch(e){ console.error(`[plugin ${l.pid}]`, e); } } }
@@ -380,6 +380,10 @@ function makeApi(pid){
     meetingActions: { add: a => Reg.meetingActions.push({ ...a, pid }) },
     clientActions: { add: a => Reg.clientActions.push({ ...a, pid }) },
     sidebar: { add: w => Reg.sidebar.push({ ...w, pid }) },
+    /* the Settings button for this plugin (in the plugin browser): api.onSettings(() => openMySettings()) */
+    onSettings: fn => { Reg.settingsPanels = Reg.settingsPanels.filter(x => x.pid !== pid).concat([{ pid, fn }]); },
+    /* dashboard widgets: api.widgets.add({ id, title, icon?, size: 's'|'m'|'l'|'w'|'t', render(el, api, ctx) }) */
+    widgets: { add: w => Reg.widgets.push({ size: 'm', ...w, pid, key: pid + ':' + w.id }), list: () => Reg.widgets.map(w => ({ key: w.key, id: w.id, pid: w.pid, title: w.title, icon: w.icon, size: w.size })) },
     plugins: { enabled: id => enabled(id) },
     system: () => ({ demo: DEMO, mode: Store.server ? 'nas' : Store.ref ? 'claude' : 'local', status: Store.status, lastSyncAt: Store.lastSyncAt || null, latency: Store.latency ?? null, ai: !!AI, health: Store.health || null, version: window.Cadence.version, plugins: Reg.defs.filter(d => enabled(d.id)).length, counts: { tasks: S.tasks.length, open: S.tasks.filter(t => !t.done).length, clients: S.clients.filter(c => !c.archived).length, meetings: S.meetings.length } }),
     ui: { reducedMotion, toast, refreshWidgets: () => renderWidgets(), pointer: () => ({ ...lastPointer }), faviconUrl: (d, v) => faviconUrl(d, v), avatar: (c, size) => avatar(c, size), navigate: r => go(r), refresh: () => render(), copy: copyText, esc, modal: openModalHTML, close: closeModal, currentRoute: () => route() },
@@ -390,7 +394,7 @@ function makeApi(pid){
   });
 }
 function rebuildPlugins(){
-  for(const k of ['commands','views','parsers','extractors','taskActions','meetingActions','clientActions','sidebar','listeners']) Reg[k] = [];
+  for(const k of ['commands','views','parsers','extractors','taskActions','meetingActions','clientActions','sidebar','listeners','settingsPanels','widgets']) Reg[k] = [];
   for(const def of Reg.defs){
     if(!enabled(def.id)) continue;
     try { def.setup(makeApi(def.id)); } catch(e){ console.error(`Plugin ${def.id} failed`, e); }
@@ -442,6 +446,7 @@ const NAV_ICONS = {
   inbox: '<svg viewBox="0 0 24 24"><path d="M3.5 13.5l2.6-7.2A2 2 0 0 1 8 5h8a2 2 0 0 1 1.9 1.3l2.6 7.2V18a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z"/><path d="M3.5 13.5H8l1.5 2.5h5l1.5-2.5h4.5"/></svg>',
   done: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M8.3 12.3l2.5 2.5 5-5.3"/></svg>',
   keys: '<svg viewBox="0 0 24 24"><rect x="2.5" y="6" width="19" height="12" rx="2.5"/><path d="M6 10h.01M9.5 10h.01M13 10h.01M16.5 10h.01M7.5 14h9"/></svg>',
+  puzzle: '<svg viewBox="0 0 24 24"><path d="M9 4.5a2 2 0 0 1 4 0V6h3.5A1.5 1.5 0 0 1 18 7.5V11h1.5a2 2 0 0 1 0 4H18v3.5a1.5 1.5 0 0 1-1.5 1.5H13v-1.5a2 2 0 0 0-4 0V20H5.5A1.5 1.5 0 0 1 4 18.5V15h1.5a2 2 0 0 0 0-4H4V7.5A1.5 1.5 0 0 1 5.5 6H9z"/></svg>',
   moon: '<svg viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></svg>',
   gear: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2.8l1.6 2.3 2.8-.4.9 2.7 2.6 1.1-.5 2.8 1.8 2.2-1.8 2.2.5 2.8-2.6 1.1-.9 2.7-2.8-.4L12 21.2l-1.6-2.3-2.8.4-.9-2.7-2.6-1.1.5-2.8L2.8 12l1.8-2.2-.5-2.8 2.6-1.1.9-2.7 2.8.4z"/></svg>',
 };
@@ -465,7 +470,7 @@ function renderSide(){
       ${paused.length ? `<div class="more" data-act="toggle-paused">${showPaused ? '▾' : '▸'} Paused <span class="muted">${paused.length}</span></div>${showPaused ? paused.map(cl => clientLink(cl, r, o, true)).join('') : ''}` : ''}</nav>`;
   $('#side-foot').innerHTML = `${DEMO ? `<div class="demo-row"><b>●</b> Demo data<button data-act="demo-reset">Reset</button><button data-act="demo-exit">Exit</button></div>` : ''}
       <button class="meet-btn" data-act="meeting">${S.activeMeeting ? '● Resume meeting' : '◉ Start meeting'} <kbd style="background:transparent;color:inherit;border-color:currentColor;opacity:.45">M</kbd></button>
-      <div class="foot-row"><span class="sync ${Store.status==='synced'?'ok':''}" id="sync"><i></i><span>${DEMO ? 'Demo data — not saved' : Store.status==='synced'?(Store.server?'Synced to NAS':'Synced'):'This browser'}</span></span><button data-act="shortcuts" title="Keyboard shortcuts (?)">${NAV_ICONS.keys}</button><button data-act="theme" title="Theme">${NAV_ICONS.moon}</button><button data-act="settings" title="Settings & plugins">${NAV_ICONS.gear}</button></div>`;
+      <div class="foot-row"><span class="sync ${Store.status==='synced'?'ok':''}" id="sync"><i></i><span>${DEMO ? 'Demo data — not saved' : Store.status==='synced'?(Store.server?'Synced to NAS':'Synced'):'This browser'}</span></span><button data-act="shortcuts" title="Keyboard shortcuts (?)">${NAV_ICONS.keys}</button><button data-act="theme" title="Theme">${NAV_ICONS.moon}</button><button data-act="open-plugins" title="Plugins">${NAV_ICONS.puzzle}</button><button data-act="settings" title="Settings">${NAV_ICONS.gear}</button></div>`;
   emit('render:side', {});
 }
 /* plugin sidebar widgets: rendered once per plugin rebuild; plugins update their own widget afterwards */
@@ -566,6 +571,8 @@ function renderView(){
       try { cur.render($('#pv'), makeApi(cur.pid)); } catch(e){ $('#pv').textContent = 'Plugin view failed: ' + e.message; }
       applyKb(); emit('render', { route: r, view: cur.id }); return;
     }
+  } else if(r === 'plugins'){
+    renderPlugins(v); applyKb(); emit('render', { route: r }); return;
   } else if(r.startsWith('view-')){
     const pv = Reg.views.find(x => 'view-'+x.id === r);
     if(pv){ v.innerHTML = `<div class="head"><div><h1>${esc(pv.title)}</h1>${pv.subtitle?`<div class="sub">${esc(pv.subtitle)}</div>`:''}</div></div><div id="pv"></div>`; try { pv.render($('#pv'), makeApi(pv.pid)); } catch(e){ $('#pv').textContent = 'Plugin view failed: ' + e.message; } emit('render', { route: r }); return; }
@@ -955,7 +962,72 @@ function promptClient(existing){
 
 /* ---------- settings ---------- */
 let settingsTab = 'general';
-const plugUI = { q:'', cat:'All', open:null };
+const plugUI = { q:'', cat:'All', open:null, tab:'active' };
+/* ---------- plugin browser (its own page: #plugins) ---------- */
+function hasSettings(pid){ const d = Reg.defs.find(x => x.id === pid); return !!(d && enabled(pid) && (d.settings || Reg.settingsPanels.some(x => x.pid === pid))); }
+function openPluginSettings(pid){
+  const d = Reg.defs.find(x => x.id === pid); if(!d) return;
+  if(!enabled(pid)) return toast(`Turn ${d.name || pid} on to change its settings`);
+  const panel = Reg.settingsPanels.find(x => x.pid === pid);
+  closeModal();
+  setTimeout(() => { try { (d.settings ? d.settings : panel.fn)(makeApi(pid)); } catch(e){ toast('Settings failed: ' + e.message); } }, 40);
+}
+function pluginAdds(pid){
+  const by = k => Reg[k].filter(x => x.pid === pid);
+  const out = [];
+  by('views').forEach(v => out.push(['View', v.title]));
+  by('sidebar').forEach(w => out.push(['Sidebar', w.title || 'A panel in the sidebar']));
+  by('widgets').forEach(w => out.push(['Widget', w.title || w.id]));
+  by('commands').forEach(c => out.push(['⌘K', c.title]));
+  by('clientActions').forEach(a => out.push(['Client', (a.label || '').replace(/^\W+/, '')]));
+  by('taskActions').forEach(a => out.push(['Task', a.label]));
+  by('meetingActions').forEach(a => out.push(['Meeting', a.label]));
+  by('extractors').forEach(x => out.push(['Importer', x.name]));
+  by('parsers').forEach(() => out.push(['Quick add', 'syntax']));
+  return out;
+}
+function renderPlugins(v){
+  const all = Reg.defs, on = all.filter(d => enabled(d.id)), off = all.filter(d => !enabled(d.id)), mine = all.filter(d => d.userCode);
+  const tabs = [['active', 'Active', on.length], ['available', 'Turned off', off.length], ['all', 'All', all.length], ['yours', 'Yours', mine.length]];
+  const base = { active: on, available: off, all, yours: mine }[plugUI.tab] || on;
+  const cats = [...new Set(base.map(d => d.category || 'Other'))].sort((a, b) => PLUG_CATS.indexOf(a) - PLUG_CATS.indexOf(b));
+  if(plugUI.cat !== 'All' && !cats.includes(plugUI.cat)) plugUI.cat = 'All';
+  v.innerHTML = `<div class="pb">
+    <div class="pb-hero"><div><h1>Plugins</h1><div class="sub">${on.length} of ${all.length} on. Cadence is whatever you make it: switch things on, tune them, or write your own.</div></div>
+      <div class="pb-search">${NAV_ICONS.puzzle}<input id="pb-q" placeholder="Search plugins…" value="${esc(plugUI.q)}" autocomplete="off"></div></div>
+    <div class="pb-tabs">${tabs.map(([k, l, n]) => `<button class="${plugUI.tab === k ? 'on' : ''}" data-act="pl-tab" data-t="${k}">${l}<span>${n}</span></button>`).join('')}<button class="pb-dev" data-act="set-tab" data-tab="dev">+ Write a plugin</button></div>
+    <div class="pl-cats">${['All', ...cats].map(c => `<button class="${c === plugUI.cat ? 'on' : ''}" data-act="pl-cat" data-c="${esc(c)}">${esc(c)}</button>`).join('')}</div>
+    <div class="pb-grid" id="pb-grid"></div>
+    ${plugUI.open ? pluginDetail(plugUI.open) : ''}</div>`;
+  const grid = () => {
+    const q = plugUI.q.toLowerCase();
+    const list = base.filter(d => (plugUI.cat === 'All' || (d.category || 'Other') === plugUI.cat) && (!q || [d.name, d.id, d.tagline, d.description, d.category].join(' ').toLowerCase().includes(q)));
+    $('#pb-grid').innerHTML = list.map(d => {
+      const adds = enabled(d.id) ? pluginAdds(d.id) : [], kinds = [...new Set(adds.map(x => x[0]))].slice(0, 3);
+      return `<div class="pl-card pb-card ${enabled(d.id) ? '' : 'off'} ${plugUI.open === d.id ? 'sel' : ''}" data-act="pl-open" data-pid="${esc(d.id)}" style="--pc:${esc(d.color || '#5b5bd6')}">
+        <div class="pb-top">${plugIcon(d, 44)}<div class="pb-act">${hasSettings(d.id) ? `<button class="pb-gear" data-act="pl-settings" data-pid="${esc(d.id)}" title="Settings">${NAV_ICONS.gear}</button>` : ''}<button class="switch sm ${enabled(d.id) ? 'on' : ''}" data-act="toggle-plugin" data-pid="${esc(d.id)}" aria-label="Turn ${esc(d.name || d.id)} ${enabled(d.id) ? 'off' : 'on'}"></button></div></div>
+        <b>${esc(d.name || d.id)}</b><span class="pb-tag">${esc(d.tagline || d.description || '')}</span>
+        <div class="pb-foot"><i>${esc(d.category || 'Other')}</i>${kinds.map(k => `<i class="k">${esc(k)}</i>`).join('')}${d.userCode ? '<i class="k">Yours</i>' : ''}</div>
+      </div>`; }).join('') || `<div class="pb-empty">${plugUI.tab === 'available' && !q ? 'Everything is switched on. Bold.' : 'No plugins match.'}</div>`;
+  };
+  grid();
+  const qi = $('#pb-q'); qi.oninput = () => { plugUI.q = qi.value; grid(); };
+  if(plugUI.q) { qi.focus(); qi.setSelectionRange(qi.value.length, qi.value.length); }
+}
+function pluginDetail(pid){
+  const d = Reg.defs.find(x => x.id === pid); if(!d) return '';
+  const adds = enabled(pid) ? pluginAdds(pid) : [];
+  return `<div class="pb-scrim" data-act="pl-close"></div><aside class="pb-detail" style="--pc:${esc(d.color || '#5b5bd6')}">
+    <button class="pb-x" data-act="pl-close" aria-label="Close">✕</button>
+    <div class="pb-dh">${plugIcon(d, 64)}<div><h2>${esc(d.name || d.id)}</h2><div class="muted">${esc(d.tagline || '')}</div></div></div>
+    <div class="pb-dbtns"><button class="btn ${enabled(pid) ? '' : 'primary'}" data-act="toggle-plugin" data-pid="${esc(pid)}">${enabled(pid) ? 'Turn off' : 'Turn on'}</button>
+      ${hasSettings(pid) ? `<button class="btn primary" data-act="pl-settings" data-pid="${esc(pid)}">${NAV_ICONS.gear} Settings</button>` : ''}
+      ${d.userCode ? `<button class="btn ghost danger" data-act="remove-plugin" data-pid="${esc(pid)}">Remove</button>` : ''}</div>
+    <p>${esc(d.description || '')}</p>
+    ${adds.length ? `<div class="pb-sec">What it adds</div><ul class="pb-adds">${adds.map(([k, t]) => `<li><i>${esc(k)}</i>${esc(t)}</li>`).join('')}</ul>` : enabled(pid) ? '' : '<div class="pb-sec">Turn it on to see what it adds.</div>'}
+    <div class="pb-meta"><span>v${esc(d.version || '1.0')}</span><span>${d.userCode ? 'Installed by you' : 'Built-in'}</span><span>${esc(d.category || 'Other')}</span><span class="mono">${esc(d.id)}</span></div>
+  </aside>`;
+}
 const PLUG_CATS = ['Meetings','Clients','Productivity','Look & feel','Fun','Integrations','System','Other'];
 /* plugin icon: SVG markup (inner paths or a full <svg>), an image URL, or an emoji — on a tile in the plugin's colour */
 function plugIcon(d, size = 36){
@@ -978,6 +1050,8 @@ function openSettings(tab){
       <div class="field"><label>Desktop notifications</label><button class="btn" data-act="notif">${('Notification' in window && Notification.permission==='granted') ? '✓ Enabled' : 'Enable notifications'}</button><div class="muted" style="font-size:12px;margin-top:6px">Reminders always appear in-app with a chime. Keep Cadence open in a tab or pinned window.</div></div>
       <div class="field"><label>Theme</label><div class="seg"><button data-act="set-theme" data-v="light" class="${S.settings.theme==='light'?'on':''}">Light</button><button data-act="set-theme" data-v="dark" class="${S.settings.theme==='dark'?'on':''}">Dark</button></div></div>
       <div class="field"><label>Motion</label><div class="row" style="align-items:center"><select class="inp" id="set-motion" style="width:auto">${[['auto','Match system'],['reduce','Reduced'],['full','Full']].map(([v,l]) => `<option value="${v}" ${(S.settings.motion||'auto')===v?'selected':''}>${l}</option>`).join('')}</select><span class="muted" style="font-size:12px">Reduced turns off damage numbers, confetti, springs and the living garden.</span></div></div>`;
+  } else if(settingsTab === 'plugins' && !openSettings.legacy){
+    settingsTab = 'general'; closeModal(); go('plugins'); return;
   } else if(settingsTab === 'plugins'){
     const cats = [...new Set(Reg.defs.map(d => d.category || 'Other'))].sort((a, b) => PLUG_CATS.indexOf(a) - PLUG_CATS.indexOf(b));
     const q = (plugUI.q || '').toLowerCase(), cat = plugUI.cat || 'All';
@@ -1188,10 +1262,13 @@ document.addEventListener('click', e => {
     case 'archive-client': { const c = client(a.dataset.cid); c.archived = !c.archived; save(); closeModal(); go('today'); break; }
     case 'ob-add': { const v = $('#ob-clients').value; v.split(',').forEach(n => addClient(n)); render(); toast('Clients added — they’re in the sidebar'); break; }
     case 'meeting': startMeeting(a.dataset.cid); break;
-    case 'remove-plugin': { const d = Reg.defs.find(x => x.id === a.dataset.pid); if(!d || !d.userCode) break; S.userPlugins = S.userPlugins.filter(c => c !== d.userCode); Reg.defs = Reg.defs.filter(x => x !== d); save(); rebuildPlugins(); render(); toast(`Removed ${d.name || d.id}`); openSettings('plugins'); break; }
-    case 'pl-cat': plugUI.cat = a.dataset.c; openSettings(); break;
-    case 'pl-open': if(e.target.closest('button')) break; plugUI.open = plugUI.open === a.dataset.pid ? null : a.dataset.pid; openSettings(); break;
-    case 'pl-settings': { const d = Reg.defs.find(x => x.id === a.dataset.pid); if(d && d.settings){ closeModal(); setTimeout(() => d.settings(makeApi(d.id)), 60); } break; }
+    case 'remove-plugin': { const d = Reg.defs.find(x => x.id === a.dataset.pid); if(!d || !d.userCode) break; S.userPlugins = S.userPlugins.filter(c => c !== d.userCode); Reg.defs = Reg.defs.filter(x => x !== d); plugUI.open = null; save(); rebuildPlugins(); render(); toast(`Removed ${d.name || d.id}`); break; }
+    case 'pl-cat': plugUI.cat = a.dataset.c; route() === 'plugins' ? renderView() : openSettings(); break;
+    case 'pl-tab': plugUI.tab = a.dataset.t; plugUI.cat = 'All'; renderView(); break;
+    case 'pl-open': if(e.target.closest('button')) break; plugUI.open = plugUI.open === a.dataset.pid ? null : a.dataset.pid; route() === 'plugins' ? renderView() : openSettings(); break;
+    case 'pl-close': plugUI.open = null; renderView(); break;
+    case 'pl-settings': openPluginSettings(a.dataset.pid); break;
+    case 'open-plugins': closeModal(); go('plugins'); break;
     case 'ins-tab': S.settings.insightsTab = a.dataset.id; persistLocal(); render(); break;
     case 'demo-open': window.open(location.pathname + '?demo=1' + location.hash, '_blank'); break;
     case 'demo-reset': resetDemo(); break;
@@ -1201,7 +1278,7 @@ document.addEventListener('click', e => {
     case 'set-tab': openSettings(a.dataset.tab); break;
     case 'set-theme': S.settings.theme = a.dataset.v; save(); render(); openSettings(); break;
     case 'notif': try { Notification.requestPermission().then(p => { toast(p === 'granted' ? 'Desktop notifications on' : 'Notifications blocked here — in-app reminders still work'); openSettings(); }).catch(() => toast('Notifications aren’t available in this window — in-app reminders still work')); } catch(err){ toast('Notifications aren’t available in this window — in-app reminders still work'); } break;
-    case 'toggle-plugin': { const p = a.dataset.pid; S.disabled = enabled(p) ? [...S.disabled, p] : S.disabled.filter(x => x !== p); save(); rebuildPlugins(); render(); openSettings(); break; }
+    case 'toggle-plugin': { const p = a.dataset.pid, was = enabled(p); S.disabled = was ? [...S.disabled, p] : S.disabled.filter(x => x !== p); save(); rebuildPlugins(); render(); if(route() !== 'plugins') openSettings(); else { const d = Reg.defs.find(x => x.id === p); toast(`${d ? d.name || d.id : p} ${was ? 'turned off' : 'is on'}`, was ? [{ label: 'Undo', run: () => { S.disabled = S.disabled.filter(x => x !== p); save(); rebuildPlugins(); render(); } }] : (hasSettings(p) ? [{ label: 'Settings', run: () => openPluginSettings(p) }] : [])); } break; }
     case 'dev-install': {
       const code = $('#dev-code').value.trim(); if(!code) return;
       try { loadingUser = code; try { new Function('Cadence', code)(window.Cadence); } finally { loadingUser = null; } S.userPlugins = [...S.userPlugins, code]; save(); toast('Plugin installed'); openSettings('plugins'); }

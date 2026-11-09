@@ -303,6 +303,7 @@
       }
       api.commands.add({ title: 'Open the mural', run: api => api.ui.navigate('view-mural') });
       api.commands.add({ title: 'Mosaic: choose a new painting', run: api => { api.ui.navigate('view-mural'); setTimeout(picker, 300); } });
+      api.onSettings(() => { api.ui.navigate('view-mural'); setTimeout(picker, 300); });
     }
   });
 })();

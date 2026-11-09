@@ -22,6 +22,7 @@ const KEEP_BACKUPS = +process.env.KEEP_BACKUPS || 30;
 // When they exist, HTTPS runs on HTTPS_PORT and the plain HTTP port only redirects (and serves the public CA).
 const TLS_DIR = process.env.TLS_DIR || '/certs';
 const HTTPS_PORT = +process.env.HTTPS_PORT || 8443;
+const HTTPS_PUBLIC_PORT = +process.env.HTTPS_PUBLIC_PORT || HTTPS_PORT;   // the port on the NAS (compose maps it to 8443 inside)
 
 const STATE_FILE = path.join(DATA_DIR, 'state.json');
 const BACKUP_DIR = path.join(DATA_DIR, 'backups');
@@ -457,7 +458,7 @@ async function handle(req, res) {
       setCookie(req, res, '', 0);
       return send(res, 200, { ok: true });
     }
-    if (p === '/api/whoami') return send(res, 200, { httpsPort: TLS ? HTTPS_PORT : null, auth: !!PASSWORD, signedIn: authorized(req), user: authorized(req) && PASSWORD ? USERNAME : null, https: !!req.socket.encrypted });
+    if (p === '/api/whoami') return send(res, 200, { httpsPort: TLS ? HTTPS_PUBLIC_PORT : null, auth: !!PASSWORD, signedIn: authorized(req), user: authorized(req) && PASSWORD ? USERNAME : null, https: !!req.socket.encrypted });
 
     if (!authorized(req)) {
       if (OPEN.has(leaf) || iconish) { /* public asset */ }
@@ -607,7 +608,7 @@ if (TLS) {
     const u = new URL(req.url, 'http://x');
     if (u.pathname.replace(/^.*\//, '/') === '/ca.crt') return sendCA(res);
     const host = String(req.headers.host || 'localhost').replace(/:\d+$/, '').replace(/[^\w.\-\[\]:]/g, '');
-    res.writeHead(307, { Location: `https://${host}:${HTTPS_PORT}${u.pathname}${u.search}`, 'Cache-Control': 'no-store' });
+    res.writeHead(307, { Location: `https://${host}:${HTTPS_PUBLIC_PORT}${u.pathname}${u.search}`, 'Cache-Control': 'no-store' });
     res.end();
   }).listen(PORT, () => console.log(`Cadence http :${PORT} redirects to https :${HTTPS_PORT}`));
 } else {

@@ -130,6 +130,7 @@
       }
       G.open = openPanel;
       api.commands.add({ title: 'System status', run: () => openPanel() });
+      api.onSettings(() => openPanel());
 
       /* ------------ boot sequence (once per page load) */
       if (!G.booted) {

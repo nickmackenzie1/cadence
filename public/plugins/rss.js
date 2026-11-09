@@ -260,6 +260,7 @@
         draw();
       }
       api.commands.add({ title: 'Manage feeds', run: () => manage() });
+      api.onSettings(() => manage());
     }
   });
 })();

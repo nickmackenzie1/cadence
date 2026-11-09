@@ -112,6 +112,7 @@ registerPlugin({
     api.clientActions.add({ id:'tpl-save', label:'⎘  Save open tasks as template', run: c => saveAs(c) });
     api.commands.add({ title:'Apply project template to current client', run: api => { const r = api.ui.currentRoute(); if(!r.startsWith('client-')) return api.ui.toast('Open a client first'); apply(api.clients.get(r.slice(7))); } });
     api.commands.add({ title:'Edit project templates', run: () => edit() });
+    api.onSettings(() => edit());
     window.CadenceTemplates = { apply: (c, id) => apply(c, id), name: id => { const t = list().find(x => x.id === id); return t ? t.name : ''; } };
   }
 });

@@ -203,6 +203,7 @@
       G.settings = settings;
       G.sample = () => { api.storage.set('settings', { ...opts(), sample: true }); load().then(() => { api.ui.refresh(); tick(); }); };
       api.commands.add({ title: 'Calendar settings', run: () => settings() });
+      api.onSettings(() => settings());
       api.commands.add({ title: 'Start meeting from calendar (current / next)', run: () => { const ev = G.events.map(enrich).find(e => e.end > Date.now()); if (ev) startFor(ev); else api.ui.toast('No upcoming meetings'); } });
 
       // first load

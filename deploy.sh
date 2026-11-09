@@ -2,7 +2,7 @@
 # Cadence auto-deploy for Synology.
 # Run from DSM Task Scheduler as root, e.g. every 5 minutes:
 #   REPO=owner/cadence TOKEN=github_pat_xxx APP_PASSWORD=secret sh /volume1/docker/cadence/deploy.sh
-# Optional vars: APP_USERNAME, ANTHROPIC_API_KEY, TZ, BRANCH. They're written to .env (never committed).
+# Optional vars: APP_USERNAME, ANTHROPIC_API_KEY, TZ, BRANCH, HTTPS_PORT (default 8443). They're written to .env (never committed).
 # HTTPS: tls.sh keeps a mkcert certificate in certs/ (HTTPS=off to skip, CERT_HOSTS="..." to set the names).
 # - Pulls the latest commit from GitHub (read-only token)
 # - Changes to public/ go live instantly (mounted into the container)
@@ -66,6 +66,7 @@ write_env(){
     echo "APP_USERNAME=${APP_USERNAME:-cadence}"
     echo "APP_PASSWORD=${APP_PASSWORD:-}"
     echo "ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}"
+    echo "HTTPS_PORT=${HTTPS_PORT:-8443}"
   } > .env.new
   if ! cmp -s .env.new .env 2>/dev/null; then mv .env.new .env; chmod 600 .env; return 0; fi
   rm -f .env.new; return 1

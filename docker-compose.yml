@@ -5,7 +5,7 @@ services:
     restart: unless-stopped
     ports:
       - "8484:8484"   # http: redirects to https once certs/ exists
-      - "8443:8443"   # https (mkcert, LAN only)
+      - "${HTTPS_PORT:-8443}:8443"   # https (mkcert, LAN only); change with HTTPS_PORT=… in the task command
     volumes:
       - ./data:/data
       # the app UI is mounted live: a pushed change to public/ goes live on refresh, no rebuild
@@ -14,3 +14,6 @@ services:
       - ./certs:/certs:ro
     env_file:
       - .env
+    environment:
+      - HTTPS_PORT=8443                         # inside the container (overrides .env)
+      - HTTPS_PUBLIC_PORT=${HTTPS_PORT:-8443}   # on the NAS, for the http -> https redirect

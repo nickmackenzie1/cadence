@@ -27,6 +27,9 @@ test('boots with every plugin registered and no errors', async ({ page }) => {
   const errs = errorsOf(page); await boot(page);
   const scripts = await page.locator('script[src^="plugins/"]').count();
   await page.click('[data-act=settings]'); await page.click('[data-act=set-tab][data-tab=plugins]');
+  await expect(page).toHaveURL(/#plugins/);
+  await page.click('[data-act=pl-tab][data-t=all]');
+  await expect(page.locator('.pl-card').first()).toBeVisible();
   expect(await page.locator('.pl-card').count()).toBeGreaterThanOrEqual(scripts);
   expect(errs).toEqual([]);
 });

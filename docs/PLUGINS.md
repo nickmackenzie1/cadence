@@ -37,6 +37,7 @@ Use `api.storage` for anything that should persist.
 | `api.meetingActions.add({ label, run(meeting, items, api) })` | Button on the meeting review screen and in the meeting log |
 | `api.clientActions.add({ id, label, run(client, api), primary?, where?: ['waiting'], short? })` | Client page: `primary` shows a button in the header, otherwise it goes in the ••• menu. `where: ['waiting']` also adds a small `short` button to that client's group on Waiting on clients |
 | `api.sidebar.add({ id, order, slot: 'top'|'bottom', render(el, api) })` | A widget in the sidebar (keep it small: the sidebar is for navigation). Rendered once; update it yourself from events |
+| `api.onSettings(fn)` | The Settings button for your plugin in the plugin browser (or define `settings(api)` on the plugin) |
 | `api.on(event, fn)` | `task:add` `task:update` `task:complete` `task:reopen` `task:remove` `client:add` `client:update` `meeting:start` `meeting:end` `reminder` `render` ({route}) `sync` ({phase: push/saved/pull/pulled/connected/error, ms}) `task:quickadd` `render:side` `*` |
 
 ## Data and helpers

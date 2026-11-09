@@ -361,6 +361,7 @@
         document.querySelector('#mo-reset').onclick = () => { if (document.querySelector('#mo-reset').dataset.sure) { put({}); refresh(); api.ui.close(); api.ui.toast('Progress reset'); } else { document.querySelector('#mo-reset').dataset.sure = 1; document.querySelector('#mo-reset').textContent = 'Click again to reset'; } };
       }
       api.commands.add({ title: 'Momentum stats', run: () => openStats() });
+      api.onSettings(() => openStats());
       // keep "watered today / streak" fresh across midnight
       clearInterval(G.tick); G.tick = setInterval(() => refresh(), 5 * 60 * 1000);
     }
