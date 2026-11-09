@@ -320,3 +320,8 @@ Needs: Life space (done), weather API (key on NAS), maps/GPX (offline tiles = ph
 - Backlog (user, 2026-11-09 15:31): "Liquid Glass" UI theme (Apple-style): translucent panels with backdrop blur +
   saturation, specular edge highlights, refraction-ish lensing on hover (SVG feDisplacementMap filter where
   supported), floating pill sidebar and toolbar, content showing through. Pairs naturally with the ambient light layer.
+- Backlog (user, 2026-11-09 15:37, strong preference): "I hate the emojis, it makes it look so cheap". Replace EVERY
+  emoji in the UI with an open-source icon set (Lucide, ISC licence, vendored SVGs in public/vendor, no CDN): area and
+  project icons (picker becomes icon + colour), views/nav, plugin UI (🎫 🏡 🔥 📌 ⚙ ✨ etc.), stickers, toasts, Island,
+  Good Homeowner options, empty states. Store icon names (e.g. 'wrench') instead of emoji; migrate existing records.
+  Don't add new emojis in the meantime.
