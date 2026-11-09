@@ -821,7 +821,14 @@ function fitSide(){
   (m.querySelector('.nav a[data-cid]') ? m.querySelector('.nav a[data-cid]').closest('.nav') : nav0).appendChild(more);
   for(const a of links){ if(!over()) break; sideHidden.push(a.dataset.cid); a.remove(); more.innerHTML = `<span class="ic">＋</span><span class="t">${sideHidden.length} more</span><kbd>⌘K</kbd>`; }
   if(!sideHidden.length) more.remove();
+  // a section left with nothing visible loses its heading too (its items are in "+N more")
+  m.querySelectorAll('.nav').forEach(n => { if(!n.querySelector('a') && n.previousElementSibling && n.previousElementSibling.classList.contains('sect')) {
+    const k = n.previousElementSibling.querySelector('[data-act=add-project]') ? sideHidden.filter(id => isProject(client(id))).length : 0;
+    if(k) n.insertAdjacentHTML('beforeend', `<a class="more-cl" data-act="more-clients"><span class="ic">＋</span><span class="t">${k} in “more”</span></a>`); else n.previousElementSibling.style.display = 'none'; } });
 }
+// re-fit when the look changes size: theme switches, web fonts arriving
+document.addEventListener('cadence:theme', () => setTimeout(() => renderSide(), 80));
+document.fonts && document.fonts.ready.then(() => renderSide && renderSide());
 let sideFitT; addEventListener('resize', () => { clearTimeout(sideFitT); sideFitT = setTimeout(() => { renderSide(); }, 120); });
 /* plugin sidebar widgets: rendered once per plugin rebuild; plugins update their own widget afterwards */
 /* plugin sidebar widgets. Top-slot ones sit above the lists. The rest live in a dock: one row of small icons that

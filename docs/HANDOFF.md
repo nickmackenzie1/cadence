@@ -378,3 +378,14 @@ Needs: Life space (done), weather API (key on NAS), maps/GPX (offline tiles = ph
   signed in." pop-ups, chime on task complete (not when Busy). Tones synthesized with WebAudio; state in localStorage
   cadence.msn. LimeWire homage: search bar, striped results table, status bar (Turbo-Charged Connection, sharing N
   tasks) and a fake .mp3 download when you complete a task. Core now dispatches DOM event `cadence:task-complete`.
+- Snow 2.0 (2026-11-09, shipped): depth layers (far specks, settling mid flakes, near bokeh), soft + six-armed crystal
+  sprites, fine-tune sliders (amount/size/speed/wind/gusts/drift depth) live-previewed, melt, reactions: click
+  shockwave + knock the clicked element's pile off as clumps that burst into powder, neighbours jolted, wheel shakes
+  piles, fast mouse carves. Drifts follow the element's top corner radius (base curve + per-bucket cap by slope).
+  Light reflections: G.bulbs + brightness model mirroring the CSS timing; flakes near bulbs glow in their colour,
+  drift tops glint, #xm-glow spills colour on the UI (screen blend on dark themes). ⌘K "Let it snow / stop the snow",
+  "Lights on / off" work independently any day (G.flip).
+- Sidebar: sections emptied by folding show "N in more"; the sidebar re-fits on theme change and when fonts load.
+  LimeWire/MSN: #view full width (flex column bug), Search/Send buttons positioned inside the box.
+- Backlog (user, 2026-11-09 16:23): meeting screen becomes the client's screen when a client is chosen: their logo,
+  brand colours (ambient), description, open items, last meeting notes.

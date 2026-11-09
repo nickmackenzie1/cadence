@@ -119,5 +119,24 @@ test('Christmas mode: lights, snow that settles on the page, and the shovel', as
   await page.evaluate(() => window.__xmas.settings()); await page.uncheck('#xm-on'); await page.click('#xm-save');
   await expect(page.locator('#xm-snow')).toHaveCount(0);
   await expect(page.locator('#xm-string')).toHaveCount(0);
+  await page.waitForTimeout(1200);   // let the "off" reach the NAS before the next test
+  expect(errs).toEqual([]);
+});
+
+test('snow and lights switch on independently, any day', async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem('cadence.reviewNudge', 'x'));
+  await page.goto(B + '/#today');
+  await expect(page.locator('#sync')).toContainText('NAS', { timeout: 8000 });
+  // start from off (an earlier test may still have been saving its state)
+  await page.evaluate(() => window.__xmas.settings()); await page.uncheck('#xm-on'); await page.click('#xm-save');
+  await page.evaluate(() => window.__xmas.flip('lights'));
+  await expect(page.locator('#xm-string')).toBeAttached(); await expect(page.locator('#xm-snow')).toHaveCount(0);
+  await page.evaluate(() => window.__xmas.flip('snow'));
+  await expect(page.locator('#xm-snow')).toBeAttached();
+  // a click on a card knocks snow and throws no errors
+  const errs = []; page.on('pageerror', e => errs.push(String(e)));
+  await page.waitForTimeout(1500); await page.mouse.click(600, 200); await page.waitForTimeout(500);
+  await page.evaluate(() => { window.__xmas.flip('lights'); window.__xmas.flip('snow'); });
+  await expect(page.locator('#xm-snow')).toHaveCount(0); await expect(page.locator('#xm-string')).toHaveCount(0);
   expect(errs).toEqual([]);
 });
