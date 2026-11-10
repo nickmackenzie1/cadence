@@ -266,3 +266,31 @@ test('routines: energy check-in tucks hard tasks away, places from quick add, ri
   await expect(page.locator('.rt-card.on', { hasText: 'Friday shutdown' })).toHaveCount(1);
   expect(errs).toEqual([]);
 });
+
+test('kitchen: recipe from a link, plan it, shopping list by aisle, groceries task', async ({ page }) => {
+  await page.route('**/api/recipe?*', r => r.fulfill({ json: { url: 'https://blog.example/tacos', name: 'Fish tacos', image: '', servings: 4, minutes: 30, site: 'blog.example',
+    ingredients: ['1 lb cod', '8 tortillas', '1 lime', '1/2 cup sour cream', '2 cups cabbage'], steps: ['Season the fish', 'Grill it', 'Assemble'] } }));
+  const errs = await open(page);
+  await page.mouse.click(700, 300); await page.keyboard.press('Shift+L');
+  await expect(page.locator('html[data-space=life]')).toHaveCount(1);
+  await page.evaluate(() => location.hash = 'view-kitchen');
+  await page.click('.kt-tabs [data-t=recipes]');
+  await page.fill('#kr-url', 'https://blog.example/tacos'); await page.click('#kr-go');
+  await expect(page.locator('.modal')).toContainText('Season the fish');
+  await page.click('#kr-body [data-k="1"]'); await page.click('#kr-body [data-k="1"]'); await page.click('#kr-body [data-k="1"]'); await page.click('#kr-body [data-k="1"]');
+  await expect(page.locator('#kr-body li').first()).toHaveText('2 lb cod');
+  await page.click('#kr-shop');
+  await page.keyboard.press('Escape');
+  await page.click('.kt-tabs [data-t=list]');
+  await expect(page.locator('.kl-g', { hasText: 'Meat & fish' })).toContainText('2 lb cod');
+  await expect(page.locator('.kl-g', { hasText: 'Produce' })).toContainText('lime');
+  await page.click('#kl-task');
+  expect(await page.evaluate(() => window.T.tasks.list(t => /^Groceries/.test(t.title)).length)).toBe(1);
+  // plan
+  await page.click('.kt-tabs [data-t=plan]');
+  const t0 = await page.evaluate(() => window.T.util.todayKey());
+  const cell = page.locator(`.kp-cell[data-d="${t0}"][data-m=dinner] input`);
+  await cell.fill('Fish tacos'); await cell.press('Enter');
+  await expect(page.locator(`.kp-cell[data-d="${t0}"][data-m=dinner] .nm`)).toHaveText('Fish tacos');
+  expect(errs).toEqual([]);
+});
