@@ -48,6 +48,42 @@
       .rs-wall{display:grid;grid-template-columns:repeat(auto-fill,minmax(168px,1fr));grid-auto-rows:4px;grid-auto-flow:dense;column-gap:18px}
       .rs-pin{display:block;text-decoration:none;color:var(--text);align-self:start}
       .rs-pin.big{grid-column:span 2}
+
+      /* podcast */
+      .rs-pods{display:flex;flex-direction:column;gap:8px}
+      .rs-pod{display:grid;grid-template-columns:56px 1fr auto;gap:12px;align-items:center;padding:8px;border:1px solid var(--line);border-radius:12px;background:var(--panel)}
+      .rs-pod img{width:56px;height:56px;border-radius:9px;object-fit:cover;background:var(--hover)}
+      .rs-pod .tx{min-width:0}.rs-pod .tx a{color:var(--text);text-decoration:none}.rs-pod b{display:block;font-size:13.5px;line-height:1.3}
+      .rs-pod span{font-size:11.5px;color:var(--muted)}.rs-pod em{color:var(--accent);font-style:normal;font-weight:600}
+      .rs-pod p{margin:3px 0 0;font-size:12px;color:var(--muted);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+      .rs-play{width:38px;height:38px;border-radius:50%;border:0;background:var(--accent);color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 4px 12px -4px var(--accent)}
+      .rs-play svg{width:16px;height:16px;fill:currentColor}
+      #rs-player{position:fixed;right:18px;bottom:18px;z-index:55;width:380px;display:grid;grid-template-columns:52px 1fr;gap:6px 10px;padding:10px;background:var(--panel);border:1px solid var(--line);border-radius:14px;box-shadow:0 18px 40px -14px rgba(0,0,0,.35);transform:translateY(140%);transition:transform .35s cubic-bezier(.3,1.3,.5,1)}
+      #rs-player.on{transform:none}#rs-player img{width:52px;height:52px;border-radius:8px;object-fit:cover;background:var(--hover)}
+      #rs-player .pi{min-width:0}#rs-player .pi b{display:block;font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}#rs-player .pi span{font-size:11px;color:var(--muted)}
+      #rs-player .sc{width:100%;margin:4px 0 0;accent-color:var(--accent)}#rs-player .tm{display:flex;justify-content:space-between;font:10.5px var(--mono,monospace);color:var(--muted)}#rs-player .tm i{font-style:normal}
+      #rs-player .pc{grid-column:1/-1;display:flex;gap:6px;justify-content:center}
+      #rs-player .pc button{background:var(--hover);border:0;border-radius:8px;padding:5px 10px;font:600 11.5px Inter,system-ui;color:var(--text);cursor:pointer;display:flex;align-items:center}
+      #rs-player .pc .pp{background:var(--accent);color:#fff;width:40px;justify-content:center}#rs-player .pc svg{width:15px;height:15px;fill:currentColor}
+      /* news */
+      .rs-news{display:flex;flex-direction:column;gap:2px}
+      .rs-news a{color:var(--text);text-decoration:none;border-radius:10px}.rs-news a:hover{background:var(--hover)}
+      .rs-news .lead{display:grid;grid-template-columns:200px 1fr;gap:14px;padding:8px;margin-bottom:6px}
+      .rs-news .lead .im{aspect-ratio:16/10;border-radius:10px;background:var(--hover) center/cover}
+      .rs-news .lead b{display:block;font-size:17px;line-height:1.3;margin:2px 0 4px;font-family:var(--serif,Georgia,serif)}
+      .rs-news .lead p{margin:0;font-size:12.5px;color:var(--muted);display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+      .rs-news .src{font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:700}
+      .rs-news .hl{display:flex;gap:10px;align-items:center;padding:7px 8px;border-top:1px solid var(--line)}
+      .rs-news .hl img{width:54px;height:40px;border-radius:6px;object-fit:cover;flex:none}.rs-news .hl b{display:block;font-size:13.5px;line-height:1.3;font-weight:600}
+      /* films */
+      .rs-films{display:grid;grid-template-columns:repeat(auto-fill,minmax(92px,1fr));gap:12px}.rs-films.big{grid-template-columns:repeat(auto-fill,minmax(130px,1fr))}
+      .rs-film{color:var(--text);text-decoration:none;display:flex;flex-direction:column;gap:2px;font-size:12px;min-width:0}
+      .rs-film .po{position:relative;aspect-ratio:2/3;border-radius:6px;overflow:hidden;background:#14181c;box-shadow:inset 0 0 0 1px rgba(255,255,255,.08),0 6px 16px -8px rgba(0,0,0,.5);transition:transform .2s}
+      .rs-film:hover .po{transform:translateY(-3px);box-shadow:inset 0 0 0 2px #00e054,0 10px 20px -8px rgba(0,0,0,.5)}
+      .rs-film .po img{width:100%;height:100%;object-fit:cover;display:block}.rs-film .po span{display:flex;align-items:center;justify-content:center;height:100%;padding:8px;text-align:center;color:#9ab;font-size:12px}
+      .rs-film .rw{position:absolute;right:5px;top:5px;background:rgba(0,0,0,.6);border-radius:50%;width:20px;height:20px;display:flex;align-items:center;justify-content:center;color:#40bcf4}.rs-film .rw svg{width:12px;height:12px}
+      .rs-film b{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:4px}.rs-film .yr,.rs-film .wd{color:var(--muted);font-size:11px}
+      .rs-film .st{color:#00c030;letter-spacing:1px;font-size:12px;display:flex;align-items:center;gap:4px;min-height:15px}.rs-film .st em svg{width:12px;height:12px;color:#ff8000;fill:#ff8000}
       .rs-pin .ph{position:relative;border-radius:12px;overflow:hidden;background:var(--hover);box-shadow:0 1px 1px rgba(0,0,0,.04),0 6px 18px -6px rgba(40,30,10,.22);transform:translateZ(0);transition:transform .35s cubic-bezier(.2,.9,.25,1),box-shadow .35s}
       .rs-pin .ph img{display:block;width:100%;height:auto;transform:scale(1.035);transition:transform .6s cubic-bezier(.2,.9,.25,1),opacity .4s;opacity:0}
       .rs-pin .ph img.in{opacity:1}
@@ -270,8 +306,52 @@
         setTimeout(() => api.island.show({ image: fresh[0].image ? `<img src="${E(fresh[0].image)}" alt="">` : '', icon: fresh[0].image ? '' : '◉', title: `${fresh.length} new at ${f.title || 'your feed'}`, sub: p.b ? `${p.a} — ${p.b}` : p.a, ms: 7000,
           actions: [{ label: 'Timeline', run: () => openPanel(f) }, { label: 'Wall', run: () => api.ui.navigate('view-feeds') }] }), 9000);
       }
+      /* podcast: episodes with a play button; one mini player for all of Cadence, remembers where you stopped */
+      const dur = d => { if (!d) return ''; if (/:/.test(d)) { const p = d.split(':').map(Number); const sec = p.reduce((a, b) => a * 60 + b, 0); return sec >= 3600 ? Math.floor(sec / 3600) + 'h ' + Math.round(sec % 3600 / 60) + 'm' : Math.round(sec / 60) + ' min'; } const n = +d; return n ? (n >= 3600 ? Math.floor(n / 3600) + 'h ' + Math.round(n % 3600 / 60) + 'm' : Math.round(n / 60) + ' min') : ''; };
+      const podHtml = (it, data) => `<div class="rs-pod"><img src="${E(it.image || data.image || '')}" alt="" loading="lazy" onerror="this.style.visibility='hidden'"><div class="tx"><a href="${E(it.link)}" target="_blank" rel="noopener"><b>${E(it.title)}</b></a><span>${E([ago(it.date), dur(it.duration)].filter(Boolean).join(' · '))}${posOf(it.audio) ? ' · <em>in progress</em>' : ''}</span><p>${E(it.summary || '')}</p></div>${it.audio ? `<button class="rs-play" data-audio="${E(it.audio)}" data-title="${E(it.title)}" data-img="${E(it.image || data.image || '')}" data-show="${E(data.title || '')}" aria-label="Play">${api.ui.icon('play')}</button>` : ''}</div>`;
+      const posOf = u => { try { return +(JSON.parse(localStorage.getItem('cadence.podpos') || '{}')[u] || 0); } catch (e) { return 0; } };
+      const savePos = (u, t) => { try { const m = JSON.parse(localStorage.getItem('cadence.podpos') || '{}'); if (t > 5) m[u] = Math.floor(t); else delete m[u]; const ks = Object.keys(m); if (ks.length > 60) delete m[ks[0]]; localStorage.setItem('cadence.podpos', JSON.stringify(m)); } catch (e) {} };
+      function player(ep) {
+        let pl = document.getElementById('rs-player');
+        if (!pl) { pl = document.createElement('div'); pl.id = 'rs-player'; document.body.appendChild(pl);
+          pl.innerHTML = `<img alt=""><div class="pi"><b></b><span></span><input type="range" min="0" max="1000" value="0" class="sc"><div class="tm"><i class="a">0:00</i><i class="b"></i></div></div>
+            <div class="pc"><button data-p="back" title="Back 15s">-15</button><button data-p="pp" class="pp" title="Play/pause"></button><button data-p="fwd" title="Forward 30s">+30</button><button data-p="rate" class="rt" title="Speed">1×</button><button data-p="x" title="Close">×</button></div><audio preload="metadata"></audio>`;
+          const a = pl.querySelector('audio'), sc = pl.querySelector('.sc'), fmt = t => { t = Math.floor(t || 0); return (t >= 3600 ? Math.floor(t / 3600) + ':' + String(Math.floor(t % 3600 / 60)).padStart(2, '0') : Math.floor(t / 60)) + ':' + String(t % 60).padStart(2, '0'); };
+          const icon = () => pl.querySelector('.pp').innerHTML = api.ui.icon(a.paused ? 'play' : 'pause') || (a.paused ? '▶' : '❚❚');
+          a.addEventListener('timeupdate', () => { if (!sc._drag && a.duration) sc.value = a.currentTime / a.duration * 1000; pl.querySelector('.a').textContent = fmt(a.currentTime); pl.querySelector('.b').textContent = a.duration ? '-' + fmt(a.duration - a.currentTime) : ''; if (Math.floor(a.currentTime) % 5 === 0) savePos(a.dataset.src, a.currentTime); });
+          a.addEventListener('play', icon); a.addEventListener('pause', () => { icon(); savePos(a.dataset.src, a.currentTime); }); a.addEventListener('ended', () => savePos(a.dataset.src, 0));
+          sc.addEventListener('input', () => { sc._drag = true; }); sc.addEventListener('change', () => { sc._drag = false; if (a.duration) a.currentTime = sc.value / 1000 * a.duration; });
+          const RATES = [1, 1.25, 1.5, 1.75, 2];
+          pl.addEventListener('click', e => { const b = e.target.closest('[data-p]'); if (!b) return; const k = b.dataset.p;
+            if (k === 'pp') a.paused ? a.play() : a.pause(); if (k === 'back') a.currentTime = Math.max(0, a.currentTime - 15); if (k === 'fwd') a.currentTime += 30;
+            if (k === 'rate') { const r = RATES[(RATES.indexOf(a.playbackRate) + 1) % RATES.length]; a.playbackRate = r; b.textContent = r + '×'; }
+            if (k === 'x') { savePos(a.dataset.src, a.currentTime); a.pause(); pl.classList.remove('on'); } });
+          icon(); }
+        const a = pl.querySelector('audio');
+        if (a.dataset.src === ep.audio) { a.paused ? a.play() : a.pause(); return; }
+        if (a.dataset.src) savePos(a.dataset.src, a.currentTime);
+        a.dataset.src = ep.audio; a.src = ep.audio; pl.querySelector('img').src = ep.img || ''; pl.querySelector('b').textContent = ep.title; pl.querySelector('.pi span').textContent = ep.show;
+        const at = posOf(ep.audio); a.addEventListener('loadedmetadata', () => { if (at) a.currentTime = at; }, { once: true });
+        pl.classList.add('on'); a.play().catch(() => {});
+        if ('mediaSession' in navigator) try { navigator.mediaSession.metadata = new MediaMetadata({ title: ep.title, artist: ep.show, artwork: ep.img ? [{ src: ep.img }] : [] }); } catch (e) {}
+      }
+      G.player = player;
+      if (!G.playBound) { G.playBound = true; document.addEventListener('click', e => { const b = e.target.closest('.rs-play'); if (!b) return; e.preventDefault(); G.player({ audio: b.dataset.audio, title: b.dataset.title, img: b.dataset.img, show: b.dataset.show }); }); }
+      /* news: a lead story, then headlines with their publisher */
+      const newsHtml = (items, data) => { const [lead, ...rest] = items; if (!lead) return '';
+        const src = it => it.source || data.title || '';
+        return `<div class="rs-news"><a class="lead" href="${E(lead.link)}" target="_blank" rel="noopener">${lead.image ? `<div class="im" style="background-image:url('${E(lead.image)}')"></div>` : ''}<div><span class="src">${E(src(lead))} · ${E(ago(lead.date))}</span><b>${E(lead.title.replace(/ - [^-]+$/, ''))}</b><p>${E(lead.summary || '')}</p></div></a>
+          ${rest.map(it => `<a class="hl" href="${E(it.link)}" target="_blank" rel="noopener">${it.image ? `<img src="${E(it.image)}" alt="" loading="lazy">` : ''}<div><span class="src">${E(src(it))} · ${E(ago(it.date))}</span><b>${E(it.title.replace(/ - [^-]+$/, ''))}</b></div></a>`).join('')}</div>`; };
+      /* Letterboxd film diary: posters with your stars, likes and rewatches */
+      const stars = r => r == null ? '' : '★'.repeat(Math.floor(r)) + (r % 1 ? '½' : '');
+      const filmHtml = it => { const fm = it.film || { title: it.title, year: '' };
+        return `<a class="rs-film" href="${E(it.link)}" target="_blank" rel="noopener" title="${E(fm.title)}${fm.year ? ' (' + E(fm.year) + ')' : ''}"><div class="po">${it.image ? `<img src="${E(it.image)}" alt="" loading="lazy">` : `<span>${E(fm.title)}</span>`}${fm.rewatch ? `<i class="rw" title="Rewatch">${api.ui.icon('refresh-cw')}</i>` : ''}</div>
+          <b>${E(fm.title)}</b><span class="yr">${E(fm.year || '')}</span><span class="st">${stars(fm.rating)}${fm.liked ? `<em title="Liked">${api.ui.icon('heart')}</em>` : ''}</span>${fm.watched ? `<span class="wd">${E(new Date(fm.watched + 'T12:00').toLocaleDateString([], { month: 'short', day: 'numeric' }))}</span>` : ''}</a>`; };
       function itemsHtml(f, data, max, grid) {
         const items = data.items.slice(0, max);
+        if (f.style === 'podcast') return `<div class="rs-pods">${items.slice(0, grid ? 20 : 4).map(it => podHtml(it, data)).join('')}</div>`;
+        if (f.style === 'news') return newsHtml(items.slice(0, grid ? 16 : 6), data);
+        if (f.style === 'films') return `<div class="rs-films ${grid ? 'big' : ''}">${items.slice(0, grid ? 40 : 8).map(filmHtml).join('')}</div>`;
         if (f.style === 'list') return `<div class="rs-list">${items.map(listHtml).join('')}</div>`;
         if (f.style === 'cards') return `<div class="${grid ? 'rs-grid' : 'rs-crate'}">${items.map(cardHtml).join('')}</div>`;
         if (grid) return wallHtml(f, data, max);
@@ -334,7 +414,7 @@
           api.ui.modal('Feeds', `
             <div>${list.map((f, i) => `<div class="rs-feedcfg" data-i="${i}"><div class="nm"><b>${E(f.title || 'Untitled')}</b><small>${E(f.url)}</small></div>
               <select class="inp" data-k="placement">${[['sidebar', 'Sidebar'], ['home', 'Home shelf'], ['view', 'Feeds view only']].map(([v, l]) => `<option value="${v}" ${f.placement === v ? 'selected' : ''}>${l}</option>`).join('')}</select>
-              <select class="inp" data-k="style">${[['records', 'Records'], ['cards', 'Cards'], ['list', 'List']].map(([v, l]) => `<option value="${v}" ${f.style === v ? 'selected' : ''}>${l}</option>`).join('')}</select>
+              <select class="inp" data-k="style">${[['records', 'Records'], ['cards', 'Cards'], ['list', 'List'], ['podcast', 'Podcast'], ['news', 'News'], ['films', 'Film diary']].map(([v, l]) => `<option value="${v}" ${f.style === v ? 'selected' : ''}>${l}</option>`).join('')}</select>
               ${f.style === 'records' ? `<select class="inp" data-k="show" title="Which items to show">${[['vinyl', 'Vinyl only'], ['used', 'Used vinyl'], ['new', 'New vinyl'], ['all', 'Everything (incl. CDs)']].map(([v, l]) => `<option value="${v}" ${showOf(f) === v ? 'selected' : ''}>${l}</option>`).join('')}</select>` : ''}
               <button class="btn ghost danger" data-del="${i}">✕</button></div>`).join('') || '<div class="muted">No feeds.</div>'}</div>
             <div class="field"><label>Add a feed</label><div class="row"><input class="inp" id="rs-url" placeholder="https://example.com/feed.xml"><button class="btn" id="rs-add">Add</button></div><div class="muted" id="rs-msg" style="font-size:12px;margin-top:6px">The sidebar shows one slim row per feed; the home shelf sits under your day-at-a-glance.</div></div>`,
@@ -344,7 +424,7 @@
           document.querySelector('#rs-add').onclick = async () => {
             const url = document.querySelector('#rs-url').value.trim(), msg = document.querySelector('#rs-msg'); if (!url) return;
             msg.textContent = 'Checking feed…';
-            try { const d = await load({ url }, true); list.push({ id: 'f' + Date.now().toString(36), url, title: d.title || new URL(url).hostname, placement: 'view', style: d.items.some(i => i.image) ? 'cards' : 'list' }); draw(); }
+            try { const d = await load({ url }, true); list.push({ id: 'f' + Date.now().toString(36), url, title: d.title || new URL(url).hostname, placement: 'view', style: /letterboxd\.com/i.test(url) || d.items.some(i => i.film) ? 'films' : d.items.some(i => i.audio) ? 'podcast' : /news\.google|reuters|apnews|bbc|cbc|nytimes|theguardian|\/news/i.test(url) || d.items.some(i => i.source) ? 'news' : d.items.some(i => i.image) ? 'cards' : 'list' }); draw(); }
             catch (e) { msg.textContent = e.message; }
           };
           document.querySelector('#rs-save').onclick = () => { api.storage.set('feeds', list); api.ui.close(); api.ui.toast('Feeds saved'); api.ui.refreshWidgets && api.ui.refreshWidgets(); api.ui.refresh(); };

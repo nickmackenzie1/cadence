@@ -562,7 +562,7 @@ function parseFeed(xml, base) {
   const atom = /<feed[\s>]/i.test(xml) && !/<rss[\s>]/i.test(xml);
   const chan = atom ? xml : (tag(xml, 'channel') || xml);
   const head = chan.split(atom ? /<entry[\s>]/i : /<item[\s>]/i)[0];
-  const out = { title: decode(tag(head, 'title')), link: atom ? abs(attr(head, 'link', 'href')) : abs(tag(head, 'link')), image: abs(tag(tag(head, 'image'), 'url') || tag(head, 'logo') || tag(head, 'icon')), items: [] };
+  const out = { title: decode(tag(head, 'title')), link: atom ? abs(attr(head, 'link', 'href')) : abs(tag(head, 'link')), image: abs(tag(tag(head, 'image'), 'url') || attr(head, 'itunes:image', 'href') || tag(head, 'logo') || tag(head, 'icon')), items: [] };
   const blocks = chan.match(atom ? /<entry[\s>][\s\S]*?<\/entry>/gi : /<item[\s>][\s\S]*?<\/item>/gi) || [];
   for (const b of blocks.slice(0, 60)) {
     const html = tag(b, 'content:encoded') || tag(b, 'content') || tag(b, 'description') || tag(b, 'summary');
@@ -573,6 +573,13 @@ function parseFeed(xml, base) {
       date: tag(b, 'pubDate') || tag(b, 'updated') || tag(b, 'published') || tag(b, 'dc:date') || '',
       image: img ? bigger(abs(img)) : '',
       summary: strip(html),
+      // podcasts
+      audio: /<enclosure[^>]+type=["']audio/i.test(b) ? abs(attr(b, 'enclosure', 'url')) : '',
+      duration: tag(b, 'itunes:duration').slice(0, 12),
+      // news: the publisher (Google News puts it in <source>)
+      source: decode(tag(b, 'source')).slice(0, 80),
+      // Letterboxd diary entries
+      film: tag(b, 'letterboxd:filmTitle') ? { title: decode(tag(b, 'letterboxd:filmTitle')).slice(0, 200), year: tag(b, 'letterboxd:filmYear').slice(0, 4), rating: parseFloat(tag(b, 'letterboxd:memberRating')) || null, rewatch: /yes/i.test(tag(b, 'letterboxd:rewatch')), watched: tag(b, 'letterboxd:watchedDate').slice(0, 10), liked: /yes/i.test(tag(b, 'letterboxd:memberLike')) } : null,
     });
   }
   return out;

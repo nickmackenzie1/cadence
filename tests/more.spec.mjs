@@ -108,3 +108,26 @@ test('weather: pick a town, see it in the sidebar, the dashboard widget and unde
   await expect(page.locator('.modal .wx-days > div')).toHaveCount(7);
   expect(errs).toEqual([]);
 });
+
+test('feed skins: podcast player, news front page, Letterboxd film diary', async ({ page }) => {
+  const now = new Date().toUTCString();
+  await page.route('**/api/feed?*', r => { const u = decodeURIComponent(r.request().url());
+    if (u.includes('pod')) return r.fulfill({ json: { title: 'The Show', image: '', items: [{ title: 'Ep 1: Hello', link: 'https://x/1', date: now, audio: 'https://x/ep1.mp3', duration: '00:42:10', summary: 'We talk.' }] } });
+    if (u.includes('letterboxd')) return r.fulfill({ json: { title: 'Films', items: [{ title: 'Heat, 1995 - ★★★★½', link: 'https://x/f', date: now, image: '', film: { title: 'Heat', year: '1995', rating: 4.5, rewatch: true, liked: true, watched: '2026-11-01' } }] } });
+    return r.fulfill({ json: { title: 'News', items: [{ title: 'Big story - Paper', link: 'https://x/n1', date: now, source: 'Paper', summary: 'Things happened.' }, { title: 'Small story - Other', link: 'https://x/n2', date: now, source: 'Other' }] } }); });
+  const errs = await open(page);
+  await page.evaluate(() => location.hash = 'view-feeds');
+  for (const [u, style] of [['https://example.com/pod.xml', 'podcast'], ['https://letterboxd.com/me/rss/', 'films'], ['https://example.com/news.xml', 'news']]) {
+    await page.evaluate(() => document.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', metaKey: true, ctrlKey: true, bubbles: true })));
+    await page.keyboard.type('Manage feeds'); await page.keyboard.press('Enter');
+    await page.fill('#rs-url', u); await page.click('#rs-add');
+    await expect(page.locator('.rs-feedcfg').last().locator('select[data-k=style]')).toHaveValue(style);
+    await page.click('#rs-save');
+  }
+  await expect(page.locator('.rs-pod')).toHaveCount(1);
+  await expect(page.locator('.rs-news .lead')).toContainText('Big story');
+  await expect(page.locator('.rs-film .st')).toContainText('★★★★½');
+  await page.click('.rs-play');
+  await expect(page.locator('#rs-player.on b')).toHaveText('Ep 1: Hello');
+  expect(errs.filter(e => !/play|media|NotSupported/i.test(e))).toEqual([]);
+});
