@@ -462,3 +462,8 @@ data, or peer-to-peer on the same LAN). Personal data and secrets stay on each p
 - Backlog (user, 19:03): the "public ledger" posts to Zoho Cliq (status / message), not Slack. Cliq OAuth token on the NAS.
 - Backlog (user, 19:04, Life): recipe manager with a URL parser that grabs recipes from blogs (schema.org Recipe
   JSON-LD via the NAS fetch, fallback to page heuristics, skip the life story). Ties into the meal plan + shopping list.
+- Shipped (evening batch): kanban.js, calview.js, notify.js (+ server Web Push, sw.js), weather.js (+ /api/weather),
+  rss skins podcast/news/films, fun-desk.js (aquarium, invoice radar, desk plant, weekly rewind), fun-games.js
+  (roulette, rival, quests, bucket), mindset.js (forecaster, done-list, future-you, regret), accountability.js
+  (grandma, stakes, Cliq ledger + /api/cliq/*). Core: api.notify, api.footer, api.plugins.list, api.ui.taskRow/openTask/
+  selected/refreshSide, views {wide:true}.

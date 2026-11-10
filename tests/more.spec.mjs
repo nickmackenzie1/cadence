@@ -213,3 +213,29 @@ test('mindset: forecast chips, done-list mode, future-you note on the second pus
   await expect(page.locator('.dl')).toHaveCount(0);
   expect(errs).toEqual([]);
 });
+
+test('accountability: grandma visits about overdue work, stakes are won and lost, the Cliq ledger keeps its token on the NAS', async ({ page, request }) => {
+  const errs = await open(page);
+  const past = await page.evaluate(() => window.T.util.ymd(window.T.util.addDays(new Date(), -3)));
+  const id = await page.evaluate(d => window.T.tasks.add({ title: 'Call the dentist', dueDate: d }).id, past);
+  const line = await page.evaluate(() => window.__grandma.visit(true));
+  expect(line).toContain('Call the dentist');
+  // stakes: a won stake and a lost one
+  const fut = await page.evaluate(() => window.T.util.ymd(window.T.util.addDays(new Date(), 2)));
+  const won = await page.evaluate(d => window.T.tasks.add({ title: 'Ship the report', dueDate: d }).id, fut);
+  await page.evaluate(id => window.__stakes.stake(window.T.tasks.get(id)), won);
+  await page.fill('#sk-a', '50'); await page.fill('#sk-c', 'The Leafs'); await page.click('#sk-ok');
+  await page.evaluate(() => location.hash = 'upcoming');
+  await expect(page.locator('.sk-chip')).toContainText('$50 at stake');
+  await page.evaluate(id => window.T.tasks.complete(id), won);
+  expect(await page.evaluate(id => window.T.tasks.get(id).stake.status, won)).toBe('safe');
+  await page.evaluate(id => window.T.tasks.update(id, { stake: { amount: 10, cause: 'Spam', status: 'live' } }), id);
+  await page.evaluate(() => window.__stakes.judge());
+  await expect(page.locator('.modal')).toContainText('You owe $10 to Spam');
+  // ledger: text and the server keeping the token to itself
+  expect(await page.evaluate(() => window.__ledger.text())).toContain('Call the dentist');
+  await request.put(B + '/api/cliq/config', { data: { channel: 'team', dc: 'ca', zapikey: 'secret123' } });
+  const cfg = await (await request.get(B + '/api/cliq/config')).json();
+  expect(cfg).toEqual({ channel: 'team', dc: 'ca', hasKey: true });
+  expect(errs).toEqual([]);
+});

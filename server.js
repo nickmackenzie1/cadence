@@ -446,6 +446,20 @@ async function pushTick() {
 }
 setInterval(() => pushTick().catch(e => console.error('pushTick', e.message)), 30000).unref();
 
+
+// ---- Zoho Cliq: post to a channel with a webhook token (zapikey). The token lives on the NAS only. ----
+const CLIQ_FILE = path.join(DATA_DIR, 'cliq.json');
+const CLIQ_HOSTS = { com: 'cliq.zoho.com', eu: 'cliq.zoho.eu', in: 'cliq.zoho.in', au: 'cliq.zoho.com.au', jp: 'cliq.zoho.jp', ca: 'cliq.zohocloud.ca', sa: 'cliq.zoho.sa' };
+const readCliq = () => { try { return JSON.parse(fs.readFileSync(CLIQ_FILE, 'utf8')); } catch { return {}; } };
+async function cliqPost(text) {
+  const c = readCliq(); if (!c.channel || !c.zapikey) throw new Error('Zoho Cliq is not set up');
+  const u = `https://${CLIQ_HOSTS[c.dc] || CLIQ_HOSTS.com}/api/v2/channelsbyname/${encodeURIComponent(c.channel)}/message?zapikey=${encodeURIComponent(c.zapikey)}`;
+  await assertPublic(u);
+  const r = await fetch(u, { method: 'POST', signal: AbortSignal.timeout(10000), headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text: String(text).slice(0, 4000) }) });
+  if (!r.ok && r.status !== 204) throw new Error('Cliq said ' + r.status + ': ' + (await r.text()).slice(0, 200));
+  return true;
+}
+
 // ---- company info: logo, banner, description, industry from the client's website ----
 const INDUSTRIES = {
   software:      ['software','saas','platform','cloud','app ','apps','api','developer','cybersecurity','it services','managed services','tech'],
@@ -931,6 +945,17 @@ async function handle(req, res) {
       const hit = wxCache.get(u); if (hit && Date.now() - hit.at < 15 * 60e3) return send(res, 200, hit.data);
       try { const r = await safeFetch(u, {}, 512 * 1024); const data = JSON.parse(r.buf.toString('utf8')); wxCache.set(u, { at: Date.now(), data }); if (wxCache.size > 40) wxCache.delete(wxCache.keys().next().value); return send(res, 200, data); }
       catch (e) { return hit ? send(res, 200, hit.data) : send(res, 502, { error: 'Weather unavailable: ' + e.message }); }
+    }
+    if (p === '/api/cliq/config' && req.method === 'GET') { const c = readCliq(); return send(res, 200, { channel: c.channel || '', dc: c.dc || 'com', hasKey: !!c.zapikey }); }
+    if (p === '/api/cliq/config' && req.method === 'PUT') {
+      const b = JSON.parse(await readBody(req, 4096)), c = readCliq();
+      const next = { channel: String(b.channel || '').replace(/[^\w-]/g, '').slice(0, 80), dc: CLIQ_HOSTS[b.dc] ? b.dc : 'com', zapikey: b.zapikey ? String(b.zapikey).trim().slice(0, 200) : c.zapikey };
+      if (b.clear) { try { fs.unlinkSync(CLIQ_FILE); } catch {} return send(res, 200, { ok: true }); }
+      fs.writeFileSync(CLIQ_FILE, JSON.stringify(next)); try { fs.chmodSync(CLIQ_FILE, 0o600); } catch {} return send(res, 200, { ok: true });
+    }
+    if (p === '/api/cliq/post' && req.method === 'POST') {
+      const b = JSON.parse(await readBody(req, 16 * 1024));
+      try { await cliqPost(b.text || ''); return send(res, 200, { ok: true }); } catch (e) { return send(res, 502, { error: e.message }); }
     }
     if (p === '/api/calendar/config' && req.method === 'GET') {
       // never send the secret URLs back to the browser
