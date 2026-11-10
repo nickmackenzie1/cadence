@@ -185,3 +185,31 @@ test('games: roulette picks a task and locks, rival keeps score, quests unlock s
   await expect(page.locator('.bk-txt b')).toHaveText(/\d/);
   expect(errs).toEqual([]);
 });
+
+test('mindset: forecast chips, done-list mode, future-you note on the second push, regret minimizer', async ({ page }) => {
+  const errs = await open(page);
+  const ad = n => page.evaluate(n => window.T.util.ymd(window.T.util.addDays(new Date(), n)), n);
+  const id = await page.evaluate(async d => window.T.tasks.add({ title: 'Do the taxes', dueDate: d, createdAt: Date.now() - 20 * 864e5 }).id, await ad(0));
+  // first push: no question (default asks from the second); second push: the note
+  await page.evaluate(async ([id, d]) => window.T.tasks.update(id, { dueDate: d }), [id, await ad(1)]);
+  await page.waitForTimeout(100);
+  expect(await page.locator('#fy-n').count()).toBe(0);
+  await page.evaluate(async ([id, d]) => window.T.tasks.update(id, { dueDate: d }), [id, await ad(3)]);
+  await page.fill('#fy-n', 'Waiting on the T4 slip'); await page.click('#fy-ok');
+  expect(await page.evaluate(id => window.T.tasks.get(id).excuses[0].note, id)).toBe('Waiting on the T4 slip');
+  // forecast: pushed twice and old, so it gets a chip
+  expect(await page.evaluate(id => window.__forecast.chance(window.T.tasks.get(id)), id)).toBeLessThan(.7);
+  await page.evaluate(() => location.hash = 'upcoming');
+  await expect(page.locator('.fc-chip').first()).toContainText('%');
+  // regret
+  await page.evaluate(() => window.__regret.ask());
+  await page.locator('.rg', { hasText: 'Do the taxes' }).locator('input').check(); await page.click('#rg-ok');
+  expect(await page.evaluate(id => window.T.tasks.get(id).tags, id)).toContain('regret');
+  // done-list
+  await page.evaluate(() => { const x = window.T.tasks.add({ title: 'Answered the email' }); window.T.tasks.complete(x.id); window.__donelist.set(true); });
+  await expect(page.locator('.dl h1')).toHaveText('Look what you’ve done');
+  await expect(page.locator('.dl-it')).toContainText(['Answered the email']);
+  await page.click('#dl-off');
+  await expect(page.locator('.dl')).toHaveCount(0);
+  expect(errs).toEqual([]);
+});
