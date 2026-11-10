@@ -303,6 +303,7 @@ test('inbox scanner: paste an email, get recap, action items and dates, add them
   await page.click('#is-go');
   await expect(page.locator('.is-cat').first()).toHaveText('School');
   await expect(page.locator('.is-it')).toHaveCount(3);
+  for (const c of await page.locator('.is-it input').all()) await c.check();
   await page.click('#is-add');
   expect(await page.evaluate(() => window.T.tasks.list(t => (t.tags || []).includes('school')).map(t => t.title).sort())).toEqual(['Our class is going to the Science Centre on Friday, November 20', 'Sign and return the permission form by Wednesday', 'The Fall concert is on December 3 at 6:30 pm in the gym'].sort());
   expect(errs).toEqual([]);
