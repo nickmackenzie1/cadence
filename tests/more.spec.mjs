@@ -89,3 +89,22 @@ test('notifications: reminders and plugin notices land in the centre, mute per p
   expect((await (await request.put(B + '/api/push/config', { data: { quiet: { from: '22:00', to: '07:00' } } })).json()).cfg.quiet.from).toBe('22:00');
   expect(errs).toEqual([]);
 });
+
+const WX = () => { const d = new Date(), days = Array.from({ length: 7 }, (_, i) => new Date(d.getTime() + i * 864e5).toISOString().slice(0, 10)), hrs = Array.from({ length: 48 }, (_, i) => new Date(d.getTime() + i * 36e5).toISOString().slice(0, 16));
+  return { current: { temperature_2m: 4.2, apparent_temperature: 1, weather_code: 3, wind_speed_10m: 12, is_day: 1 }, hourly: { time: hrs, temperature_2m: hrs.map(() => 4), precipitation_probability: hrs.map((_, i) => i === 3 ? 80 : 10), weather_code: hrs.map((_, i) => i === 3 ? 63 : 3) },
+    daily: { time: days, weather_code: [3, 61, 0, 71, 2, 3, 0], temperature_2m_max: [6, 5, 8, 1, 4, 5, 7], temperature_2m_min: [1, 2, 0, -3, -1, 0, 2], precipitation_probability_max: [20, 80, 0, 60, 10, 5, 0] } }; };
+
+test('weather: pick a town, see it in the sidebar, the dashboard widget and under Today', async ({ page }) => {
+  await page.route('**/api/weather/geo?*', r => r.fulfill({ json: { results: [{ name: 'Toronto', admin1: 'Ontario', country: 'Canada', latitude: 43.7, longitude: -79.4 }] } }));
+  await page.route('**/api/weather?*', r => r.fulfill({ json: WX() }));
+  const errs = await open(page);
+  await page.evaluate(() => window.__wx.settings());
+  await page.fill('#wx-q', 'Toro');
+  await page.click('#wx-res button');
+  await page.click('#wx-done');
+  await expect(page.locator('#view .head .sub .wx-line')).toContainText('4° and cloudy');
+  await expect(page.locator('#view .head .sub .wx-line')).toContainText('rain likely');
+  await page.evaluate(() => window.__wx.detail());
+  await expect(page.locator('.modal .wx-days > div')).toHaveCount(7);
+  expect(errs).toEqual([]);
+});
