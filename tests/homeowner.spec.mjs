@@ -86,6 +86,11 @@ test('setup interview builds the home plan, and re-running it never duplicates',
   const next = await page.evaluate(() => window.T.tasks.list(t => t.gh === 'furnace' && !t.done));
   expect(next).toHaveLength(1);
 
+  // the job history remembers it, and the page shows "Last done"
+  await page.evaluate(() => location.hash = 'today'); await page.evaluate(() => location.hash = 'view-house');
+  await expect(page.locator('.gh-job', { hasText: 'furnace tune-up' })).toContainText('Last done');
+  // milder winters move spring jobs earlier and fall jobs later
+  expect(await page.evaluate(() => [window.__homeShift([5, 10], { climate: 'mild' }), window.__homeShift([5, 10], { climate: 'hot' }), window.__homeShift([5, 10], { climate: 'cold' })])).toEqual([[4, 11], [3, 12], [5, 10]]);
   // the widget lists this month's home jobs
   expect(await page.evaluate(() => window.T.widgets.list().some(w => w.title === 'This month at home'))).toBe(true);
   expect(errs).toEqual([]);

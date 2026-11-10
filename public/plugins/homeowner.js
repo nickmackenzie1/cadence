@@ -82,14 +82,19 @@ Cadence.registerPlugin({
     function firstDue(item, a, i) {
       const now = new Date(), today = new Date(now.getFullYear(), now.getMonth(), now.getDate()), cur = now.getMonth() + 1;
       const soon = () => api.util.ymd(api.util.addDays(today, 1 + i % 6));
-      if (item.at) {
-        if (item.at.some(m => m === cur || m === (cur + 10) % 12 + 1)) return soon();
+      const at = shiftAt(item.at, a);
+      if (at) {
+        if (at.some(m => m === cur || m === (cur + 10) % 12 + 1)) return soon();
         const cand = [];
-        for (const m of item.at) for (const y of [now.getFullYear(), now.getFullYear() + 1]) { const d = new Date(y, m - 1, m >= 9 ? 1 : 15); if (d > today) cand.push(d); }
+        for (const m of at) for (const y of [now.getFullYear(), now.getFullYear() + 1]) { const d = new Date(y, m - 1, m >= 9 ? 1 : 15); if (d > today) cand.push(d); }
         cand.sort((x, y) => x - y); return api.util.ymd(cand[0]);
       }
       return api.util.ymd(api.util.addDays(today, 2 + (i * 3) % 24));   // don't drop everything on today
     }
+    // milder winters: spring jobs come earlier and fall jobs later (hot: by two months)
+    function shiftAt(at, a) { if (!at || !a || !a.climate || a.climate === 'cold') return at; const k = a.climate === 'hot' ? 2 : 1;
+      return at.map(m => m >= 3 && m <= 6 ? ((m - 1 - k + 12) % 12) + 1 : m >= 9 && m <= 11 ? ((m - 1 + k) % 12) + 1 : m); }
+    window.__homeShift = shiftAt;
     const repeatOf = (item, a) => { const every = typeof item.every === 'function' ? item.every(a) : item.every; return { unit: 'month', n: every }; };
     const plan = a => CAT.filter(x => x.if(a));
 
@@ -207,6 +212,7 @@ Cadence.registerPlugin({
       el.querySelector('#gh-redo').onclick = wizard;
       // edits save as you type; only the knock-on reminder updates wait for a pause
       const timers = {}, later = (k, fn) => { clearTimeout(timers[k]); timers[k] = setTimeout(fn, 400); };
+      el.insertAdjacentHTML('beforeend', jobsCard(tasks)); wireJobs(el);
       el.querySelectorAll('[data-sys]').forEach(i => i.oninput = () => { const q = prof(); q.systems[i.dataset.sys] = i.value.trim(); saveProf(q); if (i.dataset.sys === 'filterSize' || i.dataset.sys === 'fridgeFilter') later('notes', refreshNotes); });
       el.querySelectorAll('[data-list]').forEach(i => i.oninput = i.onchange = () => { const q = prof(); const L = q[i.dataset.list]; L[+i.dataset.i] = { ...L[+i.dataset.i], [i.dataset.k]: i.value.trim() }; saveProf(q); if (i.dataset.list === 'warranties') later('w', warrantyReminders); });
       el.querySelectorAll('[data-add]').forEach(b => b.onclick = () => { const q = prof(); q[b.dataset.add].push({ id: Math.random().toString(36).slice(2, 8) }); saveProf(q); view(el); const ins = el.querySelectorAll(`[data-list="${b.dataset.add}"]`); if (ins.length) ins[ins.length - (b.dataset.add === 'warranties' ? 2 : 3)].focus(); });
@@ -244,6 +250,9 @@ Cadence.registerPlugin({
         .gh-hero{text-align:center;padding:30px 20px;max-width:520px;margin:0 auto}.gh-house{font-size:64px;animation:ghb 2.4s ease-in-out infinite}@keyframes ghb{50%{transform:translateY(-6px)}}
         .gh-hero h2{margin:10px 0 6px;font-size:24px;letter-spacing:-.02em}.gh-hero p{color:var(--muted);line-height:1.55;margin:0 0 18px}
         .gh-top{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:14px;font-size:14px}.gh-top b{font-size:18px}.gh-top a{color:var(--accent);text-decoration:none;font-weight:600}.gh-top a:hover{text-decoration:underline}
+        .gh-jobs{grid-column:1/-1;margin-top:14px}.gh-job{display:flex;gap:12px;align-items:center;padding:8px 0;border-bottom:1px solid var(--line);flex-wrap:wrap}.gh-jt{flex:1;min-width:220px}.gh-jt b{display:block;font-size:13.5px}.gh-jt span{font-size:12px;color:var(--muted)}
+        .gh-files{display:flex;gap:6px;align-items:center;flex-wrap:wrap}.gh-ph{position:relative;width:44px;height:44px;border-radius:8px;background:center/cover;border:1px solid var(--line)}.gh-ph button,.gh-ln button{position:absolute;top:-6px;right:-6px;width:16px;height:16px;border-radius:50%;border:0;background:var(--text);color:var(--bg);font-size:9px;cursor:pointer;display:none}.gh-ph:hover button{display:block}
+        .gh-ln{position:relative;font-size:12px;border:1px solid var(--line);border-radius:7px;padding:3px 8px}.gh-ln:hover button{display:block}.gh-files .lk-btn{font-size:11.5px;padding:3px 8px;border:1px solid var(--line);background:none;border-radius:8px;cursor:pointer;color:var(--text)}
         .gh-year{display:grid;grid-template-columns:repeat(12,1fr);gap:4px;margin-bottom:20px}
         .gh-m{position:relative;border:1px solid var(--line);border-radius:10px;padding:8px 4px;text-align:center;background:var(--panel);cursor:default}
         .gh-m b{display:block;font-size:11px;color:var(--muted);font-weight:600}.gh-m span{display:block;font-size:17px;font-weight:700;min-height:22px}
@@ -263,6 +272,22 @@ Cadence.registerPlugin({
       document.head.appendChild(st);
     }
 
+    // "last done" history for every job, and manuals / photos attached to it
+    api.on('task:complete', t => { if (!t.gh) return; const q = prof(); q.history = q.history || {}; q.history[t.gh] = [Date.now(), ...(q.history[t.gh] || [])].slice(0, 12); saveProf(q); });
+    function jobsCard(tasks) {
+      const q = prof(), h = q.history || {}, files = q.files || {}, seen = new Set();
+      const jobs = tasks.filter(t => t.gh && !seen.has(t.gh) && seen.add(t.gh)).sort((x, y) => x.title.localeCompare(y.title));
+      return `<section class="gh-card gh-jobs"><h4>Job history, manuals and photos</h4>${jobs.map(t => { const last = (h[t.gh] || [])[0], fs = files[t.gh] || [];
+        return `<div class="gh-job"><div class="gh-jt"><b>${E(t.title)}</b><span>${last ? `Last done ${E(new Date(last).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' }))}${(h[t.gh] || []).length > 1 ? ` · ${(h[t.gh] || []).length} times` : ''}` : 'Not done in Cadence yet'}</span></div>
+          <div class="gh-files">${fs.map((f, i) => f.type === 'img' ? `<a href="${E(f.url)}" target="_blank" class="gh-ph" title="${E(f.name)}" style="background-image:url('${E(f.url)}')"><button data-fdel="${E(t.gh)}:${i}" title="Remove">✕</button></a>` : `<span class="gh-ln"><a href="${E(f.url)}" target="_blank" rel="noopener">${E(f.name)}</a><button data-fdel="${E(t.gh)}:${i}" title="Remove">✕</button></span>`).join('')}
+          <button class="lk-btn" data-flink="${E(t.gh)}">+ Manual link</button><label class="lk-btn">+ Photo<input type="file" accept="image/*" data-fimg="${E(t.gh)}" hidden></label></div></div>`; }).join('') || '<div class="muted">Run the setup to see your jobs here.</div>'}</section>`;
+    }
+    function wireJobs(el) {
+      const addFile = (gh, f) => { const q = prof(); q.files = q.files || {}; const photos = Object.values(q.files).flat().filter(x => x.type === 'img').length; if (f.type === 'img' && photos >= 24) return api.ui.toast('That’s plenty of photos (24). Remove one first.'); q.files[gh] = [...(q.files[gh] || []), f]; saveProf(q); api.ui.refresh(); };
+      el.querySelectorAll('[data-flink]').forEach(b => b.onclick = () => { const u = prompt('Link to the manual or product page'); if (!u || !/^https?:\/\//.test(u.trim())) return; const n = prompt('Name it', 'Manual') || 'Manual'; addFile(b.dataset.flink, { type: 'link', url: u.trim(), name: n.slice(0, 60) }); });
+      el.querySelectorAll('[data-fimg]').forEach(i => i.onchange = () => { const f = i.files[0]; if (!f) return; const img = new Image(), r = new FileReader(); r.onload = () => { img.onload = () => { const k = Math.min(1, 640 / Math.max(img.width, img.height)), c = document.createElement('canvas'); c.width = img.width * k; c.height = img.height * k; c.getContext('2d').drawImage(img, 0, 0, c.width, c.height); addFile(i.dataset.fimg, { type: 'img', url: c.toDataURL('image/jpeg', .72), name: f.name.slice(0, 60) }); }; img.src = r.result; }; r.readAsDataURL(f); });
+      el.querySelectorAll('[data-fdel]').forEach(b => b.onclick = e => { e.preventDefault(); const [gh, i] = b.dataset.fdel.split(':'), q = prof(); q.files[gh] = (q.files[gh] || []).filter((_, j) => j !== +i); saveProf(q); api.ui.refresh(); });
+    }
     api.views.add({ id: 'house', title: 'My home', icon: '🏡', subtitle: 'Maintenance on autopilot, and every detail about the house in one place.', render: el => view(el) });
     api.commands.add({ title: 'Set up home maintenance', hint: 'Good Homeowner', run: () => wizard() });
     api.widgets.add({ id: 'month', title: 'This month at home', icon: '🏡', size: 'm', spaces: ['life'], description: 'Home maintenance due this month.', render: el => {
