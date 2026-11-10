@@ -330,3 +330,23 @@ test('kids: a child, sizes, an activity with a registration task, memories, heal
   await expect(page.locator('[data-rsvp]')).toHaveCount(2);
   expect(errs).toEqual([]);
 });
+
+test('home life: mental load split, gift reminders, renewals and bills make tasks, friends and maintenance', async ({ page }) => {
+  const errs = await open(page); await toLife(page);
+  await page.evaluate(() => { window.T.tasks.add({ title: 'Take out the bins', repeat: { unit: 'week', n: 1 }, dueDate: window.T.util.todayKey() }); location.hash = 'view-partner'; });
+  await page.selectOption('[data-who]', 'them');
+  await expect(page.locator('.lk-card').first()).toContainText('Partner 100%');
+  await page.click('[data-tab=gifts]'); await page.click('#pt-padd'); await page.fill('#lk-name', 'Sam');
+  const bd = await page.evaluate(() => window.T.util.ymd(window.T.util.addDays(new Date(), 30)));
+  await page.fill('#lk-bday', bd); await page.click('#lk-ok');
+  expect(await page.evaluate(() => window.T.tasks.list(t => /Birthday for Sam/.test(t.title)).length)).toBe(1);
+  await page.evaluate(() => location.hash = 'view-household');
+  await page.click('#hh-dadd'); await page.selectOption('#lk-kind', 'Passport'); await page.fill('#lk-who', 'Nick'); await page.fill('#lk-exp', '2028-03-01'); await page.click('#lk-ok');
+  expect(await page.evaluate(() => window.T.tasks.list(t => /Renew Nick’s passport/.test(t.title))[0].dueDate)).toBe('2027-09-03');
+  await page.click('[data-tab=bills]'); await page.click('#hh-badd'); await page.fill('#lk-name', 'Hydro'); await page.fill('#lk-amt', '120'); await page.fill('#lk-day', '15'); await page.click('#lk-ok');
+  expect(await page.evaluate(() => window.T.tasks.list(t => /Pay Hydro/.test(t.title) && t.repeat).length)).toBe(1);
+  await page.evaluate(() => location.hash = 'view-yourself');
+  await page.click('[data-mon="Dentist cleaning"]'); await page.click('#lk-ok');
+  expect(await page.evaluate(() => window.T.tasks.list(t => /dentist cleaning/.test(t.title) && t.repeat).length)).toBe(1);
+  expect(errs).toEqual([]);
+});
