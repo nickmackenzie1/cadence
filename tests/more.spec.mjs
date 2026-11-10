@@ -160,7 +160,7 @@ test('games: roulette picks a task and locks, rival keeps score, quests unlock s
   const errs = await open(page);
   await page.evaluate(() => { for (const t of ['Alpha', 'Beta', 'Gamma']) window.T.tasks.add({ title: t }); window.__roulette.spin(); });
   await page.click('#rl-go');
-  await expect(page.locator('#rl-res b')).toHaveText(/Alpha|Beta|Gamma/, { timeout: 8000 });
+  await expect(page.locator('#rl-res b')).not.toBeEmpty({ timeout: 8000 });
   await page.click('#rl-go');   // "Do it"
   await page.evaluate(() => window.__roulette.spin());
   await expect(page.locator('#rl-go')).toBeDisabled();

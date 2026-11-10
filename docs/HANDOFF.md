@@ -467,3 +467,9 @@ data, or peer-to-peer on the same LAN). Personal data and secrets stay on each p
   (roulette, rival, quests, bucket), mindset.js (forecaster, done-list, future-you, regret), accountability.js
   (grandma, stakes, Cliq ledger + /api/cliq/*). Core: api.notify, api.footer, api.plugins.list, api.ui.taskRow/openTask/
   selected/refreshSide, views {wide:true}.
+- Shipped (Life batch): kitchen.js (+ /api/recipe JSON-LD parser), inbox-scan.js, life-kit.js (shared form/area/
+  ownTask helpers, window.LifeKit), kids.js, home-life.js (partner, household, yourself), family-hub.js (kiosk #kiosk,
+  vacation, traditions), camping.js, homeowner climate shift + history + attachments.
+- Not done / needs more: Location nudges need the phone app (tasks have `place` now). Inbox scanner reads pasted/.eml
+  mail only (IMAP later, creds on NAS). Shame escrow is honour system + links. Kitchen tablet has no household login
+  yet (open #kiosk on a signed-in tablet). Full suite is ~4 min serial: run with `timeout 590`.
