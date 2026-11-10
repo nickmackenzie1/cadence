@@ -131,3 +131,27 @@ test('feed skins: podcast player, news front page, Letterboxd film diary', async
   await expect(page.locator('#rs-player.on b')).toHaveText('Ep 1: Hello');
   expect(errs.filter(e => !/play|media|NotSupported/i.test(e))).toEqual([]);
 });
+
+test('desk toys: aquarium fish from focus, invoice radar, desk plant grows, weekly rewind', async ({ page }) => {
+  const errs = await open(page);
+  // aquarium
+  await page.evaluate(() => window.__aqua.start(25));
+  expect(await page.evaluate(() => !!localStorage.getItem('cadence.focus'))).toBe(true);
+  await page.evaluate(() => window.__aqua.finishNow());
+  await page.evaluate(() => location.hash = 'view-aquarium');
+  await expect(page.locator('.aq-list span')).toHaveCount(1);
+  await expect(page.locator('.aq canvas')).toHaveCount(1);
+  // invoice radar
+  await page.evaluate(() => { const c = window.T.clients.add('Billco'); for (const t of ['Build report', 'Fix sync']) { const x = window.T.tasks.add({ title: t, clientId: c.id }); window.T.tasks.complete(x.id); } location.hash = 'view-invoices'; });
+  await expect(page.locator('.ir-row', { hasText: 'Billco' })).toContainText('2 done');
+  await page.locator('.ir-row', { hasText: 'Billco' }).locator('[data-inv]').click();
+  await expect(page.locator('.ir-row', { hasText: 'Billco' })).toHaveCount(0);
+  // plant: two completions above, plus one more
+  expect(await page.evaluate(() => { const x = window.T.tasks.add({ title: 'Water me' }); window.T.tasks.complete(x.id); return 1; })).toBe(1);
+  // rewind
+  await page.evaluate(() => window.__rewind.show());
+  await expect(page.locator('#rw-ov h2').first()).toHaveText(/\d+/);
+  for (let i = 0; i < 6; i++) { if (!(await page.locator('#rw-ov').count())) break; await page.click('#rw-ov [data-rw=next]'); }
+  await expect(page.locator('#rw-ov')).toHaveCount(0);
+  expect(errs).toEqual([]);
+});
