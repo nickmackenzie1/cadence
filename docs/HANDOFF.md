@@ -459,3 +459,6 @@ data, or peer-to-peer on the same LAN). Personal data and secrets stay on each p
 - sheep.js: original pixel sheep desktop pet (localStorage cadence.sheep {count}), walks on PLAT tops, physics, drag/throw.
 - orbit.js: view-orbit (client solar system + 24h day clock), dashboard widget 'dayclock', radial menu on right-click of
   blank space (Shift = native menu; setting in cadence.orbit). Lucide 'orbit' + 'clock-4' added (🪐 / 🕓 map to them).
+- Backlog (user, 19:03): the "public ledger" posts to Zoho Cliq (status / message), not Slack. Cliq OAuth token on the NAS.
+- Backlog (user, 19:04, Life): recipe manager with a URL parser that grabs recipes from blogs (schema.org Recipe
+  JSON-LD via the NAS fetch, fallback to page heuristics, skip the life story). Ties into the meal plan + shopping list.

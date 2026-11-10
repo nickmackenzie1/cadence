@@ -705,11 +705,11 @@ function makeApi(pid){
     plugins: { enabled: id => enabled(id) },
     space: () => SPACE,
     system: () => ({ demo: DEMO, space: SPACE, mode: Store.server ? 'nas' : Store.ref ? 'claude' : 'local', status: Store.status, lastSyncAt: Store.lastSyncAt || null, latency: Store.latency ?? null, ai: !!AI, health: Store.health || null, version: window.Cadence.version, plugins: Reg.defs.filter(d => enabled(d.id)).length, counts: { tasks: S.tasks.length, open: S.tasks.filter(t => !t.done).length, clients: S.clients.filter(c => !c.archived).length, meetings: S.meetings.length } }),
-    ui: { icon, reducedMotion, toast, colorMode: () => S.settings.theme === 'dark' ? 'dark' : 'light', setColorMode: m => { S.settings.theme = m === 'dark' ? 'dark' : 'light'; save(); render(); }, refreshWidgets: () => renderWidgets(), pointer: () => ({ ...lastPointer }), faviconUrl: (d, v) => faviconUrl(d, v), avatar: (c, size) => avatar(c, size), navigate: r => go(r), refresh: () => render(), copy: copyText, esc, modal: openModalHTML, close: closeModal, currentRoute: () => route() },
+    ui: { icon, reducedMotion, toast, taskRow: (t, o) => { const x = S.tasks.find(y => y.id === (t && t.id || t)); return x ? taskRow(x, o || {}) : ''; }, openTask: id => openTask(id), selected: () => selTask, closeTask: () => closeDrawer(), colorMode: () => S.settings.theme === 'dark' ? 'dark' : 'light', setColorMode: m => { S.settings.theme = m === 'dark' ? 'dark' : 'light'; save(); render(); }, refreshWidgets: () => renderWidgets(), pointer: () => ({ ...lastPointer }), faviconUrl: (d, v) => faviconUrl(d, v), avatar: (c, size) => avatar(c, size), navigate: r => go(r), refresh: () => render(), copy: copyText, esc, modal: openModalHTML, close: closeModal, currentRoute: () => route() },
     storage: { get: k => (S.pluginData[pid] || {})[k], set: (k,v) => { (S.pluginData[pid] = S.pluginData[pid] || {})[k] = v; save(); } },
     get ai(){ return AI; },
     settings: () => clone(S.settings),
-    util: { parse: parseQuick, ymd, fmtDate, dueLabel, addDays, todayKey }
+    util: { parse: parseQuick, ymd, fmtDate, dueLabel, addDays, todayKey, dueState, fromYmd, fmtTime }
   });
 }
 function rebuildPlugins(){
@@ -939,6 +939,7 @@ function emptyState(icon, title, sub){ return `<div class="empty"><div class="bi
 
 function renderView(){
   const r = route(), v = $('#view'), t = todayKey(), o = open();
+  v.classList.remove('vw-wide');
   let html = '';
   if(r === 'today'){
     const hr = new Date().getHours(), name = (S.settings.myName||'').split(' ')[0];
@@ -1021,6 +1022,7 @@ function renderView(){
     renderPlugins(v); applyKb(); emit('render', { route: r }); return;
   } else if(r.startsWith('view-')){
     const pv = Reg.views.find(x => 'view-'+x.id === r);
+    v.classList.toggle('vw-wide', !!(pv && pv.wide));
     if(pv){ v.innerHTML = `<div class="head"><div><h1>${esc(pv.title)}</h1>${pv.subtitle?`<div class="sub">${esc(pv.subtitle)}</div>`:''}</div></div><div id="pv"></div>`; try { pv.render($('#pv'), makeApi(pv.pid)); } catch(e){ $('#pv').textContent = 'Plugin view failed: ' + e.message; } emit('render', { route: r }); return; }
     html = emptyState('◇','View not available','The plugin providing it may be disabled.');
   } else { location.hash = 'today'; return; }

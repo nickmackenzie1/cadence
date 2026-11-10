@@ -9,3 +9,4 @@ playwright-report/
 certs/
 .mkcert-ca/
 .tools/
+.scratch/

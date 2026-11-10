@@ -148,6 +148,7 @@ input,textarea,select{font:inherit;color:inherit}
 /* main */
 .main{overflow:auto;position:relative}
 .wrap{max-width:780px;margin:0 auto;padding:64px 40px 120px}
+.wrap.vw-wide{max-width:min(1400px,100%)}
 .head{display:flex;align-items:flex-end;gap:12px;margin-bottom:22px}
 .head h1{margin:0;font-size:26px;letter-spacing:-.025em;font-weight:700;display:flex;align-items:center;gap:10px}
 .head .sub{color:var(--muted);font-size:13px;margin-top:4px}
