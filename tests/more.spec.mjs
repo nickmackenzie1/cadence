@@ -370,3 +370,26 @@ test('family hub: kitchen tablet board, a trip with packing that remembers, trad
   expect(await page.evaluate(() => window.__traditions.nextDate({ kind: 'nth', ord: 'first', dow: 6, month: 9 }, '2026-01-01'))).toBe('2026-10-03');
   expect(errs).toEqual([]);
 });
+
+test('camping: trip setup, packing built from type, people, weather and menu, route pace, journal lessons', async ({ page }) => {
+  const errs = await open(page); await toLife(page);
+  const st = await page.evaluate(() => window.T.util.ymd(window.T.util.addDays(new Date(), 2)));
+  const en = await page.evaluate(() => window.T.util.ymd(window.T.util.addDays(new Date(), 4)));
+  await page.route('**/api/weather/geo?*', r => r.fulfill({ json: { results: [{ name: 'Algonquin', latitude: 45.5, longitude: -78.5 }] } }));
+  await page.route('**/api/weather?*', r => r.fulfill({ json: { daily: { time: [st, en], temperature_2m_max: [12, 10], temperature_2m_min: [1, 4], precipitation_probability_max: [20, 70] } } }));
+  await page.evaluate(() => location.hash = 'view-camping');
+  await page.click('#cp-new'); await page.fill('#lk-name', 'Algonquin'); await page.fill('#lk-place', 'Algonquin Park'); await page.selectOption('#lk-type', 'canoe');
+  await page.fill('#lk-start', st); await page.fill('#lk-end', en); await page.fill('#lk-adultsS', 'Nick, Sam'); await page.fill('#lk-kidsS', 'Maya'); await page.check('#lk-dog'); await page.click('#lk-ok');
+  await page.click('#cp-wx');
+  await expect(page.locator('.cp-flag')).toHaveCount(2);
+  await page.click('[data-tab=menu]'); await page.fill(`[data-meal="${st}|Breakfast"]`, 'Pancakes'); await page.press(`[data-meal="${st}|Breakfast"]`, 'Tab');
+  await page.click('[data-tab=pack]');
+  for (const sec of ['Shared gear', 'Nick', 'Maya', 'Dog', 'Weather: cold nights', 'Weather: rain', 'For the menu', 'Bear safety']) await expect(page.locator('.lk-card', { hasText: sec }).first()).toBeVisible();
+  await expect(page.locator('.lk-card', { hasText: 'For the menu' })).toContainText('Griddle');
+  await page.click('[data-tab=route]'); await page.click('#cp-day'); await page.fill('#lk-from', 'Canoe Lake'); await page.fill('#lk-to', 'Burnt Island Lake'); await page.fill('#lk-km', '14'); await page.click('#lk-ok');
+  await expect(page.locator('.cp-flag')).toContainText('8 km');
+  await page.click('[data-tab=journal]'); await page.fill('#cp-skip', 'Card games / colouring'); await page.click('#cp-learn');
+  await page.click('[data-tab=pack]');
+  await expect(page.locator('.lk-card', { hasText: 'Maya' }).first()).not.toContainText('Card games / colouring');
+  expect(errs).toEqual([]);
+});
