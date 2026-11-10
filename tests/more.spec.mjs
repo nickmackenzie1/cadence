@@ -155,3 +155,33 @@ test('desk toys: aquarium fish from focus, invoice radar, desk plant grows, week
   await expect(page.locator('#rw-ov')).toHaveCount(0);
   expect(errs).toEqual([]);
 });
+
+test('games: roulette picks a task and locks, rival keeps score, quests unlock steps, bucket list sorts by years left', async ({ page }) => {
+  const errs = await open(page);
+  await page.evaluate(() => { for (const t of ['Alpha', 'Beta', 'Gamma']) window.T.tasks.add({ title: t }); window.__roulette.spin(); });
+  await page.click('#rl-go');
+  await expect(page.locator('#rl-res b')).toHaveText(/Alpha|Beta|Gamma/, { timeout: 8000 });
+  await page.click('#rl-go');   // "Do it"
+  await page.evaluate(() => window.__roulette.spin());
+  await expect(page.locator('#rl-go')).toBeDisabled();
+  await page.keyboard.press('Escape');
+  expect(await page.evaluate(() => typeof window.__rival.rival())).toBe('number');
+  // quests
+  await page.evaluate(() => window.__quests.start('run'));
+  const first = await page.evaluate(() => window.T.tasks.list(t => t.quest && !t.done).map(t => t.title));
+  expect(first).toEqual(['Walk 30 minutes, 3 times']);
+  await page.evaluate(() => { const t = window.T.tasks.list(t => t.quest && !t.done)[0]; window.T.tasks.complete(t.id); });
+  expect(await page.evaluate(() => window.T.tasks.list(t => t.quest && !t.done).map(t => t.title))).toEqual(['Run/walk intervals for a week']);
+  await page.evaluate(() => location.hash = 'view-quests');
+  await expect(page.locator('.qn.done')).toHaveCount(1);
+  await expect(page.locator('.qn.open')).toHaveCount(1);
+  // bucket list (Life only)
+  await page.mouse.click(700, 300); await page.keyboard.press('Shift+L');
+  await expect(page.locator('html[data-space=life]')).toHaveCount(1);
+  await page.evaluate(() => location.hash = 'view-bucket');
+  await page.fill('#bk-born', '1985'); await page.click('#bk-save');
+  for (const [t, p] of [['See the northern lights', '1'], ['Climb Kilimanjaro', '3']]) { await page.fill('#bk-t', t); await page.selectOption('#bk-p', p); await page.click('#bk-go'); }
+  await expect(page.locator('.bk-it b').first()).toHaveText('Climb Kilimanjaro');
+  await expect(page.locator('.bk-txt b')).toHaveText(/\d/);
+  expect(errs).toEqual([]);
+});
