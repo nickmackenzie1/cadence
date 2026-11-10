@@ -602,3 +602,5 @@ svg.lu{width:1.1em;height:1.1em;display:inline-block;vertical-align:-.17em;fill:
 #meeting.branded .m-head{border-bottom:0}
 #meeting.branded .m-col.me h3{color:color-mix(in srgb,var(--m1, var(--accent)) 70%,var(--text))}
 @media (max-width:900px){.m-band-in{flex-wrap:wrap}.m-facts{width:100%}}
+
+.foot-row .foot-pl{position:relative}.foot-row .fb-n{position:absolute;top:-3px;right:-4px;min-width:15px;height:15px;padding:0 4px;border-radius:999px;background:#e5484d;color:#fff;font:700 9.5px/15px Inter,system-ui;text-align:center}

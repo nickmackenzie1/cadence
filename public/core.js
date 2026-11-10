@@ -596,7 +596,7 @@ function createFromQuick(text, ctx){
 /* =========================================================
    Plugin host
    ========================================================= */
-const Reg = { defs:[], commands:[], views:[], parsers:[], extractors:[], taskActions:[], meetingActions:[], clientActions:[], sidebar:[], listeners:[], settingsPanels:[], widgets:[], chips:[], cards:[] };
+const Reg = { defs:[], commands:[], views:[], parsers:[], extractors:[], taskActions:[], meetingActions:[], clientActions:[], sidebar:[], listeners:[], settingsPanels:[], widgets:[], chips:[], cards:[], footer:[] };
 let AI = null;
 function spaceOk(pid){ const d = Reg.defs.find(x => x.id === pid); return !d || !d.spaces || d.spaces.includes(SPACE); }
 function enabled(pid){ return !S.disabled.includes(pid) && spaceOk(pid); }
@@ -662,6 +662,8 @@ const ErrLog = (() => { let list = []; try { list = JSON.parse(sessionStorage.ge
   return { add, list: () => list.slice(), copy, text };
 })();
 window.CadenceErrors = ErrLog;
+/* notifications: everything goes through here so the notification centre (notify.js) sees it all */
+function notify(n){ n = Object.assign({ id: uid('n'), at: Date.now(), pid: 'core', title: '', body: '' }, n); const handled = Reg.listeners.some(l => l.ev === 'notify'); emit('notify', n); return handled; }
 function emit(ev, payload){ for(const l of Reg.listeners) if(l.ev === ev || l.ev === '*') { try { l.fn(payload, ev); } catch(e){ console.error(`[plugin ${l.pid}]`, e); ErrLog.add(`[${l.pid}] ${e.message}`, e.stack); } } }
 function makeApi(pid){
   return Object.freeze({
@@ -677,13 +679,18 @@ function makeApi(pid){
     island: (() => { const I = () => enabled('island') && window.CadenceIsland; const noop = { update(){}, done(p){ if(p && p.title) toast(p.title); }, dismiss(){} };
       return {
         available: () => !!I(),
-        show: n => I() ? I().show(n) : (toast(n.title + (n.sub ? ' — ' + n.sub : ''), n.actions || []), noop),
+        show: n => { if(n && n.title && n.log !== false) notify({ pid, title: n.title, body: n.sub || '', icon: n.icon || '', color: n.color || '', quiet: true }); return I() ? I().show(n) : (toast(n.title + (n.sub ? ' — ' + n.sub : ''), n.actions || []), noop); },
         celebrate: n => I() ? I().celebrate(n) : (toast((n.icon ? n.icon + ' ' : '') + n.title), noop),
         progress: (key, title, o) => I() ? I().progress(key, title, o) : noop,
         live: (key, l) => I() && I().live(pid + ':' + key, l),
         clear: key => I() && I().clear(pid + ':' + key),
       }; })(),
     parsers: { add: fn => Reg.parsers.push({ fn, pid }) },
+    /* a notification: lands in the notification centre (if enabled), and as a desktop/push notice per its settings.
+       api.notify({ title, body?, route?, taskId?, icon?, tag? }) */
+    notify: n => notify({ ...n, pid }),
+    /* a button in the sidebar footer: api.footer.add({ id, icon (svg html), title, badge: () => number|'' , run(btnEl) }) */
+    footer: { add: b => { Reg.footer = (Reg.footer || []).filter(x => x.key !== pid + ':' + b.id).concat([{ ...b, pid, key: pid + ':' + b.id }]); } },
     extractors: { add: e => Reg.extractors.push({ ...e, pid }) },
     taskActions: { add: a => Reg.taskActions.push({ ...a, pid }) },
     /* extra chips on task rows (and the quick-add preview): api.chips.add((task, preview) => html or '') */
@@ -702,10 +709,10 @@ function makeApi(pid){
       /* draw any plugin's widget into el; ctx = { cfg, setCfg(patch), w, h, edit } */
       render: (key, el, ctx = {}) => { const w = Reg.widgets.find(x => x.key === key); if(!w) return false; try { w.render(el, makeApi(w.pid), ctx); } catch(e){ el.innerHTML = `<div class="muted" style="padding:12px;font-size:12px">Widget failed: ${esc(e.message)}</div>`; } return true; },
     },
-    plugins: { enabled: id => enabled(id) },
+    plugins: { enabled: id => enabled(id), list: () => Reg.defs.map(d => ({ id: d.id, name: d.name, enabled: enabled(d.id) })) },
     space: () => SPACE,
     system: () => ({ demo: DEMO, space: SPACE, mode: Store.server ? 'nas' : Store.ref ? 'claude' : 'local', status: Store.status, lastSyncAt: Store.lastSyncAt || null, latency: Store.latency ?? null, ai: !!AI, health: Store.health || null, version: window.Cadence.version, plugins: Reg.defs.filter(d => enabled(d.id)).length, counts: { tasks: S.tasks.length, open: S.tasks.filter(t => !t.done).length, clients: S.clients.filter(c => !c.archived).length, meetings: S.meetings.length } }),
-    ui: { icon, reducedMotion, toast, taskRow: (t, o) => { const x = S.tasks.find(y => y.id === (t && t.id || t)); return x ? taskRow(x, o || {}) : ''; }, openTask: id => openTask(id), selected: () => selTask, closeTask: () => closeDrawer(), colorMode: () => S.settings.theme === 'dark' ? 'dark' : 'light', setColorMode: m => { S.settings.theme = m === 'dark' ? 'dark' : 'light'; save(); render(); }, refreshWidgets: () => renderWidgets(), pointer: () => ({ ...lastPointer }), faviconUrl: (d, v) => faviconUrl(d, v), avatar: (c, size) => avatar(c, size), navigate: r => go(r), refresh: () => render(), copy: copyText, esc, modal: openModalHTML, close: closeModal, currentRoute: () => route() },
+    ui: { icon, reducedMotion, toast, refreshSide: () => renderSide(), taskRow: (t, o) => { const x = S.tasks.find(y => y.id === (t && t.id || t)); return x ? taskRow(x, o || {}) : ''; }, openTask: id => openTask(id), selected: () => selTask, closeTask: () => closeDrawer(), colorMode: () => S.settings.theme === 'dark' ? 'dark' : 'light', setColorMode: m => { S.settings.theme = m === 'dark' ? 'dark' : 'light'; save(); render(); }, refreshWidgets: () => renderWidgets(), pointer: () => ({ ...lastPointer }), faviconUrl: (d, v) => faviconUrl(d, v), avatar: (c, size) => avatar(c, size), navigate: r => go(r), refresh: () => render(), copy: copyText, esc, modal: openModalHTML, close: closeModal, currentRoute: () => route() },
     storage: { get: k => (S.pluginData[pid] || {})[k], set: (k,v) => { (S.pluginData[pid] = S.pluginData[pid] || {})[k] = v; save(); } },
     get ai(){ return AI; },
     settings: () => clone(S.settings),
@@ -713,7 +720,7 @@ function makeApi(pid){
   });
 }
 function rebuildPlugins(){
-  for(const k of ['commands','views','parsers','extractors','taskActions','meetingActions','clientActions','sidebar','listeners','settingsPanels','widgets','chips','cards']) Reg[k] = [];
+  for(const k of ['commands','views','parsers','extractors','taskActions','meetingActions','clientActions','sidebar','listeners','settingsPanels','widgets','chips','cards','footer']) Reg[k] = [];
   for(const def of Reg.defs){
     if(!enabled(def.id)) continue;
     try { def.setup(makeApi(def.id)); } catch(e){ console.error(`Plugin ${def.id} failed`, e); ErrLog.add(`Plugin ${def.id} failed to start: ${e.message}`, e.stack); }
@@ -844,7 +851,7 @@ function renderSide(){
         ${all.length ? `<a class="all-cl" data-act="all-clients"><span class="ic">${NAV_ICONS.grid || '▦'}</span><span class="t">All clients &amp; projects</span><span class="n">${all.length}</span></a>` : ''}</nav>`; })()}`;
   $('#side-foot').innerHTML = `${DEMO ? `<div class="demo-row"><b>●</b> Demo data<button data-act="demo-reset">Reset</button><button data-act="demo-exit">Exit</button></div>` : ''}
       ${LIFE() ? '' : `<button class="meet-btn" data-act="meeting">${S.activeMeeting ? '● Resume meeting' : '◉ Start meeting'} <kbd style="background:transparent;color:inherit;border-color:currentColor;opacity:.45">M</kbd></button>`}
-      <div class="foot-row"><span class="sync ${Store.status==='synced'?'ok':''}" id="sync"><i></i><span>${DEMO ? 'Demo data — not saved' : Store.status==='synced'?(Store.server?'Synced to NAS':'Synced'):'This browser'}</span></span><button data-act="shortcuts" title="Keyboard shortcuts (?)">${NAV_ICONS.keys}</button><button data-act="theme" title="Theme">${NAV_ICONS.palette}</button><button data-act="open-plugins" title="Plugins">${NAV_ICONS.puzzle}</button><button data-act="settings" title="Settings">${NAV_ICONS.gear}</button></div>`;
+      <div class="foot-row"><span class="sync ${Store.status==='synced'?'ok':''}" id="sync"><i></i><span>${DEMO ? 'Demo data — not saved' : Store.status==='synced'?(Store.server?'Synced to NAS':'Synced'):'This browser'}</span></span>${(Reg.footer || []).map(b => { let n = ''; try { n = b.badge ? b.badge() : ''; } catch(e){} return `<button data-foot="${esc(b.key)}" title="${esc(b.title || '')}" class="foot-pl">${b.icon || ''}${n ? `<span class="fb-n">${esc(n)}</span>` : ''}</button>`; }).join('')}<button data-act="shortcuts" title="Keyboard shortcuts (?)">${NAV_ICONS.keys}</button><button data-act="theme" title="Theme">${NAV_ICONS.palette}</button><button data-act="open-plugins" title="Plugins">${NAV_ICONS.puzzle}</button><button data-act="settings" title="Settings">${NAV_ICONS.gear}</button></div>`;
   fitSide();
   emit('render:side', {});
 }
@@ -1294,7 +1301,8 @@ function checkReminders(){
       { label:'Snooze 10m', run: () => { updateTask(t.id, { remindMode:'custom', remindAt: Date.now() + 600000 }); render(); } },
       { label:'Open', run: () => openTask(t.id) }
     ], { sticky:true, cls:'rem', bottom:true });
-    try { if('Notification' in window && Notification.permission === 'granted') new Notification('Cadence', { body: t.title + (c ? ' · ' + c.name : '') }); } catch(e){}
+    const handled = notify({ pid: 'reminders', kind: 'reminder', title: t.title, body: (c ? c.name : '') + (t.dueTime ? (c ? ' · ' : '') + 'due ' + fmtTime(t.dueTime) : ''), taskId: t.id, tag: 'rem-' + t.id, desktop: true });
+    if(!handled) try { if('Notification' in window && Notification.permission === 'granted') new Notification('Cadence', { body: t.title + (c ? ' · ' + c.name : ''), tag: 'rem-' + t.id }); } catch(e){}
     try { const a = new (window.AudioContext || window.webkitAudioContext)(); const o = a.createOscillator(), g = a.createGain(); o.frequency.value = 880; g.gain.setValueAtTime(.08, a.currentTime); g.gain.exponentialRampToValueAtTime(.0001, a.currentTime + .5); o.connect(g).connect(a.destination); o.start(); o.stop(a.currentTime + .5); } catch(e){}
     emit('reminder', clone(t));
   }
@@ -1821,6 +1829,7 @@ async function runImport(){
    Global events
    ========================================================= */
 document.addEventListener('click', e => {
+  const fb = e.target.closest('[data-foot]'); if(fb){ const b = (Reg.footer || []).find(x => x.key === fb.dataset.foot); if(b) try { b.run(fb); } catch(er){ ErrLog.add(er.message, er.stack); } return; }
   const a = e.target.closest('[data-act]');
   const taskEl = e.target.closest('.task');
   const gl = e.target.closest('.gl');

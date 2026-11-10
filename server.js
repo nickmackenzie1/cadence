@@ -381,6 +381,70 @@ async function safeFetch(u, opts = {}, max = 2 * 1024 * 1024) {
   throw new Error('too many redirects');
 }
 
+
+// ---- Web Push (RFC 8291 aes128gcm + VAPID), no dependencies. Keys and subscriptions live on the NAS only. ----
+const PUSH_FILE = path.join(DATA_DIR, 'push.json');
+const b64u = b => Buffer.from(b).toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+const unb64u = s => Buffer.from(String(s).replace(/-/g, '+').replace(/_/g, '/'), 'base64');
+function readPush() {
+  let d = {}; try { d = JSON.parse(fs.readFileSync(PUSH_FILE, 'utf8')); } catch {}
+  if (!d.vapid) {
+    const { privateKey, publicKey } = crypto.generateKeyPairSync('ec', { namedCurve: 'prime256v1' });
+    const jwk = publicKey.export({ format: 'jwk' });
+    d.vapid = { priv: privateKey.export({ format: 'pem', type: 'pkcs8' }), pub: b64u(Buffer.concat([Buffer.from([4]), unb64u(jwk.x), unb64u(jwk.y)])) };
+    d.subs = d.subs || []; writePush(d);
+  }
+  d.subs = d.subs || []; d.sent = d.sent || {}; d.cfg = Object.assign({ quiet: null, reminders: true }, d.cfg || {});
+  return d;
+}
+function writePush(d) { try { fs.writeFileSync(PUSH_FILE, JSON.stringify(d)); fs.chmodSync(PUSH_FILE, 0o600); } catch (e) { console.error('push save', e.message); } }
+const hkdf = (salt, ikm, info, len) => { const prk = crypto.createHmac('sha256', salt).update(ikm).digest(); return crypto.createHmac('sha256', prk).update(Buffer.concat([info, Buffer.from([1])])).digest().subarray(0, len); };
+function encryptPush(sub, payload) {
+  const uaPub = unb64u(sub.keys.p256dh), auth = unb64u(sub.keys.auth);
+  const ecdh = crypto.createECDH('prime256v1'); ecdh.generateKeys(); const asPub = ecdh.getPublicKey(), shared = ecdh.computeSecret(uaPub);
+  const ikm = hkdf(auth, shared, Buffer.concat([Buffer.from('WebPush: info\0'), uaPub, asPub]), 32);
+  const salt = crypto.randomBytes(16), cek = hkdf(salt, ikm, Buffer.from('Content-Encoding: aes128gcm\0'), 16), nonce = hkdf(salt, ikm, Buffer.from('Content-Encoding: nonce\0'), 12);
+  const c = crypto.createCipheriv('aes-128-gcm', cek, nonce), ct = Buffer.concat([c.update(Buffer.concat([Buffer.from(payload), Buffer.from([2])])), c.final(), c.getAuthTag()]);
+  const head = Buffer.alloc(21); salt.copy(head, 0); head.writeUInt32BE(4096, 16); head[20] = asPub.length;
+  return Buffer.concat([head, asPub, ct]);
+}
+function vapidAuth(d, endpoint) {
+  const aud = new URL(endpoint).origin, enc = o => b64u(JSON.stringify(o));
+  const unsigned = enc({ typ: 'JWT', alg: 'ES256' }) + '.' + enc({ aud, exp: Math.floor(Date.now() / 1000) + 12 * 3600, sub: 'mailto:cadence@example.com' });
+  const sig = crypto.sign('sha256', Buffer.from(unsigned), { key: d.vapid.priv, dsaEncoding: 'ieee-p1363' });
+  return `vapid t=${unsigned}.${b64u(sig)}, k=${d.vapid.pub}`;
+}
+async function sendPush(d, sub, msg) {
+  await assertPublic(sub.endpoint);   // push services only; never a LAN address
+  const r = await fetch(sub.endpoint, { method: 'POST', signal: AbortSignal.timeout(10000), headers: { TTL: '3600', Urgency: 'high', 'Content-Encoding': 'aes128gcm', 'Content-Type': 'application/octet-stream', Authorization: vapidAuth(d, sub.endpoint) }, body: encryptPush(sub, JSON.stringify(msg)) });
+  return r.status;
+}
+const inQuiet = q => { if (!q || !q.from || !q.to) return false; const n = new Date(), m = n.getHours() * 60 + n.getMinutes(), [a, b] = [q.from, q.to].map(x => { const [h, mm] = x.split(':').map(Number); return h * 60 + mm; }); return a < b ? m >= a && m < b : m >= a || m < b; };
+async function pushAll(msg, opts = {}) {
+  const d = readPush(); if (!d.subs.length) return { sent: 0 };
+  if (!opts.force && inQuiet(d.cfg.quiet)) return { sent: 0, quiet: true };
+  let sent = 0; const dead = new Set();
+  for (const s of d.subs) { try { const st = await sendPush(d, s, msg); if (st === 404 || st === 410) dead.add(s.endpoint); else if (st < 300) sent++; } catch (e) { console.error('push', e.message); } }
+  if (dead.size) { const cur = readPush(); cur.subs = cur.subs.filter(s => !dead.has(s.endpoint)); writePush(cur); }
+  return { sent };
+}
+// reminders reach your phone/desktop even with no Cadence tab open
+async function pushTick() {
+  let d; try { d = readPush(); } catch { return; } if (!d.subs.length || !d.cfg.reminders) return;
+  const now = Date.now(), docs = db ? [assemble('work'), assemble('life')] : [readState()];
+  let changed = false;
+  for (const doc of docs) for (const t of doc.tasks || []) {
+    if (t.done || !t.remindAt || t.remindAt > now || now - t.remindAt > 15 * 60e3) continue;
+    const k = t.id + ':' + t.remindAt; if (d.sent[k]) continue;
+    d.sent[k] = now; changed = true;
+    const c = (doc.clients || []).find(x => x.id === t.clientId);
+    pushAll({ title: 'Reminder', body: t.title + (c ? ' · ' + c.name : ''), tag: 'rem-' + t.id, url: '/#today' }).catch(() => {});
+  }
+  for (const [k, at] of Object.entries(d.sent)) if (now - at > 2 * 864e5) { delete d.sent[k]; changed = true; }
+  if (changed) { const cur = readPush(); cur.sent = d.sent; writePush(cur); }
+}
+setInterval(() => pushTick().catch(e => console.error('pushTick', e.message)), 30000).unref();
+
 // ---- company info: logo, banner, description, industry from the client's website ----
 const INDUSTRIES = {
   software:      ['software','saas','platform','cloud','app ','apps','api','developer','cybersecurity','it services','managed services','tech'],
@@ -826,6 +890,26 @@ async function handle(req, res) {
         feedCache.set(u, { at: Date.now(), data }); if (feedCache.size > 50) feedCache.delete(feedCache.keys().next().value);
         return send(res, 200, data);
       } catch (e) { return hit ? send(res, 200, hit.data) : send(res, 502, { error: 'Could not fetch feed: ' + e.message }); }
+    }
+    if (p === '/api/push/key') return send(res, 200, { key: readPush().vapid.pub });
+    if (p === '/api/push/config' && req.method === 'GET') { const d = readPush(); writePush(d); return send(res, 200, { cfg: d.cfg, devices: d.subs.map(s => ({ device: s.device, at: s.at, host: (() => { try { return new URL(s.endpoint).hostname; } catch { return ''; } })() })) }); }
+    if (p === '/api/push/config' && req.method === 'PUT') {
+      const b = JSON.parse(await readBody(req, 4096)), d = readPush(), ok = x => /^\d{1,2}:\d{2}$/.test(x || '');
+      d.cfg = { reminders: b.reminders !== false, quiet: b.quiet && ok(b.quiet.from) && ok(b.quiet.to) ? { from: b.quiet.from, to: b.quiet.to } : null };
+      writePush(d); return send(res, 200, { ok: true, cfg: d.cfg });
+    }
+    if (p === '/api/push/subscribe' && req.method === 'POST') {
+      const b = JSON.parse(await readBody(req, 8192)), sub = b.subscription || {};
+      if (!/^https:\/\//.test(sub.endpoint || '') || !sub.keys || !sub.keys.p256dh || !sub.keys.auth) return send(res, 400, { error: 'bad subscription' });
+      const d = readPush(); d.subs = d.subs.filter(s => s.endpoint !== sub.endpoint).concat([{ endpoint: sub.endpoint, keys: { p256dh: sub.keys.p256dh, auth: sub.keys.auth }, device: String(b.device || '').slice(0, 60), at: Date.now() }]).slice(-20);
+      writePush(d); return send(res, 200, { ok: true, devices: d.subs.length });
+    }
+    if (p === '/api/push/unsubscribe' && req.method === 'POST') {
+      const b = JSON.parse(await readBody(req, 8192)), d = readPush(); d.subs = d.subs.filter(s => s.endpoint !== b.endpoint); writePush(d); return send(res, 200, { ok: true });
+    }
+    if (p === '/api/push/test' && req.method === 'POST') {
+      const b = JSON.parse(await readBody(req, 4096) || '{}');
+      return send(res, 200, await pushAll({ title: String(b.title || 'Cadence').slice(0, 80), body: String(b.body || 'Push notifications are working.').slice(0, 200), tag: 'test', url: '/' }, { force: true }));
     }
     if (p === '/api/calendar/config' && req.method === 'GET') {
       // never send the secret URLs back to the browser

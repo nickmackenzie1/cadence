@@ -63,3 +63,29 @@ test('calendar view: month and week grids, drag to reschedule, click a day to ad
   await expect(page.locator('.cv-side .task.open')).toHaveCount(1);
   expect(errs).toEqual([]);
 });
+
+test('notifications: reminders and plugin notices land in the centre, mute per plugin, push endpoints', async ({ page, request }) => {
+  const errs = await open(page);
+  await page.evaluate(() => { window.T.tasks.add({ title: 'Ring the bank', remindMode: 'custom', remindAt: Date.now() - 1000 }); });
+  await expect(page.locator('[data-foot="notify:bell"] .fb-n')).toHaveText(/\d/, { timeout: 15000 });
+  await page.click('[data-foot="notify:bell"]');
+  await expect(page.locator('#nt-panel .nt-it.new')).toContainText('Ring the bank');
+  await page.click('#nt-panel [data-nt=read]');
+  await expect(page.locator('#nt-panel .nt-it.new')).toHaveCount(0);
+  await page.keyboard.press('Escape'); await page.mouse.click(700, 400);
+  // a plugin notice through api.island.show is logged too, and can be muted
+  await page.evaluate(() => Cadence.registerPlugin({ id: 'pinger', name: 'Pinger', setup(api) { window.P = api; } }));
+  await page.evaluate(() => window.P.notify({ title: 'Ping one' }));
+  await expect.poll(() => page.evaluate(() => window.__notify.list()[0].title)).toBe('Ping one');
+  await page.evaluate(() => window.__notify.settings());
+  await expect(page.locator('[data-mute="pinger"]')).toBeChecked();
+  await page.uncheck('[data-mute="pinger"]'); await page.click('#nt-done');
+  await page.evaluate(() => window.P.notify({ title: 'Ping two' }));
+  await page.waitForTimeout(200);
+  expect(await page.evaluate(() => window.__notify.list().some(n => n.title === 'Ping two'))).toBe(false);
+  // server side: a VAPID key, subscription validation, config
+  const k = await (await request.get(B + '/api/push/key')).json(); expect(k.key).toMatch(/^[A-Za-z0-9_-]{80,}$/);
+  expect((await request.post(B + '/api/push/subscribe', { data: { subscription: { endpoint: 'http://192.168.1.5/x' } } })).status()).toBe(400);
+  expect((await (await request.put(B + '/api/push/config', { data: { quiet: { from: '22:00', to: '07:00' } } })).json()).cfg.quiet.from).toBe('22:00');
+  expect(errs).toEqual([]);
+});
