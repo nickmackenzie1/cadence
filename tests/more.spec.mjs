@@ -239,3 +239,30 @@ test('accountability: grandma visits about overdue work, stakes are won and lost
   expect(cfg).toEqual({ channel: 'team', dc: 'ca', hasKey: true });
   expect(errs).toEqual([]);
 });
+
+test('routines: energy check-in tucks hard tasks away, places from quick add, rituals install and share', async ({ page }) => {
+  const errs = await open(page);
+  await page.fill('#qa', 'Write the Q4 proposal ~hard'); await page.press('#qa', 'Enter');
+  await page.fill('#qa', 'Reply to Sam'); await page.press('#qa', 'Enter');
+  await page.fill('#qa', 'Buy lightbulbs at the hardware store'); await page.press('#qa', 'Enter');
+  expect(await page.evaluate(() => window.T.tasks.list(t => t.title === 'Write the Q4 proposal')[0].effort)).toBe('hard');
+  expect(await page.evaluate(() => window.T.tasks.list(t => /lightbulbs/.test(t.title))[0].place)).toBe('hardware store');
+  await page.click('.en-ban [data-lv=low]');
+  await expect(page.locator('.en-ban.low')).toContainText('1 hard task');
+  await expect(page.locator('.task', { hasText: 'Write the Q4 proposal' })).toBeHidden();
+  await page.click('.en-ban [data-lv=show]');
+  await expect(page.locator('.task', { hasText: 'Write the Q4 proposal' })).toBeVisible();
+  await page.evaluate(() => location.hash = 'view-places');
+  await expect(page.locator('#view')).toContainText('hardware store');
+  // rituals
+  await page.evaluate(() => location.hash = 'view-rituals');
+  await page.click('[data-in="weekly-review"]');
+  expect(await page.evaluate(() => window.T.tasks.list(t => t.ritual === 'weekly-review' && t.repeat).length)).toBe(4);
+  await page.click('[data-un="weekly-review"]');
+  expect(await page.evaluate(() => window.T.tasks.list(t => t.ritual === 'weekly-review' && !t.done).length)).toBe(0);
+  await page.click('#rt-imp');
+  await page.fill('#ri-t', JSON.stringify({ cadenceRitual: 1, id: 'friday', name: 'Friday shutdown', tasks: [['Close all tabs', { unit: 'week', n: 1, day: 5 }]] }));
+  await page.click('#ri-go');
+  await expect(page.locator('.rt-card.on', { hasText: 'Friday shutdown' })).toHaveCount(1);
+  expect(errs).toEqual([]);
+});
