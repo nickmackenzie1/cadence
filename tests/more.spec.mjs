@@ -308,3 +308,25 @@ test('inbox scanner: paste an email, get recap, action items and dates, add them
   expect(await page.evaluate(() => window.T.tasks.list(t => (t.tags || []).includes('school')).map(t => t.title).sort())).toEqual(['Our class is going to the Science Centre on Friday, November 20', 'Sign and return the permission form by Wednesday', 'The Fall concert is on December 3 at 6:30 pm in the gym'].sort());
   expect(errs).toEqual([]);
 });
+
+const toLife = async page => { await page.mouse.click(700, 300); await page.keyboard.press('Shift+L'); await expect(page.locator('html[data-space=life]')).toHaveCount(1); };
+test('kids: a child, sizes, an activity with a registration task, memories, health, chores, a party', async ({ page }) => {
+  const errs = await open(page); await toLife(page);
+  await page.evaluate(() => location.hash = 'view-kids');
+  await page.click('#kd-add'); await page.fill('#lk-name', 'Maya'); await page.fill('#lk-born', '2019-03-02'); await page.click('#lk-ok');
+  await page.click('[data-size="Shoes"]'); await page.fill('#lk-size', '11'); await page.fill('#lk-at', '2025-01-01'); await page.click('#lk-ok');
+  await expect(page.locator('.lk-card', { hasText: 'Shoes' })).toContainText('Next size probably due now');
+  await page.click('[data-tab=acts]'); await page.click('[data-act-ed=""]');
+  await page.fill('#lk-name', 'Swimming'); await page.selectOption('#lk-day', '6'); await page.fill('#lk-time', '09:30');
+  const reg = await page.evaluate(() => window.T.util.ymd(window.T.util.addDays(new Date(), 20)));
+  await page.fill('#lk-reg', reg); await page.fill('#lk-carpool', 'Us, the Patels'); await page.click('#lk-ok');
+  expect(await page.evaluate(() => window.T.tasks.list(t => /Register Maya for Swimming/.test(t.title)).length)).toBe(1);
+  expect(await page.evaluate(() => window.T.tasks.list(t => /Maya: Swimming/.test(t.title) && t.repeat).length)).toBe(1);
+  await page.click('[data-tab=mem]'); await page.fill('#kd-mem', 'Dinosaurs are just big chickens'); await page.click('#kd-madd');
+  await expect(page.locator('.lk-card')).toContainText('Dinosaurs');
+  await page.click('[data-tab=chores]'); await page.click('[data-chore]'); await page.fill('#lk-name', 'Feed the cat'); await page.fill('#lk-pts', '2'); await page.click('#lk-ok');
+  await page.click('[data-do]'); await expect(page.locator('.kd-bal b')).toHaveText('2');
+  await page.click('[data-tab=party]'); await page.click('#kd-party'); await page.fill('#lk-date', reg); await page.fill('#lk-guests', 'Leo, Ava'); await page.click('#lk-ok');
+  await expect(page.locator('[data-rsvp]')).toHaveCount(2);
+  expect(errs).toEqual([]);
+});
