@@ -350,3 +350,23 @@ test('home life: mental load split, gift reminders, renewals and bills make task
   expect(await page.evaluate(() => window.T.tasks.list(t => /dentist cleaning/.test(t.title) && t.repeat).length)).toBe(1);
   expect(errs).toEqual([]);
 });
+
+test('family hub: kitchen tablet board, a trip with packing that remembers, traditions every year', async ({ page }) => {
+  const errs = await open(page); await toLife(page);
+  await page.evaluate(() => { window.T.tasks.add({ title: 'Dentist for Maya', dueDate: window.T.util.todayKey(), dueTime: '15:30' }); window.T.tasks.add({ title: 'Sign the form', dueDate: window.T.util.todayKey() }); window.__kiosk.open(); });
+  await expect(page.locator('#kiosk .ks-it')).toContainText(['Dentist for Maya']);
+  await page.keyboard.press('Escape');
+  await expect(page.locator('#kiosk')).toHaveCount(0);
+  await page.evaluate(() => location.hash = 'view-vacation');
+  const st = await page.evaluate(() => window.T.util.ymd(window.T.util.addDays(new Date(), 10)));
+  await page.click('#vc-new'); await page.fill('#lk-name', 'Cottage'); await page.fill('#lk-start', st); await page.fill('#lk-end', st); await page.fill('#lk-people', 'Nick, Maya'); await page.check('#lk-pet'); await page.click('#lk-ok');
+  await page.fill('[data-padd="Maya"]', 'Swimsuit, Teddy'); await page.press('[data-padd="Maya"]', 'Enter');
+  await expect(page.locator('.lk-card', { hasText: 'Maya’s packing list' }).locator('.lk-row')).toHaveCount(2);
+  await expect(page.locator('[data-sit]')).toHaveCount(8);
+  await page.evaluate(() => location.hash = 'view-traditions');
+  await page.click('#tr-ideas');
+  await expect(page.locator('.lk-row')).toHaveCount(4);
+  expect(await page.evaluate(() => window.T.tasks.list(t => (t.tags || []).includes('tradition')).length)).toBe(4);
+  expect(await page.evaluate(() => window.__traditions.nextDate({ kind: 'nth', ord: 'first', dow: 6, month: 9 }, '2026-01-01'))).toBe('2026-10-03');
+  expect(errs).toEqual([]);
+});

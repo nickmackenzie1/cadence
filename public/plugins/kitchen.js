@@ -133,7 +133,7 @@
       api.commands.add({ title: 'Kitchen: meal plan', run: () => { api.storage.set('tab', 'plan'); api.ui.navigate('view-kitchen'); } });
       api.commands.add({ title: 'Kitchen: shopping list', run: () => { api.storage.set('tab', 'list'); api.ui.navigate('view-kitchen'); } });
       api.commands.add({ title: 'Add a recipe from a link', run: () => { api.storage.set('tab', 'recipes'); api.ui.navigate('view-kitchen'); setTimeout(() => document.getElementById('kr-url') && document.getElementById('kr-url').focus(), 120); } });
-      window.__kitchen = { addToList, fromLink, scale, aisleOf };
+      window.__kitchen = { addToList, fromLink, scale, aisleOf, tonight: () => { const e = (plan()[api.util.todayKey()] || {}).dinner, r = e && e.recipe && R(e.recipe); return e ? { name: r ? r.name : e.text, image: r && r.image } : null; }, listCount: () => list().filter(x => !x.done).length };
       css('kt-css', `.kt-tabs{margin-bottom:14px}
         .kp-bar{display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap}.kp-bar .sp{flex:1}.kp-ml{font-size:12.5px;display:inline-flex;align-items:center;gap:4px;color:var(--muted)}
         .kp-grid{display:grid;gap:6px}.kp-dh{font-size:12px;font-weight:700;color:var(--muted);text-align:center}.kp-dh.today{color:var(--accent)}.kp-mh{font-size:11.5px;text-transform:capitalize;color:var(--muted);align-self:center}
