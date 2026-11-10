@@ -294,3 +294,16 @@ test('kitchen: recipe from a link, plan it, shopping list by aisle, groceries ta
   await expect(page.locator(`.kp-cell[data-d="${t0}"][data-m=dinner] .nm`)).toHaveText('Fish tacos');
   expect(errs).toEqual([]);
 });
+
+test('inbox scanner: paste an email, get recap, action items and dates, add them as tasks', async ({ page }) => {
+  const errs = await open(page);
+  await page.evaluate(() => location.hash = 'view-scan');
+  await page.fill('#is-s', 'Grade 3 field trip');
+  await page.fill('#is-t', 'Hi families,\n\nOur class is going to the Science Centre on Friday, November 20. Please sign and return the permission form by Wednesday.\n\nThe Fall concert is on December 3 at 6:30 pm in the gym.');
+  await page.click('#is-go');
+  await expect(page.locator('.is-cat').first()).toHaveText('School');
+  await expect(page.locator('.is-it')).toHaveCount(3);
+  await page.click('#is-add');
+  expect(await page.evaluate(() => window.T.tasks.list(t => (t.tags || []).includes('school')).map(t => t.title).sort())).toEqual(['Our class is going to the Science Centre on Friday, November 20', 'Sign and return the permission form by Wednesday', 'The Fall concert is on December 3 at 6:30 pm in the gym'].sort());
+  expect(errs).toEqual([]);
+});
