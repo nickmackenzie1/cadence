@@ -638,3 +638,10 @@ svg.lu{width:1.1em;height:1.1em;display:inline-block;vertical-align:-.17em;fill:
 /* keyboard focus is always visible */
 :focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .mk-bar button:focus-visible{outline-color:#fff}
+
+/* phones: room for the Island above the title, no overflowing hints */
+@media (max-width:640px){
+  .wrap{padding-top:84px}
+  .qa .hint{display:none}
+  .m-shots{padding:8px 12px}.m-shot{flex-basis:150px}
+}

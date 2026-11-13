@@ -39,7 +39,13 @@
         el.innerHTML = `<div class="cv-dow">${['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(x => `<span>${x}</span>`).join('')}</div><div class="cv-month">${cells}</div>`;
       }
 
-      function week(el) {
+      const narrow = () => matchMedia('(max-width: 640px)').matches;
+      function agenda(el) {   // the week as a list of days, for phones
+        const a = anchor(), start = U.addDays(a, -a.getDay()), t0 = U.todayKey(), tasks = api.tasks.list(t => t.dueDate), evs = events();
+        el.innerHTML = Array.from({ length: 7 }, (_, i) => { const d = U.addDays(start, i), k = key(d), its = [...evs.filter(e => key(new Date(e.start)) === k).map(evHTML), ...tasks.filter(t => t.dueDate === k).sort((x, y) => String(x.dueTime || '99').localeCompare(String(y.dueTime || '99'))).map(itemHTML)];
+          return `<div class="cv-ag ${k === t0 ? 'today' : ''}" data-day="${k}"><div class="cv-agh"><b>${d.toLocaleDateString([], { weekday: 'short' })}</b> ${d.getDate()}</div><div class="cv-agl">${its.join('') || '<span class="muted" style="font-size:12px">Nothing</span>'}</div></div>`; }).join('');
+      }
+      function week(el) { if (narrow()) return agenda(el);
         const a = anchor(), start = U.addDays(a, -a.getDay()), t0 = U.todayKey(), [h0, h1] = HOURS, PX = 44;
         const days = Array.from({ length: 7 }, (_, i) => U.addDays(start, i)), tasks = api.tasks.list(t => t.dueDate), evs = events();
         const now = new Date(), nowTop = ((now.getHours() + now.getMinutes() / 60) - h0) * PX;
@@ -71,7 +77,7 @@
         main.querySelectorAll('.cv-more').forEach(b => b.onclick = e => { e.stopPropagation(); setSt({ mode: 'week', at: b.dataset.day }); });
         // click an empty bit of a day: add a task there
         main.querySelectorAll('.cv-day, .cv-slot').forEach(d => d.addEventListener('dblclick', e => { if (e.target.closest('.cv-it,.cv-ev,.cv-more')) return; addOn(d.dataset.day, d.dataset.h); }));
-        main.querySelectorAll('.cv-month .cv-day').forEach(d => d.addEventListener('click', e => { if (e.target.closest('.cv-it,.cv-ev,.cv-more,.cv-add') || api.ui.selected()) return; addOn(d.dataset.day); }));
+        main.querySelectorAll('.cv-month .cv-day').forEach(d => d.addEventListener('click', e => { if (narrow()) { setSt({ mode: 'week', at: d.dataset.day }); return; } if (e.target.closest('.cv-it,.cv-ev,.cv-more,.cv-add') || api.ui.selected()) return; addOn(d.dataset.day); }));
         // drag to reschedule
         let dragId = null;
         main.querySelectorAll('.cv-it').forEach(it => { it.addEventListener('dragstart', e => { dragId = it.dataset.id; e.dataTransfer.setData('text/plain', dragId); e.dataTransfer.effectAllowed = 'move'; }); it.addEventListener('dragend', () => main.querySelectorAll('.over').forEach(x => x.classList.remove('over'))); });
@@ -137,7 +143,9 @@
         .cv-slot{height:var(--px);border-bottom:1px solid color-mix(in srgb,var(--line) 60%,transparent)}
         .cv-blk{position:absolute;left:3px;right:3px;z-index:1}.cv-blk.ev{display:flex}.cv-blk.ev .cv-ev{flex:1;white-space:normal}
         .cv-now{position:absolute;left:0;right:0;height:2px;background:#e5484d;z-index:2}.cv-now:before{content:'';position:absolute;left:-4px;top:-3px;width:8px;height:8px;border-radius:50%;background:#e5484d}
-        @media (max-width:1100px){.cv-body.has-side{grid-template-columns:1fr}.cv-side{position:static}}`;
+        @media (max-width:1100px){.cv-body.has-side{grid-template-columns:1fr}.cv-side{position:static}}
+        .cv-ag{display:grid;grid-template-columns:64px 1fr;gap:8px;padding:10px 4px;border-bottom:1px solid var(--line)}.cv-ag.today .cv-agh{color:var(--accent)}.cv-agh{font-size:13px;color:var(--muted)}.cv-agh b{display:block;font-size:11px;text-transform:uppercase}.cv-agl{display:flex;flex-direction:column;gap:4px;min-width:0}
+        @media (max-width:640px){.cv-month{grid-auto-rows:58px}.cv-month .cv-it,.cv-month .cv-ev{font-size:0;padding:0;height:6px;border-radius:3px;border-left:0;background:var(--c,var(--accent))}.cv-month .cv-ev{background:var(--accent)}.cv-more{font-size:10px;padding:0}.cv-dn{font-size:11px}.cv-hint{display:none}.cv-title{font-size:16px;width:100%;margin:4px 0 0}}`;
         document.head.appendChild(s);
       }
     },

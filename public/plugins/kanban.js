@@ -111,6 +111,7 @@
         @media (max-width:1100px){.kb-has-side{display:block}}
         .kb-card.dragging{opacity:.35}
         .kb-card:hover{border-color:color-mix(in srgb,var(--accent) 40%,var(--line))}
+        @media (max-width:640px){.kb-board{grid-auto-columns:85vw;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch}.kb-col{scroll-snap-align:start}.kb-hint{display:none}}
         .kb-empty{font-size:12px;color:var(--muted);text-align:center;padding:16px 0;border:1px dashed var(--line);border-radius:10px}`;
         document.head.appendChild(st);
       }
