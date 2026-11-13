@@ -20,7 +20,7 @@ test.afterAll(() => { server && server.kill(); rmSync(dir, { recursive: true, fo
 async function device(browser, name) {
   const ctx = await browser.newContext(), page = await ctx.newPage();
   const errs = []; page.on('pageerror', e => errs.push(String(e)));
-  await page.addInitScript(n => { localStorage.setItem('cadence.device', n); localStorage.setItem('cadence.reviewNudge', 'x'); }, name);
+  await page.addInitScript(n => { localStorage.setItem('cadence.device', n); localStorage.setItem('cadence.reviewNudge', (d => { d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); })(new Date())); }, name);
   await page.goto(B + '/#today');
   await expect(page.locator('#sync')).toContainText('NAS', { timeout: 8000 });
   const hook = () => page.evaluate(() => Cadence.registerPlugin({ id: 'test-hook', name: 'test', setup(api) { window.T = api; } }));

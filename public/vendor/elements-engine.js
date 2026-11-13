@@ -254,7 +254,7 @@
     }
     const ours = el => el && el.closest && el.closest('#elements-host, #elements-ambient, #havoc-host');
 
-    let run = 0;   // bumped on every start and stop, so callbacks from a closed run do nothing
+    let run = 0, pictures = 0, foreign = 0;   // last read: images/icons turned into material, and how many came from other sites   // bumped on every start and stop, so callbacks from a closed run do nothing
 
     async function rasterize(my) {
       W = Math.ceil(innerWidth / CELL); H = Math.ceil(innerHeight / CELL); const N = W * H;
@@ -308,8 +308,8 @@
         const b = cellBox(r, clipOf(el.parentElement)); if (b.x1 <= b.x0 || b.y1 <= b.y0) return;
         const w = b.rx1 - b.rx0, h = b.ry1 - b.ry0; if (w <= 0 || h <= 0) return;
         const oc = document.createElement('canvas'); oc.width = w; oc.height = h;
-        let d; try { const ox = oc.getContext('2d', { willReadFrequently: true }); ox.drawImage(src, 0, 0, w, h); d = ox.getImageData(0, 0, w, h).data; } catch (e) { return; }
-        const id = newEl(0.18, false), par = boxAbove(el); if (par) els[par - 1].children.push(id);
+        let d; try { const ox = oc.getContext('2d', { willReadFrequently: true }); ox.drawImage(src, 0, 0, w, h); d = ox.getImageData(0, 0, w, h).data; } catch (e) { return 'tainted'; }   // another site's picture
+        pictures++; const id = newEl(0.18, false), par = boxAbove(el); if (par) els[par - 1].children.push(id);
         const rad = Math.round((parseFloat(getComputedStyle(el).borderTopLeftRadius) || 0) / CELL);
         for (let y = b.y0; y < b.y1; y++) for (let x = b.x0; x < b.x1; x++) {
           if (!inRound(x, y, b, rad)) continue;
@@ -317,12 +317,26 @@
           if (a > 0.25) { const i = y * W + x; over(i); put(i, id, d[k], d[k + 1], d[k + 2], a); }
         }
       };
-      const pics = [];
+      const pics = []; pictures = 0; foreign = 0;
       for (const el of document.body.querySelectorAll('img, canvas, svg')) {
         if (ours(el) || (el.tagName === 'svg' && el.ownerSVGElement)) continue;
         const r = el.getBoundingClientRect();
         if (r.width < 3 || r.height < 3 || r.bottom < 0 || r.top > innerHeight || r.right < 0 || r.left > innerWidth || !seen(el)) continue;
-        if (el.tagName === 'IMG') { if (el.complete && el.naturalWidth) sample(el, el, r); }
+        if (el.tagName === 'IMG') {
+          if (!(el.complete && el.naturalWidth) || sample(el, el, r) !== 'tainted') continue;
+          // a picture from another site can't be read directly: fetch it again through Cadence's image proxy on the NAS
+          // (same origin), and if that fails too, give it a plain fill so it still burns instead of vanishing
+          const im = new Image(), url = el.currentSrc || el.src;
+          pics.push(new Promise(res => {
+            const flat = () => { pictures++; foreign++; const id = newEl(0.18, false), par = boxAbove(el); if (par) els[par - 1].children.push(id); const b = cellBox(r, clipOf(el.parentElement));
+              for (let y = b.y0; y < b.y1; y++) for (let x = b.x0; x < b.x1; x++) { const i = y * W + x, t = ((x * 7 + y * 13) % 9) / 9; over(i); put(i, id, 96 + 24 * t, 92 + 22 * t, 104 + 20 * t, 1); } };
+            const done = ok => { clearTimeout(tm); if (!ok || sample(im, el, r) === 'tainted') flat(); else foreign++; res(); };
+            const tm = setTimeout(() => { im.onload = im.onerror = null; flat(); res(); }, 2500);
+            im.onload = () => done(true); im.onerror = () => done(false);
+            if (/^https?:/i.test(url)) im.src = 'api/img?url=' + encodeURIComponent(url); else done(false);
+          }));
+          continue;
+        }
         else if (el.tagName === 'CANVAS') sample(el, el, r);
         else if (r.width <= 96 && r.height <= 96 && pics.length < 400) {
           // icons are painted by the stylesheet: carry the computed paint onto a copy of every shape before rasterizing it
@@ -412,7 +426,7 @@
       for (const [k, v] of Object.entries({ snowing: S.snowing, storm: S.storm, heatView: S.heatView, sharp: S.sharp, paused: S.paused, snowEverywhere: S.snowEverywhere, lightMode: S.lightMode, windBase: S.windBase, reduced, lights: S.lights, palette: S.palette, compact: S.compact, rain: S.rain, floor: S.floor })) port.post({ t: 'opt', key: k, value: v });
       port.post(msg, [L.grid.buffer, L.colR.buffer, L.colG.buffer, L.colB.buffer, L.owner.buffer, L.layer.buffer, L.boxOf.buffer]);
       allocBufs(); sizeCanvas(); busy = false; ready = true; lastFrame = null;
-      api.stats = { pieces: L.els.length, cells: W * H, worker: port.worker, compositor: comp.kind };
+      api.stats = { pieces: L.els.length, pictures, foreign, cells: W * H, worker: port.worker, compositor: comp.kind };
       if (AMBIENT) ledges();
     }
 
@@ -675,7 +689,7 @@
     }, 350); };
     async function start() {
       if (api.active) return;
-      api.active = true; const my = ++run;
+      api.active = true; api.stats = null; const my = ++run;
       host = document.createElement('div'); host.id = AMBIENT ? 'elements-ambient' : 'elements-host';
       host.style.cssText = `position:fixed!important;inset:0!important;z-index:${AMBIENT ? (cfg.z || 60) : 2147483647}!important;pointer-events:none!important;display:block!important;margin:0!important;padding:0!important;border:0!important;background:none!important;transform:none!important;filter:none!important`;
       root = host.attachShadow({ mode: 'open' });

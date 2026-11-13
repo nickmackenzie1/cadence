@@ -663,3 +663,18 @@ data, or peer-to-peer on the same LAN). Personal data and secrets stay on each p
 - Still to find out on the NAS: what the actual Reddit error is. Likely 403 without keys → add Reddit app keys.
 - Data quality without ANTHROPIC_API_KEY is rough (archive shows "Daily Discussion", "official video" as
   artists/genres). The AI key fixes most of that; a stop-list for the plain extractor is a possible follow-up.
+
+## Fixed 2026-11-13 ~10:45: Havoc Elements, pictures vanished when burned (user screenshot: Feeds wall)
+- Cause: pictures from other sites (feed images) are cross-origin; getImageData threw, the engine skipped them, so the
+  picture had no material and turned into empty background once its card was touched.
+- Fix (elements-engine.js rasterize): a tainted <img> is re-fetched through /api/img (same origin) and sampled; if
+  that fails, it gets a plain textured fill so it still burns. api.stats now has pictures/foreign, and is reset at
+  start (it used to keep the previous run's stats until the new read finished).
+- Test: platform.spec "a picture from another site is still read in".
+- Also: tests now silence the Friday review nudge properly (the old 'x' value never matched; failed on Friday
+  afternoons UTC). The nudge text is now just "Weekly review".
+
+## Next (user request 2026-11-13 10:02): more Music Radar sources, view by source, combined, trends
+ListenBrainz fresh releases (+ per-user), Apple Music charts JSON, Audius trending, Last.fm charts/tag pages,
+Bandcamp discover (internal endpoint, "new" by tag), Hype Machine (no API), music blog RSS (Pitchfork, Stereogum,
+The Fader, Gorilla vs. Bear, Bandcamp Daily).

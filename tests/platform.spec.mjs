@@ -20,7 +20,7 @@ test.afterEach(async () => { if (server) { const gone = new Promise(r => server.
 
 async function open(page) {
   const errs = []; page.on('pageerror', e => errs.push(String(e)));
-  await page.addInitScript(() => localStorage.setItem('cadence.reviewNudge', 'x'));
+  await page.addInitScript(() => localStorage.setItem('cadence.reviewNudge', (d => { d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); })(new Date())));
   await page.goto(B + '/#today');
   await expect(page.locator('#sync')).toContainText('NAS', { timeout: 8000 });
   await page.evaluate(() => Cadence.registerPlugin({ id: 'test-hook', name: 'test', setup(api) { window.T = api; } }));
@@ -160,4 +160,22 @@ test('havoc physics plays out in real matter: a blast leaves fire, rain is real 
   await expect.poll(() => page.evaluate(async () => { const c = await window.__fx.counts(); return c[2] || 0; })).toBeGreaterThan(0);
   await page.evaluate(() => dispatchEvent(new CustomEvent('havoc:fx', { detail: { type: 'stop' } })));
   expect(errs).toEqual([]);
+});
+
+test('havoc elements: a picture from another site is still read in (through the image proxy, or a plain fill) so it burns instead of vanishing', async ({ page }) => {
+  const http = await import('node:http');
+  const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFklEQVR4nGP4z8DAwMDAxMDAwMDAAAANHQEDasKb6QAAAABJRU5ErkJggg==', 'base64');
+  const other = http.createServer((q, r) => { r.writeHead(200, { 'Content-Type': 'image/png' }); r.end(png); }).listen(0);
+  const port = other.address().port;
+  try {
+    const errs = await open(page);
+    await page.evaluate(() => localStorage.setItem('cadence.havoc', 'elements'));
+    const base = async () => { await page.keyboard.press('Shift+H'); await page.waitForFunction(() => window.__elements && window.__elements.active && window.__elements.stats, null, { timeout: 15000 }); const n = await page.evaluate(() => window.__elements.stats.foreign); await page.keyboard.press('Escape'); await expect.poll(() => page.evaluate(() => window.__elements.active)).toBe(false); return n; };
+    await page.locator('body').click({ position: { x: 5, y: 5 } });
+    const before = await base();
+    await page.evaluate(src => new Promise(res => { const i = new Image(); i.onload = res; i.src = src; i.style.cssText = 'position:fixed;left:400px;top:300px;width:160px;height:160px;z-index:5'; i.id = 'xo'; document.body.appendChild(i); }), `http://127.0.0.1:${port}/a.png`);
+    const after = await base();
+    expect(after).toBeGreaterThan(before);              // and the picture became material either way
+    expect(errs.filter(e => !/502|Bad Gateway/.test(e))).toEqual([]);   // the proxy refuses localhost on purpose
+  } finally { other.close(); }
 });

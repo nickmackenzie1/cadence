@@ -20,7 +20,7 @@ test.afterEach(async () => { if (server) { const gone = new Promise(r => server.
 
 async function open(page) {
   const errs = []; page.on('pageerror', e => errs.push(String(e)));
-  await page.addInitScript(() => localStorage.setItem('cadence.reviewNudge', 'x'));
+  await page.addInitScript(() => localStorage.setItem('cadence.reviewNudge', (d => { d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); })(new Date())));
   await page.goto(B + '/#today');
   await expect(page.locator('#sync')).toContainText('NAS', { timeout: 8000 });
   await page.evaluate(() => Cadence.registerPlugin({ id: 'test-hook', name: 'test', setup(api) { window.T = api; } }));

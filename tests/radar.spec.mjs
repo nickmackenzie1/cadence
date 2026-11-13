@@ -21,7 +21,7 @@ test.afterAll(() => { server && server.kill(); rmSync(dir, { recursive: true, fo
 test('Music Radar view: charts, picks, thumbs and subreddits', async ({ page }) => {
   test.setTimeout(60000);
   const errs = []; page.on('pageerror', e => errs.push(String(e)));
-  await page.addInitScript(() => { localStorage.setItem('cadence.reviewNudge', 'x'); localStorage.setItem('cadence.space', 'life'); });
+  await page.addInitScript(() => { localStorage.setItem('cadence.reviewNudge', (d => { d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); })(new Date())); localStorage.setItem('cadence.space', 'life'); });
   await page.goto(B + '/#view-radar');
   await expect(page.locator('.mr-tiles')).toBeVisible({ timeout: 10000 });
   await expect(page.locator('.mr-chart svg polyline').first()).toBeVisible();

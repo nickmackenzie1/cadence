@@ -20,7 +20,7 @@ test.afterAll(() => { server && server.kill(); rmSync(dir, { recursive: true, fo
 async function device(browser, name) {
   const ctx = await browser.newContext();
   const page = await ctx.newPage();
-  await page.addInitScript(n => { localStorage.setItem('cadence.device', n); localStorage.setItem('cadence.reviewNudge', 'x'); }, name);
+  await page.addInitScript(n => { localStorage.setItem('cadence.device', n); localStorage.setItem('cadence.reviewNudge', (d => { d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); })(new Date())); }, name);
   await page.goto(B + '/#inbox');
   await expect(page.locator('#sync')).toContainText('NAS', { timeout: 8000 });
   await page.evaluate(() => Cadence.registerPlugin({ id: 'test-hook', name: 'test', setup(api) { window.T = api; } }));
@@ -100,14 +100,14 @@ test('a browser upgrading from whole-document sync keeps its newer unsynced work
   // newer local copy (edited offline before the upgrade): its extra task reaches the server
   const newer = { ...S, tasks: [...S.tasks, { id: 'pre-upgrade', title: 'Offline before the upgrade', owner: 'me' }], updatedAt: Date.now() + 1000 };
   const c1 = await browser.newContext(), p1 = await c1.newPage();
-  await p1.addInitScript(s => { if (!sessionStorage.getItem('seeded')) { localStorage.setItem('cadence.v1', s); sessionStorage.setItem('seeded', '1'); } localStorage.setItem('cadence.reviewNudge', 'x'); }, JSON.stringify(newer));
+  await p1.addInitScript(s => { if (!sessionStorage.getItem('seeded')) { localStorage.setItem('cadence.v1', s); sessionStorage.setItem('seeded', '1'); } localStorage.setItem('cadence.reviewNudge', (d => { d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); })(new Date())); }, JSON.stringify(newer));
   await p1.goto(B + '/#inbox'); await expect(p1.locator('#sync')).toContainText('NAS', { timeout: 8000 });
   await expect.poll(async () => JSON.parse((await (await fetch(B + '/api/state')).json()).json).tasks.some(t => t.id === 'pre-upgrade')).toBe(true);
   await c1.close();
   // older local copy: replaced by the server's
   const older = { ...S, tasks: [{ id: 'stale', title: 'Stale local task', owner: 'me' }], updatedAt: 1 };
   const c2 = await browser.newContext(), p2 = await c2.newPage();
-  await p2.addInitScript(s => { if (!sessionStorage.getItem('seeded')) { localStorage.setItem('cadence.v1', s); sessionStorage.setItem('seeded', '1'); } localStorage.setItem('cadence.reviewNudge', 'x'); }, JSON.stringify(older));
+  await p2.addInitScript(s => { if (!sessionStorage.getItem('seeded')) { localStorage.setItem('cadence.v1', s); sessionStorage.setItem('seeded', '1'); } localStorage.setItem('cadence.reviewNudge', (d => { d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); })(new Date())); }, JSON.stringify(older));
   await p2.goto(B + '/#inbox'); await expect(p2.locator('#sync')).toContainText('NAS', { timeout: 8000 });
   await expect.poll(async () => p2.evaluate(() => JSON.parse(localStorage.getItem('cadence.v1')).tasks.some(t => t.id === 'pre-upgrade'))).toBe(true);
   expect(await p2.evaluate(() => JSON.parse(localStorage.getItem('cadence.v1')).tasks.some(t => t.id === 'stale'))).toBe(false);

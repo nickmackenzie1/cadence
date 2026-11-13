@@ -53,7 +53,7 @@ registerPlugin({
       const d = new Date(); if(d.getDay() !== 5 || d.getHours() < 14) return;
       const k = 'cadence.reviewNudge', wkKey = api.util.ymd(monday());
       try { if(localStorage.getItem(k) === wkKey) return; localStorage.setItem(k, wkKey); } catch(e){ return; }
-      api.ui.toast('It’s Friday — time for your weekly review ✦', [{ label:'Open review', run: () => api.ui.navigate('view-review') }]);
+      api.ui.toast('Weekly review', [{ label:'Open review', run: () => api.ui.navigate('view-review') }]);
     }, 4000);
   }
 });

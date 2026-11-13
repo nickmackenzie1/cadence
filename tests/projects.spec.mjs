@@ -19,7 +19,7 @@ test.afterAll(() => { server && server.kill(); rmSync(dir, { recursive: true, fo
 
 test('a client becomes an internal project with progress, a target date and its own sidebar section', async ({ page }) => {
   const errs = []; page.on('pageerror', e => errs.push(String(e)));
-  await page.addInitScript(() => localStorage.setItem('cadence.reviewNudge', 'x'));
+  await page.addInitScript(() => localStorage.setItem('cadence.reviewNudge', (d => { d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); })(new Date())));
   await page.goto(B + '/#today');
   await expect(page.locator('#sync')).toContainText('NAS', { timeout: 8000 });
   await page.evaluate(() => Cadence.registerPlugin({ id: 'test-hook', name: 'test', setup(api) { window.T = api; } }));
@@ -61,7 +61,7 @@ test('a client becomes an internal project with progress, a target date and its 
 });
 
 test('a long task title wraps in the editor instead of running off the card', async ({ page }) => {
-  await page.addInitScript(() => localStorage.setItem('cadence.reviewNudge', 'x'));
+  await page.addInitScript(() => localStorage.setItem('cadence.reviewNudge', (d => { d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); })(new Date())));
   await page.goto(B + '/#today');
   await expect(page.locator('#sync')).toContainText('NAS', { timeout: 8000 });
   await page.evaluate(() => Cadence.registerPlugin({ id: 'test-hook2', name: 'test', setup(api) { window.T = api; } }));
@@ -75,7 +75,7 @@ test('a long task title wraps in the editor instead of running off the card', as
 test('a new build on the NAS offers a reload while something is half-typed', async ({ page }) => {
   let ver = 'old';
   await page.route('**/api/health', async r => { const res = await r.fetch(); const j = await res.json(); j.build = ver; await r.fulfill({ json: j }); });
-  await page.addInitScript(() => localStorage.setItem('cadence.reviewNudge', 'x'));
+  await page.addInitScript(() => localStorage.setItem('cadence.reviewNudge', (d => { d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); })(new Date())));
   await page.goto(B + '/#today');
   await expect(page.locator('#sync')).toContainText('NAS', { timeout: 8000 });
   await page.waitForTimeout(3000);   // first check records the build
@@ -88,7 +88,7 @@ test('a new build on the NAS offers a reload while something is half-typed', asy
 
 test('meeting review tidies action items and uses the date picker', async ({ page }) => {
   const errs = []; page.on('pageerror', e => errs.push(String(e)));
-  await page.addInitScript(() => localStorage.setItem('cadence.reviewNudge', 'x'));
+  await page.addInitScript(() => localStorage.setItem('cadence.reviewNudge', (d => { d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); })(new Date())));
   await page.goto(B + '/#today');
   await expect(page.locator('#sync')).toContainText('NAS', { timeout: 8000 });
   await page.evaluate(() => Cadence.registerPlugin({ id: 'test-hook3', name: 'test', setup(api) { window.T = api; } }));
@@ -110,7 +110,7 @@ test('meeting review tidies action items and uses the date picker', async ({ pag
 
 test('Christmas mode: lights, snow that settles on the page, and the shovel', async ({ page }) => {
   const errs = []; page.on('pageerror', e => errs.push(String(e)));
-  await page.addInitScript(() => localStorage.setItem('cadence.reviewNudge', 'x'));
+  await page.addInitScript(() => localStorage.setItem('cadence.reviewNudge', (d => { d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); })(new Date())));
   await page.goto(B + '/#today');
   await expect(page.locator('#sync')).toContainText('NAS', { timeout: 8000 });
   await page.evaluate(() => window.__xmas.settings());
@@ -127,7 +127,7 @@ test('Christmas mode: lights, snow that settles on the page, and the shovel', as
 });
 
 test('snow and lights switch on independently, any day', async ({ page }) => {
-  await page.addInitScript(() => localStorage.setItem('cadence.reviewNudge', 'x'));
+  await page.addInitScript(() => localStorage.setItem('cadence.reviewNudge', (d => { d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); })(new Date())));
   await page.goto(B + '/#today');
   await expect(page.locator('#sync')).toContainText('NAS', { timeout: 8000 });
   // start from off (an earlier test may still have been saving its state)
@@ -145,7 +145,7 @@ test('snow and lights switch on independently, any day', async ({ page }) => {
 });
 
 test('snow drifts stay on a page after you leave and come back, until shovelled', async ({ page }) => {
-  await page.addInitScript(() => localStorage.setItem('cadence.reviewNudge', 'x'));
+  await page.addInitScript(() => localStorage.setItem('cadence.reviewNudge', (d => { d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); })(new Date())));
   await page.goto(B + '/#today');
   await expect(page.locator('#sync')).toContainText('NAS', { timeout: 8000 });
   await page.evaluate(() => window.__xmas.reset({ chaos: 3, tune: null, build: true, look: 'classic' }));
@@ -169,7 +169,7 @@ test('snow drifts stay on a page after you leave and come back, until shovelled'
 
 test('switching Work and Life with snow on keeps a single snow engine', async ({ page }) => {
   const errs = []; page.on('pageerror', e => errs.push(String(e)));
-  await page.addInitScript(() => localStorage.setItem('cadence.reviewNudge', 'x'));
+  await page.addInitScript(() => localStorage.setItem('cadence.reviewNudge', (d => { d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); })(new Date())));
   await page.goto(B + '/#today');
   await expect(page.locator('#sync')).toContainText('NAS', { timeout: 8000 });
   await page.evaluate(() => { window.__xmas.reset({ chaos: 1, tune: null, look: 'classic' }); window.__xmas.flip('snow'); });
@@ -184,7 +184,7 @@ test('switching Work and Life with snow on keeps a single snow engine', async ({
 
 test('Elements look: Christmas snow and lights, typing fire and the sand jar share one matter layer', async ({ page }) => {
   const errs = []; page.on('pageerror', e => errs.push(String(e)));
-  await page.addInitScript(() => { localStorage.setItem('cadence.reviewNudge', 'x'); if (!sessionStorage.getItem('fx1')) { sessionStorage.setItem('fx1', 1); localStorage.setItem('cadence.typing', JSON.stringify({ mode: 'fire', matter: true, helper: false })); localStorage.removeItem('cadence.sandjar'); } });
+  await page.addInitScript(() => { localStorage.setItem('cadence.reviewNudge', (d => { d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); })(new Date())); if (!sessionStorage.getItem('fx1')) { sessionStorage.setItem('fx1', 1); localStorage.setItem('cadence.typing', JSON.stringify({ mode: 'fire', matter: true, helper: false })); localStorage.removeItem('cadence.sandjar'); } });
   await page.goto(B + '/#today');
   await expect(page.locator('#sync')).toContainText('NAS', { timeout: 8000 });
   await page.evaluate(() => window.__xmas.reset({ look: 'elements', chaos: 1, tune: null }));
