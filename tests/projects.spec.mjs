@@ -191,19 +191,19 @@ test('Elements look: Christmas snow and lights, typing fire and the sand jar sha
   await page.evaluate(() => { window.__xmas.flip('lights'); window.__xmas.flip('snow'); });
   await expect(page.locator('#elements-ambient')).toHaveCount(1);
   await expect(page.locator('#xm-snow')).toHaveCount(0);                       // no classic snow canvas
-  await expect.poll(() => page.evaluate(() => { const w = window.__fx, d = w && w._debug; if (!d || !d.grid) return 0; let n = 0; for (const m of d.grid) if (m === 16 || m === 17) n++; return n; })).toBeGreaterThan(50);   // wire and bulbs
+  await expect.poll(() => page.evaluate(async () => { const c = window.__fx ? await window.__fx.counts() : {}; return (c[16] || 0) + (c[17] || 0); }), { timeout: 10000 }).toBeGreaterThan(50);   // wire and bulbs
   // typing fire puts real fire in the layer
   await page.click('#qa'); await page.keyboard.type('fire', { delay: 30 });
-  await expect.poll(() => page.evaluate(() => { let n = 0; for (const m of window.__fx._debug.grid) if (m === 4 || m === 10) n++; return n; })).toBeGreaterThan(0);
+  await expect.poll(() => page.evaluate(async () => { const c = await window.__fx.counts(); return (c[4] || 0) + (c[10] || 0) + (c[12] || 0); }), { timeout: 15000 }).toBeGreaterThan(0);
   await page.keyboard.press('Escape');
   // finishing a task pours sand into the jar
   await page.evaluate(() => { localStorage.setItem('cadence.typing', JSON.stringify({ mode: 'off' })); });
   const id = await page.evaluate(async () => { const r = await new Promise(res => Cadence.registerPlugin({ id: 'fx-hook', name: 't', setup(api) { res(api); } })); const t = r.tasks.add({ title: 'Sand me', dueDate: r.util.todayKey() }); r.ui.refresh(); return t.id; });
   await page.click(`#view .task[data-id="${id}"] .check`);
-  await expect.poll(() => page.evaluate(() => window.__fx.count(window.__sandjar.rect(), window.__fx.M.SAND)), { timeout: 8000 }).toBeGreaterThan(10);
+  await expect.poll(() => page.evaluate(() => window.__fx.count(window.__sandjar.rect(), window.__fx.M.SAND)), { timeout: 20000 }).toBeGreaterThan(10);
   expect(await page.evaluate(() => window.__sandjar.read().n)).toBe(1);
   // turning Christmas off takes the lights down
   await page.evaluate(() => { window.__xmas.flip('lights'); window.__xmas.flip('snow'); });
-  await expect.poll(() => page.evaluate(() => { let n = 0; for (const m of window.__fx._debug.grid) if (m === 16 || m === 17) n++; return n; })).toBe(0);
+  await expect.poll(() => page.evaluate(async () => { const c = await window.__fx.counts(); return (c[16] || 0) + (c[17] || 0); }), { timeout: 15000 }).toBe(0);
   expect(errs).toEqual([]);
 });

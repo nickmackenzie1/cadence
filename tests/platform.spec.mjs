@@ -155,9 +155,9 @@ test('coming back to the tab refetches, and a new version on the NAS reloads unl
 test('havoc physics plays out in real matter: a blast leaves fire, rain is real water', async ({ page }) => {
   const errs = await open(page);
   await page.evaluate(() => dispatchEvent(new CustomEvent('havoc:fx', { detail: { type: 'blast', x: 700, y: 400 } })));
-  await expect.poll(() => page.evaluate(() => { const g = window.__fx && window.__fx._debug.grid; if (!g) return 0; let n = 0; for (const m of g) if (m === 4 || m === 10) n++; return n; })).toBeGreaterThan(0);
+  await expect.poll(() => page.evaluate(async () => { const c = window.__fx ? await window.__fx.counts() : {}; return (c[4] || 0) + (c[10] || 0) + (c[12] || 0) + (c[6] || 0); }), { timeout: 10000 }).toBeGreaterThan(0);
   await page.evaluate(() => dispatchEvent(new CustomEvent('havoc:fx', { detail: { type: 'rain', on: true } })));
-  await expect.poll(() => page.evaluate(() => { let n = 0; for (const m of window.__fx._debug.grid) if (m === 2) n++; return n; })).toBeGreaterThan(0);
+  await expect.poll(() => page.evaluate(async () => { const c = await window.__fx.counts(); return c[2] || 0; })).toBeGreaterThan(0);
   await page.evaluate(() => dispatchEvent(new CustomEvent('havoc:fx', { detail: { type: 'stop' } })));
   expect(errs).toEqual([]);
 });

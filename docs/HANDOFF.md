@@ -603,3 +603,21 @@ data, or peer-to-peer on the same LAN). Personal data and secrets stay on each p
   midnight, refills after reload; settings: on, corner, empty.
 - Weather: "Show the weather on the page" (default on): real snow settles, rain 1–5 by intensity, wind from wind_speed_10m.
   Thunderstorms = heavy rain, no lightning (calm principle).
+
+## Shipped 2026-11-13 ~01:30: engine v5 (user's page (5).html)
+- vendor/elements-core.js = the user's ENGINE, nearly verbatim, run as a Web Worker (on the page if a worker can't
+  start). Cadence additions marked "Cadence": SURF ledges, opts lights/palette/compact/rain/floor, inputs spawn/heat/
+  explode/surf/jar/clear/clearAt, 'count' message, frame.quiet. To take a new version: replace the ENGINE body and
+  re-apply those (small) additions.
+- vendor/elements-engine.js = the page side: the user's compositor (WebGL2; 2D on software GL — chosen on a spare
+  canvas), air snowflakes that land as grid snow, sound (off by default), plus Cadence's screen reader (now in the
+  engine's layout format: layer/boxOf/boxCol, so the real page shows through untouched cells: perfectly sharp), Havoc
+  toolbar, and the ambient API (spawn, heatAt, set, strike, explode, firework, jar, clear, clearAt, count→Promise,
+  counts→Promise). Ambient idles at 4 fps when the engine reports quiet.
+- Tests read material counts through counts() (the grid lives in the worker).
+
+## Next: Music Radar as a Life plugin (user upload music-radar.zip, 00:59)
+- Standalone Node app: scans music subreddits (+RSS), scores rising artists (heat, spread, freshness, comment mood,
+  Last.fm size, taste from thumbs), digest, archive backfill, Spotify playlist, ntfy alerts, dashboard. Port: scanner
+  as a NAS service (server/services), dashboard as a Life view; keys (Anthropic, Last.fm, Reddit, Spotify, ntfy) on the
+  NAS only.
