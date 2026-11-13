@@ -17,8 +17,9 @@ const routes = {
   integrations: require('./routes/integrations'),
   files: require('./routes/files'),
   calendar: require('./routes/calendar'),
+  radar: require('./routes/radar'),
 };
-const API = [routes.system, routes.sync, routes.lookup, routes.feeds, routes.push, routes.integrations, routes.files, routes.calendar];
+const API = [routes.system, routes.sync, routes.lookup, routes.feeds, routes.push, routes.integrations, routes.files, routes.calendar, routes.radar];
 
 // Every request goes through here, top to bottom:
 //   1. the public CA download (so new devices can trust HTTPS before anything else)

@@ -616,8 +616,18 @@ data, or peer-to-peer on the same LAN). Personal data and secrets stay on each p
   counts→Promise). Ambient idles at 4 fps when the engine reports quiet.
 - Tests read material counts through counts() (the grid lives in the worker).
 
-## Next: Music Radar as a Life plugin (user upload music-radar.zip, 00:59)
-- Standalone Node app: scans music subreddits (+RSS), scores rising artists (heat, spread, freshness, comment mood,
-  Last.fm size, taste from thumbs), digest, archive backfill, Spotify playlist, ntfy alerts, dashboard. Port: scanner
-  as a NAS service (server/services), dashboard as a Life view; keys (Anthropic, Last.fm, Reddit, Spotify, ntfy) on the
-  NAS only.
+## Shipped 2026-11-13 ~02:00: Music Radar as a Life plugin (user upload music-radar.zip)
+- Scanner: the user's app, nearly verbatim, in server/services/radar/ (ESM: lib/*.mjs, radar.mjs, digest.mjs,
+  backfill.mjs, test/simulate.mjs). Data in DATA_DIR/radar. Links in RSS/digests use the request's base URL.
+- server/services/radar.js (CJS wrapper): settings in data/radar/cadence.json ({on, lastScan, lastDigest, lastError}),
+  OFF by default; when on, a 10-min tick runs a scan every 6h and a digest every 7d. One job at a time.
+- server/routes/radar.js, all under /api/radar: status, settings, run {scan|digest|backfill|stop}, data, feedback
+  (POST, or GET from RSS links), subs {add|remove}, feed.xml, digests/<file>, spotify/login|callback, spotify.
+- public/plugins/music-radar.js: Life view #view-radar. Plain SVG charts (no CDN): who's climbing, risers, genre and
+  buzzword change bars, albums, sub lead-time, "sounds like" force map, picks with Lucide thumbs, subreddits +
+  suggestions + taste, over-the-years charts and year tables, track record, digests, a Setup section listing which
+  optional keys are on the NAS (ANTHROPIC_API_KEY, LASTFM_API_KEY, REDDIT_CLIENT_ID/_SECRET, NTFY_TOPIC,
+  SPOTIFY_CLIENT_ID/_SECRET). Keys stay in the NAS .env. Only works in NAS mode.
+- Test: tests/radar.spec.mjs (simulated data via simulate.mjs into a temp DATA_DIR).
+- Lucide icons added: loader, thumbs-down, circle-check, circle, history.
+- Not done yet: ntfy alerts are wired in the user's code but untested here; no Navidrome link-up (backlog: music server).
