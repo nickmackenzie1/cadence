@@ -920,3 +920,11 @@ data, or peer-to-peer on the same LAN). Personal data and secrets stay on each p
   corner-bracket cursor on hover, diamond checks that glow ancient-blue, a stamina wheel (top right) that fills with
   today's done tasks, an item-get card with a cut gem for each finished task, drifting spirit lights.
 - Couldn't open the user's codepens/GitHub page from here (blocked), so these are built from the descriptions.
+
+## Backlog (user, 2026-11-13 13:39): load only the plugins that are turned on
+- Today: one bundle with all 62 plugins (450 KB gzipped, cached by hash), so a repeat visit downloads nothing, but
+  every plugin is still parsed and run on each load, even the disabled ones. Next step: index.html/bundle carries
+  core + a manifest (id, name, category, file); the bundle only includes files for enabled plugins (enabled list is
+  in the synced doc + localStorage; the server can't see it, so either send it as ?p= on bundle.js or load disabled
+  ones lazily on demand when switched on in Settings → Plugins). Themes files split the same way (load the theme
+  pack only when its theme is active or the Themes screen opens). Measure on a phone before/after.
