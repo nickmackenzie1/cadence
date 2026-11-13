@@ -50,7 +50,11 @@
           <span class="muted kb-hint">Drag a card to another column to change it</span></div>
           <div class="kb-board">${cols.map(col => { const list = all.filter(col.test).sort(sortT); return `<section class="kb-col ${col.patch ? '' : 'nodrop'}" data-col="${esc(col.id)}">
             <header>${col.c ? api.ui.avatar(col.c, 16) : ''}<b>${esc(col.title)}</b><span class="n">${list.length}</span>${col.id === 'over' && list.length ? '<i class="kb-red"></i>' : ''}</header>
-            <div class="kb-list">${list.map(t => `<div class="kb-card" draggable="true" data-id="${esc(t.id)}">${api.ui.taskRow(t, { hideClient: mode === 'client' })}</div>`).join('') || '<div class="kb-empty">Nothing here</div>'}</div></section>`; }).join('')}</div>`;
+            <div class="kb-list">${list.map(t => card(t, mode)).join('') || '<div class="kb-empty">Nothing here</div>'}</div></section>`; }).join('')}</div>`;
+        // editing happens in a panel on the right, not squeezed into the card
+        const sel = api.ui.selected(), selT = sel && api.tasks.get(sel);
+        if (selT) { el.querySelector('.kb-board').insertAdjacentHTML('afterend', `<aside class="kb-side" aria-label="Edit task">${api.ui.taskRow(selT)}</aside>`); el.classList.add('kb-has-side'); } else el.classList.remove('kb-has-side');
+        el.querySelectorAll('.kb-card').forEach(c => { const go = e => { e.stopPropagation(); const id = c.dataset.id; setTimeout(() => api.ui.openTask(id), 0); }; c.addEventListener('click', go); c.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(e); } }); });
         el.querySelectorAll('#kb-mode button').forEach(b => b.onclick = () => { api.storage.set('mode', b.dataset.v); api.ui.refresh(); });
         const f = el.querySelector('#kb-client'); if (f) f.onchange = () => { api.storage.set('client', f.value); api.ui.refresh(); };
         // drag and drop
@@ -64,6 +68,12 @@
           col.addEventListener('dragleave', e => { if (!col.contains(e.relatedTarget)) col.classList.remove('over'); });
           col.addEventListener('drop', e => { e.preventDefault(); col.classList.remove('over'); const id = dragId || e.dataTransfer.getData('text/plain'); dragId = null; move(id, col.dataset.col, mode); });
         });
+      }
+      function card(t, mode) {
+        const c = t.clientId && api.clients.get(t.clientId), st = api.util.dueState(t), sel = api.ui.selected() === t.id;
+        return `<div class="kb-card ${sel ? 'sel' : ''} ${t.done ? 'done' : ''}" draggable="true" data-id="${esc(t.id)}" tabindex="0" role="button" aria-label="${esc(t.title)}">
+          <div class="kb-t">${t.priority ? `<i class="kb-p p${Math.min(3, t.priority)}" aria-label="Priority ${t.priority}"></i>` : ''}${esc(t.title)}</div>
+          <div class="kb-m">${c && mode !== 'client' ? `<span class="kb-cl">${api.ui.avatar(c, 14)}${esc(c.name)}</span>` : ''}${t.dueDate ? `<span class="kb-due ${st}">${esc(api.util.dueLabel(t))}</span>` : ''}${t.owner === 'client' ? '<span class="kb-ow">they owe</span>' : t.owner === 'dev' ? '<span class="kb-ow">dev</span>' : ''}</div></div>`;
       }
       function move(id, colId, mode) {
         const t = api.tasks.get(id), col = columns(mode).find(c => c.id === colId); if (!t || !col || !col.patch) return;
@@ -94,8 +104,11 @@
         .kb-red{width:7px;height:7px;border-radius:50%;background:#e5484d}
         .kb-list{display:flex;flex-direction:column;gap:6px}
         .kb-card{border-radius:10px;background:var(--panel,var(--bg));border:1px solid var(--line);box-shadow:0 1px 2px rgba(0,0,0,.04);cursor:grab}
-        .kb-card .task{margin:0;border:0;background:none}
-        .kb-card .task:not(.open) .meta{flex-wrap:wrap}
+        .kb-card{padding:9px 11px}.kb-card.sel{border-color:var(--accent);box-shadow:0 0 0 2px color-mix(in srgb,var(--accent) 25%,transparent)}.kb-card.done .kb-t{text-decoration:line-through;color:var(--muted)}
+        .kb-t{font-size:13.5px;line-height:1.35;display:flex;gap:6px;align-items:flex-start}.kb-p{flex:none;width:7px;height:7px;border-radius:50%;margin-top:6px;background:#f59e0b}.kb-p.p3{background:#e5484d}
+        .kb-m{display:flex;gap:6px;flex-wrap:wrap;margin-top:5px;font-size:11.5px;color:var(--muted)}.kb-cl{display:inline-flex;align-items:center;gap:4px}.kb-due.over{color:#e5484d;font-weight:600}.kb-due.today{color:var(--accent);font-weight:600}.kb-ow{border:1px solid var(--line);border-radius:999px;padding:0 6px}
+        .kb-has-side{display:grid;grid-template-columns:minmax(0,1fr) 360px;column-gap:14px;align-items:start}.kb-has-side .kb-bar{grid-column:1/-1}.kb-side{position:sticky;top:16px}.kb-side .task{margin:0}
+        @media (max-width:1100px){.kb-has-side{display:block}}
         .kb-card.dragging{opacity:.35}
         .kb-card:hover{border-color:color-mix(in srgb,var(--accent) 40%,var(--line))}
         .kb-empty{font-size:12px;color:var(--muted);text-align:center;padding:16px 0;border:1px dashed var(--line);border-radius:10px}`;

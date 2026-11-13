@@ -39,6 +39,9 @@ test('kanban: columns by status, drag a card to In progress, regroup by due', as
   expect(await page.evaluate(id => window.T.tasks.get(id).stage, ids.sow)).toBe('doing');
   await page.evaluate(id => window.__kanban.move(id, 'done'), ids.fix);
   await expect(page.locator('.kb-col[data-col=done] .kb-card')).toHaveCount(1);
+  await page.locator(`.kb-card[data-id="${ids.keys}"]`).click();
+  await expect(page.locator('.kb-side .task.open')).toHaveCount(1);
+  await page.mouse.click(5, 5);
   await page.click('#kb-mode button[data-v=due]');
   await expect(page.locator('.kb-col[data-col=today] .kb-card')).toHaveCount(1);
   await expect(page.locator('.kb-col[data-col=none] .kb-card')).toHaveCount(1);
