@@ -1,11 +1,14 @@
 // Work / Life spaces: separate worlds on one login, synced between devices, safe from older tabs.
 import { test, expect } from '@playwright/test';
+import { createServer } from 'node:net';
+// a free port from the OS, so test files running side by side never collide
+const freePort = () => new Promise(r => { const s = createServer().listen(0, () => { const p = s.address().port; s.close(() => r(p)); }); });
 import { spawn } from 'node:child_process';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-const PORT = 10000 + Math.floor(Math.random() * 200), B = `http://localhost:${PORT}`;
+const PORT = await freePort(), B = `http://localhost:${PORT}`;
 let server, dir;
 test.beforeAll(async () => {
   dir = mkdtempSync(join(tmpdir(), 'cadence-spaces-'));
@@ -66,8 +69,11 @@ test('Life syncs to another device, stays out of the Work document, and older ta
   expect(doc.tasks.map(t => t.title)).not.toContain('Renew car insurance');
   expect(doc.clients.map(c => c.name)).not.toContain('Money');
   // an older tab saves the Work document: Life survives
-  doc.updatedAt = Date.now();
-  expect((await fetch(B + '/api/state', { method: 'PUT', headers: { 'Content-Type': 'application/json', Origin: B }, body: JSON.stringify({ json: JSON.stringify(doc), updatedAt: doc.updatedAt }) })).status).toBe(200);
+  // (the open tab may save in between, which the server rightly refuses as a conflict: re-read and try again)
+  let st = 0;
+  for (let i = 0; i < 4 && st !== 200; i++) { const d = i ? JSON.parse((await (await fetch(B + '/api/state')).json()).json) : doc; d.updatedAt = Date.now();
+    st = (await fetch(B + '/api/state', { method: 'PUT', headers: { 'Content-Type': 'application/json', Origin: B }, body: JSON.stringify({ json: JSON.stringify(d), updatedAt: d.updatedAt }) })).status; if (st !== 200) await new Promise(r => setTimeout(r, 300)); }
+  expect(st).toBe(200);
   // a second device sees Life (areas, task, calm theme) after switching
   const P = await device(browser, 'Phone');
   await P.page.click('.space-sw [data-s=life]'); await P.hook();

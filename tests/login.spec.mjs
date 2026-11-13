@@ -1,11 +1,14 @@
 // Login page: with APP_PASSWORD set, the app sits behind a cookie session.
 import { test, expect } from '@playwright/test';
+import { createServer } from 'node:net';
+// a free port from the OS, so test files running side by side never collide
+const freePort = () => new Promise(r => { const s = createServer().listen(0, () => { const p = s.address().port; s.close(() => r(p)); }); });
 import { spawn } from 'node:child_process';
 import { mkdtempSync, rmSync, statSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-const PORT = 9800 + Math.floor(Math.random() * 200);
+const PORT = await freePort();
 const B = `http://localhost:${PORT}`;
 let server, dataDir;
 test.beforeAll(async () => {

@@ -1,12 +1,15 @@
 // Cadence smoke tests: boots a real server against a throwaway data dir and drives the app like a user.
 // Run: npm test   (needs `npx playwright install chromium` once)
 import { test, expect } from '@playwright/test';
+import { createServer } from 'node:net';
+// a free port from the OS, so test files running side by side never collide
+const freePort = () => new Promise(r => { const s = createServer().listen(0, () => { const p = s.address().port; s.close(() => r(p)); }); });
 import { spawn } from 'node:child_process';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-const PORT = 8600 + Math.floor(Math.random() * 300);
+const PORT = await freePort();
 let server, dataDir;
 test.beforeAll(async () => {
   dataDir = mkdtempSync(join(tmpdir(), 'cadence-test-'));

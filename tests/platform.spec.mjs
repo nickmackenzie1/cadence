@@ -1,18 +1,22 @@
 // Platform checks: settings that follow you between devices, and a sweep of every plugin's settings and every view.
 import { test, expect } from '@playwright/test';
+import { createServer } from 'node:net';
+// a free port from the OS, so test files running side by side never collide
+const freePort = () => new Promise(r => { const s = createServer().listen(0, () => { const p = s.address().port; s.close(() => r(p)); }); });
 import { spawn } from 'node:child_process';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-const PORT = 10500 + Math.floor(Math.random() * 200), B = `http://localhost:${PORT}`;
+const PORT = await freePort(), B = `http://localhost:${PORT}`;
 let server, dir;
-test.beforeAll(async () => {
+// every test gets its own server and an empty data folder, so tests can't trip over each other's data
+test.beforeEach(async () => {
   dir = mkdtempSync(join(tmpdir(), 'cadence-plat-'));
   server = spawn(process.execPath, ['--disable-warning=ExperimentalWarning', 'server.js'], { env: { ...process.env, PORT: String(PORT), DATA_DIR: dir, TLS_DIR: join(dir, 'x') }, stdio: 'ignore' });
   for (let i = 0; i < 150; i++) { try { if ((await fetch(B + '/api/health')).ok) return; } catch {} await new Promise(r => setTimeout(r, 100)); }
 });
-test.afterAll(() => { server && server.kill(); rmSync(dir, { recursive: true, force: true }); });
+test.afterEach(async () => { if (server) { const gone = new Promise(r => server.once('exit', r)); server.kill(); await gone; } rmSync(dir, { recursive: true, force: true }); });
 
 async function open(page) {
   const errs = []; page.on('pageerror', e => errs.push(String(e)));

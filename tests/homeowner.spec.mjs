@@ -1,11 +1,14 @@
 // Good Homeowner: the setup interview creates the right maintenance reminders in Life's Home area, and re-running it updates instead of duplicating.
 import { test, expect } from '@playwright/test';
+import { createServer } from 'node:net';
+// a free port from the OS, so test files running side by side never collide
+const freePort = () => new Promise(r => { const s = createServer().listen(0, () => { const p = s.address().port; s.close(() => r(p)); }); });
 import { spawn } from 'node:child_process';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-const PORT = 10200 + Math.floor(Math.random() * 200), B = `http://localhost:${PORT}`;
+const PORT = await freePort(), B = `http://localhost:${PORT}`;
 let server, dir;
 test.beforeAll(async () => {
   dir = mkdtempSync(join(tmpdir(), 'cadence-home-'));
