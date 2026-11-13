@@ -139,7 +139,7 @@
     preview: { bg: '#f7f6f3', panel: '#fff', side: '#f0eee9', text: '#1d1c1a', accent: '#5b5bd6', line: '#e7e4dd' } });
   apply(stored('theme') || 'cadence');     // as early as possible: no flash of the wrong theme
 
-  const CATS = ['Useful', 'Editor', 'daisyUI', 'Fun', 'Crazy'];
+  const CATS = ['Useful', 'Editor', 'daisyUI', 'Fun', 'Movie & TV', 'Studio Ghibli', 'Games', 'Seasonal', 'Crazy'];
   Cadence.registerPlugin({
     id: 'themes', name: 'Themes', version: '1.0.0', category: 'Look & feel',
     description: 'A theming engine for the whole app and every plugin, plus a gallery of useful, fun and properly unhinged themes. Customise the accent, font and corners on top of any theme. Plugins can add their own themes with CadenceThemes.register().',

@@ -799,3 +799,9 @@ data, or peer-to-peer on the same LAN). Personal data and secrets stay on each p
 - A webcam theme, something playful: e.g. you, pixelated or posterised, as the backdrop; the Elements engine reading
   the camera so snow/sand lands on your head and shoulders; hand-wave to clear a drift. Camera only on explicit opt-in,
   processed on the device, never stored or sent, a visible "camera on" indicator.
+
+## Backlog (user, 2026-11-13 12:36): Games theme category + Camping
+- CS:GO, Half-Life, Steam, Borderlands, Grand Theft Auto (category "Games"), and a Camping theme. Same homage rules:
+  palettes, textures, type and mood (e.g. Steam = the client's dark slate blues; Borderlands = cel-shaded ink
+  outlines; Half-Life = orange-on-black HEV-style HUD; CS:GO = tactical HUD greys/orange; GTA = sunset gradients and
+  pastel 80s), no logos, characters or game art.
