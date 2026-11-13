@@ -130,3 +130,24 @@ test('havoc: switch between Physics and Elements from the toolbar, Esc puts the 
   expect(await page.evaluate(() => document.documentElement.style.overflow)).toBe('');
   expect(errs).toEqual([]);
 });
+
+test('coming back to the tab refetches, and a new version on the NAS reloads unless something is half-typed', async ({ page }) => {
+  let build = 'v1', health = 0;
+  await page.route('**/api/health', async r => { health++; const res = await r.fetch(); const j = await res.json(); await r.fulfill({ json: { ...j, build } }); });
+  await open(page);
+  await expect.poll(() => health, { timeout: 10000 }).toBeGreaterThan(0);   // the first check learns v1
+  await page.waitForTimeout(4200);                                   // let any refocus from page load pass the 4s throttle
+  // something half-typed: no reload, the banner asks instead
+  build = 'v2';
+  await page.evaluate(() => { const i = document.createElement('textarea'); i.id = 'tmp-busy'; i.value = 'typing…'; document.body.appendChild(i); i.focus(); window.__mark = 1; dispatchEvent(new Event('focus')); });
+  await expect(page.locator('#upd-bar')).toBeVisible();
+  expect(await page.evaluate(() => window.__mark)).toBe(1);         // still the same page
+  // nothing half-typed: focusing the window reloads straight away
+  await page.evaluate(() => { document.getElementById('tmp-busy').remove(); document.activeElement && document.activeElement.blur(); });
+  await page.waitForTimeout(4200);                                   // refocus is throttled to once every 4s
+  const reloaded = page.waitForEvent('load');
+  await page.evaluate(() => dispatchEvent(new Event('focus')));
+  await reloaded;
+  expect(await page.evaluate(() => window.__mark)).toBeUndefined();
+  expect(health).toBeGreaterThan(2);
+});

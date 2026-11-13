@@ -72,7 +72,7 @@ test('a long task title wraps in the editor instead of running off the card', as
   expect(box.sw).toBeLessThanOrEqual(box.cw + 1);
 });
 
-test('a new build on the NAS offers a reload', async ({ page }) => {
+test('a new build on the NAS offers a reload while something is half-typed', async ({ page }) => {
   let ver = 'old';
   await page.route('**/api/health', async r => { const res = await r.fetch(); const j = await res.json(); j.build = ver; await r.fulfill({ json: j }); });
   await page.addInitScript(() => localStorage.setItem('cadence.reviewNudge', 'x'));
@@ -80,7 +80,8 @@ test('a new build on the NAS offers a reload', async ({ page }) => {
   await expect(page.locator('#sync')).toContainText('NAS', { timeout: 8000 });
   await page.waitForTimeout(3000);   // first check records the build
   ver = 'new';
-  await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
+  // with something half-typed it asks instead of reloading (with nothing typed it reloads: platform.spec)
+  await page.evaluate(() => { const i = document.createElement('textarea'); i.value = 'typing…'; document.body.appendChild(i); i.focus(); document.dispatchEvent(new Event('visibilitychange')); });
   await expect(page.locator('#upd-bar')).toBeVisible();
   await expect(page.locator('#upd-bar')).toContainText('updated');
 });

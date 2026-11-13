@@ -132,6 +132,7 @@
       // after new events arrive: redraw Today (its schedule), or just the bits mount() adds elsewhere
       const repaint = () => { if (api.ui.currentRoute() === 'today') api.ui.refresh(); else mount(); };
       api.on('render', mount);
+      api.on('refocus', () => load().then(() => { repaint(); tick(); }).catch(() => {}));
       if (!G.clickBound) {
         G.clickBound = true;
         document.addEventListener('click', e => {

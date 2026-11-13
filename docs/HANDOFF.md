@@ -577,3 +577,6 @@ data, or peer-to-peer on the same LAN). Personal data and secrets stay on each p
   tasks to sand jar, campfire for the camping planner, fireworks for a finished project, aquarium water, snow globe.
 - Havoc Physics + engine: blasts ignite and scatter matter, black hole swallows sand/water, rain becomes real water,
   "melt" becomes real lava.
+- Refocus (user, 23:29): tab shown or window focused → refocus(): pulls data + prefs, plugins get 'refocus' (calendar
+  reloads), and checkBuild(true) reloads at once on a new version unless something is half-typed or a meeting is open
+  (then the banner). Throttled to once per 4s.
