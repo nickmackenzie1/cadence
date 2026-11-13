@@ -111,7 +111,7 @@
           api.tasks.update(t.id, b.dataset.fy === 'no' ? { excuses: ex, priority: Math.max(1, cur.priority || 0) } : { excuses: ex }); api.ui.toast(b.dataset.fy === 'no' ? 'Excuse rejected. It’s top of the list now.' : 'Fair enough.'); }), 0);
         return `<div class="fy-card"><small>${esc(new Date(e.at).toLocaleDateString([], { month: 'short', day: 'numeric' }))}, past you wrote:</small><p>“${esc(e.note)}”</p><div><button class="btn" data-fy="ok">Fair, accept it</button><button class="btn" data-fy="no">Not good enough</button></div></div>`; });
       window.__futureYou = { prime };
-      api.commands.add({ title: 'Future-you negotiator settings', run: () => { const n = prompt('Ask for a note from which push? (1 = every time, 2 = the second time onwards)', opt().from); if (n && +n >= 1) api.storage.set('opt', { from: Math.min(5, +n) }); } });
+      api.commands.add({ title: 'Future-you negotiator settings', run: () => api.ui.ask('Future-you negotiator', [{ k: 'n', label: 'Ask for a note to future you from', type: 'select', def: opt().from, opts: [[1, 'Every time I push a task back'], [2, 'The second push onwards'], [3, 'The third push onwards']] }]).then(v => { if (v) api.storage.set('opt', { from: +v.n }); }) });
       css('fy-css', `.fy-chip{color:#f43f5e}.fy-chip svg{width:12px;height:12px;margin-right:3px}
         .fy-card{border:1px solid color-mix(in srgb,#f43f5e 35%,var(--line));background:color-mix(in srgb,#f43f5e 6%,var(--panel));border-radius:12px;padding:10px 12px;margin-top:8px}
         .fy-card small{color:var(--muted);font-size:11.5px}.fy-card p{margin:4px 0 8px;font-size:14px;font-style:italic}.fy-card div{display:flex;gap:6px}`);

@@ -214,7 +214,7 @@
         getBoundingClientRect: () => ({ left: 0, right: innerWidth, top: innerHeight - 1, bottom: innerHeight, width: innerWidth, height: 1 }) };
       const rectOf = (el, p) => { const r = el.getBoundingClientRect(); if (!p || !p.tb) return r; const left = r.left + p.tb.dx; return { left, right: left + p.tb.w, top: r.top + p.tb.dy, bottom: r.bottom, width: p.tb.w, height: r.height }; };
       // a screen that covers the page (the meeting, a dialog): only its own things carry snow while it's up
-      const coverLayer = () => document.querySelector('.meeting.open, .modal-bg:not([hidden])');
+      const coverLayer = () => (document.querySelector('#meeting.open') || (document.querySelector('#scrim.open') && document.querySelector('#modal')));
       function surfaces() {
         const layer = coverLayer();
         const seen = new Set(); let n = 0;
@@ -231,7 +231,7 @@
           if (p.rad < 0) { if (texty) glyphs(el, p, tb); else if (el === GROUND) { p.rad = 0; p.base = null; p.mf = null; p.hole = null; } else { p.hole = null; shape(el, p, r0); } }
         };
         add(GROUND, false);
-        document.querySelectorAll(SURFACES).forEach(el => { if (el.closest('#xm-string,#xm-ring,.modal-bg[hidden]') || (layer && !layer.contains(el) && !el.closest('.isl'))) return; add(el, el.matches(TEXTY)); });
+        document.querySelectorAll(SURFACES).forEach(el => { if (el.closest('#xm-string,#xm-ring') || (layer && !layer.contains(el) && !el.closest('.isl'))) return; add(el, el.matches(TEXTY)); });
         for (const el of piles.keys()) if (!seen.has(el) || !el.isConnected) piles.delete(el);
       }
       // the top edge's shape: rounded corners curve down, so snow sits on the curve and slides off steep parts

@@ -740,7 +740,7 @@ function makeApi(pid){
     plugins: { enabled: id => enabled(id), list: () => Reg.defs.map(d => ({ id: d.id, name: d.name, enabled: enabled(d.id) })) },
     space: () => SPACE,
     system: () => ({ demo: DEMO, space: SPACE, mode: Store.server ? 'nas' : Store.ref ? 'claude' : 'local', status: Store.status, lastSyncAt: Store.lastSyncAt || null, latency: Store.latency ?? null, ai: !!AI, health: Store.health || null, version: window.Cadence.version, plugins: Reg.defs.filter(d => enabled(d.id)).length, counts: { tasks: S.tasks.length, open: S.tasks.filter(t => !t.done).length, clients: S.clients.filter(c => !c.archived).length, meetings: S.meetings.length } }),
-    ui: { icon, reducedMotion, toast, refreshSide: () => renderSide(), taskRow: (t, o) => { const x = S.tasks.find(y => y.id === (t && t.id || t)); return x ? taskRow(x, o || {}) : ''; }, openTask: id => openTask(id), selected: () => selTask, closeTask: () => closeDrawer(), colorMode: () => S.settings.theme === 'dark' ? 'dark' : 'light', setColorMode: m => { S.settings.theme = m === 'dark' ? 'dark' : 'light'; save(); render(); }, refreshWidgets: () => renderWidgets(), pointer: () => ({ ...lastPointer }), faviconUrl: (d, v) => faviconUrl(d, v), avatar: (c, size) => avatar(c, size), navigate: r => go(r), refresh: () => render(), copy: copyText, esc, modal: openModalHTML, close: closeModal, currentRoute: () => route() },
+    ui: { icon, reducedMotion, toast, ask, refreshSide: () => renderSide(), taskRow: (t, o) => { const x = S.tasks.find(y => y.id === (t && t.id || t)); return x ? taskRow(x, o || {}) : ''; }, openTask: id => openTask(id), selected: () => selTask, closeTask: () => closeDrawer(), colorMode: () => S.settings.theme === 'dark' ? 'dark' : 'light', setColorMode: m => { S.settings.theme = m === 'dark' ? 'dark' : 'light'; save(); render(); }, refreshWidgets: () => renderWidgets(), pointer: () => ({ ...lastPointer }), faviconUrl: (d, v) => faviconUrl(d, v), avatar: (c, size) => avatar(c, size), navigate: r => go(r), refresh: () => render(), copy: copyText, esc, modal: openModalHTML, close: closeModal, currentRoute: () => route() },
     storage: { get: k => (S.pluginData[pid] || {})[k], set: (k,v) => { (S.pluginData[pid] = S.pluginData[pid] || {})[k] = v; save(); } },
     get ai(){ return AI; },
     settings: () => clone(S.settings),
@@ -1400,6 +1400,24 @@ function clientMenu(anchor, cid){
 }
 
 /* ---------- modal & palette ---------- */
+/* a small Cadence dialog instead of the browser's prompt(): ask(title, [{k, label, type, def, opts, ph}]) -> values or null */
+function ask(title, fields, intro = ''){
+  return new Promise(resolve => {
+    let done = false; const fin = v => { if(done) return; done = true; resolve(v); };
+    const f = x => { const id = 'ask-' + x.k, v = x.def ?? '';
+      if(x.type === 'select') return `<select class="inp" id="${id}">${x.opts.map(([a, b]) => `<option value="${esc(a)}" ${String(v) === String(a) ? 'selected' : ''}>${esc(b)}</option>`).join('')}</select>`;
+      if(x.type === 'textarea') return `<textarea class="inp" id="${id}" rows="3" placeholder="${esc(x.ph || '')}">${esc(v)}</textarea>`;
+      return `<input class="inp" id="${id}" type="${x.type || 'text'}" value="${esc(v)}" placeholder="${esc(x.ph || '')}" ${x.min != null ? `min="${x.min}"` : ''} ${x.max != null ? `max="${x.max}"` : ''}>`; };
+    openModalHTML(title, `${intro ? `<p class="muted" style="margin:0 0 10px;font-size:13px">${intro}</p>` : ''}${fields.map(x => `<div class="field"><label for="ask-${x.k}">${esc(x.label)}</label>${f(x)}</div>`).join('')}`,
+      `<button class="btn" id="ask-no">Cancel</button><button class="btn primary" id="ask-ok">OK</button>`);
+    const read = () => { const o = {}; for(const x of fields){ const el = document.getElementById('ask-' + x.k); o[x.k] = x.type === 'number' ? (el.value === '' ? null : +el.value) : el.value.trim(); } return o; };
+    $('#ask-ok').onclick = () => { const v = read(); closeModal(); fin(v); };
+    $('#ask-no').onclick = () => { closeModal(); fin(null); };
+    $$('.modal input', document).forEach(i => i.addEventListener('keydown', e => { if(e.key === 'Enter'){ e.preventDefault(); $('#ask-ok').click(); } }));
+    const obs = new MutationObserver(() => { if(!document.getElementById('ask-ok')){ obs.disconnect(); fin(null); } }); obs.observe($('#modal'), { childList: true });
+    setTimeout(() => { const i = $('.modal .inp'); i && i.focus(); i && i.select && i.select(); }, 30);
+  });
+}
 function openModalHTML(title, body, foot = '', cls = ''){
   $('#modal').className = 'modal ' + cls;
   $('#modal').innerHTML = (title ? `<div class="modal-h">${title}<span style="margin-left:auto"></span><button class="btn ghost" data-act="close-modal">✕</button></div>` : '') + `<div class="modal-b">${body}</div>` + (foot ? `<div class="modal-f">${foot}</div>` : '');

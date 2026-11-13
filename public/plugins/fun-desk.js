@@ -184,7 +184,7 @@
       }
       const label = () => { const h = health(); return h > .75 ? 'Thriving' : h > .45 ? 'A bit thirsty' : h > .2 ? 'Wilting: overdue work is piling up' : 'Needs help: finish something'; };
       const draw = (el, big) => { const p = P(); el.innerHTML = `<div class="pl ${big ? 'big' : ''}">${svg(big ? 140 : 64)}<div><b class="pl-n" title="Rename">${esc(p.name)}</b><span>${STAGES[stage()]} · ${label()}</span><span class="muted">${p.grown} tasks of sunshine</span></div></div>`;
-        el.querySelector('.pl-n').onclick = () => { const n = prompt('Name your plant', p.name); if (n && n.trim()) { api.storage.set('plant', { ...P(), name: n.trim().slice(0, 24) }); draw(el, big); } }; };
+        el.querySelector('.pl-n').onclick = () => { api.ui.ask('Name your plant', [{ k: 'n', label: 'Name', def: p.name }]).then(v => { if (v && v.n) { api.storage.set('plant', { ...P(), name: v.n.slice(0, 24) }); draw(el, big); } }); }; };
       api.sidebar.add({ id: 'plant', slot: 'bottom', order: 21, title: 'Desk plant', render: el => draw(el, false) });
       api.widgets.add({ id: 'plant', title: 'Desk plant', icon: 'flower-2', size: 's', description: 'Grows when you finish things, droops when work is overdue.', render: el => draw(el, true) });
       css('pl-css', `.pl{display:flex;align-items:center;gap:10px;font-size:12.5px}.pl.big{flex-direction:column;text-align:center;padding:6px}.pl b{display:block;font-size:13.5px;cursor:pointer}.pl span{display:block}.pl .muted{font-size:11.5px}

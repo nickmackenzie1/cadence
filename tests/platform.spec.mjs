@@ -54,7 +54,7 @@ test('sweep: every plugin settings dialog and every view renders cleanly', async
     for (const id of ids) {
       const opened = await page.evaluate(id => { const b = document.createElement('button'); b.dataset.act = 'pl-settings'; b.dataset.pid = id; document.body.appendChild(b); b.click(); b.remove(); return true; }, id);
       await page.waitForTimeout(120);
-      const r = await page.evaluate(() => { const m = document.querySelector('.modal-bg:not([hidden]) .modal'); if (!m) return null;
+      const r = await page.evaluate(() => { const m = document.querySelector('#scrim.open') && document.querySelector('#modal'); if (!m || !m.innerHTML) return null;
         return { big: [...m.querySelectorAll('*')].filter(e => e.getBoundingClientRect().height > innerHeight * .95 && !/modal/.test(e.className)).map(e => e.tagName + '#' + e.id), text: m.innerText.trim().length }; });
       const d = await dups();
       if (r && (r.big.length || r.text < 20)) problems.push(`${space} ${id} settings: ${JSON.stringify(r)}`);
@@ -68,5 +68,16 @@ test('sweep: every plugin settings dialog and every view renders cleanly', async
       if (d.length) problems.push(`${space} ${v}: duplicate ids ${d.join(',')}`); if (len < 15) problems.push(`${space} ${v}: empty view`); }
   }
   expect(problems).toEqual([]);
+  expect(errs).toEqual([]);
+});
+
+test('Cadence dialogs instead of browser popups: ask() returns values, cancel returns null', async ({ page }) => {
+  const errs = await open(page);
+  page.on('dialog', d => { errs.push('browser dialog: ' + d.message()); d.dismiss(); });
+  const p1 = page.evaluate(() => window.T.ui.ask('Name your rival', [{ k: 'n', label: 'Name', def: 'Morgan' }]));
+  await page.fill('#ask-n', 'Riley'); await page.press('#ask-n', 'Enter');
+  expect(await p1).toEqual({ n: 'Riley' });
+  const p2 = page.evaluate(() => window.T.ui.ask('x', [{ k: 'a', label: 'A' }]));
+  await page.click('#ask-no'); expect(await p2).toBe(null);
   expect(errs).toEqual([]);
 });

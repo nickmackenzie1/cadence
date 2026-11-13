@@ -73,7 +73,7 @@
         const me = mine(), r = rival(), mx = Math.max(me, r, 1), ahead = me - r;
         el.innerHTML = `<div class="rv"><div class="rv-r"><span>You</span><i><b style="width:${me / mx * 100}%"></b></i><em>${me}</em></div><div class="rv-r them"><span title="Rename" class="rv-n">${esc(name())}</span><i><b style="width:${r / mx * 100}%"></b></i><em>${r}</em></div>
           <div class="rv-s">${ahead > 0 ? `You’re ${ahead} ahead. ${esc(name())} is sweating.` : ahead === 0 ? 'Neck and neck.' : `${esc(name())} is ${-ahead} ahead. Hm.`}</div></div>`;
-        el.querySelector('.rv-n').onclick = () => { const n = prompt('Name your rival', name()); if (n && n.trim()) { api.storage.set('name', n.trim().slice(0, 20)); draw(el); } };
+        el.querySelector('.rv-n').onclick = () => { api.ui.ask('Name your rival', [{ k: 'n', label: 'Name', def: name() }]).then(v => { if (v && v.n) { api.storage.set('name', v.n.slice(0, 20)); draw(el); } }); };
       }
       const TAUNTS = ['just closed another one.', 'is having a great day.', 'says hi. From in front of you.', 'didn’t even need coffee for that one.'];
       let lastLead = null;
@@ -177,7 +177,7 @@
           <div class="bk-list">${list.map(it => { const y = yearsLeft(it); return `<div class="bk-it ${it.done ? 'done' : ''} ${y != null && y < 5 && !it.done ? 'hot' : ''}"><button class="bk-chk" data-bk="${esc(it.id)}">${it.done ? api.ui.icon('check') : ''}</button><div><b>${esc(it.t)}</b><span>${LIMIT[it.phys || 1][0]}${it.by ? ' · by ' + it.by : ''}</span></div><em>${it.done ? 'Lived' : y == null ? '' : y < 1 ? 'Now or never' : Math.floor(y) + ' good years left'}</em><button class="bk-x" data-bkx="${esc(it.id)}" title="Remove">${api.ui.icon('x')}</button></div>`; }).join('') || '<div class="muted" style="padding:16px 0">Nothing yet. What would you regret never doing?</div>'}</div>`;
         const $ = id => el.querySelector('#' + id);
         $('bk-save') && ($('bk-save').onclick = () => { const b = +$('bk-born').value; if (b > 1900) { api.storage.set('cfg', { ...cfg(), born: b }); api.ui.refresh(); } });
-        $('bk-edit') && ($('bk-edit').onclick = () => { const b = prompt('Birth year', c.born), e = prompt('Life expectancy to plan around', c.expect); api.storage.set('cfg', { born: +b || c.born, expect: Math.max(50, Math.min(110, +e || c.expect)) }); api.ui.refresh(); });
+        $('bk-edit') && ($('bk-edit').onclick = () => { api.ui.ask('Your numbers', [{ k: 'b', label: 'Birth year', type: 'number', def: c.born, min: 1900, max: 2025 }, { k: 'e', label: 'Life expectancy to plan around', type: 'number', def: c.expect, min: 50, max: 110 }]).then(v => { if (!v) return; api.storage.set('cfg', { born: v.b || c.born, expect: Math.max(50, Math.min(110, v.e || c.expect)) }); api.ui.refresh(); }); });
         $('bk-go').onclick = () => { const t = $('bk-t').value.trim(); if (!t) return; api.storage.set('items', [...items(), { id: uid(), t: t.slice(0, 160), phys: +$('bk-p').value, by: +$('bk-by').value || null, done: false }]); api.ui.refresh(); };
         $('bk-t').onkeydown = e => { if (e.key === 'Enter') $('bk-go').click(); };
         el.querySelectorAll('[data-bk]').forEach(b => b.onclick = () => { api.storage.set('items', items().map(x => x.id === b.dataset.bk ? { ...x, done: !x.done, at: Date.now() } : x)); if (!items().find(x => x.id === b.dataset.bk).done) {} api.ui.refresh(); });

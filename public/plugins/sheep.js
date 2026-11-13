@@ -47,7 +47,7 @@
         const out = [{ el: null, l: 0, r: innerWidth, t: innerHeight }];
         document.querySelectorAll(PLAT).forEach(el => { if (el.closest('[hidden]')) return; const r = el.getBoundingClientRect(); if (r.width < 60 || r.bottom < 0 || r.top > innerHeight - 10 || r.top < 30) return; out.push({ el, l: r.left, r: r.right, t: r.top }); });
         // cover screens (meeting, dialogs): only their own things
-        const layer = document.querySelector('.meeting.open, .modal-bg:not([hidden])');
+        const layer = (document.querySelector('#meeting.open') || (document.querySelector('#scrim.open') && document.querySelector('#modal')));
         return layer ? out.filter(p => !p.el || layer.contains(p.el)) : out;
       }
       const top = p => { if (!p.el) return { l: 0, r: innerWidth, t: innerHeight }; if (!p.el.isConnected) return null; const r = p.el.getBoundingClientRect(); return { l: r.left, r: r.right, t: r.top }; };
