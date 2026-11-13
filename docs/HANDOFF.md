@@ -473,3 +473,10 @@ data, or peer-to-peer on the same LAN). Personal data and secrets stay on each p
 - Not done / needs more: Location nudges need the phone app (tasks have `place` now). Inbox scanner reads pasted/.eml
   mail only (IMAP later, creds on NAS). Shame escrow is honour system + links. Kitchen tablet has no household login
   yet (open #kiosk on a signed-in tablet). Full suite is ~4 min serial: run with `timeout 590`.
+- Backlog (user, 2026-11-12 22:11): themes: Zelda/Link, Xbox 360 blades, Claude, Reddit, Mario, Pocket Casts.
+  Harper (Automattic/harper, local grammar checker, Rust/WASM) for writing in Cadence. A full podcast player/manager
+  inspired by Pocket Casts (open source iOS/Android): subscriptions, up next queue, speed/trim silence, chapters,
+  played state, discover; keep it original and Cadence-styled.
+- Queued: RSS "new entries per day" chart view; fire typing melts snow into water that streams down (SPH-style, see
+  asadm/SPHjs); mobile pass; server.js restructure into routes/services with comments; meeting code out of core.js;
+  single plugin bundle.
