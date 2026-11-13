@@ -453,12 +453,13 @@ test('feed activity: new items per day charted from the history the NAS keeps', 
   const now = Date.now(), D = 864e5, seen = {};
   for (let i = 0; i < 12; i++) seen['https://shop/x' + i] = [i < 3 ? 0 : now - (i % 5) * D, now - (i % 5) * D - 3600e3];
   writeFileSync(join(dir, 'feedlog.json'), JSON.stringify({ 'https://shop.example/feed': { title: 'Record shop', seen, asked: now } }));
+  // no real feeds: in CI the network is up, and live items from the default feeds would count as new
+  await page.route('**/api/feed?*', r => r.fulfill({ json: { title: 'Record shop', items: [] } }));
   const errs = await open(page);
   // point the rss plugin at that feed (its storage holds the feed list)
   await page.evaluate(() => location.hash = 'view-feeds');
   await page.evaluate(() => document.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', metaKey: true, ctrlKey: true, bubbles: true })));
   await page.keyboard.type('Manage feeds'); await page.keyboard.press('Enter');
-  await page.route('**/api/feed?*', r => r.fulfill({ json: { title: 'Record shop', items: [] } }));
   await page.fill('#rs-url', 'https://shop.example/feed'); await page.click('#rs-add'); await page.click('#rs-save');
   await page.evaluate(() => location.hash = 'view-feed-stats');
   await expect(page.locator('.fs-sum b').first()).toHaveText('12');
