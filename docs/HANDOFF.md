@@ -516,6 +516,9 @@ data, or peer-to-peer on the same LAN). Personal data and secrets stay on each p
     grid, pause on hidden tab, off for prefers-reduced-motion, Lucide icons not emoji in the controls.
 
 ## Design principle (user, 2026-11-12 22:56): calm, never alarming — "I have anxiety so those are triggers for me"
+- Plain, not chatty (user, 23:15: "don't like the language"): a greeting is fine ("Good evening, Nick"), everything
+  else is plain labels and counts ("Earlier · 3", "Today · 1", "9 this week", Tomorrow / Next week / Clear). No narrating
+  sentences, no "whenever you're ready", no cute copy.
 - No guilt or alarm language: not "slipped", "overdue — clear them", "late", "behind". Say "carried over", "still open",
   "whenever you're ready", "let go".
 - No red for unfinished work. Red is for real errors only. Carried-over items use the neutral muted colour.
@@ -554,3 +557,5 @@ data, or peer-to-peer on the same LAN). Personal data and secrets stay on each p
   This is the "one shared effects engine" item: split elements-engine.js into a reusable core (grid, step, render)
   plus the Havoc screen-reader/HUD, run it on a small region around the caret (not the whole screen) so typing stays
   fast, and fold christmas.js snow/water into the same core.
+
+## Backlog (user, 23:15): weather in the Today greeting — maybe, undecided. Taken out of the mockup for now.
