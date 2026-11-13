@@ -645,3 +645,48 @@ svg.lu{width:1.1em;height:1.1em;display:inline-block;vertical-align:-.17em;fill:
   .qa .hint{display:none}
   .m-shots{padding:8px 12px}.m-shot{flex-basis:150px}
 }
+
+/* ---------- Today (direction A): greeting, the add line, a schedule strip, plain lists ---------- */
+.td-head{margin-bottom:26px}
+.td-head .td-date{font-size:12px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;margin:0 0 8px}
+.td-head .hello{font-size:40px!important;font-weight:600;letter-spacing:-.03em;line-height:1.1}
+.qa.hero{background:none;border:0;border-bottom:2px solid var(--text);border-radius:0;box-shadow:none;padding:2px 0 4px;margin-bottom:34px}
+.qa.hero:focus-within{border-bottom-color:var(--accent);box-shadow:none}
+.qa.hero .plus{font-size:22px;font-weight:500}
+.qa.hero input{font-size:19px;font-weight:500;padding:8px 0}
+.qa.hero .hint{font-family:var(--mono);font-size:11px;color:var(--muted)}
+.qa.hero .qa-chips{padding-left:26px}
+.td-sched{margin:0 0 34px}
+.td-sh{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:10px}
+.td-sh h2{margin:0;font-size:12px;font-weight:600;color:var(--muted)}
+.td-link{border:0;background:none;color:var(--accent);font:500 12.5px Inter,system-ui;cursor:pointer;padding:4px 0}
+.td-link:hover{text-decoration:underline}
+.td-sched.empty p{margin:0;font-size:13px}
+.td-tl{position:relative;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+.td-hrs{position:absolute;inset:0;display:grid;grid-template-columns:repeat(var(--cols),minmax(0,1fr))}
+.td-hrs span{border-left:1px solid color-mix(in srgb,var(--line) 70%,transparent);font:500 10.5px var(--mono);color:var(--muted);padding:4px 6px}
+.td-past{position:absolute;left:0;top:22px;bottom:0;background:repeating-linear-gradient(135deg,color-mix(in srgb,var(--text) 4%,transparent) 0 6px,transparent 6px 12px);pointer-events:none}
+.td-b{position:absolute;height:24px;border:0;border-radius:6px;padding:0 8px;display:flex;align-items:center;gap:6px;overflow:hidden;white-space:nowrap;text-align:left;font:500 12px Inter,system-ui;cursor:pointer;min-width:0}
+.td-b b{font-weight:600;overflow:hidden;text-overflow:ellipsis}.td-b span{opacity:.7;overflow:hidden;text-overflow:ellipsis}
+.td-b.meet{background:color-mix(in srgb,var(--bc,var(--muted)) 15%,var(--panel));color:var(--text);box-shadow:inset 3px 0 0 var(--bc,var(--muted))}
+.td-b.task{background:var(--accent);color:var(--on-accent,#fff)}
+.td-b.past{opacity:.55}.td-b.done{opacity:.45}.td-b.done b{text-decoration:line-through}
+.td-b:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.td-now{position:absolute;top:0;bottom:0;width:2px;margin-left:-1px;background:var(--accent);pointer-events:none}
+.td-now i{position:absolute;top:-9px;left:50%;transform:translateX(-50%);font:500 10px var(--mono);font-style:normal;background:var(--accent);color:var(--on-accent,#fff);padding:1px 5px;border-radius:4px}
+.group-h.earlier{color:var(--muted)}
+.t-moves{display:flex;gap:6px;margin-left:auto;align-self:center;flex:none}
+.t-moves button{border:1px solid var(--line);background:var(--panel);color:var(--text);border-radius:8px;padding:5px 11px;font:500 12px Inter,system-ui;cursor:pointer;min-height:30px}
+.t-moves button:hover{border-color:var(--accent);color:var(--accent)}
+.t-moves button[data-to=clear]{border-color:transparent;background:none;color:var(--muted)}
+.task:has(.t-moves){flex-wrap:wrap}
+@media (max-width:640px){.t-moves{width:100%;padding-left:32px}.td-head .hello{font-size:30px!important}.qa.hero input{font-size:17px}}
+.td-foot{display:flex;flex-direction:column;align-items:flex-start;gap:12px;border-top:1px solid var(--line);padding-top:16px;margin-top:6px;font-size:13px}
+.td-foot a{color:var(--accent);text-decoration:none}.td-foot a:hover{text-decoration:underline}
+.td-done{width:100%}.td-done summary{cursor:pointer;color:var(--muted);min-height:28px;display:flex;align-items:center}
+/* calm: unfinished work is never red */
+.chip.over{color:var(--muted)}
+.ntile .n.hot{background:var(--sel,var(--accent));color:var(--on-accent,#fff)}
+.chip.due.over{color:var(--muted)!important}
+.nav a .n.hot{color:var(--text);font-weight:650}
+@media (max-width:640px){.td-hrs span:nth-child(even){color:transparent}}

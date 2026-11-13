@@ -620,7 +620,7 @@ function createFromQuick(text, ctx){
 /* =========================================================
    Plugin host
    ========================================================= */
-const Reg = { defs:[], commands:[], views:[], parsers:[], extractors:[], taskActions:[], meetingActions:[], clientActions:[], sidebar:[], listeners:[], settingsPanels:[], widgets:[], chips:[], cards:[], footer:[] };
+const Reg = { defs:[], commands:[], views:[], parsers:[], extractors:[], taskActions:[], meetingActions:[], clientActions:[], sidebar:[], listeners:[], settingsPanels:[], widgets:[], chips:[], cards:[], footer:[], schedule:[] };
 let AI = null;
 function spaceOk(pid){ const d = Reg.defs.find(x => x.id === pid); return !d || !d.spaces || d.spaces.includes(SPACE); }
 function enabled(pid){ return !S.disabled.includes(pid) && spaceOk(pid); }
@@ -725,6 +725,7 @@ function makeApi(pid){
     chips: { add: fn => Reg.chips.push({ fn, pid }) },
     /* a card under the notes in the open task editor: api.taskCards.add(task => html or '') */
     taskCards: { add: fn => Reg.cards.push({ fn, pid }) },
+    today: { schedule: (fn, head) => { Reg.schedule = Reg.schedule.filter(x => x.pid !== pid).concat([{ fn, head, pid }]); } },   // one source per plugin: re-running setup replaces it
     meetingActions: { add: a => Reg.meetingActions.push({ ...a, pid }) },
     clientActions: { add: a => Reg.clientActions.push({ ...a, pid }) },
     sidebar: { add: w => Reg.sidebar.push({ ...w, pid }) },
@@ -974,7 +975,7 @@ function taskRow(t, opts = {}){
   if(t.owner === 'client' && !opts.hideOwner) meta.push(`<span class="chip client-owned">↗ ${esc(t.assignee || 'Client')}</span>`);
   if(t.owner === 'dev'){ const d = !t.done ? daysSince(t.assignedAt) : 0; if(!opts.hideOwner || d >= 2) meta.push(`<span class="chip dev-owned ${d >= 7 ? 'old' : ''}" title="With dev${d ? ' for ' + d + ' days' : ', since today'}">⚙ Dev${d >= 2 ? ` · ${d}d` : ''}</span>`); }
   for(const c of Reg.chips){ try { const h = c.fn(t, false); if(h) meta.push(h); } catch(e){} }
-  if(t.dueDate) meta.push(`<span class="chip due ${ds}">${ds==='over'?'⚠ ':''}${esc(dueLabel(t))}</span>`);
+  if(t.dueDate) meta.push(`<span class="chip due ${ds}">${esc(dueLabel(t))}</span>`);
   if(t.remindAt && !t.reminded && !t.done) meta.push(`<span class="chip due" title="Reminder ${new Date(t.remindAt).toLocaleString()}">🔔</span>`);
   if(t.repeat) meta.push(`<span class="chip due" title="${REPEAT_LABEL(t.repeat)}">↻ ${REPEAT_LABEL(t.repeat)}</span>`);
   if(t.lastChased && t.owner === 'client' && !t.done) meta.push(`<span class="chip due" title="Last chased">✉ chased ${fmtDate(ymd(new Date(t.lastChased))).toLowerCase()}</span>`);
@@ -985,11 +986,39 @@ function taskRow(t, opts = {}){
   const last = !t.done && (t.log || []).slice(-1)[0];
   return `<div draggable="true" class="task ${t.done?'done':''} ${t.owner==='client'?'client':''} ${t.owner==='dev'?'dev':''} ${t.priority===3?'p3':''} ${selTask===t.id?'sel':''}" data-id="${t.id}">
     <button class="check" data-act="toggle" aria-label="Complete"></button>
-    <div class="t-body"><div class="t-title">${esc(t.title)}</div>${last ? `<div class="t-last" title="${t.log.length} step${t.log.length > 1 ? 's' : ''} so far">↳ ${esc(last.text)} · ${esc(fmtDate(ymd(new Date(last.at))).toLowerCase())}</div>` : ''}<div class="t-meta">${meta.join('')}</div></div></div>`;
+    <div class="t-body"><div class="t-title">${esc(t.title)}</div>${last ? `<div class="t-last" title="${t.log.length} step${t.log.length > 1 ? 's' : ''} so far">↳ ${esc(last.text)} · ${esc(fmtDate(ymd(new Date(last.at))).toLowerCase())}</div>` : ''}<div class="t-meta">${meta.join('')}</div></div>${opts.moves && !t.done ? `<div class="t-moves"><button data-act="move" data-to="1">Tomorrow</button><button data-act="move" data-to="7">Next week</button><button data-act="move" data-to="clear" title="Remove the date">Clear</button></div>` : ''}</div>`;
 }
 const group = (title, tasks, opts = {}) => tasks.length ? `<div class="group" data-drop="${opts.drop||''}"><div class="group-h ${opts.cls||''}">${title}<span class="c">${tasks.length}</span></div>${sortTasks(tasks).map(t => taskRow(t, opts)).join('')}</div>` : '';
-function quickAdd(placeholder, ctx = {}){
-  return `<div class="qa" data-ctx='${esc(JSON.stringify(ctx))}'><div class="qa-row"><span class="plus">+</span><input id="qa" autocomplete="off" placeholder="${esc(placeholder)}"><span class="hint">${LIFE() ? '@ area · fri 3pm · every week · !1 · #tag' : '@ client · ^ they owe · >dev · fri 3pm · !1 · #tag'}</span></div><div class="qa-chips" id="qa-chips"></div></div>`;
+function quickAdd(placeholder, ctx = {}, cls = ''){
+  return `<div class="qa ${cls}" data-ctx='${esc(JSON.stringify(ctx))}'><div class="qa-row"><span class="plus">+</span><input id="qa" autocomplete="off" placeholder="${esc(placeholder)}"><span class="hint">${LIFE() ? '@ area · fri 3pm · every week · !1 · #tag' : '@ client · ^ they owe · >dev · fri 3pm · !1 · #tag'}</span></div><div class="qa-chips" id="qa-chips"></div></div>`;
+}
+/* Today's schedule: timed tasks plus anything plugins add (calendar meetings), on one strip of hours with a now line.
+   Plugins: api.today.schedule(() => [{ start, end, title, sub, color, attrs }]) — start/end in ms. */
+function todaySchedule(t){
+  const day0 = fromYmd(t).getTime(), H = 36e5, items = [];
+  S.tasks.filter(x => x.dueDate === t && x.dueTime && (onMe(x) || x.done)).forEach(x => {
+    const [h, m] = x.dueTime.split(':').map(Number), start = day0 + h * H + m * 6e4, c = client(x.clientId);
+    items.push({ start, end: start + 30 * 6e4, title: x.title, sub: c ? c.name : '', kind: 'task', done: x.done, attrs: `data-task="${x.id}"` });
+  });
+  for(const src of Reg.schedule){ try { (src.fn() || []).forEach(e => e && e.start && items.push({ ...e, kind: 'meet' })); } catch(e){} }
+  const heads = Reg.schedule.map(s => s.head ? s.head() : '').join('');
+  if(!items.length) return heads ? `<section class="td-sched empty"><div class="td-sh"><h2>Schedule</h2>${heads}</div><p class="muted">Nothing scheduled.</p></section>` : '';
+  const hs = items.map(e => (e.start - day0) / H), he = items.map(e => (e.end - day0) / H);
+  const from = Math.max(0, Math.min(9, Math.floor(Math.min(...hs)))), to = Math.min(24, Math.max(18, Math.ceil(Math.max(...he)))), span = to - from;
+  const pct = ms => ((ms - day0) / H - from) / span * 100;
+  // two lanes (meetings above, tasks below); overlapping items get their own row
+  const rows = { meet: [], task: [] }, placed = [];
+  items.sort((a, b) => a.start - b.start).forEach(e => {
+    const lane = rows[e.kind]; let k = lane.findIndex(end => end <= e.start); if(k < 0){ k = lane.length; lane.push(0); } lane[k] = e.end; placed.push({ e, k });
+  });
+  const nMeet = rows.meet.length, rowH = 30, top = 24;
+  const now = Date.now(), nowP = pct(now), showNow = nowP >= 0 && nowP <= 100;
+  const height = top + (nMeet + rows.task.length) * rowH + 6;
+  const hours = Array.from({ length: span }, (_, i) => { const h = (from + i) % 24; return `<span>${h % 12 || 12}</span>`; }).join('');
+  const blocks = placed.map(({ e, k }) => { const y = top + (e.kind === 'meet' ? k : nMeet + k) * rowH, l = Math.max(0, pct(e.start)), w = Math.max(1.6, Math.min(100, pct(e.end)) - l);
+    return `<button class="td-b ${e.kind} ${e.end < now ? 'past' : ''} ${e.done ? 'done' : ''}" ${e.attrs || ''} style="left:${l}%;width:${w}%;top:${y}px;${e.color ? '--bc:' + e.color : ''}" title="${esc(fmtTime(pad(new Date(e.start).getHours()) + ':' + pad(new Date(e.start).getMinutes())) + ' · ' + e.title + (e.sub ? ' · ' + e.sub : ''))}"><b>${esc(e.title)}</b>${e.sub ? `<span>${esc(e.sub)}</span>` : ''}</button>`; }).join('');
+  return `<section class="td-sched" aria-label="Schedule"><div class="td-sh"><h2>Schedule</h2>${heads}</div>
+    <div class="td-tl" style="height:${height}px;--cols:${span}"><div class="td-hrs">${hours}</div>${showNow ? `<div class="td-past" style="width:${nowP}%"></div>` : ''}${blocks}${showNow ? `<div class="td-now" style="left:${nowP}%"><i>${fmtTime(pad(new Date().getHours()) + ':' + pad(new Date().getMinutes())).replace(/ [AP]M$/, '')}</i></div>` : ''}</div></section>`;
 }
 function emptyState(icon, title, sub){ return `<div class="empty"><div class="big">${icon}</div><b>${title}</b>${sub||''}</div>`; }
 
@@ -998,25 +1027,20 @@ function renderView(){
   v.classList.remove('vw-wide');
   let html = '';
   if(r === 'today'){
+    // Today: a greeting, the add box, the day's schedule, then the lists. Plain labels, no red for unfinished work.
     const hr = new Date().getHours(), name = (S.settings.myName||'').split(' ')[0];
-    const over = o.filter(x => onMe(x) && dueState(x)==='over' );
-    const today = o.filter(x => onMe(x) && x.dueDate===t && dueState(x)!=='over');
+    const earlier = o.filter(x => onMe(x) && x.dueDate && x.dueDate < t);
+    const today = o.filter(x => onMe(x) && x.dueDate === t);
     const chase = o.filter(x => x.owner==='client' && x.dueDate && x.dueDate <= t);
-    const doneToday = S.tasks.filter(x => x.done && x.doneAt && ymd(new Date(x.doneAt))===t).length;
-    const totalToday = doneToday + over.length + today.length, pct = totalToday ? doneToday / totalToday : 0;
-    const timed = today.filter(x => x.dueTime).sort((a,b) => a.dueTime.localeCompare(b.dueTime));
-    const nowHM = `${pad(new Date().getHours())}:${pad(new Date().getMinutes())}`, nxt = timed.find(x => x.dueTime >= nowHM) || timed[0];
-    const nc = nxt && client(nxt.clientId), upcomingN = o.filter(x => onMe(x) && x.dueDate && x.dueDate > t && x.dueDate <= ymd(addDays(new Date(), 7))).length;
-    const glance = S.clients.length ? `<div class="glance">
-        <div class="gl" data-go="today" title="Today's progress"><svg class="ring" viewBox="0 0 42 42"><circle cx="21" cy="21" r="17" stroke="color-mix(in srgb,var(--text) 8%,transparent)"/><circle cx="21" cy="21" r="17" stroke="var(--ok)" stroke-dasharray="106.8" stroke-dashoffset="${(106.8 * (1 - pct)).toFixed(1)}" style="transition:stroke-dashoffset .8s"/></svg><div class="tx"><div class="v">${doneToday}<span style="font-size:14px;color:var(--muted);font-weight:600"> / ${totalToday}</span></div><div class="l">${totalToday && doneToday === totalToday ? 'All done today 🎉' : 'done today'}</div></div></div>
-        <div class="gl ${over.length && !LIFE() ? 'hot' : ''}" data-go="#g-over"><div class="tx"><div class="v">${over.length}</div><div class="l">${LIFE() ? (over.length ? 'still on the list' : 'all caught up') : over.length ? 'overdue — clear them' : 'nothing overdue'}</div></div></div>
-        ${LIFE() ? `<div class="gl" data-go="upcoming"><div class="tx"><div class="v">${upcomingN}</div><div class="l">coming up this week</div></div></div>` : `<div class="gl ${chase.length ? 'warm' : ''}" data-go="waiting"><div class="tx"><div class="v">${chase.length}</div><div class="l">${chase.length ? 'client items to chase' : 'no one to chase'}</div></div></div>`}
-        <div class="gl" ${nxt ? `data-task="${nxt.id}"` : 'data-go="upcoming"'}><span class="ic2">${nc ? avatar(nc, 34) : nxt ? '⏰' : '🗓️'}</span><div class="tx"><div class="nx">${nxt ? esc(nxt.title) : upcomingN ? upcomingN + ' coming up this week' : 'Nothing timed today'}</div><div class="l">${nxt ? 'Next · ' + fmtTime(nxt.dueTime) + (nc ? ' · ' + esc(nc.name) : '') : 'Upcoming'}</div></div></div>
-      </div>` : '';
-    html = `<div class="head"><div><h1 class="hello">Good ${hr<12?'morning':hr<18?'afternoon':'evening'}${name?', '+esc(name):''}</h1><div class="sub">${new Date().toLocaleDateString(undefined,{weekday:'long',month:'long',day:'numeric'})} · ${over.length+today.length} to do${doneToday?` · ${doneToday} done today`:''}</div></div></div>
-      ${glance}${quickAdd(LIFE() ? 'Add something for today…  e.g. “Call mom @health 6pm”' : 'Add a task for today…  e.g. “Send SOW @acme 3pm”', { defaultDate:'today' })}
-      <div id="g-over"></div>${LIFE() ? group('Still on the list', over, {cls:'soft'}) : group('Overdue', over, {cls:'danger'})}${group('Today', today)}${LIFE() ? '' : group('Follow up — client items due', chase, {cls:'client'})}
-      ${!over.length && !today.length && (LIFE() || !chase.length) ? (S.clients.length ? (LIFE() ? emptyState('🌿','Nothing for today','<span>Enjoy it. Plan ahead in Upcoming whenever you like.</span>') : emptyState('☀','Nothing due today','<span>Plan ahead in Upcoming, or start a meeting with <kbd>M</kbd>.</span>')) : onboarding()) : ''}`;
+    const doneList = S.tasks.filter(x => x.done && x.doneAt && ymd(new Date(x.doneAt))===t).sort((a,b) => b.doneAt - a.doneAt);
+    const weekN = o.filter(x => onMe(x) && x.dueDate && x.dueDate > t && x.dueDate <= ymd(addDays(new Date(), 7))).length;
+    const nothing = !earlier.length && !today.length && (LIFE() || !chase.length);
+    html = `<div class="head td-head"><div><div class="sub td-date">${new Date().toLocaleDateString(undefined,{ weekday:'long', day:'numeric', month:'long' })}</div><h1 class="hello">Good ${hr<5||hr>=18?'evening':hr<12?'morning':'afternoon'}${name?', '+esc(name):''}</h1></div></div>
+      ${quickAdd(LIFE() ? 'Call mom @health 6pm' : 'Send SOW @acme 3pm', { defaultDate:'today' }, 'hero')}
+      ${todaySchedule(t)}
+      <div id="g-over"></div>${group('Earlier', earlier, { cls:'earlier', moves:true })}${group('Today', today)}${LIFE() ? '' : group('Follow up', chase, { cls:'client' })}
+      ${nothing ? (S.clients.length ? emptyState(LIFE() ? '🌿' : '☀', 'Nothing due today', '<span>Plan ahead in <a href="#upcoming">Upcoming</a>.</span>') : onboarding()) : ''}
+      <div class="td-foot"><a href="#upcoming">${weekN ? weekN + ' this week' : 'Upcoming'}</a>${doneList.length ? `<details class="td-done"><summary>Done today · ${doneList.length}</summary>${doneList.map(x => taskRow(x)).join('')}</details>` : ''}</div>`;
   } else if(r === 'upcoming'){
     const up = o.filter(x => x.dueDate && x.dueDate > t);
     const byDay = {}; up.forEach(x => (byDay[x.dueDate] = byDay[x.dueDate] || []).push(x));
@@ -2021,6 +2045,7 @@ document.addEventListener('click', e => {
   const a = e.target.closest('[data-act]');
   const taskEl = e.target.closest('.task');
   const gl = e.target.closest('.gl');
+  const tb = e.target.closest('.td-b[data-task]'); if(tb){ openTask(tb.dataset.task); return; }
   if(gl){ if(gl.dataset.task){ openTask(gl.dataset.task); return; } const g = gl.dataset.go; if(g && g.startsWith('#')){ const el = $(g); el && el.scrollIntoView({ behavior:'smooth', block:'start' }); } else if(g && g !== route()) go(g); return; }
   const tc = e.target.closest('[data-te]');
   if(tc && taskEl){ const t = S.tasks.find(x => x.id === taskEl.dataset.id); if(t) editChip(t, tc.dataset.te, tc); return; }
@@ -2032,6 +2057,15 @@ document.addEventListener('click', e => {
   if(!a) return;
   const act = a.dataset.act, M = S.activeMeeting;
   switch(act){
+    case 'move': {   // Earlier rows: Tomorrow / Next week / Clear (removes the date; the task stays)
+      if(!taskEl) break;
+      const id = taskEl.dataset.id, t = S.tasks.find(x => x.id === id); if(!t) break;
+      const was = { dueDate: t.dueDate || null, dueTime: t.dueTime || null }, to = a.dataset.to;
+      updateTask(id, to === 'clear' ? { dueDate: null, dueTime: null } : { dueDate: ymd(addDays(new Date(), +to)) });
+      renderSide(); renderView();
+      toast(to === 'clear' ? 'Date removed' : `Moved to ${fmtDate(ymd(addDays(new Date(), +to))).toLowerCase()}`, [{ label:'Undo', run: () => { updateTask(id, was); renderSide(); renderView(); } }]);
+      break;
+    }
     case 'toggle': {
       const id = taskEl.dataset.id, t = S.tasks.find(x => x.id === id);
       toggleDone(id);

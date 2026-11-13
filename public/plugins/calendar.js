@@ -120,22 +120,17 @@
       }
       function mount() {
         const route = api.ui.currentRoute();
-        if (route === 'today') {
-          const anchor = document.querySelector('#view .glance'); if (!anchor) return;
-          document.querySelectorAll('#view .cal-strip').forEach(x => x.remove());
-          anchor.insertAdjacentHTML('afterend', strip());
-          // the "next" glance card becomes your next meeting when it's sooner than the next timed task
-          const nxt = todays().find(e => e.start > Date.now() - 5 * 60e3 && e.end > Date.now());
-          const card = anchor.lastElementChild;
-          if (nxt && card) { card.removeAttribute('data-task'); card.removeAttribute('data-go'); card.dataset.calev = nxt.id;
-            card.innerHTML = `<span class="ic2">${nxt.client ? api.ui.avatar(nxt.client, 34) : '📅'}</span><div class="tx"><div class="nx">${E(nxt.title)}</div><div class="l">${nxt.start <= Date.now() ? 'Now' : 'Next · ' + fmtT(nxt.start)}${nxt.client ? ' · ' + E(nxt.client.name) : ''}</div></div>`; }
-        }
         if (route.startsWith('client-')) {
           const cid = route.slice(7), up = G.events.map(enrich).filter(e => e.client && e.client.id === cid && e.end > Date.now())[0];
           const hero = document.querySelector('.c-hero .head > div');
           if (up && hero && !hero.querySelector('.cal-next')) hero.insertAdjacentHTML('beforeend', `<div class="cal-next">📅 Next meeting <b>${new Date(up.start).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })} · ${fmtT(up.start)}</b> — ${E(up.title)}</div>`);
         }
       }
+      api.today.schedule(() => todays().filter(e => !e.allDay).map(ev => ({ start: ev.start, end: ev.end, title: ev.title, sub: ev.client ? ev.client.name : '',
+        color: ev.client ? ((ev.client.brand && ev.client.brand.primary) || ev.client.color) : '', attrs: `data-ev="${E(ev.id)}"` })),
+        () => `<button class="td-link" data-calcfg>${opts().sample || (G.cfg && G.cfg.calendars && G.cfg.calendars.length) ? 'Calendars' : 'Connect calendar'}</button>`);
+      // after new events arrive: redraw Today (its schedule), or just the bits mount() adds elsewhere
+      const repaint = () => { if (api.ui.currentRoute() === 'today') api.ui.refresh(); else mount(); };
       api.on('render', mount);
       if (!G.clickBound) {
         G.clickBound = true;
@@ -169,7 +164,7 @@
         }
       }
       clearInterval(G.tickT); G.tickT = setInterval(tick, 30000);
-      clearInterval(G.loadT); G.loadT = setInterval(() => load().then(() => { mount(); tick(); }), 5 * 60e3);
+      clearInterval(G.loadT); G.loadT = setInterval(() => load().then(() => { repaint(); tick(); }), 5 * 60e3);
 
       /* ---------- settings ---------- */
       async function settings() {
@@ -207,7 +202,7 @@
       api.commands.add({ title: 'Start meeting from calendar (current / next)', run: () => { const ev = G.events.map(enrich).find(e => e.end > Date.now()); if (ev) startFor(ev); else api.ui.toast('No upcoming meetings'); } });
 
       // first load
-      (async () => { if (api.system().mode === 'nas') { try { G.cfg = await (await fetch('api/calendar/config', { cache: 'no-store' })).json(); } catch (e) {} } await load(); mount(); tick(); })();
+      (async () => { if (api.system().mode === 'nas') { try { G.cfg = await (await fetch('api/calendar/config', { cache: 'no-store' })).json(); } catch (e) {} } await load(); repaint(); tick(); })();
     }
   });
 })();

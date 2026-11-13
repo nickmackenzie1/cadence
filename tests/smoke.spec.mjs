@@ -109,7 +109,7 @@ test('demo mode: fake data, never written to the NAS, exits cleanly', async ({ p
   // the sidebar shows recent clients; everything is behind "All clients & projects"
   expect(+(await page.locator('#side-main .all-cl .n').textContent())).toBeGreaterThanOrEqual(10);
   expect(await page.evaluate(() => { const m = document.querySelector('#side-main'); return m.scrollHeight <= m.clientHeight + 1; })).toBe(true);
-  await expect(page.locator('.cal-ev').first()).toBeVisible();           // sample calendar is on in demo
+  await expect(page.locator('.td-b.meet').first()).toBeAttached();       // sample calendar is on in demo: meetings sit in Today's schedule
   await page.locator('.task .check').first().click();                     // a change in demo…
   await page.waitForTimeout(1500);
   const after = await (await request.get(`http://localhost:${PORT}/api/state`)).json();

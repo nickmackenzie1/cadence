@@ -31,22 +31,22 @@
       api.on('render', e => {
         if (!e || e.route !== 'today') return; const lv = level(), v = document.getElementById('view'); if (!v || v.querySelector('.en-ban')) return;
         const head = v.querySelector('.head'); if (!head) return;
-        if (!lv) { head.insertAdjacentHTML('afterend', `<div class="en-ban ask"><span>How’s your energy today?</span>${[['low', 'battery-low', 'Low'], ['okay', 'battery-medium', 'Okay'], ['great', 'battery-full', 'Great']].map(([k, i, l]) => `<button data-lv="${k}">${api.ui.icon(i)}${l}</button>`).join('')}</div>`); }
+        if (!lv) { head.insertAdjacentHTML('afterend', `<div class="en-ban ask"><span>Energy</span>${[['low', 'battery-low', 'Low'], ['okay', 'battery-medium', 'Okay'], ['great', 'battery-full', 'Great']].map(([k, i, l]) => `<button data-lv="${k}">${api.ui.icon(i)}${l}</button>`).join('')}</div>`); }
         else {
           const rows = [...v.querySelectorAll('.task[data-id]')].map(el => ({ el, t: api.tasks.get(el.dataset.id) })).filter(x => x.t && !x.t.done);
           const hard = rows.filter(x => effort(x.t) === 'hard'), easy = rows.filter(x => effort(x.t) === 'easy');
-          if (lv === 'low' && hard.length) { hard.forEach(x => x.el.classList.add('en-tucked')); head.insertAdjacentHTML('afterend', `<div class="en-ban low">${api.ui.icon('battery-low')}<span>Low energy day. ${hard.length} hard task${hard.length === 1 ? ' is' : 's are'} tucked away${easy.length ? `; ${easy.length} easy win${easy.length === 1 ? '' : 's'} up top` : ''}.</span><button data-lv="show">Show them</button><button data-lv="reset">Change</button></div>`);
+          if (lv === 'low' && hard.length) { hard.forEach(x => x.el.classList.add('en-tucked')); head.insertAdjacentHTML('afterend', `<div class="en-ban low">${api.ui.icon('battery-low')}<span>Low energy · ${hard.length} hard task${hard.length === 1 ? '' : 's'} hidden${easy.length ? ` · ${easy.length} easy first` : ''}</span><button data-lv="show">Show them</button><button data-lv="reset">Change</button></div>`);
             easy.forEach(x => { const g = x.el.parentElement; if (g) g.insertBefore(x.el, g.querySelector('.task[data-id]')); }); }
-          else if (lv === 'great' && hard.length) { hard.slice().reverse().forEach(x => { const g = x.el.parentElement; if (g) g.insertBefore(x.el, g.querySelector('.task[data-id]')); }); head.insertAdjacentHTML('afterend', `<div class="en-ban great">${api.ui.icon('battery-full')}<span>Great energy. Hard things first: ${esc(hard[0].t.title)}.</span><button data-lv="reset">Change</button></div>`); }
-          else head.insertAdjacentHTML('afterend', `<div class="en-ban okay quiet"><span>Energy: ${lv}</span><button data-lv="reset">Change</button></div>`);
+          else if (lv === 'great' && hard.length) { hard.slice().reverse().forEach(x => { const g = x.el.parentElement; if (g) g.insertBefore(x.el, g.querySelector('.task[data-id]')); }); head.insertAdjacentHTML('afterend', `<div class="en-ban great">${api.ui.icon('battery-full')}<span>Great energy · hard tasks first</span><button data-lv="reset">Change</button></div>`); }
+          else head.insertAdjacentHTML('afterend', `<div class="en-ban okay quiet"><span>Energy · ${lv}</span><button data-lv="reset">Change</button></div>`);
         }
         v.querySelectorAll('[data-lv]').forEach(b => b.onclick = () => { const k = b.dataset.lv; if (k === 'show') { v.querySelectorAll('.en-tucked').forEach(x => x.classList.remove('en-tucked')); b.remove(); return; } if (k === 'reset') { localStorage.removeItem('cadence.energy'); api.ui.refresh(); return; } setLevel(k); });
       });
       window.__energy = { setLevel, level, effort };
       for (const [k, l] of [['low', 'Low'], ['okay', 'Okay'], ['great', 'Great']]) api.commands.add({ title: `Energy today: ${l}`, run: () => setLevel(k) });
-      css('en-css', `.en-ban{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:9px 12px;border-radius:12px;margin:0 0 14px;font-size:13px;border:1px solid var(--line);background:var(--panel)}
-        .en-ban span{flex:1}.en-ban svg{width:16px;height:16px}.en-ban button{display:inline-flex;align-items:center;gap:5px;border:1px solid var(--line);background:var(--bg);color:var(--text);border-radius:999px;padding:4px 11px;font:600 12px Inter,system-ui;cursor:pointer}
-        .en-ban button:hover{border-color:var(--accent)}.en-ban.low{background:color-mix(in srgb,#eab308 9%,var(--panel))}.en-ban.great{background:color-mix(in srgb,#22c55e 9%,var(--panel))}.en-ban.quiet{border-style:dashed;color:var(--muted);padding:5px 12px}
+      css('en-css', `.en-ban{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin:-8px 0 22px;font-size:12.5px;color:var(--muted)}
+        .en-ban span{margin-right:4px}.en-ban svg{width:16px;height:16px}.en-ban button{display:inline-flex;align-items:center;gap:5px;border:1px solid var(--line);background:var(--bg);color:var(--text);border-radius:999px;padding:4px 11px;font:600 12px Inter,system-ui;cursor:pointer}
+        .en-ban button:hover{border-color:var(--accent)}.en-ban button{padding:3px 10px;font-weight:500;color:var(--muted)}.en-ban button:hover{color:var(--text)}
         .en-tucked{display:none!important}.en-hard,.chip.en-hard{color:#b45309}.en-easy,.chip.en-easy{color:#15803d}.chip.en-hard svg,.chip.en-easy svg{width:13px;height:13px;margin-right:3px}
         .en-card{display:flex;align-items:center;gap:4px;margin-top:8px;font-size:12px}.en-card span{color:var(--muted);margin-right:4px}.en-card button{border:1px solid var(--line);background:none;border-radius:999px;padding:3px 9px;font:600 11.5px Inter,system-ui;color:var(--muted);cursor:pointer}.en-card button.on{background:var(--accent);border-color:var(--accent);color:#fff}`);
     },
