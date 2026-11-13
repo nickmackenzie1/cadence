@@ -580,3 +580,10 @@ data, or peer-to-peer on the same LAN). Personal data and secrets stay on each p
 - Refocus (user, 23:29): tab shown or window focused → refocus(): pulls data + prefs, plugins get 'refocus' (calendar
   reloads), and checkBuild(true) reloads at once on a new version unless something is half-typed or a meeting is open
   (then the banner). Throttled to once per 4s.
+
+## Shipped 2026-11-13 00:xx: Elements engine v3 (user's page (4).html)
+- elements-engine.js now carries the user's v3 simulation verbatim where possible (sim, lights, render, paint), wrapped
+  in Cadence's screen reader, toolbar and lifecycle: temperature grid (heat spreads/rises, heat view V), wind with gusts
+  (slider), lightning (fulgurites in sand), fireworks, gunpowder explosions with flash + shake, holly, acid + fumes,
+  storm (T), snow that settles everywhere or only on the lights, light that casts shadows (ambient stays 1 on a light
+  page so opening Elements doesn't dim the screen). To take a future version: re-run the splice in the commit message.
