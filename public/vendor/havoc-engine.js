@@ -637,6 +637,9 @@
   .brand{display:flex;align-items:center;gap:7px;padding:0 10px 0 8px;font-weight:800;letter-spacing:.14em;font-size:11px;color:#fff}
   .brand i{width:9px;height:9px;border-radius:50%;background:#ff3b3b;box-shadow:0 0 10px #ff3b3b,0 0 2px #fff inset;animation:pulse 1.4s infinite}
   @keyframes pulse{50%{opacity:.45}}
+  .modes{display:flex;padding:3px;gap:2px;border-radius:12px;background:rgba(255,255,255,.06)}
+  .modes button.mode{width:auto;height:30px;padding:0 10px;border-radius:9px;font:600 11.5px ui-sans-serif,system-ui,sans-serif;color:#bdbacb}
+  .modes button.mode.on{background:rgba(255,255,255,.14);color:#fff;box-shadow:none}
   .sep{width:1px;height:26px;background:rgba(255,255,255,.1);margin:0 4px}
   button{all:unset;position:relative;width:40px;height:40px;border-radius:13px;display:grid;place-items:center;cursor:pointer;color:#bdbacb;transition:background .15s,color .15s,transform .1s}
   button:hover{background:rgba(255,255,255,.07);color:#fff}
@@ -656,10 +659,12 @@
   function buildHud() {
     hud = document.createElement('div'); hud.className = 'hud';
     const btn = (id, title, color, key) => `<button data-id="${id}" style="--c:${color || '#fff'}" aria-label="${title}">${'<svg viewBox="0 0 24 24">' + ICONS[id] + '</svg>'}${key ? `<span class="k">${key}</span>` : ''}</button>`;
-    hud.innerHTML = `<div class="brand"><i></i>HAVOC</div><div class="sep"></div>` + TOOLS.map(t => btn(t.id, t.name, t.color, t.key)).join('') + `<div class="sep"></div>` + btn('sound', 'Sound', '#fff') + btn('reset', 'Restore page', '#fff') + btn('close', 'Exit (Esc)', '#fff');
+    hud.innerHTML = `<div class="brand"><i></i>HAVOC</div><div class="modes" role="group" aria-label="Mode"><button class="mode on" data-mode="physics" aria-pressed="true">Physics</button><button class="mode" data-mode="elements" aria-pressed="false">Elements</button></div><div class="sep"></div>` + TOOLS.map(t => btn(t.id, t.name, t.color, t.key)).join('') + `<div class="sep"></div>` + btn('sound', 'Sound', '#fff') + btn('reset', 'Restore page', '#fff') + btn('close', 'Exit (Esc)', '#fff');
     tipEl = document.createElement('div'); tipEl.className = 'tip';
     hud.addEventListener('click', e => {
       const b = e.target.closest('button'); if (!b) return; e.stopPropagation();
+      // switch to the Elements engine (Cadence listens for this and loads it)
+      if (b.dataset.mode) { if (b.dataset.mode === 'elements') { stop(); dispatchEvent(new CustomEvent('havoc:mode', { detail: 'elements' })); } return; }
       const id = b.dataset.id;
       if (id === 'sound') { muted = !muted; if (!muted) sfx.click(); syncHud(); }
       else if (id === 'reset') { stop(); setTimeout(start, 60); }
@@ -667,7 +672,7 @@
       else pick(id);
     });
     hud.addEventListener('pointerover', e => {
-      const b = e.target.closest('button'); if (!b) return;
+      const b = e.target.closest('button'); if (!b || b.dataset.mode) return;
       const t = TOOLS.find(x => x.id === b.dataset.id);
       const label = t ? `<b>${t.name}</b> · ${t.hint}` : b.dataset.id === 'sound' ? (muted ? 'Sound off · M' : 'Sound on · M') : b.dataset.id === 'reset' ? 'Rebuild the page and start over' : 'Exit and restore · Esc';
       tipEl.style.setProperty('--c', t ? t.color : '#fff'); tipEl.innerHTML = label; tipEl.classList.add('show');
@@ -678,7 +683,7 @@
   }
   function syncHud() {
     if (!hud) return;
-    hud.querySelectorAll('button').forEach(b => {
+    hud.querySelectorAll('button[data-id]').forEach(b => {
       const id = b.dataset.id;
       b.classList.toggle('on', id === tool && id !== 'rain' || (id === 'rain' && raining) || (id === 'zerog' && zeroG));
       if (id === 'sound') b.innerHTML = `<svg viewBox="0 0 24 24">${muted ? ICONS.mute : ICONS.sound}</svg>`;

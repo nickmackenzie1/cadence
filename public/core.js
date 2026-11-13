@@ -84,7 +84,7 @@ function exitDemo(){ try { sessionStorage.removeItem('cadence.demo'); } catch(e)
 /* ---- settings that follow you: these browser-saved settings are mirrored to the NAS (last write wins), so the
    weather town, Christmas, typing effects, focus timer, energy check-in, podcast spots… are the same on every device ---- */
 const Prefs = (() => {
-  const KEYS = new Set(['cadence.weather', 'cadence.typing', 'cadence.xmas', 'cadence.focus', 'cadence.energy', 'cadence.podpos', 'cadence.sheep', 'cadence.orbit', 'cadence.moves', 'cadence.donelist', 'cadence.grandma', 'cadence.kind', 'cadence.areas', 'cadence.pins']);
+  const KEYS = new Set(['cadence.weather', 'cadence.typing', 'cadence.xmas', 'cadence.focus', 'cadence.energy', 'cadence.podpos', 'cadence.sheep', 'cadence.orbit', 'cadence.moves', 'cadence.donelist', 'cadence.grandma', 'cadence.kind', 'cadence.areas', 'cadence.pins', 'cadence.havoc']);
   const sync = k => KEYS.has(k) || /^cadence\.pins\./.test(k);
   const LS = window.localStorage, set0 = Storage.prototype.setItem, del0 = Storage.prototype.removeItem;
   const ats = () => { try { return JSON.parse(LS.getItem('cadence.prefs.at') || '{}'); } catch(e){ return {}; } };

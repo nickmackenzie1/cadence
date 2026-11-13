@@ -112,3 +112,21 @@ test('accessibility: every visible icon-only button has a name', async ({ page }
     expect(nameless, h).toEqual([]);
   }
 });
+
+test('havoc: switch between Physics and Elements from the toolbar, Esc puts the page back', async ({ page }) => {
+  const errs = await open(page);
+  await page.evaluate(() => localStorage.setItem('cadence.havoc', 'elements'));
+  await page.locator('body').click({ position: { x: 5, y: 5 } });
+  await page.keyboard.press('Shift+H');
+  await page.waitForFunction(() => window.__elements && window.__elements.active && window.__elements.stats, null, { timeout: 15000 });
+  expect(await page.evaluate(() => window.__elements.stats.pieces)).toBeGreaterThan(20);   // the screen was read into pieces
+  await page.evaluate(() => document.querySelector('#elements-host').shadowRoot.querySelector('[data-mode=physics]').click());
+  await page.waitForFunction(() => window.__havoc && window.__havoc.active && !window.__elements.active, null, { timeout: 15000 });
+  expect(await page.evaluate(() => localStorage.getItem('cadence.havoc'))).toBe('physics');
+  await page.evaluate(() => document.querySelector('#havoc-host').shadowRoot.querySelector('[data-mode=elements]').click());
+  await page.waitForFunction(() => window.__elements.active && !window.__havoc.active, null, { timeout: 15000 });
+  await page.keyboard.press('Escape');
+  await expect.poll(() => page.evaluate(() => !!document.querySelector('#elements-host') || window.__elements.active)).toBe(false);
+  expect(await page.evaluate(() => document.documentElement.style.overflow)).toBe('');
+  expect(errs).toEqual([]);
+});

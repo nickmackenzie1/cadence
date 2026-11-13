@@ -502,8 +502,8 @@ data, or peer-to-peer on the same LAN). Personal data and secrets stay on each p
 - User built two falling-sand prototypes (uploads: elements.html sandbox, page.html "Ember & Frost" where the page's
   words/cards/images become cells and break loose as rigid pieces). Materials: sand, water, ice, snow, fire, wood,
   steam, stone, oil, lava, ember, ash, smoke, glass; bloom by downsampled emissive layer.
-- Ideas agreed ("LOVE IT"): done tasks crumble to sand into a jar/pile (replaces the ring); overdue tasks smoulder and
-  catch fire (opt-in); "Drop" burns a task; one shared effects engine replacing christmas.js snow/melt + typing-fx fire,
+- Ideas agreed ("LOVE IT"): done tasks crumble to sand into a jar/pile (replaces the ring); "Let go" can burn a task
+  (the user's choice, never automatic). DROPPED: overdue tasks smouldering/catching fire (anxiety trigger, see below); one shared effects engine replacing christmas.js snow/melt + typing-fx fire,
   driven by real weather; focus hourglass; kids sandbox / chore jar on the family kiosk.
 - "Could we also do it in Havok… keep what we have but on the menu let it switch": an Effects engine setting —
   Off / Classic (today's code) / Elements (falling sand) / Havok (rigid bodies).
@@ -514,3 +514,36 @@ data, or peer-to-peer on the same LAN). Personal data and secrets stay on each p
     the prototype's per-cell straight drop.
   - All engines behind one adapter fed by the same events (cadence:heat, task done, overdue, weather); viewport-only
     grid, pause on hidden tab, off for prefers-reduced-motion, Lucide icons not emoji in the controls.
+
+## Design principle (user, 2026-11-12 22:56): calm, never alarming — "I have anxiety so those are triggers for me"
+- No guilt or alarm language: not "slipped", "overdue — clear them", "late", "behind". Say "carried over", "still open",
+  "whenever you're ready", "let go".
+- No red for unfinished work. Red is for real errors only. Carried-over items use the neutral muted colour.
+- Nothing punishes you for unfinished work on its own (no burning, smouldering or shaming effects triggered by overdue
+  tasks). Accountability plugins (grandma, stakes) stay opt-in and off by default; review their wording against this.
+- Today redesign: the user picked direction A ("The day, written out"), revised with this language. Canvas:
+  https://claude.ai/artifact/7jVwyko8gijFawevd931zU — build it into renderView 'today' next.
+
+## Backlog (user, 2026-11-12 22:59–23:01)
+- Colour-blind plugin: modes for the main types (protanopia, deuteranopia, tritanopia, achromatopsia). Remap the palette
+  (status, client colours, charts, the red/green done ring) and add shape/pattern cues so nothing relies on hue alone.
+- Whole-app design pass: "not redefining — sharpening and making things cohesive". One type scale, spacing scale, radius
+  set and colour roles across core + every plugin; same patterns for headers, empty states, lists, dialogs, badges;
+  apply the calm-language principle everywhere.
+- 3D environment: look at your tasks in a first-person work environment (walk your backlog as a space).
+- Fantasy work world: an RPG mini-game where you hold meetings and chat with co-workers; chat rooms with employees
+  (ties into the team/multiplayer backlog: avatars walking to client "rooms").
+
+## Shipped 2026-11-12 late: Havoc gets an Elements mode
+- Havoc's toolbar has a Physics / Elements switch. Elements = vendor/elements-engine.js, a port of the user's falling-sand
+  "Ember & Frost" page: reads the visible screen (panels by background/border, words by Range rects in their real font,
+  img/canvas, SVG icons with computed paint, input values) into 2px cells without touching the DOM; damaged pieces break
+  loose and fall as one; fire/snow/water/lava/ice/sand/oil/wood/steam/stone/eraser, Ignite (I), Snowfall (S), Space
+  pause, [ ] brush, Esc or Shift+H exits. The last-used mode is remembered in synced pref cadence.havoc.
+
+## Backlog (user, 2026-11-12 23:05): "I have a bunch of music on my NAS — music server?"
+- Option: run a self-hosted music server on the NAS (e.g. Navidrome: Docker, Subsonic API, LAN-only so it fits the
+  no-Tailscale / no-internet-exposure rules), then a Cadence plugin that talks to it: focus playlists for focus mode,
+  "now playing" in the Island, play/pause from the command palette, a music player sharing the podcast player's UI.
+- Or Cadence serves the music folder itself (read-only mount, tags read on the server, zero dependencies).
+- Decide which before building; ties into the Pocket Casts-style podcast player backlog item.
