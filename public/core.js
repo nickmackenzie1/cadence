@@ -104,6 +104,35 @@ const Prefs = (() => {
   }
   return { start(){ on = true; pull(); setInterval(pull, 120000); document.addEventListener('visibilitychange', () => { if(!document.hidden) pull(); }); }, pull, flush };
 })();
+/* One shared see-through effects layer, built on the Elements engine (vendor/elements-engine.js): Christmas snow and
+   lights, typing fire, the sand jar and the weather all live in it. CadenceFX.world() loads the engine once and resolves
+   to the layer (or null with reduced motion); each user says what it needs with world.set({...}) / spawn / heatAt. */
+window.CadenceFX = (() => {
+  let p = null; const wants = {};
+  // the layer rebuilds itself when the window is resized: put back what everyone asked for
+  addEventListener('elements:ready', e => { if(p && e.detail && e.detail.world === window.__fx) window.CadenceFX.want('_', null); });
+  const load = () => new Promise((res, rej) => { if(window.ElementsWorld) return res(); const s = document.createElement('script'); s.src = 'vendor/elements-engine.js'; s.onload = res; s.onerror = () => rej(new Error('effects engine missing')); document.head.appendChild(s); });
+  return {
+    world(){
+      if(matchMedia('(prefers-reduced-motion: reduce)').matches) return Promise.resolve(null);
+      return p = p || load().then(() => {
+        const w = window.ElementsWorld.create({ kind: 'ambient', cell: 3, floor: false, z: 60, hidden: () => !!document.querySelector('#meeting.open, #scrim.open, #elements-host') });
+        w.start(); window.__fx = w; return w;
+      }).catch(() => { p = null; return null; });
+    },
+    // several plugins can want snow, rain or lights at once: each says what it wants under its own key, the layer gets
+    // the combination (snow if anyone wants it, the heaviest rain, the lights from whoever hangs them, the weather's wind)
+    want(key, o){
+      if(o) wants[key] = o; else delete wants[key];
+      return this.world().then(w => {
+        if(!w) return null;
+        const m = { snow: false, everywhere: false, rain: 0, storm: false, lights: null, palette: 'classic', wind: 0.3 };
+        for(const v of Object.values(wants)){ if(v.snow) m.snow = true; if(v.everywhere) m.everywhere = true; if((v.rain || 0) > m.rain) m.rain = v.rain; if(v.storm) m.storm = true; if(v.lights){ m.lights = v.lights; m.palette = v.palette || m.palette; } if('wind' in v) m.wind = v.wind; }
+        w.set(m); return w;
+      });
+    }
+  };
+})();
 const Store = {
   ref:null, busy:false, again:false, status:'local', timer:null,
   async init(){

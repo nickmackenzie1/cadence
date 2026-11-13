@@ -309,7 +309,10 @@
     for (const o of images) if (o.alive && !o.melt) { const b = o.body.bounds; const cx = clamp(x, b.min.x, b.max.x), cy = clamp(y, b.min.y, b.max.y); if (Math.hypot(cx - x, cy - y) < r) out.push(o); }
     return out;
   }
+  // Cadence listens for these and plays them out in its Elements matter layer too (fire, lava, real rain, swallowed sand)
+  const tellFx = (type, x, y, extra) => { try { dispatchEvent(new CustomEvent('havoc:fx', { detail: { type, x, y, ...extra } })); } catch (e) {} };
   function blast(x, y) {
+    tellFx('blast', x, y);
     const R = 170;
     for (const o of bodiesNear(x, y, R)) {
       const p = o.body.position, dx = p.x - x, dy = p.y - y, d = Math.max(8, Math.hypot(dx, dy)), k = (1 - Math.min(1, d / R)) ** 0.7;
@@ -398,6 +401,7 @@
     }
   }
   function melt(x, y) {
+    tellFx('melt', x, y);
     const R = 110; let hitAny = false;
     for (const o of images) if (o.alive && !o.melt) { const b = o.body.bounds; if (x >= b.min.x && x <= b.max.x && y >= b.min.y && y <= b.max.y) { startMelt(o, x, y); hitAny = true; } }
     for (const o of letters) {
@@ -411,6 +415,7 @@
     if (hitAny) { sfx.goo(); for (let i = 0; i < 16; i++) particles.push({ x: x + rand(-30, 30), y: y + rand(-10, 10), vx: rand(-1, 1), vy: rand(0, 2), life: rand(0.6, 1.4), size: rand(2, 5), color: '255,80,170', g: 0.15, glow: true }); }
   }
   function openHole(x, y) {
+    tellFx('hole', x, y);
     holes.push({ x, y, r: 0, max: 280, t: 0, life: 7, eaten: 0 });
     sfx.hole(); shake = Math.max(shake, 6);
   }
@@ -598,7 +603,7 @@
     if (e.key.toLowerCase() === 'm' && !e.metaKey && !e.ctrlKey) { muted = !muted; syncHud(); }
   }
   function setRain(on) {
-    raining = on; syncHud();
+    raining = on; syncHud(); tellFx('rain', 0, 0, { on });
     if (on) { noise(0.8, { freq: 3000, type: 'highpass', gain: 0.12, attack: 0.3 }); rainHiss(); }
   }
   let hissNode = null;
@@ -762,7 +767,7 @@
   function onResize() { clearTimeout(resizeT); resizeT = setTimeout(() => { if (H.active) { stop(); start(); } }, 300); }
   function stop() {
     if (!H.active) return;
-    H.active = false; cancelAnimationFrame(raf); raining = false;
+    H.active = false; cancelAnimationFrame(raf); raining = false; tellFx('stop', 0, 0);
     removeEventListener('keydown', onKey, true); removeEventListener('resize', onResize);
     try { Engine.clear(engine); } catch (e) {}
     host && host.remove(); host = null; hud = null; scorchHost && scorchHost.remove(); scorchHost = null;

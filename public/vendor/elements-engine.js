@@ -4,11 +4,18 @@
    window.__elements = { active, start(), stop(), toggle() }. Switching to Physics fires `havoc:mode` with detail 'physics'. */
 (() => {
   'use strict';
-  if (window.__elements) { window.__elements.toggle(); return; }
+  if (window.ElementsWorld) return;
+  /* ElementsWorld.create(cfg) makes one independent world. cfg.kind:
+       'havoc'   — the interactive overlay: reads the screen into matter, has a toolbar, Esc closes it.
+       'ambient' — a see-through layer over the app that ignores the mouse: no screen reading; cards, buttons and
+                   headings (cfg.ledges, a CSS selector) become invisible ledges matter can land on. Christmas snow and
+                   lights, typing fire, the sand jar and the weather all share one of these (see CadenceFX in core.js). */
+  function createWorld(cfg = {}) {
+  const AMBIENT = cfg.kind === 'ambient';
 
   /* ------------------------------------------------------------------ the simulation (Nick's engine, v3) */
-  const CELL = 2;
-  const E=0, SAND=1, WATER=2, ICE=3, FIRE=4, WOOD=5, STEAM=6, STONE=7, OIL=8, LAVA=9, EMBER=10, ASH=11, SMOKE=12, SNOW=13, PAGE=14, GLASS=15, WIRE=16, BULB=17, PLANT=18, ACID=19, FUME=20, POWDER=21, BOLT=22;
+  const CELL = cfg.cell || 2;
+  const E=0, SAND=1, WATER=2, ICE=3, FIRE=4, WOOD=5, STEAM=6, STONE=7, OIL=8, LAVA=9, EMBER=10, ASH=11, SMOKE=12, SNOW=13, PAGE=14, GLASS=15, WIRE=16, BULB=17, PLANT=18, ACID=19, FUME=20, POWDER=21, BOLT=22, SURF=23;   // SURF: invisible ledge (ambient layers)
   const FIREWORK=30, LIGHTNING=31;   // tools, not materials
   const fluid = new Uint8Array(32), gas = new Uint8Array(32), dens = new Uint8Array(32);
   fluid[WATER]=fluid[OIL]=fluid[LAVA]=fluid[ACID]=1; gas[STEAM]=gas[FIRE]=gas[SMOKE]=gas[FUME]=1;
@@ -21,7 +28,8 @@
   let paused = false, snowing = false, tick = 1, fc = 0, glow = 1;
   let bulbs = [], bright = new Float32Array(256), lightMode = -1;   // -1: no lights hung
   const LIGHT_MODES = ['Twinkle', 'Chase', 'Steady'];
-  const BCOL = [[255, 48, 40], [40, 225, 80], [60, 120, 255], [255, 175, 30], [255, 80, 205]];
+  const PALETTES = { classic: [[255, 48, 40], [40, 225, 80], [60, 120, 255], [255, 175, 30], [255, 80, 205]], warm: [[255, 214, 150], [255, 200, 120], [255, 226, 170]], candy: [[255, 40, 50], [255, 245, 240]] };
+  let BCOL = PALETTES.classic;
   const R = Math.random, rr = (a, b) => a + ((R() * (b - a)) | 0);
   const N8 = [[-1,-1],[0,-1],[1,-1],[-1,0],[1,0],[-1,1],[0,1],[1,1]];
   const UP5 = [[-1,-1],[0,-1],[1,-1],[-1,0],[1,0]];
@@ -123,7 +131,7 @@
     for (let y = H - 1; y >= 0; y--) {
       for (let k = 0; k < W; k++) {
         const x = ltr ? k : W - 1 - k, i = y * W + x, m = grid[i];
-        if (m === E || m === STONE || m === WOOD || m === PAGE || m === WIRE || stamp[i] === tick) continue;
+        if (m === E || m === STONE || m === WOOD || m === PAGE || m === WIRE || m === SURF || stamp[i] === tick) continue;
         switch (m) {
           case SAND: {
             if (tAt(x, y) > 900 && R() < 0.02) { set(x, y, GLASS, 255); break; }
@@ -327,7 +335,7 @@
     cells.sort((a, b) => b[0] - a[0]);   // outermost first, so things get pushed out of the way
     for (const [d, x, y, dx, dy] of cells) {
       const i = y * W + x, m = grid[i];
-      if (m === WIRE || m === BULB) continue;
+      if (m === WIRE || m === BULB || m === SURF) continue;
       if (d <= r) {
         if (m === POWDER) set(x, y, FIRE, rr(10, 30));
         else if (m === E) { if (d < r * 0.75 && R() < 0.7) set(x, y, FIRE, rr(6, 22)); }
@@ -759,7 +767,8 @@
   }
   function buildLights() {
     bulbs = []; wireY = new Int16Array(W);
-    const segs = Math.max(2, Math.round(W / 120)), sw = W / segs, sag = 16, top = 7;
+    // ambient layers keep the string in a slim strip along the top so it never covers the page
+    const segs = Math.max(2, Math.round(W * CELL / 260)), sw = W / segs, sag = AMBIENT ? Math.round(24 / CELL) : 16, top = AMBIENT ? Math.max(4, Math.round(12 / CELL)) : 7;
     lightsBottom = top + sag + 12;
     const wy = x => { const t = (x % sw) / sw; return Math.round(top + sag * 4 * t * (1 - t)); };
     const wire = (x, y) => { if (x < 0 || x >= W || y < 0 || y >= H) return; const i = y * W + x; grid[i] = WIRE; owner[i] = 0; life[i] = 0; shade[i] = (R() * 16) | 0; };
@@ -786,7 +795,7 @@
         const f = d < 3.5 ? 0.6 : d < 5.5 ? 0.32 : d < 7.5 && ((gx + gy) & 1) ? 0.16 : 0;   // stepped, dithered pixel halo
         if (f) { hj.push(gy * W + gx); hf.push(f); }
       }
-      bulbs.push({ k, col: BCOL[k % 5], hj: Int32Array.from(hj), hf: Float32Array.from(hf) });
+      bulbs.push({ k, col: BCOL[k % BCOL.length], hj: Int32Array.from(hj), hf: Float32Array.from(hf) });
       if (++k >= 255) break;
     }
   }
@@ -843,6 +852,7 @@
         }
         if (sharpMode && m === PAGE && pristine[i] && life[i] === 0) { buf[i] = 0; mbuf[i] = 0xff000000; depth++; liq = 0; continue; }   // untouched: show the sharp copy
         switch (m) {
+          case SURF: buf[i] = 0; depth = 0; liq = 0; continue;
           case E: buf[i] = 0; depth = 0; liq = 0; continue;
           case FIRE: {
             const t = life[i] / 30 + (R() - 0.5) * 0.25;
@@ -987,8 +997,10 @@
     bctx.putImageData(img, 0, 0); lctx.putImageData(limg, 0, 0);
     const DW = cv.width, DH = cv.height;
     ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1;
-    ctx.fillStyle = BGCSS; ctx.fillRect(0, 0, DW, DH);   // the page's own background under the matter
+    if (AMBIENT) ctx.clearRect(0, 0, DW, DH);   // see-through: the real page shows between the matter
+    else { ctx.fillStyle = BGCSS; ctx.fillRect(0, 0, DW, DH); }   // the page's own background under the matter
     ctx.imageSmoothingEnabled = false; ctx.drawImage(base, 0, 0, DW, DH);
+    if (!AMBIENT) {
     // the sharp page, cut out cell by cell wherever it is still untouched
     mctx.putImageData(mimg, 0, 0);
     sctx.globalCompositeOperation = 'copy'; sctx.imageSmoothingEnabled = false; sctx.drawImage(mask, 0, 0, DW, DH);
@@ -1005,6 +1017,7 @@
     sctx.globalCompositeOperation = 'source-atop'; sctx.imageSmoothingEnabled = true;
     sctx.drawImage(shadeC, 0, 0, DW, DH); sctx.drawImage(tintC, 0, 0, DW, DH);
     ctx.drawImage(sharp, 0, 0);
+    }
     if (glow > 0) {
       l1c.clearRect(0, 0, l1.width, l1.height); l1c.drawImage(light, 0, 0, l1.width, l1.height);
       l2c.clearRect(0, 0, l2.width, l2.height); l2c.drawImage(l1, 0, 0, l2.width, l2.height);
@@ -1175,7 +1188,7 @@
 
   /* ------------------------------------------------------------------ lifecycle */
   let raf = 0, down = false, px = 0, py = 0, locked = [];
-  const S = window.__elements = { active: false, toggle() { S.active ? stop() : start(); } };
+  const S = { active: false, toggle() { S.active ? stop() : start(); } };
   const toGrid = e => [Math.floor(e.clientX / CELL), Math.floor(e.clientY / CELL)];
   function line(x0, y0, x1, y1) {
     const steps = Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0), 1);
@@ -1198,9 +1211,35 @@
     else if (e.key === ']') brush = Math.min(16, brush + 1);
     syncHud();
   }
+  let rainRate = 0, wake = true, ledgeT = 0, quiet = false, busyUntil = 0;
+  // ambient: cards, buttons and headings on the real page become invisible ledges, refreshed as the page changes
+  function ledges() {
+    for (let i = 0; i < N; i++) if (grid[i] === SURF) grid[i] = E;
+    for (const el of document.querySelectorAll(cfg.ledges || '.task, .group-h, .head h1, .qa, .ntile, .gl, .btn, .td-sched, .pl-card, .c-hero, .cal-strip, .db-item')) {
+      const r = el.getBoundingClientRect(); if (r.width < 8 || r.bottom < 0 || r.top > innerHeight) continue;
+      const y = Math.floor(r.top / CELL); if (y < 2 || y >= H) continue;
+      const x0 = Math.max(0, Math.floor(r.left / CELL)), x1 = Math.min(W, Math.ceil(r.right / CELL));
+      for (let x = x0; x < x1; x++) { const i = y * W + x; if (grid[i] === E) grid[i] = SURF; }
+    }
+  }
+  const hasMatter = () => { for (let i = 0; i < N; i++) { const m = grid[i]; if (m !== E && m !== SURF) return true; } return parts.length > 0; };
   function frame() {
     fc++;
     if (!S.active) return;
+    if (AMBIENT) {
+      const hide = cfg.hidden && cfg.hidden();
+      if (cv.style.display !== (hide ? 'none' : '')) cv.style.display = hide ? 'none' : '';
+      // nothing falling, burning or lit: skip the work until something wakes the world
+      if (fc % 30 === 0) wake = snowing || storm || rainRate > 0 || bulbs.length > 0 || hasMatter();
+      if (hide || document.hidden || !wake) { if (!quiet) { ctx.clearRect(0, 0, cv.width, cv.height); quiet = true; } raf = requestAnimationFrame(frame); return; }
+      quiet = false;
+      // background decoration doesn't need 60 fps: 30 while things fall or burn, a slow tick while everything has settled
+      const lively = snowing || storm || rainRate > 0 || parts.length > 0 || performance.now() < busyUntil;
+      if (fc % (lively ? 2 : 8)) { if (bulbs.length && fc % 2 === 0) { updateLights(); render(); } raf = requestAnimationFrame(frame); return; }
+      if (performance.now() - ledgeT > 400) { ledgeT = performance.now(); ledges(); }
+      if (rainRate > 0) for (let n = 0; n < rainRate; n++) { const x = (R() * W) | 0; if (grid[x] === E) set(x, 0, WATER); }
+      if (cfg.floor === false) for (let x = 0, i = (H - 1) * W; x < W; x++, i++) { const m = grid[i]; if (m !== E && m !== SURF && m !== GLASS && m !== WIRE && m !== BULB) grid[i] = E; }   // falls out of the window
+    }
     if (down) {
       if (tool === FIREWORK) { if (fc % 12 === 0) launch(px, py); }
       else if (tool === LIGHTNING) { if (fc % 30 === 0) strike(px, py); }
@@ -1241,7 +1280,9 @@
     const under = document.elementFromPoint(innerWidth * 0.6, innerHeight * 0.5);
     let found = null; for (let e = under; e && !found; e = e.parentElement) found = pick(e);
     bg = (found || pick(document.body) || pick(document.documentElement) || [255, 255, 255]).slice(0, 3);
-    AMBL = (bg[0] * 0.3 + bg[1] * 0.59 + bg[2] * 0.11) > 128 ? 1 : 0.9;
+    const lightPage = (bg[0] * 0.3 + bg[1] * 0.59 + bg[2] * 0.11) > 128;
+    AMBL = lightPage ? 1 : 0.9;
+    if (AMBIENT) glow = lightPage ? 0.35 : 0.8;   // bloom is additive: on a light page it washes out, so keep it soft
     BG = rgb(bg[0], bg[1], bg[2]); BGCSS = `rgb(${bg[0]},${bg[1]},${bg[2]})`;
     HW = Math.ceil(W / HB); HH = Math.ceil(H / HB); const HN = HW * HH;
     T = new Float32Array(HN).fill(-3); T2 = new Float32Array(HN);
@@ -1254,13 +1295,15 @@
     host.style.cssText = 'position:fixed!important;inset:0!important;z-index:2147483647!important;pointer-events:none!important;display:block!important;margin:0!important;padding:0!important;border:0!important;background:none!important;transform:none!important;filter:none!important';
     root = host.attachShadow({ mode: 'open' });
     const st = document.createElement('style'); st.textContent = CSS; root.appendChild(st);
-    const busy = document.createElement('div'); busy.className = 'busy'; busy.textContent = 'MATERIALISING'; root.appendChild(busy);
+    if (AMBIENT) { host.id = 'elements-ambient'; host.style.setProperty('z-index', String(cfg.z || 60), 'important'); }
+    const busy = document.createElement('div'); busy.className = 'busy'; busy.textContent = AMBIENT ? '' : 'MATERIALISING'; root.appendChild(busy);
     (document.fullscreenElement || document.documentElement).appendChild(host);
-    addEventListener('keydown', onKey, true);   // Esc works even while the page is still being read
-
-    const my = ++run;
-    const ok = await harvest(my);
-    if (!ok || my !== run || !S.active || !host) return;   // closed while reading the page
+    if (!AMBIENT) {
+      addEventListener('keydown', onKey, true);   // Esc works even while the page is still being read
+      const my = ++run;
+      const ok = await harvest(my);
+      if (!ok || my !== run || !S.active || !host) return;   // closed while reading the page
+    }
     busy.remove();
 
     const mk = (w, h) => { const c = document.createElement('canvas'); c.width = Math.max(1, w); c.height = Math.max(1, h); return c; };
@@ -1277,6 +1320,7 @@
     cv = document.createElement('canvas'); cv.className = 'sim'; cv.width = W * CELL * DPR; cv.height = H * CELL * DPR;
     cv.style.width = W * CELL + 'px'; cv.style.height = H * CELL + 'px'; ctx = cv.getContext('2d');
     root.insertBefore(cv, root.firstChild.nextSibling);
+    if (AMBIENT) { cv.style.pointerEvents = 'none'; cv.style.cursor = 'default'; addEventListener('resize', onResize); wake = true; S.stats = { cells: W * H }; raf = requestAnimationFrame(frame); dispatchEvent(new CustomEvent('elements:ready', { detail: { world: S } })); return; }
     cv.addEventListener('pointerdown', e => { down = true; cv.setPointerCapture(e.pointerId); [px, py] = toGrid(e); if (tool === FIREWORK) launch(px, py); else if (tool === LIGHTNING) strike(px, py); else paint(px, py); });
     cv.addEventListener('pointermove', e => { if (!down) return; const [x, y] = toGrid(e); if (tool !== FIREWORK && tool !== LIGHTNING) line(px, py, x, y); px = x; py = y; });
     const up = () => { down = false; };
@@ -1295,11 +1339,61 @@
     if (!S.active) return;
     S.active = false; run++; cancelAnimationFrame(raf); down = false;
     removeEventListener('keydown', onKey, true); removeEventListener('resize', onResize);
+    lightMode = -1; rainRate = 0;
     locked.forEach(([el, v]) => { el.style.overflow = v; if (!el.getAttribute('style')) el.removeAttribute('style'); }); locked = [];
     host && host.remove(); host = null; hud = null; cv = null;
     grid = life = shade = stamp = owner = colR = colG = colB = pristine = null; els = []; hi = hx = null; bulbs = [];
   }
   S.start = start; S.stop = stop;
   S._debug = { get grid() { return grid; }, get els() { return els; }, get W() { return W; }, get H() { return H; }, ignite, PAGE, FIRE };
-  start();
+  function ambientApi() {
+    const cell = (px, py) => [Math.floor(px / CELL), Math.floor(py / CELL)];
+    const ok = () => S.active && grid && cv;
+    return {
+      // drop matter at a screen point: fire, embers, snow, sand, water… (life range for fire-like things)
+      spawn(px, py, m, r = 2, chance = 0.6, lo = 10, hi = 30) {
+        if (!ok()) return; const [cx, cy] = cell(px, py); wake = true; busyUntil = performance.now() + 4000;
+        for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) {
+          if (dx * dx + dy * dy > r * r) continue; const x = cx + dx, y = cy + dy;
+          if (x < 0 || x >= W || y < 0 || y >= H || grid[y * W + x] !== E || R() > chance) continue;
+          set(x, y, m, m === FIRE || m === EMBER || m === STEAM || m === SMOKE ? rr(lo, hi) : 0);
+        }
+      },
+      heatAt(px, py, t, rad = 1) { if (!ok()) return; busyUntil = performance.now() + 4000; const [x, y] = cell(px, py); for (let dy = -rad; dy <= rad; dy++) for (let dx = -rad; dx <= rad; dx++) { const xx = x + dx * HB, yy = y + dy * HB; if (xx >= 0 && xx < W && yy >= 0 && yy < H) heatTo(xx, yy, t, 0.5); } wake = true; },
+      // weather and decorations: { snow, everywhere, wind, rain, storm, lights: 'twinkle'|'chase'|'steady'|null, palette }
+      set(o) {
+        if (!ok()) return;
+        if ('snow' in o) snowing = !!o.snow;
+        if ('everywhere' in o) snowEverywhere = !!o.everywhere;
+        if ('wind' in o) windBase = +o.wind || 0;
+        if ('rain' in o) rainRate = Math.max(0, Math.round(o.rain || 0));
+        if ('storm' in o) storm = !!o.storm;
+        if ('lights' in o) {
+          const pal = PALETTES[o.palette] || PALETTES.classic, mode = ['twinkle', 'chase', 'steady'].indexOf(o.lights);
+          if (!o.lights) { if (bulbs.length) removeLights(); lightMode = -1; }
+          else { if (pal !== BCOL && bulbs.length) removeLights(); BCOL = pal; lightMode = Math.max(0, mode); if (!bulbs.length) buildLights(); }
+        }
+        wake = true;
+      },
+      strike(px, py) { if (ok()) { const [x, y] = cell(px, py); strike(x, y); wake = true; } },
+      explode(px, py, r = 5) { if (ok()) { busyUntil = performance.now() + 6000; const [x, y] = cell(px, py); explode(x, y, r); wake = true; } },
+      firework(px, py) { if (ok()) { busyUntil = performance.now() + 6000; const [x, y] = cell(px, py); launch(x, y); wake = true; } },
+      // a glass jar (open at the top) at a screen rect; count what's inside it
+      jar(rc) {
+        if (!ok()) return; const x0 = Math.floor(rc.left / CELL), x1 = Math.floor(rc.right / CELL) - 1, y0 = Math.floor(rc.top / CELL), y1 = Math.floor(rc.bottom / CELL) - 1;
+        for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) { if (x < 0 || x >= W || y < 0 || y >= H) continue; if (x <= x0 + 1 || x >= x1 - 1 || y >= y1 - 1) { const i = y * W + x; grid[i] = GLASS; life[i] = 0; shade[i] = (R() * 16) | 0; owner[i] = 0; } }
+        wake = true;
+      },
+      count(rc, m) { if (!ok()) return 0; let n = 0; for (let y = Math.max(0, Math.floor(rc.top / CELL)); y < Math.min(H, Math.ceil(rc.bottom / CELL)); y++) for (let x = Math.max(0, Math.floor(rc.left / CELL)); x < Math.min(W, Math.ceil(rc.right / CELL)); x++) if (grid[y * W + x] === m) n++; return n; },
+      // swallow everything within r px of a point (a black hole)
+      clearAt(px, py, r) { if (!ok()) return; const [cx, cy] = cell(px, py), rc = Math.ceil(r / CELL); for (let dy = -rc; dy <= rc; dy++) for (let dx = -rc; dx <= rc; dx++) { if (dx * dx + dy * dy > rc * rc) continue; const x = cx + dx, y = cy + dy; if (x < 0 || x >= W || y < 0 || y >= H) continue; const i = y * W + x; if (grid[i] !== SURF && grid[i] !== WIRE && grid[i] !== BULB) grid[i] = E; } },
+      clear(m) { if (!ok()) return; for (let i = 0; i < N; i++) if (m === undefined ? grid[i] !== SURF : grid[i] === m) grid[i] = E; parts = []; },
+      M: { SAND, WATER, ICE, FIRE, EMBER, SNOW, STEAM, SMOKE, LAVA, GLASS, ASH, PLANT },
+      get CELL() { return CELL; }
+    };
+  }
+  if (AMBIENT) Object.assign(S, ambientApi());
+  return S;
+  }
+  window.ElementsWorld = { create: createWorld };
 })();

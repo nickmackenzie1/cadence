@@ -30,7 +30,7 @@
     settings(api) { G.settings && G.settings(); },
     setup(api) {
       G.teardown && G.teardown();   // plugins rebuild when you switch Work/Life: stop the previous engine first
-      const defaults = { on: false, lights: true, lightStyle: 'classic', pattern: 'twinkle', snow: true, build: true, chaos: 1, offered: 0, style: 'mixed', depth: true, melt: false, react: true, tune: null };
+      const defaults = { on: false, look: 'elements', lights: true, lightStyle: 'classic', pattern: 'twinkle', snow: true, build: true, chaos: 1, offered: 0, style: 'mixed', depth: true, melt: false, react: true, tune: null };
       // one Christmas for both spaces: settings live in this browser, not in a space's data
       const opts = () => { let v = null; try { v = JSON.parse(localStorage.getItem('cadence.xmas') || 'null'); } catch (e) {} return Object.assign({}, defaults, v || api.storage.get('opts') || {}); };
       const setOpts = o => { try { localStorage.setItem('cadence.xmas', JSON.stringify(o)); } catch (e) {} apply(true); };
@@ -44,6 +44,8 @@
         const sliders = () => { const t = tuneOf(draft); return TUNE_KEYS.map(([k, l, mn, mx, st]) => `<label class="xm-sl"><span>${l}</span><input type="range" min="${mn}" max="${mx}" step="${st}" value="${t[k]}" data-k="${k}"><em>${k === 'wind' ? (t[k] < -.05 ? '← ' : t[k] > .05 ? '→ ' : '') + Math.abs(t[k]).toFixed(1) : (+t[k]).toFixed(1) + '×'}</em></label>`).join(''); };
         api.ui.modal('Christmas mode', `
           <label class="xm-row"><input type="checkbox" id="xm-on" ${o.on ? 'checked' : ''}> <b>Christmas mode is on</b></label>
+          <div class="field"><label>Look</label>${seg('xm-look', [['elements', 'Elements'], ['classic', 'Classic']], o.look)}
+            <div class="muted" style="font-size:12px;margin-top:6px">Elements: falling-sand snow that piles on cards, real icicles on the lights, and it melts under typing fire. Classic: the original soft flakes and drifts.</div></div>
           <div class="field"><label>Chaos level</label>${seg('xm-chaos', LEVELS.map((l, i) => [i, l.name]), o.tune ? -1 : o.chaos)}
             <div class="muted" style="font-size:12px;margin-top:6px">A preset for everything below. Total chaos: blizzard gusts, big clumps, deep drifts, and a snow burst every time you finish a task.</div></div>
           <div class="field"><label>Snowflakes</label>${seg('xm-fs', [['mixed', 'Mixed'], ['soft', 'Soft'], ['crystals', 'Crystals']], o.style)}</div>
@@ -64,6 +66,7 @@
         const segPick = (id, fn) => document.querySelectorAll(`#${id} button`).forEach(b => b.onclick = () => { document.querySelectorAll(`#${id} button`).forEach(x => x.classList.toggle('on', x === b)); fn(b.dataset.v); live(); });
         segPick('xm-chaos', v => { draft.chaos = +v; draft.tune = null; $('xm-sliders').innerHTML = sliders(); bindSliders(); });
         segPick('xm-fs', v => { draft.style = v; });
+        segPick('xm-look', v => { draft.look = v; live(); });
         segPick('xm-style', v => { draft.lightStyle = v; }); segPick('xm-pat', v => { draft.pattern = v; });
         const bindSliders = () => document.querySelectorAll('#xm-sliders input').forEach(i => i.oninput = () => { draft.tune = { ...tuneOf(draft), [i.dataset.k]: +i.value }; document.querySelectorAll('#xm-chaos button').forEach(x => x.classList.remove('on')); const em = i.nextElementSibling, v = +i.value; em.textContent = i.dataset.k === 'wind' ? (v < -.05 ? '← ' : v > .05 ? '→ ' : '') + Math.abs(v).toFixed(1) : v.toFixed(1) + '×'; live(); });
         bindSliders();
@@ -382,7 +385,7 @@
         if (!cv) { cv = document.createElement('canvas'); cv.id = 'xm-snow'; cv.setAttribute('aria-hidden', 'true'); document.body.appendChild(cv); cx = cv.getContext('2d'); size(); }
         if (!raf) { last = performance.now(); raf = requestAnimationFrame(frame); }
       }
-      G.preview = o => { lights(o); snow(o, true); };
+      G.preview = o => show(o, true);
       G.reset = (x = {}) => setOpts({ ...opts(), on: false, ...x });
       // handlers are swapped on every setup (spaces rebuild plugins); the listeners themselves are bound once
       /* ---- fire melts snow: typing in Fire mode sends heat ("cadence:heat"). Snow under it melts into water that runs
@@ -463,10 +466,13 @@
       if (!G.bound) { G.bound = true; const on = (t, o, tgt = window) => tgt.addEventListener(t === 'theme' ? 'cadence:theme' : t, e => G.h[t] && G.h[t](e), o);
         on('resize'); on('theme', undefined, document); on('pointermove', { passive: true }); on('pointerdown', { capture: true, passive: true }); on('wheel', { passive: true }); on('keydown', true); on('cadence:heat'); }
 
-      function apply(user) {
-        const o = G.o = opts();
+      function apply(user) { show(G.o = opts(), user); }
+      function show(o, user) {
         document.documentElement.classList.toggle('xm-on', !!o.on);
-        lights(o); snow(o, user);
+        // Elements look: the shared effects layer does snow, lights and icicles (reduced motion keeps the classic, still lights)
+        const eng = o.look !== 'classic' && !reduced();
+        lights(eng ? { ...o, lights: false } : o); snow(eng ? { ...o, snow: false } : o, user);
+        window.CadenceFX && window.CadenceFX.want('xmas', eng && o.on ? { snow: !!o.snow, everywhere: o.build !== false, lights: o.lights ? o.pattern : null, palette: o.lightStyle } : null);
       }
       G.teardown = () => { cancelAnimationFrame(raf); raf = 0; clearInterval(saveIv); save(); cv && cv.remove(); cv = cx = null; ringRO && ringRO.disconnect(); ringRO = null; ringMO && ringMO.disconnect(); ringMO = null; cancelAnimationFrame(followRaf); followRaf = 0; G.h = {}; };
       // a snow burst from the checkbox when you finish something (Blizzard and up)

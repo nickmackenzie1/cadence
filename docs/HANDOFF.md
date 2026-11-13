@@ -587,3 +587,19 @@ data, or peer-to-peer on the same LAN). Personal data and secrets stay on each p
   (slider), lightning (fulgurites in sand), fireworks, gunpowder explosions with flash + shake, holly, acid + fumes,
   storm (T), snow that settles everywhere or only on the lights, light that casts shadows (ambient stays 1 on a light
   page so opening Elements doesn't dim the screen). To take a future version: re-run the splice in the commit message.
+
+## Shipped 2026-11-13 ~01:00: one matter layer for everything (user: "typing and christmas mode lets do it")
+- vendor/elements-engine.js is a factory: ElementsWorld.create({ kind: 'havoc' | 'ambient', cell, floor, z, hidden, ledges }).
+  Havoc Elements = kind 'havoc' (reads the screen, toolbar). Ambient = see-through layer, no mouse, cards/buttons/headings
+  become invisible ledges (SURF) refreshed every 400ms; 3px cells, 30 fps while things fall/burn, slow tick when settled;
+  soft glow on light pages; lights kept in a slim top strip; hidden while a dialog/meeting/Havoc Elements is open.
+- core.js CadenceFX: world() (shared ambient layer, null with reduced motion), want(key, {snow, everywhere, rain, storm,
+  lights, palette, wind}) merges what each plugin wants; re-applied after the layer rebuilds on resize ('elements:ready').
+- Christmas: new Look setting, Elements (default) or Classic. Elements = engine snow (settles on cards when "builds up"
+  is on, else only on the lights), engine lights with the chosen pattern/palette, icicles. The Island ring stays.
+- Typing: fire/ice put real fire+embers / snow into the layer (setting "Real fire and snow", default on).
+- Havoc Physics: havoc-engine.js dispatches 'havoc:fx' (blast, melt, hole, rain, stop); havoc.js plays them in the layer.
+- New plugin sand-jar.js: finished tasks stream sand into a glass jar (bottom right/left), fills over the day, empties at
+  midnight, refills after reload; settings: on, corner, empty.
+- Weather: "Show the weather on the page" (default on): real snow settles, rain 1–5 by intensity, wind from wind_speed_10m.
+  Thunderstorms = heavy rain, no lightning (calm principle).

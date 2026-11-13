@@ -15,7 +15,7 @@
     setup(api) {
       const esc = window.CadenceKit.esc;
       // one place for both spaces: stored in this browser and in the Work doc
-      const opts = () => { let v = null; try { v = JSON.parse(localStorage.getItem('cadence.weather') || 'null'); } catch (e) {} return Object.assign({ place: null, units: 'c', today: true }, v || {}); };
+      const opts = () => { let v = null; try { v = JSON.parse(localStorage.getItem('cadence.weather') || 'null'); } catch (e) {} return Object.assign({ place: null, units: 'c', today: true, onPage: true }, v || {}); };
       const setOpts = o => { try { localStorage.setItem('cadence.weather', JSON.stringify(Object.assign(opts(), o))); } catch (e) {} G.data = null; G.at = 0; load(true); };
       const ic = (n, cls = '') => api.ui.icon(n, cls);
       let busy = null;
@@ -23,7 +23,7 @@
         const o = opts(); if (!o.place || api.system().mode !== 'nas') return null;
         if (!force && G.data && Date.now() - G.at < 15 * 60e3 && G.key === o.place.lat + ',' + o.place.lon + o.units) return G.data;
         if (busy) return busy;
-        busy = fetch(`api/weather?lat=${o.place.lat}&lon=${o.place.lon}&units=${o.units}`).then(r => r.ok ? r.json() : null).then(d => { if (d && d.current) { G.data = d; G.at = Date.now(); G.key = o.place.lat + ',' + o.place.lon + o.units; api.ui.refreshWidgets && api.ui.refreshWidgets(); api.ui.refreshSide && api.ui.refreshSide(); paintToday(); } return d; }).catch(() => null).finally(() => { busy = null; });
+        busy = fetch(`api/weather?lat=${o.place.lat}&lon=${o.place.lon}&units=${o.units}`).then(r => r.ok ? r.json() : null).then(d => { if (d && d.current) { G.data = d; G.at = Date.now(); G.key = o.place.lat + ',' + o.place.lon + o.units; api.ui.refreshWidgets && api.ui.refreshWidgets(); api.ui.refreshSide && api.ui.refreshSide(); paintToday(); onPage(); } return d; }).catch(() => null).finally(() => { busy = null; });
         return busy;
       }
       window.CadenceWeather = { get: () => load(false), wmo: WMO, place: () => opts().place };
@@ -35,6 +35,19 @@
           if ((h.precipitation_probability[i] || 0) >= 60) { const w = WMO(h.weather_code[i])[0].toLowerCase(); return `${/snow/.test(w) ? 'snow' : 'rain'} likely around ${new Date(t).toLocaleTimeString([], { hour: 'numeric' })}`; } }
         return '';
       }
+      // the weather outside, on the page: real snow settles on the cards, rain from drizzle to downpour, the real wind.
+      // Thunderstorms are heavy rain only: no lightning flashes.
+      function onPage() {
+        if (!window.CadenceFX) return;
+        const o = opts(), d = G.data;
+        if (!o.onPage || !o.place || !d || !d.current) return window.CadenceFX.want('weather', null);
+        const c = d.current.weather_code, kmh = (d.current.wind_speed_10m || 0) * (o.units === 'f' ? 1.61 : 1);
+        const snow = (c >= 71 && c <= 77) || c === 85 || c === 86;
+        const rain = c >= 95 ? 4 : [65, 82].includes(c) ? 5 : [63, 81, 66, 67].includes(c) ? 3 : [61, 80].includes(c) ? 2 : c >= 51 && c <= 57 ? 1 : 0;
+        window.CadenceFX.want('weather', snow || rain ? { snow, everywhere: snow, rain, wind: Math.min(2, kmh / 18) } : { wind: Math.min(2, kmh / 18) });
+      }
+      G.onPage = onPage;
+      load(false).then(() => onPage());
       function line(d) { const c = d.current, [w] = WMO(c.weather_code); const hu = headsUp(d); return `${deg(c.temperature_2m)} and ${w.toLowerCase()}${hu ? ' · ' + hu : ''}`; }
 
       function sidebar(el) {
@@ -64,6 +77,7 @@
         api.ui.modal('Weather', `<div class="field"><label>Your town</label><input class="inp" id="wx-q" placeholder="Toronto" value="${esc(o.place ? o.place.name : '')}"><div id="wx-res" class="wx-res"></div></div>
           <div class="field"><label>Units</label><div class="seg" id="wx-u"><button data-v="c" class="${o.units === 'c' ? 'on' : ''}">°C</button><button data-v="f" class="${o.units === 'f' ? 'on' : ''}">°F</button></div></div>
           <label class="xm-row"><input type="checkbox" id="wx-today" ${o.today ? 'checked' : ''}> Show the weather under Today’s greeting</label>
+          <label class="xm-row"><input type="checkbox" id="wx-page" ${o.onPage ? 'checked' : ''}> Show the weather on the page: real snow and rain, blown by the real wind</label>
           <div class="muted" style="font-size:12px;margin-top:8px">Forecasts from Open-Meteo (open-meteo.com), fetched by your NAS. No account or key.</div>`,
           '<button class="btn primary" id="wx-done">Done</button>');
         const $ = id => document.getElementById(id); let t = 0, pick = o.place, units = o.units;
@@ -71,7 +85,7 @@
           $('wx-res').innerHTML = (r.results || []).map((p, k) => `<button data-k="${k}">${esc(p.name)}<span>${esc([p.admin1, p.country].filter(Boolean).join(', '))}</span></button>`).join('') || '<span class="muted">No places found</span>';
           $('wx-res').querySelectorAll('button').forEach(b => b.onclick = () => { const p = r.results[+b.dataset.k]; pick = { name: p.name + (p.admin1 ? ', ' + p.admin1 : ''), lat: p.latitude, lon: p.longitude }; $('wx-q').value = pick.name; $('wx-res').innerHTML = ''; }); }, 300); };
         document.querySelectorAll('#wx-u button').forEach(b => b.onclick = () => { units = b.dataset.v; document.querySelectorAll('#wx-u button').forEach(x => x.classList.toggle('on', x === b)); });
-        $('wx-done').onclick = () => { setOpts({ place: pick, units, today: $('wx-today').checked }); api.ui.close(); };
+        $('wx-done').onclick = () => { setOpts({ place: pick, units, today: $('wx-today').checked, onPage: $('wx-page').checked }); api.ui.close(); onPage(); };
       };
 
       api.sidebar.add({ id: 'weather', slot: 'top', order: 14, title: 'Weather', render: sidebar });

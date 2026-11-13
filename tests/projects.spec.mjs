@@ -114,7 +114,7 @@ test('Christmas mode: lights, snow that settles on the page, and the shovel', as
   await page.goto(B + '/#today');
   await expect(page.locator('#sync')).toContainText('NAS', { timeout: 8000 });
   await page.evaluate(() => window.__xmas.settings());
-  await page.check('#xm-on'); await page.click('#xm-chaos [data-v="3"]'); await page.click('#xm-save');
+  await page.check('#xm-on'); await page.click('#xm-look [data-v="classic"]'); await page.click('#xm-chaos [data-v="3"]'); await page.click('#xm-save');
   await expect(page.locator('#xm-string i').first()).toBeVisible();
   await expect(page.locator('#xm-snow')).toBeAttached();
   await page.waitForTimeout(4000);
@@ -131,7 +131,7 @@ test('snow and lights switch on independently, any day', async ({ page }) => {
   await page.goto(B + '/#today');
   await expect(page.locator('#sync')).toContainText('NAS', { timeout: 8000 });
   // start from off (an earlier test may still have been saving its state)
-  await page.evaluate(() => window.__xmas.reset());
+  await page.evaluate(() => window.__xmas.reset({ look: 'classic' }));
   await page.evaluate(() => window.__xmas.flip('lights'));
   await expect(page.locator('#xm-string')).toBeAttached(); await expect(page.locator('#xm-snow')).toHaveCount(0);
   await page.evaluate(() => window.__xmas.flip('snow'));
@@ -148,7 +148,7 @@ test('snow drifts stay on a page after you leave and come back, until shovelled'
   await page.addInitScript(() => localStorage.setItem('cadence.reviewNudge', 'x'));
   await page.goto(B + '/#today');
   await expect(page.locator('#sync')).toContainText('NAS', { timeout: 8000 });
-  await page.evaluate(() => window.__xmas.reset({ chaos: 3, tune: null, build: true }));
+  await page.evaluate(() => window.__xmas.reset({ chaos: 3, tune: null, build: true, look: 'classic' }));
   await page.evaluate(() => window.__xmas.flip('snow'));
   await page.mouse.move(2, 2);
   await page.waitForTimeout(6000);
@@ -172,12 +172,38 @@ test('switching Work and Life with snow on keeps a single snow engine', async ({
   await page.addInitScript(() => localStorage.setItem('cadence.reviewNudge', 'x'));
   await page.goto(B + '/#today');
   await expect(page.locator('#sync')).toContainText('NAS', { timeout: 8000 });
-  await page.evaluate(() => { window.__xmas.reset({ chaos: 1, tune: null }); window.__xmas.flip('snow'); });
+  await page.evaluate(() => { window.__xmas.reset({ chaos: 1, tune: null, look: 'classic' }); window.__xmas.flip('snow'); });
   for (let i = 0; i < 6; i++) { await page.click(`.space-sw [data-s=${i % 2 ? 'work' : 'life'}]`); await page.waitForTimeout(400); }
   await expect(page.locator('#xm-snow')).toHaveCount(1);
   const fps = await page.evaluate(() => new Promise(res => { let n = 0; const t0 = performance.now(); const f = () => { n++; if (performance.now() - t0 < 1500) requestAnimationFrame(f); else res(n / 1.5); }; requestAnimationFrame(f); }));
   expect(fps).toBeGreaterThan(30);
   await page.evaluate(() => window.__xmas.flip('snow'));
   await page.waitForTimeout(1200);
+  expect(errs).toEqual([]);
+});
+
+test('Elements look: Christmas snow and lights, typing fire and the sand jar share one matter layer', async ({ page }) => {
+  const errs = []; page.on('pageerror', e => errs.push(String(e)));
+  await page.addInitScript(() => { localStorage.setItem('cadence.reviewNudge', 'x'); if (!sessionStorage.getItem('fx1')) { sessionStorage.setItem('fx1', 1); localStorage.setItem('cadence.typing', JSON.stringify({ mode: 'fire', matter: true, helper: false })); localStorage.removeItem('cadence.sandjar'); } });
+  await page.goto(B + '/#today');
+  await expect(page.locator('#sync')).toContainText('NAS', { timeout: 8000 });
+  await page.evaluate(() => window.__xmas.reset({ look: 'elements', chaos: 1, tune: null }));
+  await page.evaluate(() => { window.__xmas.flip('lights'); window.__xmas.flip('snow'); });
+  await expect(page.locator('#elements-ambient')).toHaveCount(1);
+  await expect(page.locator('#xm-snow')).toHaveCount(0);                       // no classic snow canvas
+  await expect.poll(() => page.evaluate(() => { const w = window.__fx, d = w && w._debug; if (!d || !d.grid) return 0; let n = 0; for (const m of d.grid) if (m === 16 || m === 17) n++; return n; })).toBeGreaterThan(50);   // wire and bulbs
+  // typing fire puts real fire in the layer
+  await page.click('#qa'); await page.keyboard.type('fire', { delay: 30 });
+  await expect.poll(() => page.evaluate(() => { let n = 0; for (const m of window.__fx._debug.grid) if (m === 4 || m === 10) n++; return n; })).toBeGreaterThan(0);
+  await page.keyboard.press('Escape');
+  // finishing a task pours sand into the jar
+  await page.evaluate(() => { localStorage.setItem('cadence.typing', JSON.stringify({ mode: 'off' })); });
+  const id = await page.evaluate(async () => { const r = await new Promise(res => Cadence.registerPlugin({ id: 'fx-hook', name: 't', setup(api) { res(api); } })); const t = r.tasks.add({ title: 'Sand me', dueDate: r.util.todayKey() }); r.ui.refresh(); return t.id; });
+  await page.click(`#view .task[data-id="${id}"] .check`);
+  await expect.poll(() => page.evaluate(() => window.__fx.count(window.__sandjar.rect(), window.__fx.M.SAND)), { timeout: 8000 }).toBeGreaterThan(10);
+  expect(await page.evaluate(() => window.__sandjar.read().n)).toBe(1);
+  // turning Christmas off takes the lights down
+  await page.evaluate(() => { window.__xmas.flip('lights'); window.__xmas.flip('snow'); });
+  await expect.poll(() => page.evaluate(() => { let n = 0; for (const m of window.__fx._debug.grid) if (m === 16 || m === 17) n++; return n; })).toBe(0);
   expect(errs).toEqual([]);
 });

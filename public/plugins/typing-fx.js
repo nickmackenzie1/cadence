@@ -7,7 +7,7 @@
 (() => {
   const MODES = [['off', 'Off'], ['fire', 'Fire'], ['ice', 'Ice'], ['typewriter', 'Typewriter'], ['confetti', 'Confetti'], ['power', 'Power'], ['helper', 'Helper only']];
   const KEY = 'cadence.typing';
-  const DEF = { mode: 'off', helper: true, sound: true, where: 'all', amount: 1 };
+  const DEF = { mode: 'off', helper: true, sound: true, where: 'all', amount: 1, matter: true };
   const G = window.__tfx = window.__tfx || {};
 
   Cadence.registerPlugin({
@@ -20,7 +20,10 @@
       G.teardown && G.teardown();
       const opts = () => { let v = null; try { v = JSON.parse(localStorage.getItem(KEY) || 'null'); } catch (e) {} return Object.assign({}, DEF, v || {}); };
       let o = opts();
-      const save = n => { o = Object.assign({}, o, n); try { localStorage.setItem(KEY, JSON.stringify(o)); } catch (e) {} styleBox(); helperCheck(); };
+      // real matter: fire and ice go into the shared Elements layer (they rise, melt snow, settle on cards)
+      let fx = null; const wantFx = () => { if (o.matter !== false && (o.mode === 'fire' || o.mode === 'ice') && window.CadenceFX) window.CadenceFX.world().then(w => { fx = w; }); };
+      wantFx();
+      const save = n => { o = Object.assign({}, o, n); try { localStorage.setItem(KEY, JSON.stringify(o)); } catch (e) {} styleBox(); helperCheck(); wantFx(); };
       const reduced = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
       const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 
@@ -120,7 +123,16 @@
         requestAnimationFrame(() => {
           const c = caretXY(el); if (!c) return; canvas(); const A = o.amount;
           const now = performance.now(), fast = now - lastKey < 140; lastKey = now;
-          if (o.mode === 'fire') {
+          if (o.mode === 'fire' && fx && o.matter !== false) {
+            fx.spawn(c.x, c.y - 3, fx.M.FIRE, enter ? 7 : back ? 1 : 2, enter ? 0.5 : 0.45, 12, 30 * A);
+            if (!back) fx.spawn(c.x, c.y + c.h * .25, fx.M.EMBER, 1, 0.3, 15, 40);
+            fx.heatAt(c.x, c.y, enter ? 500 : 220, enter ? 2 : 1);
+            if (fast || enter) warm(el, 'fire');
+            dispatchEvent(new CustomEvent('cadence:heat', { detail: { x: c.x, y: c.y, r: enter ? 110 : 55, power: enter ? 6 : 2.5 } }));
+          } else if (o.mode === 'ice' && fx && o.matter !== false) {
+            fx.spawn(c.x, c.y - 2, fx.M.SNOW, enter ? 6 : back ? 1 : 2, enter ? 0.6 : 0.5);
+            warm(el, 'ice');
+          } else if (o.mode === 'fire') {
             const n = Math.round((enter ? 26 : back ? 3 : 7) * A);
             for (let i = 0; i < n; i++) add({ k: 'fire', x: c.x + (Math.random() - .5) * (enter ? 60 : 6), y: c.y + c.h * .3, vx: (Math.random() - .5) * .8, vy: -1 - Math.random() * 1.6, g: -.03, drag: .97, r: 5 + Math.random() * 6, max: 34 + Math.random() * 26 });
             if (fast || enter) warm(el, 'fire');
@@ -190,6 +202,7 @@
           <input class="inp" id="tfx-try" placeholder="Type here to try it…" style="margin:4px 0 12px">
           <div class="field"><label>Where</label>${seg('tfx-where', [['all', 'Every text box'], ['qa', 'Quick add only']], o.where)}</div>
           <div class="field"><label>Amount</label><input type="range" id="tfx-amt" min=".3" max="2.5" step=".1" value="${o.amount}" style="width:100%"></div>
+          <label class="xm-row"><input type="checkbox" id="tfx-matter" ${o.matter !== false ? 'checked' : ''}> Real fire and snow (they rise, settle on cards and melt each other)</label>
           <label class="xm-row"><input type="checkbox" id="tfx-sound" ${o.sound ? 'checked' : ''}> Typewriter sounds</label>
           <label class="xm-row"><input type="checkbox" id="tfx-helper" ${o.helper ? 'checked' : ''}> Nib, the sticky-note helper, offers quick-add tips</label>
           ${reduced() ? '<p class="muted" style="font-size:12px">Your system asks for reduced motion, so only sounds and Nib work.</p>' : ''}`,
@@ -199,6 +212,7 @@
         pick('tfx-mode', 'mode'); pick('tfx-where', 'where');
         $('tfx-amt').oninput = e => save({ amount: +e.target.value });
         $('tfx-sound').onchange = e => save({ sound: e.target.checked });
+        $('tfx-matter').onchange = e => save({ matter: e.target.checked });
         $('tfx-helper').onchange = e => save({ helper: e.target.checked });
         $('tfx-nib-demo').onclick = () => { if (!(o.helper || o.mode === 'helper')) save({ helper: true }); say("Hi! I'm Nib. I'll pop up while you type in quick add if there's a shortcut that would help."); };
         $('tfx-done').onclick = () => api.ui.close();
