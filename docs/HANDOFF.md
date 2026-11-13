@@ -725,3 +725,11 @@ data, or peer-to-peer on the same LAN). Personal data and secrets stay on each p
 - Server: /vendor/* is served with ETag + no-cache (304 when unchanged) and gzipped when over 256 KB (kept in
   memory); MIME for .wasm and .woff2. Everything else is still no-store.
 - Plugins' setup() can run more than once (rebuilds): document-level listeners need a cleanup (see G.cleanup).
+
+## Shipped 2026-11-13 ~12:40: typing fire melts snow into running water (backlog)
+- elements-core.js: new input 'melt' [cx, cy, r, rx]: SNOW (90%) and ICE (50%) inside an ellipse (mostly above the
+  point) become WATER. On the ambient layer (opts.compact) fire next to water boils it 3% of the time instead of 25%,
+  so meltwater runs off instead of vanishing as steam (Havoc unchanged).
+- elements-engine.js world API: melt(x, y, r = 40, rx = r) in px.
+- typing-fx.js (fire, matter on): each key melts the drift on the TOP EDGE of the box being typed in (that's where
+  snow rests; the caret is ~25 px lower), wider on Enter. Test: team-desk "typing fire melts the snow".

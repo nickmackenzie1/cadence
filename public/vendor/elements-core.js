@@ -228,7 +228,7 @@ function ENGINE(env) {
                 else if (t === ICE && R() < 0.05) set(nx, ny, WATER);
                 else if (t === SAND) melt(j, 12);
                 else if (t === SNOW && R() < 0.15) set(nx, ny, WATER);
-                else if (t === WATER && R() < 0.25) { set(nx, ny, STEAM, rr(150, 250)); out = true; break; }
+                else if (t === WATER && R() < (opts.compact ? 0.03 : 0.25)) { set(nx, ny, STEAM, rr(150, 250)); out = true; break; }   // ambient (compact): meltwater runs off instead of boiling
               }
               if (out) { set(x, y, STEAM, rr(60, 120)); break; }
               gasMove(i, x, y, m, 0.75);
@@ -865,6 +865,17 @@ function ENGINE(env) {
         break;
       }
       case 'heat': { const [, x, y, t, rad] = ev; for (let dy = -rad; dy <= rad; dy++) for (let dx = -rad; dx <= rad; dx++) { const xx = x + dx * HB, yy = y + dy * HB; if (xx >= 0 && xx < W && yy >= 0 && yy < H) { heatTo(xx, yy, t, 0.5); wakeAt(yy * W + xx); } } break; }
+      // Cadence: warmth at the caret melts the snow and ice around it into water that runs off (typing fire)
+      case 'melt': {
+        const [, cx, cy, r, rx] = ev, w = rx || r;
+        for (let dy = -r; dy <= Math.ceil(r / 3); dy++) for (let dx = -w; dx <= w; dx++) {
+          const x = cx + dx, y = cy + dy; if (x < 0 || x >= W || y < 0 || y >= H) continue;
+          const i = y * W + x, m = grid[i]; if (m !== SNOW && m !== ICE) continue;
+          const d = Math.sqrt((dx / w) * (dx / w) + (dy / r) * (dy / r)); if (d > 1 || R() > (1 - d) * (m === ICE ? 0.5 : 0.9)) continue;
+          set(x, y, WATER); wakeAt(i);
+        }
+        break;
+      }
       case 'explode': explode(ev[1], ev[2], ev[3]); break;
       // the page's ledges moved: [x0, x1, y, x0, x1, y, …]; what rested on a ledge that's gone falls
       case 'surf': {

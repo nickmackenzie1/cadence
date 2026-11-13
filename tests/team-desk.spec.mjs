@@ -267,3 +267,22 @@ test('orbit: clients orbit the sun, the day clock shows timed work, right-click 
   await expect(page.locator('#ob-wheel')).toHaveCount(0);
   expect(errs).toEqual([]);
 });
+
+test('typing fire melts the snow on the box into water that runs off', async ({ page }) => {
+  test.setTimeout(60000);
+  await page.addInitScript(() => localStorage.setItem('cadence.typing', JSON.stringify({ mode: 'fire', matter: true, helper: false })));
+  const errs = await open(page);
+  const fx = await page.evaluate(() => window.CadenceFX.world().then(w => !!w));
+  expect(fx).toBe(true);
+  // a drift of snow on top of the quick-add box (as if it had been snowing)
+  const box = await page.evaluate(() => { const r = document.querySelector('.qa').getBoundingClientRect(); return { left: r.left, right: r.left + 260, top: r.top - 30, bottom: r.top + 4, x: r.left, y: r.top }; });
+  await page.evaluate(b => { for (let x = b.x + 10; x < b.right; x += 6) window.__fx.spawn(x, b.y - 8, window.__fx.M.SNOW, 3, 0.9); }, box);
+  await page.waitForTimeout(2500);
+  const snow = () => page.evaluate(b => window.__fx.count(b, window.__fx.M.SNOW), box);
+  const before = await snow();
+  expect(before).toBeGreaterThan(20);
+  await page.click('#qa'); await page.keyboard.type('Melt the snow on this box', { delay: 40 });
+  await expect.poll(snow, { timeout: 5000 }).toBeLessThan(before * 0.6);
+  expect((await page.evaluate(() => window.__fx.counts()))[2] || 0).toBeGreaterThan(0);   // water
+  expect(errs).toEqual([]);
+});

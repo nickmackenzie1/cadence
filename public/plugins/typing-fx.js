@@ -127,6 +127,8 @@
             fx.spawn(c.x, c.y - 3, fx.M.FIRE, enter ? 7 : back ? 1 : 2, enter ? 0.5 : 0.45, 12, 30 * A);
             if (!back) fx.spawn(c.x, c.y + c.h * .25, fx.M.EMBER, 1, 0.3, 15, 40);
             fx.heatAt(c.x, c.y, enter ? 500 : 220, enter ? 2 : 1);
+            // the snow piled on the box you're typing in (it rests on the top edge) turns to water and runs off the sides
+            if (fx.melt) { const bx = (el.closest('.qa,.m-add,.inp') || el).getBoundingClientRect(); fx.melt(c.x, Math.min(c.y, bx.top + 2), enter ? 70 : 38, enter ? 160 : 52); }
             if (fast || enter) warm(el, 'fire');
             dispatchEvent(new CustomEvent('cadence:heat', { detail: { x: c.x, y: c.y, r: enter ? 110 : 55, power: enter ? 6 : 2.5 } }));
           } else if (o.mode === 'ice' && fx && o.matter !== false) {

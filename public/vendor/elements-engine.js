@@ -746,6 +746,8 @@
       // drop matter at a screen point (life range for fire-like things)
       spawn(x, y, m, r = 2, chance = 0.6, lo = 10, hi = 30) { if (!ready) return; const [cx, cy] = cell(x, y); inputQ.push(['spawn', cx, cy, m, r, chance, lo | 0, Math.max(lo + 1, hi | 0)]); },
       heatAt(x, y, t, rad = 1) { if (!ready) return; const [cx, cy] = cell(x, y); inputQ.push(['heat', cx, cy, t, rad]); },
+      // melt snow and ice around a point (px): r up/down, rx sideways (defaults to r)
+      melt(x, y, r = 40, rx = r) { if (!ready) return; const [cx, cy] = cell(x, y); inputQ.push(['melt', cx, cy, Math.max(1, Math.round(r / CELL)), Math.max(1, Math.round(rx / CELL))]); },
       // { snow, everywhere, wind, rain, storm, lights: 'twinkle'|'chase'|'steady'|null, palette }
       set(o) {
         if ('snow' in o) setOpt('snowing', !!o.snow);
