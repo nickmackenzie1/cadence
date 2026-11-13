@@ -754,7 +754,9 @@ function makeApi(pid){
     chips: { add: fn => Reg.chips.push({ fn, pid }) },
     /* a card under the notes in the open task editor: api.taskCards.add(task => html or '') */
     taskCards: { add: fn => Reg.cards.push({ fn, pid }) },
-    today: { schedule: (fn, head) => { Reg.schedule = Reg.schedule.filter(x => x.pid !== pid).concat([{ fn, head, pid }]); } },   // one source per plugin: re-running setup replaces it
+    today: { schedule: (fn, head) => { Reg.schedule = Reg.schedule.filter(x => x.pid !== pid).concat([{ fn, head, pid }]); },
+      // redraw just the schedule strip (new meetings arrived) without touching the rest of Today
+      refresh: () => { if(route() !== 'today') return; const el = $('#view .td-sched'), html = todaySchedule(todayKey()); if(el) el.outerHTML = html || ''; else if(html){ const qa = $('#view .qa'); qa && qa.insertAdjacentHTML('afterend', html); } } },   // one source per plugin: re-running setup replaces it
     meetingActions: { add: a => Reg.meetingActions.push({ ...a, pid }) },
     clientActions: { add: a => Reg.clientActions.push({ ...a, pid }) },
     sidebar: { add: w => Reg.sidebar.push({ ...w, pid }) },
@@ -1136,8 +1138,11 @@ function renderView(){
     if(pv){ v.innerHTML = `<div class="head"><div><h1>${esc(pv.title)}</h1>${pv.subtitle?`<div class="sub">${esc(pv.subtitle)}</div>`:''}</div></div><div id="pv"></div>`; try { pv.render($('#pv'), makeApi(pv.pid)); } catch(e){ $('#pv').textContent = 'Plugin view failed: ' + e.message; } emit('render', { route: r }); return; }
     html = emptyState('◇','View not available','The plugin providing it may be disabled.');
   } else { location.hash = 'today'; return; }
+  // a redraw (sync, a plugin, the calendar) must never eat what you're halfway through typing in the add box
+  const qa0 = $('#qa'), kept = qa0 && qa0.value ? { v: qa0.value, f: document.activeElement === qa0, s: qa0.selectionStart, e: qa0.selectionEnd } : null;
   v.innerHTML = html;
   bindQuickAdd(); applyKb();
+  if(kept){ const n = $('#qa'); if(n){ n.value = kept.v; n.dispatchEvent(new Event('input')); if(kept.f){ n.focus(); try { n.setSelectionRange(kept.s, kept.e); } catch(e){} } } }
   emit('render', { route: r });
 }
 function onboarding(){

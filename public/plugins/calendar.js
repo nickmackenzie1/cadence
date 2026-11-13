@@ -130,7 +130,7 @@
         color: ev.client ? ((ev.client.brand && ev.client.brand.primary) || ev.client.color) : '', attrs: `data-ev="${E(ev.id)}"` })),
         () => `<button class="td-link" data-calcfg>${opts().sample || (G.cfg && G.cfg.calendars && G.cfg.calendars.length) ? 'Calendars' : 'Connect calendar'}</button>`);
       // after new events arrive: redraw Today (its schedule), or just the bits mount() adds elsewhere
-      const repaint = () => { if (api.ui.currentRoute() === 'today') api.ui.refresh(); else mount(); };
+      const repaint = () => { if (api.ui.currentRoute() === 'today') api.today.refresh(); else mount(); };
       api.on('render', mount);
       api.on('refocus', () => load().then(() => { repaint(); tick(); }).catch(() => {}));
       if (!G.clickBound) {
