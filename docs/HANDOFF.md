@@ -497,3 +497,20 @@ data, or peer-to-peer on the same LAN). Personal data and secrets stay on each p
   "9 coming up this …").
 - Direction to propose: drop the card grid for one editorial line or a timeline of the day; make overdue an inline action,
   not a stat; let the quick-add lead; fold energy into the greeting; a real type scale and a distinctive accent.
+
+## Backlog: effects engines (user, 2026-11-12 22:52–22:54)
+- User built two falling-sand prototypes (uploads: elements.html sandbox, page.html "Ember & Frost" where the page's
+  words/cards/images become cells and break loose as rigid pieces). Materials: sand, water, ice, snow, fire, wood,
+  steam, stone, oil, lava, ember, ash, smoke, glass; bloom by downsampled emissive layer.
+- Ideas agreed ("LOVE IT"): done tasks crumble to sand into a jar/pile (replaces the ring); overdue tasks smoulder and
+  catch fire (opt-in); "Drop" burns a task; one shared effects engine replacing christmas.js snow/melt + typing-fx fire,
+  driven by real weather; focus hourglass; kids sandbox / chore jar on the family kiosk.
+- "Could we also do it in Havok… keep what we have but on the menu let it switch": an Effects engine setting —
+  Off / Classic (today's code) / Elements (falling sand) / Havok (rigid bodies).
+  - Havok for the web: @babylonjs/havok, MIT-licensed WASM (~2 MB). Rigid bodies only: no fluids or particles.
+    Vendor the .wasm into public/vendor (no CDN, NAS-only), load it only when Havok is picked.
+  - Havok mode: task cards as real blocks that tumble/rotate/stack, done tasks dropped into a bin, snowballs.
+  - Best of both: Elements for materials, Havok for the pieces that break loose (rotation, bouncing), instead of
+    the prototype's per-cell straight drop.
+  - All engines behind one adapter fed by the same events (cadence:heat, task done, overdue, weather); viewport-only
+    grid, pause on hidden tab, off for prefers-reduced-motion, Lucide icons not emoji in the controls.
