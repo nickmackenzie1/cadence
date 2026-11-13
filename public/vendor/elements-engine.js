@@ -406,7 +406,7 @@
       ledgesDirty = false;
       const out = ['surf'], seen = new Set(), add = (l, rt, t) => {
         if (rt - l < 6 || t < 2 * CELL || t >= innerHeight) return;
-        const x0 = Math.max(0, Math.floor(l / CELL)), x1 = Math.min(W, Math.ceil(rt / CELL)), y = Math.floor(t / CELL), k = y * 4096 + x0;
+        const x0 = Math.max(0, Math.floor(l / CELL)), x1 = Math.min(W, Math.ceil(rt / CELL)), y = Math.round(t / CELL), k = y * 4096 + x0;   // round: the snow's underside lands on the edge, not a cell above it
         if (y < 2 || y >= H || seen.has(k)) return; seen.add(k); out.push(x0, x1, y);
       };
       if (cfg.ledges) { for (const el of document.querySelectorAll(cfg.ledges)) { const r = el.getBoundingClientRect(); add(r.left, r.right, r.top); } inputQ.push(out); return; }
@@ -426,8 +426,9 @@
       const range = document.createRange(); let m = 0;
       for (let t = tw.nextNode(); t && m < 2500; t = tw.nextNode()) {
         const pr = t.parentElement.getBoundingClientRect(); if (pr.bottom < 0 || pr.top > innerHeight || !pr.width) continue;
-        range.selectNodeContents(t);
-        for (const rc of range.getClientRects()) { m++; if (rc.width > 4 && rc.height > 6) add(rc.left, rc.right, rc.top + rc.height * 0.22); }   // just under the cap height, where letters start
+        range.selectNodeContents(t); const fs = parseFloat(getComputedStyle(t.parentElement).fontSize) || 14;
+        // on the tops of the lowercase letters: the line's middle, less a fifth of the font size (x-height)
+        for (const rc of range.getClientRects()) { m++; if (rc.width > 4 && rc.height > 6) add(rc.left + 1, rc.right - 1, rc.top + rc.height / 2 - fs * 0.2); }
       }
       inputQ.push(out);
     }
@@ -784,7 +785,11 @@
       melt(x, y, r = 40, rx = r) { if (!ready) return; const [cx, cy] = cell(x, y); inputQ.push(['melt', cx, cy, Math.max(1, Math.round(r / CELL)), Math.max(1, Math.round(rx / CELL))]); },
       // { snow, everywhere, wind, rain, storm, lights: 'twinkle'|'chase'|'steady'|null, palette }
       set(o) {
-        if ('snow' in o) setOpt('snowing', !!o.snow);
+        if ('snow' in o) {
+          const was = S.snowing; setOpt('snowing', !!o.snow);
+          // switched off means off: the flakes still in the air go, and what has settled is cleared
+          if (was && !o.snow && AMBIENT) { flakes = []; inputQ.push(['clear', M.SNOW], ['clear', M.ICE]); }
+        }
         if ('everywhere' in o) setOpt('snowEverywhere', !!o.everywhere);
         if ('wind' in o) setOpt('windBase', +o.wind || 0);
         if ('rain' in o) setOpt('rain', Math.max(0, Math.round(o.rain || 0)));

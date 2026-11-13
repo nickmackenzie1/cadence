@@ -173,7 +173,7 @@ test('themes: engine applies, persists, cleans up effects, and plugins can regis
   await page.reload(); await page.waitForTimeout(800);
   expect(await page.evaluate(() => document.documentElement.dataset.skin)).toBe('paper');
   await page.goto(`http://localhost:${PORT}/#view-themes`);
-  await expect(page.locator('.th-card')).toHaveCount(ids.length);
+  await expect(page.locator('.thg-sec .th-card')).toHaveCount(ids.length);
   await page.evaluate(() => CadenceThemes.apply('cadence'));
   // the sidebar palette button opens the quick switcher, which reaches the gallery
   await page.click('[data-act=theme]');
@@ -253,5 +253,35 @@ test('themes set 3: Reddit votes change priority, the Pocket Casts player finish
   await expect.poll(() => page.evaluate(id => window.T3.tasks.get(id).done, id)).toBe(true);
   await page.evaluate(() => CadenceThemes.apply('cadence'));
   await expect(page.locator('.pc-player, .pl-hud, .bl-blades, .rd-vote')).toHaveCount(0);   // everything cleans up
+  expect(errs).toEqual([]);
+});
+
+test('themes screen: search, light/dark, an index that jumps, Adjust tucked away, and picking a theme keeps your place', async ({ page }) => {
+  const errs = errorsOf(page); await boot(page);
+  await page.evaluate(() => { location.hash = 'view-themes'; });
+  await expect(page.locator('#thg-now')).toContainText('Current theme');
+  await expect(page.locator('.th-cust')).toBeHidden();
+  await page.click('#thg-tw'); await expect(page.locator('.th-cust')).toBeVisible();
+  // search hides what doesn't match
+  await page.fill('#thg-q', 'pocket');
+  await expect(page.locator('.thg-sec .th-card:visible')).toHaveCount(1);
+  await page.fill('#thg-q', 'zzzz'); await expect(page.locator('.thg-none')).toBeVisible();
+  await page.fill('#thg-q', '');
+  await page.click('[data-tht=dark]');
+  expect(await page.locator('.thg-sec .th-card:visible[data-tone=light]').count()).toBe(0);
+  await page.click('[data-tht=all]');
+  // the index jumps to a category
+  await page.click('[data-go="thg-fun"]');
+  await expect.poll(() => page.evaluate(() => Math.round(document.getElementById('thg-fun').getBoundingClientRect().top))).toBeLessThan(80);
+  // picking a theme that changes which element scrolls keeps the card where it was
+  for (const id of ['pocket-casts', 'nord', 'limewire', 'cadence']) {
+    const card = page.locator(`.thg-sec .th-card[data-th="${id}"]`);
+    await card.scrollIntoViewIfNeeded(); await page.mouse.wheel(0, 1); await page.waitForTimeout(150);
+    const y0 = (await card.boundingBox()).y;
+    await card.click(); await page.waitForTimeout(400);
+    expect(Math.abs((await card.boundingBox()).y - y0), id).toBeLessThan(4);
+    await expect(card).toHaveClass(/\bon\b/);
+    await expect(page.locator('#thg-now h2')).toHaveText(await page.evaluate(id => CadenceThemes.list().find(t => t.id === id).name, id));
+  }
   expect(errs).toEqual([]);
 });

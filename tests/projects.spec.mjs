@@ -228,3 +228,19 @@ test('Elements look: one set of lights after resizes and theme changes, snow set
   await expect.poll(() => page.evaluate(h => window.__fx.count(h, window.__fx.M.SNOW), h), { timeout: 8000 }).toBeGreaterThan(15);
   expect(errs).toEqual([]);
 });
+
+test('Elements look: switching snow off clears the air and the drifts at once', async ({ page }) => {
+  test.setTimeout(60000);
+  const errs = []; page.on('pageerror', e => errs.push(String(e)));
+  await page.addInitScript(() => { localStorage.setItem('cadence.reviewNudge', (d => { d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); })(new Date())); });
+  await page.goto(B + '/#today');
+  await expect(page.locator('#sync')).toContainText('NAS', { timeout: 8000 });
+  await page.evaluate(() => window.__xmas.reset({ look: 'elements', chaos: 1, tune: null }));
+  await page.evaluate(() => window.__xmas.flip('snow'));
+  await expect.poll(() => page.evaluate(async () => ((await window.__fx.counts())[13] || 0)), { timeout: 20000 }).toBeGreaterThan(20);   // snow has landed
+  await page.evaluate(() => window.__xmas.flip('snow'));   // off
+  await expect.poll(() => page.evaluate(async () => ((await window.__fx.counts())[13] || 0)), { timeout: 5000 }).toBe(0);
+  await page.waitForTimeout(2000);
+  expect(await page.evaluate(async () => ((await window.__fx.counts())[13] || 0))).toBe(0);   // and nothing new lands
+  expect(errs).toEqual([]);
+});

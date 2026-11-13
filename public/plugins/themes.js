@@ -151,12 +151,29 @@
       if (!document.getElementById('th-css')) {
         const s = document.createElement('style'); s.id = 'th-css';
         s.textContent = `
-          .th-cat{margin:26px 0 10px;font-size:12px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
-          .th-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:14px}
+          .thg [hidden]{display:none!important}
+          .thg{display:grid;grid-template-columns:200px minmax(0,1fr);gap:28px;align-items:start}
+          .thg-nav{position:sticky;top:12px;display:flex;flex-direction:column;gap:10px;max-height:calc(100vh - 24px);overflow:auto}
+          .thg-tone{width:100%}.thg-tone button{flex:1}
+          .thg-idx{display:flex;flex-direction:column;gap:1px}
+          .thg-idx button{display:flex;justify-content:space-between;align-items:center;padding:6px 10px;border-radius:var(--r-m);font-size:13px;color:var(--muted);text-align:left}
+          .thg-idx button span{font-size:11px;color:var(--faint);font-variant-numeric:tabular-nums}
+          .thg-idx button:hover{background:var(--hover);color:var(--text)} .thg-idx button.on{background:var(--accent-soft);color:var(--accent);font-weight:600}
+          .thg-rand{display:inline-flex;align-items:center;justify-content:center;gap:6px}.thg-rand svg{width:15px;height:15px}
+          .thg-now{display:grid;grid-template-columns:minmax(0,260px) 1fr;gap:20px;align-items:center;padding:16px;border:1px solid var(--line);border-radius:var(--r-l);background:var(--panel);scroll-margin-top:12px}
+          .thg-big .th-mini{height:150px;border-radius:var(--r-m);border:1px solid var(--line);grid-template-columns:70px 1fr}
+          .thg-k{font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+          .thg-info h2{margin:4px 0 2px;font-size:22px;letter-spacing:-.01em}.thg-info p{margin:0 0 12px;color:var(--muted);font-size:13px}
+          .thg-row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.thg-row .btn{display:inline-flex;align-items:center;gap:6px}.thg-row svg{width:15px;height:15px}
+          .thg-now .th-cust{grid-column:1/-1;margin-top:4px}
+          .thg-none{padding:30px;text-align:center;color:var(--muted)}
+          @media (max-width:860px){.thg{grid-template-columns:1fr;gap:14px}.thg-nav{position:static;max-height:none}.thg-idx{flex-direction:row;overflow-x:auto;scrollbar-width:none}.thg-idx button{flex:none;gap:6px}.thg-now{grid-template-columns:1fr}}
+          .th-cat{margin:26px 0 10px;font-size:12px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);scroll-margin-top:12px}.th-cat span{color:var(--faint);margin-left:4px}
+          .th-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px}
           .th-card{border:1px solid var(--line);border-radius:14px;overflow:hidden;cursor:pointer;background:var(--panel);transition:transform .15s,box-shadow .2s,border-color .2s;text-align:left;padding:0;display:block;width:100%}
           .th-card:hover{transform:translateY(-2px);box-shadow:var(--shadow)}
           .th-card.on{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent)}
-          .th-mini{height:104px;display:grid;grid-template-columns:52px 1fr;background:var(--p-bg);font-family:var(--p-font,inherit);position:relative;overflow:hidden}
+          .th-mini{height:92px;display:grid;grid-template-columns:52px 1fr;background:var(--p-bg);font-family:var(--p-font,inherit);position:relative;overflow:hidden}
           .th-mini .s{background:var(--p-side);border-right:1px solid var(--p-line);padding:9px 7px;display:flex;flex-direction:column;gap:5px}
           .th-mini .s i{height:5px;border-radius:3px;background:var(--p-text);opacity:.18}
           .th-mini .s i.a{background:var(--p-accent);opacity:.9}
@@ -193,7 +210,7 @@
         `;
         document.head.appendChild(s);
       }
-      api.views.add({ id: 'themes', title: 'Themes', icon: '◐', subtitle: 'One look for the whole app, on every device', render: el => gallery(el) });
+      api.views.add({ id: 'themes', title: 'Themes', icon: '◐', subtitle: 'One look for the whole app, on every device', wide: true, render: el => gallery(el) });
       api.commands.add({ title: 'Theme gallery', hint: 'Look & feel', run: () => api.ui.navigate('view-themes') });
       api.commands.add({ title: 'Next theme', run: () => { const l = [...T.keys()]; const id = l[(l.indexOf(current) + 1) % l.length]; window.CadenceThemes.apply(id); api.island.show({ icon: '◐', title: T.get(id).name, sub: T.get(id).tagline || '', ms: 2200 }); } });
       for (const t of T.values()) api.commands.add({ title: `Theme: ${t.name}`, run: () => window.CadenceThemes.apply(t.id) });
@@ -207,35 +224,106 @@
         const v = Object.entries({ bg: p.bg || '#f7f6f3', panel: p.panel || '#fff', side: p.side || p.panel || '#f0eee9', text: p.text || '#1d1c1a', accent: p.accent || '#5b5bd6', line: p.line || '#e7e4dd', r: p.r || '6px', font: p.font || t.font || 'inherit' }).map(([k, x]) => `--p-${k}:${x}`).join(';');
         return `<div class="th-mini" style="${api.ui.esc(v)};${p.extra ? api.ui.esc(p.extra) : ''}"><div class="s"><i class="a"></i><i></i><i></i><i></i></div><div class="m"><div class="h">Today</div><div class="r"><b></b><span></span></div><div class="r"><b></b><span style="flex:.6"></span></div><div class="bt">Add</div></div>${t.effects ? '<span class="th-fxbadge">FX</span>' : ''}</div>`;
       }
-      const G = window.__thUI = window.__thUI || { cat: 'All', tone: 'all' };
+      const G = window.__thUI = window.__thUI || { tone: 'all', q: '', open: false };
       const toneOf = t => { const v = t.vars || t.light || {}; const bg = (t.preview && t.preview.bg) || v['--bg'] || '#fff'; return t.light && t.dark ? 'both' : lum(bg) < 0.45 ? 'dark' : 'light'; };
+      const slug = c => 'thg-' + String(c).toLowerCase().replace(/[^a-z0-9]+/g, '-');
+      const catsNow = () => { const seen = [...new Set([...T.values()].map(t => t.category || 'Fun'))]; return [...CATS.filter(c => seen.includes(c)), ...seen.filter(c => !CATS.includes(c)).sort()]; };
+
       function gallery(el) {
         const E = api.ui.esc, c = api.storage.get('custom') || {}, level = api.storage.get('effects') || 'full';
-        const keep = t => (G.cat === 'All' || (t.category || 'Fun') === G.cat) && (G.tone === 'all' || toneOf(t) === G.tone || toneOf(t) === 'both');
-        const byCat = CATS.map(cat => [cat, [...T.values()].filter(t => (t.category || 'Fun') === cat && keep(t))]).concat([['Other', [...T.values()].filter(t => !CATS.includes(t.category || 'Fun') && keep(t))]]).filter(x => x[1].length);
-        el.innerHTML = `<div class="th-cust">
-            <div><label>Accent colour</label><input type="color" id="th-accent" value="${E(c.accent || (token('--accent').match(/^#[0-9a-f]{6}$/i) ? token('--accent') : '#5b5bd6'))}"></div>
-            <div><label>Font</label><select class="inp" id="th-font"><option value="">Theme's own</option>${[['sans', 'Inter'], ['system', 'System'], ['serif', 'Serif'], ['rounded', 'Rounded'], ['mono', 'Mono']].map(([k, n]) => `<option value="${k}" ${c.font === k ? 'selected' : ''}>${n}</option>`).join('')}</select></div>
-            <div><label>Corners: <span id="th-rv">${c.radius != null ? c.radius + 'px' : "theme's own"}</span></label><input type="range" id="th-radius" min="0" max="22" value="${c.radius != null ? c.radius : 10}"></div>
-            <div><label>Effects</label><select class="inp" id="th-fx">${[['full', 'Full chaos'], ['low', 'Gentle'], ['off', 'Off']].map(([k, n]) => `<option value="${k}" ${level === k ? 'selected' : ''}>${n}</option>`).join('')}</select></div>
-            <div style="display:flex;align-items:flex-end"><button class="btn" id="th-reset">Reset tweaks</button></div>
-          </div>
-          <div class="th-filter"><div class="pl-cats" style="margin:0">${['All', ...CATS].map(k => `<button class="${G.cat === k ? 'on' : ''}" data-thc="${k}">${k}${k === 'All' ? ` <span>${T.size}</span>` : ''}</button>`).join('')}</div>
-            <div class="seg">${[['all', 'Any'], ['light', 'Light'], ['dark', 'Dark']].map(([k, l]) => `<button class="${G.tone === k ? 'on' : ''}" data-tht="${k}">${l}</button>`).join('')}</div></div>
-          ${byCat.map(([cat, list]) => `<div class="th-cat">${E(cat)}</div><div class="th-grid">${list.map(t => `<button class="th-card ${t.id === current ? 'on' : ''}" data-th="${E(t.id)}">${preview(t)}<div class="th-meta"><b>${E(t.name)}</b><span>${E(t.tagline || '')}</span></div></button>`).join('')}</div>`).join('')}
-          <div class="th-dev">Make your own: call <code>CadenceThemes.register({ id, name, vars, css, effects })</code> from any plugin (Settings → Developer), see docs/PLUGINS.md. Credits for the open-source projects behind these themes are in <code>vendor/themes/CREDITS.md</code>.</div>`;
-        el.querySelectorAll('[data-thc]').forEach(b => b.onclick = () => { G.cat = b.dataset.thc; gallery(el); });
-        el.querySelectorAll('[data-tht]').forEach(b => b.onclick = () => { G.tone = b.dataset.tht; gallery(el); });
-        el.querySelectorAll('[data-th]').forEach(b => b.onclick = () => {
-          const prev = current; window.CadenceThemes.apply(b.dataset.th); gallery(el);
-          if (prev !== current) api.ui.toast(`Theme: ${T.get(current).name}`, [{ label: 'Undo', run: () => { window.CadenceThemes.apply(prev); gallery(el); } }]);
-        });
-        const save = patch => { api.storage.set('custom', Object.assign({}, api.storage.get('custom') || {}, patch)); custom(); };
-        el.querySelector('#th-accent').oninput = e => save({ accent: e.target.value });
-        el.querySelector('#th-font').onchange = e => save({ font: e.target.value || null });
-        el.querySelector('#th-radius').oninput = e => { save({ radius: +e.target.value }); el.querySelector('#th-rv').textContent = e.target.value + 'px'; };
-        el.querySelector('#th-fx').onchange = e => { api.storage.set('effects', e.target.value); apply(current); };
-        el.querySelector('#th-reset').onclick = () => { api.storage.set('custom', {}); custom(); gallery(el); };
+        const cats = catsNow(), all = [...T.values()], cur = T.get(current) || T.get('cadence');
+        const recent = (api.storage.get('recent') || []).filter(id => T.has(id) && id !== current).slice(0, 6).map(id => T.get(id));
+        const card = t => `<button class="th-card ${t.id === current ? 'on' : ''}" data-th="${E(t.id)}" data-tone="${toneOf(t)}" data-q="${E((t.name + ' ' + (t.tagline || '') + ' ' + (t.category || '')).toLowerCase())}">${preview(t)}<div class="th-meta"><b>${E(t.name)}</b><span>${E(t.tagline || '')}</span></div></button>`;
+        el.innerHTML = `<div class="thg">
+          <aside class="thg-nav">
+            <input class="inp thg-q" id="thg-q" type="search" placeholder="Search ${all.length} themes" value="${E(G.q)}" aria-label="Search themes" data-no-grammar>
+            <div class="seg thg-tone">${[['all', 'Any'], ['light', 'Light'], ['dark', 'Dark']].map(([k, l]) => `<button class="${G.tone === k ? 'on' : ''}" data-tht="${k}">${l}</button>`).join('')}</div>
+            <nav class="thg-idx" aria-label="Theme categories">
+              <button data-go="thg-now">Current</button>${recent.length ? '<button data-go="thg-recent">Recently used</button>' : ''}
+              ${cats.map(k => `<button data-go="${slug(k)}">${E(k)}<span>${all.filter(t => (t.category || 'Fun') === k).length}</span></button>`).join('')}
+            </nav>
+            <button class="btn thg-rand" id="thg-rand">${api.ui.icon('shuffle')}Surprise me</button>
+          </aside>
+          <div class="thg-main">
+            <section class="thg-now" id="thg-now"></section>
+            ${recent.length ? `<h3 class="th-cat" id="thg-recent">Recently used</h3><div class="th-grid">${recent.map(card).join('')}</div>` : ''}
+            ${cats.map(k => `<section class="thg-sec" data-cat="${E(k)}"><h3 class="th-cat" id="${slug(k)}">${E(k)} <span>${all.filter(t => (t.category || 'Fun') === k).length}</span></h3><div class="th-grid">${all.filter(t => (t.category || 'Fun') === k).map(card).join('')}</div></section>`).join('')}
+            <div class="thg-none" hidden>No theme matches. Try another word, or set Light / Dark back to Any.</div>
+            <div class="th-dev">Make your own: call <code>CadenceThemes.register({ id, name, vars, css, effects })</code> from any plugin (Settings → Developer), see docs/PLUGINS.md. Credits for the open-source projects behind these themes are in <code>vendor/themes/CREDITS.md</code>.</div>
+          </div></div>`;
+
+        // ---- the current theme, with its tweaks, at the top ----
+        function now() {
+          const t = T.get(current) || cur, box = el.querySelector('#thg-now'), cc = api.storage.get('custom') || {};
+          box.innerHTML = `<div class="thg-big">${preview(t)}</div>
+            <div class="thg-info"><div class="thg-k">Current theme · ${E(t.category || 'Fun')}</div><h2>${E(t.name)}</h2><p>${E(t.tagline || '')}</p>
+              <div class="thg-row"><div class="seg">${[['light', 'Light'], ['dark', 'Dark']].map(([k, l]) => `<button class="${(api.ui.colorMode() === k) ? 'on' : ''}" data-mode="${k}">${l}</button>`).join('')}</div>
+                <button class="btn" id="thg-tw" aria-expanded="${G.open}">${api.ui.icon('sliders-horizontal')}Adjust</button></div></div>
+            <div class="th-cust" ${G.open ? '' : 'hidden'}>
+              <div><label>Accent colour</label><input type="color" id="th-accent" value="${E(cc.accent || (token('--accent').match(/^#[0-9a-f]{6}$/i) ? token('--accent') : '#5b5bd6'))}"></div>
+              <div><label>Font</label><select class="inp" id="th-font"><option value="">Theme's own</option>${[['sans', 'Inter'], ['system', 'System'], ['serif', 'Serif'], ['rounded', 'Rounded'], ['mono', 'Mono']].map(([k, n]) => `<option value="${k}" ${cc.font === k ? 'selected' : ''}>${n}</option>`).join('')}</select></div>
+              <div><label>Corners: <span id="th-rv">${cc.radius != null ? cc.radius + 'px' : "theme's own"}</span></label><input type="range" id="th-radius" min="0" max="22" value="${cc.radius != null ? cc.radius : 10}"></div>
+              <div><label>Effects</label><select class="inp" id="th-fx">${[['full', 'Full'], ['low', 'Gentle'], ['off', 'Off']].map(([k, n]) => `<option value="${k}" ${level === k ? 'selected' : ''}>${n}</option>`).join('')}</select></div>
+              <div style="display:flex;align-items:flex-end"><button class="btn" id="th-reset">Reset tweaks</button></div>
+            </div>`;
+          const save = patch => { api.storage.set('custom', Object.assign({}, api.storage.get('custom') || {}, patch)); custom(); };
+          box.querySelectorAll('[data-mode]').forEach(b => b.onclick = () => { keepPlace(b, () => api.ui.setColorMode(b.dataset.mode)); });
+          box.querySelector('#thg-tw').onclick = () => { G.open = !G.open; now(); };
+          box.querySelector('#th-accent').oninput = e => save({ accent: e.target.value });
+          box.querySelector('#th-font').onchange = e => save({ font: e.target.value || null });
+          box.querySelector('#th-radius').oninput = e => { save({ radius: +e.target.value }); box.querySelector('#th-rv').textContent = e.target.value + 'px'; };
+          box.querySelector('#th-fx').onchange = e => { api.storage.set('effects', e.target.value); apply(current); };
+          box.querySelector('#th-reset').onclick = () => { api.storage.set('custom', {}); custom(); now(); };
+        }
+        now();
+
+        // ---- keep what you clicked where it was on screen, whatever the new theme does to the layout ----
+        function keepPlace(anchor, fn) {
+          const key = anchor.dataset.th, y = anchor.getBoundingClientRect().top;
+          fn();
+          // walk up every scrolling box (themes can nest them, e.g. Pocket Casts) until the card is back where it was
+          const fix = () => { const a = key ? el.querySelector(`.thg-sec .th-card[data-th="${CSS.escape(key)}"]`) || el.querySelector(`.th-card[data-th="${CSS.escape(key)}"]`) : anchor; if (!a || !a.isConnected) return;
+            for (let e = a.parentElement; e; e = e.parentElement) { const d = a.getBoundingClientRect().top - y; if (Math.abs(d) <= 1) return; const o = getComputedStyle(e).overflowY; if ((o === 'auto' || o === 'scroll') && e.scrollHeight > e.clientHeight) e.scrollTop += d; }
+            const d = a.getBoundingClientRect().top - y; if (Math.abs(d) > 1) document.scrollingElement.scrollTop += d; };
+          fix(); requestAnimationFrame(() => { fix(); requestAnimationFrame(fix); }); setTimeout(fix, 120);
+        }
+        const pick = (id, anchor) => {
+          const prev = current;
+          keepPlace(anchor, () => {
+            window.CadenceThemes.apply(id);
+            el.querySelectorAll('.th-card.on').forEach(x => x.classList.remove('on'));
+            el.querySelectorAll(`.th-card[data-th="${CSS.escape(current)}"]`).forEach(x => x.classList.add('on'));
+            now();
+          });
+          if (prev !== current) api.ui.toast(`Theme: ${T.get(current).name}`, [{ label: 'Undo', run: () => pick(prev, anchor) }]);
+        };
+        el.querySelectorAll('[data-th]').forEach(b => b.onclick = () => pick(b.dataset.th, b));
+        el.querySelector('#thg-rand').onclick = () => { const vis = [...el.querySelectorAll('.thg-sec .th-card')].filter(x => !x.hidden && x.dataset.th !== current); const b = vis[Math.floor(Math.random() * vis.length)]; if (b) { b.scrollIntoView({ block: 'center', behavior: 'smooth' }); pick(b.dataset.th, b); } };
+
+        // ---- search and light/dark filter: hide, don't rebuild ----
+        function filter() {
+          const q = G.q.trim().toLowerCase();
+          el.querySelectorAll('.th-card').forEach(b => { b.hidden = !((!q || b.dataset.q.includes(q)) && (G.tone === 'all' || b.dataset.tone === G.tone || b.dataset.tone === 'both')); });
+          let any = false;
+          el.querySelectorAll('.thg-sec').forEach(sec => { const n = sec.querySelectorAll('.th-card:not([hidden])').length; sec.hidden = !n; any = any || !!n; const sp = sec.querySelector('.th-cat span'); if (sp) sp.textContent = n; const nb = el.querySelector(`[data-go="${sec.querySelector('.th-cat').id}"]`); if (nb) { nb.hidden = !n; nb.querySelector('span').textContent = n; } });
+          el.querySelector('.thg-none').hidden = any;
+        }
+        const qi = el.querySelector('#thg-q'); qi.oninput = () => { G.q = qi.value; filter(); };
+        el.querySelectorAll('[data-tht]').forEach(b => b.onclick = () => { G.tone = b.dataset.tht; el.querySelectorAll('[data-tht]').forEach(x => x.classList.toggle('on', x === b)); filter(); });
+        filter();
+
+        // ---- the index: jump to a section, and show which one you're in ----
+        el.querySelectorAll('[data-go]').forEach(b => b.onclick = () => { const h = el.querySelector('#' + b.dataset.go); if (h) h.scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' }); });
+        G.io && G.io.disconnect();
+        if (window.IntersectionObserver) {
+          const heads = [el.querySelector('#thg-now'), ...el.querySelectorAll('.thg-main .th-cat')].filter(Boolean), vis = new Map();
+          G.io = new IntersectionObserver(es => {
+            for (const e of es) vis.set(e.target.id, e.isIntersecting ? e.boundingClientRect.top : null);
+            const top = heads.find(h => vis.get(h.id) != null) || null;
+            el.querySelectorAll('[data-go]').forEach(b => b.classList.toggle('on', !!top && b.dataset.go === top.id));
+          }, { rootMargin: '0px 0px -70% 0px' });
+          heads.forEach(h => G.io.observe(h));
+        }
       }
     }
   });

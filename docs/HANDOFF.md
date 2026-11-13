@@ -779,3 +779,23 @@ data, or peer-to-peer on the same LAN). Personal data and secrets stay on each p
   greens, rain, soft painted sky; Jurassic = jungle greens, amber, park-signage type).
 - Themes screen redesign: it's very long, needs better navigation (category tabs/side index, search, maybe a compact
   grid + live preview). Bug: picking a theme scrolls the page back to the top.
+
+## Shipped 2026-11-13 ~15:00: Themes screen redesign + snow fixes
+- themes.js gallery (wide view): left index (search, Any/Light/Dark, Current, Recently used, each category with count,
+  Surprise me), sticky on desktop, chips row on phones; a Current-theme card (big preview, Light/Dark, "Adjust" opens
+  accent/font/corners/effects); categories as sections with anchors (IntersectionObserver highlights where you are);
+  compact cards. Categories are read from the registered themes (CATS order first), so new ones (Movie & TV, Ghibli)
+  appear on their own. Search and tone filter hide cards instead of rebuilding.
+- The "scrolls to top" bug: themes like Pocket Casts/LimeWire make #view the scroller, so switching moved the scroll
+  box. Picking no longer rebuilds the gallery, and keepPlace() walks every scrolling ancestor until the clicked card is
+  back where it was. `.thg [hidden]{display:none!important}` (card/panel display rules beat [hidden]).
+- Snow (user, two reports): text ledges now sit at each line's x-height (middle − 0.2 × font size) and all ledges round
+  to the nearest cell (floor left a 2–3 px gap: "floating"). Switching snow off on the calm layer now drops the
+  flakes in the air and clears settled SNOW and ICE at once (engine set({snow:false})).
+- Tests: smoke "themes screen…", projects "switching snow off clears the air and the drifts".
+
+## Backlog (user, 2026-11-13 12:16)
+- A 3D theme (depth: tilted cards, parallax, layered panels; maybe a WebGL backdrop).
+- A webcam theme, something playful: e.g. you, pixelated or posterised, as the backdrop; the Elements engine reading
+  the camera so snow/sand lands on your head and shoulders; hand-wave to clear a drift. Camera only on explicit opt-in,
+  processed on the device, never stored or sent, a visible "camera on" indicator.
