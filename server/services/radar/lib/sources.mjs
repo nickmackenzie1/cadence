@@ -15,7 +15,7 @@ import { now } from "./config.mjs";
 
 const require = createRequire(import.meta.url);
 let parseFeed = null;
-try { ({ parseFeed } = require("../../feeds.js")); } catch {}   // Cadence's RSS/Atom parser
+try { ({ parseFeed } = require("../../../lib/feedparse.js")); } catch (e) { console.error("radar: feed parser", e); }   // Cadence's RSS/Atom parser (no config, no disk)
 
 export const DEFAULT_BLOGS = [
   { name: "Pitchfork reviews", url: "https://pitchfork.com/feed/feed-album-reviews/rss" },
