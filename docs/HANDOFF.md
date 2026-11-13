@@ -868,3 +868,11 @@ data, or peer-to-peer on the same LAN). Personal data and secrets stay on each p
   rupees copy Nintendo's designs: skip the glyphs, use generic gem/rune shapes of our own.
 - Fonts: Hylia Serif (artsyomni.com) and the zeldauniverse.net set — check each licence before vendoring; only ship
   ones that allow it, with LICENSE-*.txt in public/vendor/themes/fonts/ like the others.
+
+## Theme rule update (user, 2026-11-13 13:16) — replaces "no characters, logos, quotes" for screen themes
+- User: fonts and CSS that tries to look like the thing are fine and the codepens are good examples; still no logos or
+  quotes. So: lookalike fonts (licence permitting), palettes, textures, UI chrome, props and scenery recreated in CSS.
+- One line Claude keeps: it won't draw the actual characters (Simpsons family, etc.) in CSS either. Rebuilt items
+  stay generic (a gem, not a rupee; a rune, not a Sheikah glyph).
+- Jurassic Park (user, 13:14): codepen GemmaCroad/vYGLPLr as reference (skip the logo); font options on fontspace
+  "jurassic-park" and cdnfonts "jurassic-park" — check the licence, vendor the file, LICENSE-*.txt.
