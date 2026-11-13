@@ -48,7 +48,7 @@
             <div class="muted" style="font-size:12px;margin-top:6px">A preset for everything below. Total chaos: blizzard gusts, big clumps, deep drifts, and a snow burst every time you finish a task.</div></div>
           <div class="field"><label>Snowflakes</label>${seg('xm-fs', [['mixed', 'Mixed'], ['soft', 'Soft'], ['crystals', 'Crystals']], o.style)}</div>
           <details class="xm-adv" ${o.tune ? 'open' : ''}><summary>Fine-tune</summary><div id="xm-sliders">${sliders()}</div></details>
-          <label class="xm-row"><input type="checkbox" id="xm-snow" ${o.snow ? 'checked' : ''}> Snow</label>
+          <label class="xm-row"><input type="checkbox" id="xm-o-snow" ${o.snow ? 'checked' : ''}> Snow</label>
           <label class="xm-row"><input type="checkbox" id="xm-build" ${o.build ? 'checked' : ''}> Snow builds up on cards, buttons and headings</label>
           <label class="xm-row"><input type="checkbox" id="xm-react" ${o.react ? 'checked' : ''}> Snow reacts to clicks and scrolling</label>
           <label class="xm-row"><input type="checkbox" id="xm-depth" ${o.depth ? 'checked' : ''}> Big soft flakes up close (depth)</label>
@@ -59,7 +59,7 @@
           ${reduced() ? '<p class="muted" style="font-size:12px">Your system asks for reduced motion, so snow stays off and the lights stay still.</p>' : ''}`,
           `<button class="btn" id="xm-shovel-page">Shovel this page</button><button class="btn" id="xm-shovel" style="margin-right:auto">Shovel everything</button><button class="btn primary" id="xm-save">Done</button>`, 'wide');
         const $ = id => document.getElementById(id);
-        const read = () => ({ ...draft, on: $('xm-on').checked, snow: $('xm-snow').checked, build: $('xm-build').checked, react: $('xm-react').checked, depth: $('xm-depth').checked, melt: $('xm-melt').checked, lights: $('xm-lights').checked });
+        const read = () => ({ ...draft, on: $('xm-on').checked, snow: $('xm-o-snow').checked, build: $('xm-build').checked, react: $('xm-react').checked, depth: $('xm-depth').checked, melt: $('xm-melt').checked, lights: $('xm-lights').checked });
         const live = () => { draft = read(); if (draft.on) { G.o = draft; G.preview && G.preview(draft); } };
         const segPick = (id, fn) => document.querySelectorAll(`#${id} button`).forEach(b => b.onclick = () => { document.querySelectorAll(`#${id} button`).forEach(x => x.classList.toggle('on', x === b)); fn(b.dataset.v); live(); });
         segPick('xm-chaos', v => { draft.chaos = +v; draft.tune = null; $('xm-sliders').innerHTML = sliders(); bindSliders(); });
@@ -417,7 +417,7 @@
       api.on('task:complete', () => { const o = G.o; if (!o || !o.on || T.gusts < 1 || reduced()) return; const c = document.querySelector('.task.done .check, .task.leaving .check'); const r = c ? c.getBoundingClientRect() : { left: innerWidth / 2, top: innerHeight / 2 }; powder(r.left + 9, r.top, Math.round(25 * T.amount), 3.5, 5); });
 
       if (!document.getElementById('xm-css')) { const st = document.createElement('style'); st.id = 'xm-css'; st.textContent = `
-        #xm-snow{position:fixed;inset:0;width:100vw;height:100vh;z-index:27;pointer-events:none}
+        canvas#xm-snow{position:fixed;inset:0;width:100vw;height:100vh;z-index:27;pointer-events:none}
         /* light spill: each bulb's colour washes softly over the UI below it, pulsing with the bulb */
         #xm-glow{position:fixed;left:0;right:0;top:0;height:300px;z-index:26;pointer-events:none;overflow:hidden}
         #xm-glow i{position:absolute;top:-40px;width:200px;height:300px;margin-left:-100px;background:radial-gradient(closest-side,color-mix(in srgb,var(--c) 70%,transparent),transparent);opacity:.13;mix-blend-mode:normal}
