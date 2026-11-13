@@ -547,3 +547,10 @@ data, or peer-to-peer on the same LAN). Personal data and secrets stay on each p
   "now playing" in the Island, play/pause from the command palette, a music player sharing the podcast player's UI.
 - Or Cadence serves the music folder itself (read-only mount, tags read on the server, zero dependencies).
 - Decide which before building; ties into the Pocket Casts-style podcast player backlog item.
+
+## Backlog (user, 2026-11-12 23:10): "the typing effects should be the fire and elements as well!"
+- Typing effects (typing-fx.js) should run on the Elements engine: typing with Fire mode drops real fire cells at the
+  caret that rise, char the text above and melt snow into water; other modes (snow, water, sand…) emit their material.
+  This is the "one shared effects engine" item: split elements-engine.js into a reusable core (grid, step, render)
+  plus the Havoc screen-reader/HUD, run it on a small region around the caret (not the whole screen) so typing stays
+  fast, and fold christmas.js snow/water into the same core.
