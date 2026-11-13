@@ -18,8 +18,8 @@ let mods = null;
 async function load() {
   if (mods) return mods;
   const m = n => import(pathToFileURL(path.join(__dirname, 'radar', n)).href);
-  const [radar, digest, backfill, store, data, rss, spotify] = await Promise.all(['radar.mjs', 'digest.mjs', 'backfill.mjs', 'lib/store.mjs', 'lib/dashboard-data.mjs', 'lib/rss.mjs', 'lib/spotify.mjs'].map(m));
-  return (mods = { radar, digest, backfill, store, data, rss, spotify });
+  const [radar, digest, backfill, store, data, rss, spotify, sources, srcData] = await Promise.all(['radar.mjs', 'digest.mjs', 'backfill.mjs', 'lib/store.mjs', 'lib/dashboard-data.mjs', 'lib/rss.mjs', 'lib/spotify.mjs', 'lib/sources.mjs', 'lib/sources-data.mjs'].map(m));
+  return (mods = { radar, digest, backfill, store, data, rss, spotify, sources, srcData });
 }
 
 const readSettings = () => { try { return { on: false, lastScan: 0, lastDigest: 0, lastError: null, ...JSON.parse(fs.readFileSync(SETTINGS, 'utf8')) }; } catch { return { on: false, lastScan: 0, lastDigest: 0, lastError: null }; } };
@@ -58,7 +58,26 @@ function runJob(kind, fn) {
   Promise.resolve().then(fn).then(() => finish(true), e => { console.error('radar', kind, e); finish(false, e); });
   return true;
 }
-const scan = () => runJob('scan', async () => { const { radar } = await load(); await radar.run({ quiet: false, playlist: false }); settings({ lastScan: Date.now() }); });
+const runSources = async only => { const { store, sources, srcData } = await load(); console.log('Checking other sources…'); await sources.runSources(srcData.sourcesCfg(), { store, state: store.loadState(), only }); };
+const scan = () => runJob('scan', async () => {
+  const { radar } = await load();
+  await radar.run({ quiet: false, playlist: false });
+  settings({ lastScan: Date.now() });
+  await runSources();   // each source records its own errors; none of them fails the scan
+});
+const sourcesNow = only => runJob('sources', () => runSources(only));
+async function sourcesSettings(patch) {
+  const { store, srcData } = await load(), cur = srcData.sourcesCfg();
+  if (patch) {
+    const next = { ...cur, ...patch, on: { ...cur.on, ...(patch.on || {}) } };
+    if (patch.blogs) next.blogs = patch.blogs.filter(b => b && /^https?:\/\//.test(b.url)).map(b => ({ name: String(b.name || new URL(b.url).hostname).slice(0, 60), url: String(b.url).slice(0, 400) })).slice(0, 30);
+    if (patch.tags) next.tags = patch.tags.map(t => String(t).trim().toLowerCase()).filter(Boolean).slice(0, 10);
+    if (patch.audiusGenres) next.audiusGenres = patch.audiusGenres.map(String).slice(0, 8);
+    next.lbUser = String(next.lbUser || '').trim().slice(0, 60); next.appleCountry = String(next.appleCountry || 'ca').toLowerCase().replace(/[^a-z]/g, '').slice(0, 2) || 'ca';
+    delete next.tagsUsed; store.setKv('sourcesCfg', next);
+  }
+  return srcData.sourcesCfg();
+}
 const digestNow = () => runJob('digest', async () => { const { digest } = await load(); await digest.digest({}); settings({ lastDigest: Date.now() }); });
 const backfill = opts => { stopBackfill = false; return runJob('backfill', async () => { const { backfill } = await load(); await backfill.backfill({ ...(opts || {}), log: note, stop: () => stopBackfill }); }); };
 const stop = () => { stopBackfill = true; };
@@ -109,4 +128,4 @@ async function digestFile(name) {
 }
 async function spotify() { const { spotify } = await load(); return spotify; }
 
-module.exports = { raw, settings, status, scan, digestNow, backfill, stop, data, feedback, subs, rss, digestFile, spotify };
+module.exports = { sourcesNow, sourcesSettings, raw, settings, status, scan, digestNow, backfill, stop, data, feedback, subs, rss, digestFile, spotify };

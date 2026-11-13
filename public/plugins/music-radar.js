@@ -61,13 +61,75 @@
     </svg>`;
   }
 
+  const SRC_NAMES = { reddit: 'Reddit', listenbrainz: 'ListenBrainz', apple: 'Apple Music', audius: 'Audius', lastfm: 'Last.fm', bandcamp: 'Bandcamp', hypem: 'Hype Machine', blogs: 'Blogs' };
+  const SRC_COL = { reddit: '#f97316', listenbrainz: '#eb743b', apple: '#ec4899', audius: '#8b5cf6', lastfm: '#ef4444', bandcamp: '#14b8a6', hypem: '#3b82f6', blogs: '#eab308' };
+  const srcPill = id => `<span class="mr-src" style="--c:${SRC_COL[id] || '#888'}">${esc(SRC_NAMES[id] || id)}</span>`;
+  const day = ts => ts ? new Date(ts * 1000).toLocaleDateString([], { month: 'short', day: 'numeric' }) : '';
+  const link = (u, t) => u ? `<a href="${esc(u)}" target="_blank" rel="noopener">${t}</a>` : t;
+
+  // ---- other sources: tabs for combined + each source ----
+  function sourcesCard(S0, ic, G) {
+    if (!S0 || !S0.available) return `<section class="mr-card w12"><h3>Other sources</h3>${empty(esc((S0 && S0.note) || 'Other sources need the database on the NAS.'))}</section>`;
+    const tabs = [['all', 'Combined']].concat(S0.list.map(x => [x.id, x.name]));
+    const cur = S0.list.find(x => x.id === G.src);
+    let body;
+    if (!cur) {
+      const rows = S0.combined.filter(a => !G.multi || a.breadth >= 2), max = Math.max(1, ...rows.map(a => a.score));
+      body = `<div class="mr-row" style="margin-bottom:8px"><label class="mr-small"><input type="checkbox" id="mr-multi" ${G.multi ? 'checked' : ''}> Only artists on 2 or more sources (${S0.multi})</label></div>
+        ${rows.length ? `<table class="mr-t"><tr><th>Artist</th><th>Where</th><th>Heard</th><th class="n">Score</th></tr>${rows.slice(0, 40).map(a => `<tr>
+          <td><b>${esc(a.artist)}</b>${a.genres.length ? ` <span class="mr-small">${esc(a.genres.join(', '))}</span>` : ''}<div class="mr-small">${a.titles.map(x => link(x.url, esc(x.title))).join(' · ')}</div></td>
+          <td>${Object.keys(a.sources).map(srcPill).join(' ')}</td><td class="mr-small">${esc(day(a.first))}</td>
+          <td class="n"><span class="mr-score"><i style="width:${Math.round(a.score / max * 100)}%"></i></span>${Math.round(a.score)}</td></tr>`).join('')}</table>`
+          : empty(G.multi ? 'No artist is on two sources yet. Untick the box to see everything.' : 'Nothing collected yet. Press Check sources.')}`;
+    } else {
+      const run = cur.run, items = cur.items.filter(x => !G.feed || x.feed === G.feed);
+      const status = cur.missing ? `Needs <code>${esc(cur.needs)}</code> in the NAS .env.` : !run ? 'Not checked yet.'
+        : `Checked ${esc(ago(run.ts * 1000))}: ${run.n} found, ${run.fresh} new.` + (run.error ? ` <span class="mr-warn">${esc(run.error)}</span>` : '');
+      body = `<p class="mr-sub">${esc(cur.kind)} · ${status}${cur.site ? ` · ${link(cur.site, 'Open site')}` : ''}${cur.on ? '' : ' · switched off in Sources'}</p>
+        ${cur.feeds.length > 1 ? `<div class="mr-chips">${['', ...cur.feeds].map(f => `<button class="mr-chip ${G.feed === f ? 'on' : ''}" data-feed="${esc(f)}">${esc(f || 'All')}</button>`).join('')}</div>` : ''}
+        ${items.length ? `<table class="mr-t"><tr>${cur.chart ? '<th class="n">#</th>' : ''}<th>Artist</th><th>Title</th><th>Where</th><th>${cur.chart ? 'Move' : 'First seen'}</th></tr>${items.slice(0, 80).map(x => `<tr>
+          ${cur.chart ? `<td class="n">${x.rank ?? ''}</td>` : ''}<td><b>${esc(x.artist)}</b></td><td>${link(x.url, esc(x.title || ''))}${x.type && x.type !== 'track' && x.type !== 'artist' ? ` <span class="chip">${esc(x.type)}</span>` : ''}</td>
+          <td class="mr-small">${esc(x.feed || '')}</td>
+          <td class="mr-small">${cur.chart ? (x.was == null || x.was === x.rank ? (x.seen > 1 ? 'steady' : 'new') : x.was > x.rank ? `up ${x.was - x.rank}` : `down ${x.rank - x.was}`) : esc(day(x.first_seen))}</td></tr>`).join('')}</table>`
+          : empty(cur.missing ? 'Add the key on the NAS to use this source.' : 'Nothing from this source yet.')}`;
+    }
+    return `<section class="mr-card w12" id="mr-sources"><div class="mr-row" style="justify-content:space-between"><div><h3>Other sources</h3><p class="mr-sub">Blogs, charts, new releases and streaming trends, next to Reddit</p></div>
+        <span class="mr-row"><button class="btn" id="mr-srcnow">${ic('refresh-cw')}Check sources</button><button class="btn" id="mr-srcset">${ic('settings')}Sources</button></span></div>
+      <div class="seg mr-tabs" id="mr-srctabs">${tabs.map(([id, n]) => { const x = S0.list.find(y => y.id === id); return `<button data-src="${id}" class="${G.src === id || (id === 'all' && !cur) ? 'on' : ''}">${esc(n)}${x ? ` <span class="mr-n${x.run && !x.run.ok ? ' bad' : ''}">${x.total}</span>` : ''}</button>`; }).join('')}</div>
+      ${body}</section>
+      <section class="mr-card w8"><h3>New finds per day, by source</h3><p class="mr-sub">Artists, songs and records each source turned up, last 30 days</p>${lineChart(S0.perDay.labels, S0.perDay.series.map(x => ({ label: x.label, data: x.data })), { h: 220, unit: 'finds' })}</section>
+      <section class="mr-card w4"><h3>Climbing the charts</h3><p class="mr-sub">Up 5 or more places in two weeks</p>
+        ${S0.movers.length ? `<table class="mr-t">${S0.movers.slice(0, 8).map(m => `<tr><td>${link(m.url, `<b>${esc(m.artist)}</b>`)}<div class="mr-small">${esc(m.title || '')} · ${esc(SRC_NAMES[m.source])} ${esc(m.feed || '')}</div></td><td class="n" style="white-space:nowrap">${m.was} → ${m.now}</td></tr>`).join('')}</table>` : empty('No big moves yet.')}
+        <h4>Crossed over</h4><p class="mr-sub">Your Reddit picks that later showed up on the Apple chart</p>
+        ${S0.crossover.length ? `<table class="mr-t">${S0.crossover.map(c => `<tr><td>${link(c.url, `<b>${esc(c.artist)}</b>`)}<div class="mr-small">picked ${esc(day(c.picked))}, charted ${esc(day(c.charted))}</div></td><td class="n">#${c.rank}</td></tr>`).join('')}</table>` : empty('None yet.')}</section>
+      <section class="mr-card w12"><h3>Genres across sources</h3><p class="mr-sub">Tags from every source except Reddit: last 7 days vs the weekly average of the 3 weeks before</p>${changeBars(S0.genres)}</section>`;
+  }
+  function sourcesDialog(api, S0) {
+    const c = S0.cfg, E = esc;
+    api.ui.modal('Sources', `<div class="mr-dlg">
+      <p class="mr-small">Checked after every Reddit scan, or with Check sources. Each one is free; Last.fm uses the key on the NAS.</p>
+      ${S0.list.map(x => `<label class="mr-srcrow"><input type="checkbox" data-on="${x.id}" ${c.on[x.id] ? 'checked' : ''}> <b>${E(x.name)}</b> <span class="mr-small">${E(x.kind)}${x.missing ? ' · needs ' + E(x.needs) : ''}</span></label>`).join('')}
+      <div class="field"><label>ListenBrainz username (adds releases picked for you)</label><input class="inp" id="mr-lb" value="${E(c.lbUser || '')}" placeholder="optional"></div>
+      <div class="field"><label>Apple Music chart country</label><input class="inp" id="mr-cc" value="${E(c.appleCountry || 'ca')}" maxlength="2" style="width:5em"></div>
+      <div class="field"><label>Tags for Bandcamp and Last.fm (comma separated)</label><input class="inp" id="mr-tags" value="${E((c.tags || []).join(', '))}" placeholder="${E((c.tagsUsed || []).join(', '))}"><div class="mr-small">Empty uses your taste: genres of picks you liked, then a starter set.</div></div>
+      <div class="field"><label>Blogs and magazines (one per line: name | feed address)</label><textarea class="inp" id="mr-blogs" rows="7" style="font-family:var(--mono);font-size:12px">${E((c.blogs || []).map(b => `${b.name} | ${b.url}`).join('\n'))}</textarea></div>
+    </div>`, `<button class="btn" data-act="close-modal">Cancel</button><button class="btn primary" id="mr-srcsave">Save</button>`);
+    document.getElementById('mr-srcsave').onclick = async () => {
+      const q = id => document.getElementById(id);
+      const on = {}; document.querySelectorAll('.mr-dlg [data-on]').forEach(b => { on[b.dataset.on] = b.checked; });
+      const blogs = q('mr-blogs').value.split('\n').map(l => l.trim()).filter(Boolean).map(l => { const [a, b] = l.includes('|') ? l.split('|') : ['', l]; return { name: a.trim(), url: (b || '').trim() }; }).filter(b => /^https?:\/\//.test(b.url));
+      await fetch('api/radar/sources', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ on, lbUser: q('mr-lb').value, appleCountry: q('mr-cc').value, tags: q('mr-tags').value.split(',').map(t => t.trim()).filter(Boolean), blogs }) });
+      api.ui.close(); api.ui.toast('Sources saved'); window.__radar.load();
+    };
+  }
+
   Cadence.registerPlugin({
     id: 'music-radar', name: 'Music Radar', version: '1.0.0', category: 'Life', spaces: ['life'],
     description: 'Finds up-and-coming artists, songs and albums on music subreddits, tracks what\'s rising, and learns your taste from thumbs up and down. Runs on your NAS: a scan every 6 hours and a weekly digest, an RSS feed, optional phone alerts and a Spotify playlist.',
     tagline: 'Up-and-coming music from Reddit buzz', color: '#3b82f6',
     icon: '<path d="M19.07 4.93A10 10 0 0 0 6.99 3.34M4 6h.01M2.29 9.62A10 10 0 1 0 21.31 8.35M16.24 7.76A6 6 0 1 0 8.23 16.67M12 18h.01M17.99 11.66A6 6 0 0 1 15.77 16.67"/><circle cx="12" cy="12" r="2"/><path d="m13.41 10.59 5.66-5.66"/>',
     setup(api) {
-      const G = { d: null, st: null, years: 'year', year: null, all: false, poll: 0 };
+      const G = { d: null, st: null, years: 'year', year: null, all: false, poll: 0, src: 'all', feed: '', multi: true };
       const get = async u => { const r = await fetch(u, { cache: 'no-store' }); if (!r.ok) throw new Error(r.status); return r.json(); };
       const post = async (u, b) => { const r = await fetch(u, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(b || {}) }); return r.json(); };
       async function load() {
@@ -118,9 +180,10 @@
             <section class="mr-card w6"><h3>Which subreddits find artists first</h3><p class="mr-sub">How often each sub posted a shared artist first. Early subs count more in scoring.</p>
               ${D.subLead.length ? `<div class="mr-bars">${D.subLead.map(s => `<div class="mr-bar" title="first on ${Math.round(s.firstShare * 100)}% of ${s.samples} shared artists${s.avgLeadHours ? `, ~${Math.round(s.avgLeadHours)}h ahead` : ''}"><span class="mr-bl">r/${esc(s.sub)}</span><span class="mr-bt"><i class="up" style="left:0;width:${Math.round(s.firstShare * 100)}%"></i></span><span class="mr-bv">${Math.round(s.firstShare * 100)}%</span></div>`).join('')}</div>` : empty('Needs artists that show up in 2+ subreddits.')}</section>
             <section class="mr-card w12"><h3>"Sounds like" map</h3><p class="mr-sub">Comparisons people make in comments. Bigger dot = compared more often. Ringed = artists you liked. Hover a dot for who it's compared with.</p>${graph(D.graph)}</section>
+            ${sourcesCard(D.sources, ic, G)}
             <section class="mr-card w8"><h3>Recent picks</h3><p class="mr-sub">Thumbs up and down teach the radar your taste</p>
               ${D.picks.length ? picks.map(p => `<div class="mr-pick"><div class="mr-pb"><a href="${esc(p.link)}" target="_blank" rel="noopener"><b>${esc(p.artist)}</b> — ${esc(p.song || 'recommended in comments')}</a>${p.type && p.type !== 'track' ? ` <span class="chip">${esc(p.type)}</span>` : ''}
-                  ${(p.genres || []).slice(0, 3).map(g => `<span class="chip">${esc(g)}</span>`).join(' ')}<div class="mr-small">${esc(p.blurb)} · <a href="${esc(p.thread)}" target="_blank" rel="noopener">thread</a></div></div>
+                  ${(p.genres || []).slice(0, 3).map(g => `<span class="chip">${esc(g)}</span>`).join(' ')}${(p.alsoOn || []).length ? ` <span class="mr-small">also on</span> ${p.alsoOn.map(srcPill).join(' ')}` : ''}<div class="mr-small">${esc(p.blurb)} · <a href="${esc(p.thread)}" target="_blank" rel="noopener">thread</a></div></div>
                 <div class="mr-fb"><button class="${p.feedback === 1 ? 'on' : ''}" data-fb="${esc(p.id)}" data-v="1" data-cur="${p.feedback}" aria-label="More like this">${ic('thumbs-up')}</button><button class="${p.feedback === -1 ? 'on' : ''}" data-fb="${esc(p.id)}" data-v="-1" data-cur="${p.feedback}" aria-label="Not for me">${ic('thumbs-down')}</button></div></div>`).join('')
                 + (D.picks.length > 15 && !G.all ? `<p><button class="btn" id="mr-all">Show all ${D.picks.length}</button></p>` : '') : empty('No picks yet. Press Scan now, or switch the radar on.')}</section>
             <section class="mr-card w4"><h3>Subreddits</h3><p class="mr-sub">What the radar scans</p>
@@ -160,6 +223,11 @@
         el.querySelectorAll('[data-add]').forEach(b => b.onclick = async () => { await post('api/radar/subs', { add: b.dataset.add }); load(); });
         const add = async () => { const v = $('#mr-new').value.trim().replace(/^\/?r\//, ''); if (!v) return; await post('api/radar/subs', { add: v }); load(); };
         $('#mr-add').onclick = add; $('#mr-new').onkeydown = e => { if (e.key === 'Enter') add(); };
+        el.querySelectorAll('#mr-srctabs [data-src]').forEach(b => b.onclick = () => { G.src = b.dataset.src; G.feed = ''; api.ui.refresh(); });
+        el.querySelectorAll('[data-feed]').forEach(b => b.onclick = () => { G.feed = b.dataset.feed; api.ui.refresh(); });
+        const mm = $('#mr-multi'); if (mm) mm.onchange = () => { G.multi = mm.checked; api.ui.refresh(); };
+        const sn = $('#mr-srcnow'); if (sn) { sn.disabled = !!S.job; sn.onclick = async () => { G.st = await post('api/radar/run', { what: 'sources' }); api.ui.toast('Checking sources. This page updates when it\'s done.'); load(); }; }
+        const ss = $('#mr-srcset'); if (ss) ss.onclick = () => sourcesDialog(api, D.sources);
         const all = $('#mr-all'); if (all) all.onclick = () => { G.all = true; api.ui.refresh(); };
         el.querySelectorAll('#mr-hy button').forEach(b => b.onclick = () => { G.years = b.dataset.v; api.ui.refresh(); });
         const ys = $('#mr-year'); if (ys) ys.onchange = () => { G.year = ys.value; api.ui.refresh(); };
@@ -174,6 +242,11 @@
         .mr-status{color:var(--muted);font-size:13px;display:inline-flex;align-items:center;gap:6px}.mr-status svg{width:14px;height:14px}.mr-err{color:var(--danger)}
         .mr-actions{display:flex;flex-wrap:wrap;gap:6px;margin-left:auto}.mr-actions .btn{color:var(--text);display:inline-flex;align-items:center;gap:6px;text-decoration:none}.mr-actions svg{width:15px;height:15px}
         .mr-problem{display:flex;gap:10px;align-items:flex-start;border:1px solid var(--line);border-left:3px solid var(--client);border-radius:var(--r-l);background:var(--panel);padding:12px 14px;margin:0 0 16px;font-size:13px}.mr-problem svg{width:18px;height:18px;flex:none;color:var(--client);margin-top:1px}.mr-problem div div{color:var(--muted);margin:2px 0 4px}.mr-problem a{color:var(--accent);font-size:12.5px}
+        .mr-src{display:inline-block;font-size:11px;font-weight:600;padding:1px 7px;border-radius:999px;color:var(--c);background:color-mix(in srgb,var(--c) 13%,transparent);white-space:nowrap;margin:1px 0}
+        .mr-tabs{margin:4px 0 12px;flex-wrap:wrap;height:auto}.mr-tabs button{display:inline-flex;align-items:center;gap:5px}.mr-n{font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums}.mr-n.bad{color:var(--client)}
+        .mr-warn{color:var(--client)}.mr-chip{border:1px solid var(--line);background:var(--panel);border-radius:999px;padding:2px 10px;font-size:12px;cursor:pointer;color:var(--text)}.mr-chip.on{border-color:var(--accent);color:var(--accent)}
+        .mr-score{display:inline-block;width:60px;height:6px;border-radius:3px;background:color-mix(in srgb,var(--text) 7%,transparent);margin-right:8px;vertical-align:middle;position:relative;overflow:hidden}.mr-score i{position:absolute;inset:0 auto 0 0;background:var(--accent);border-radius:3px}
+        .mr-dlg{display:flex;flex-direction:column;gap:8px}.mr-srcrow{display:flex;align-items:center;gap:8px;font-size:13px}.mr-dlg .field{margin-top:6px}
         .mr-tiles{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:16px}
         .mr-tile{border:1px solid var(--line);border-radius:var(--r-l);background:var(--panel);padding:12px 14px;display:flex;flex-direction:column;gap:2px;min-width:0}
         .mr-tile b{font-size:22px;font-weight:600;letter-spacing:-.02em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.mr-tile span{font-size:12px;color:var(--muted)}

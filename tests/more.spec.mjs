@@ -109,7 +109,7 @@ test('notifications: everything goes to the Island, its count opens the centre, 
 });
 
 const WX = () => { const d = new Date(), days = Array.from({ length: 7 }, (_, i) => new Date(d.getTime() + i * 864e5).toISOString().slice(0, 10)), hrs = Array.from({ length: 48 }, (_, i) => new Date(d.getTime() + i * 36e5).toISOString().slice(0, 16));
-  return { current: { temperature_2m: 4.2, apparent_temperature: 1, weather_code: 3, wind_speed_10m: 12, is_day: 1 }, hourly: { time: hrs, temperature_2m: hrs.map(() => 4), precipitation_probability: hrs.map((_, i) => i === 3 ? 80 : 10), weather_code: hrs.map((_, i) => i === 3 ? 63 : 3) },
+  return { current: { temperature_2m: 4.2, apparent_temperature: 1, weather_code: 3, wind_speed_10m: 12, wind_direction_10m: 90, is_day: 1 }, hourly: { time: hrs, temperature_2m: hrs.map(() => 4), precipitation_probability: hrs.map((_, i) => i === 3 ? 80 : 10), weather_code: hrs.map((_, i) => i === 3 ? 63 : 3) },
     daily: { time: days, weather_code: [3, 61, 0, 71, 2, 3, 0], temperature_2m_max: [6, 5, 8, 1, 4, 5, 7], temperature_2m_min: [1, 2, 0, -3, -1, 0, 2], precipitation_probability_max: [20, 80, 0, 60, 10, 5, 0] } }; };
 
 test('weather: pick a town, see it in the sidebar, the dashboard widget and under Today', async ({ page }) => {
@@ -122,6 +122,9 @@ test('weather: pick a town, see it in the sidebar, the dashboard widget and unde
   await page.click('#wx-done');
   await expect(page.locator('#view .head .sub .wx-line')).toContainText('4° and cloudy');
   await expect(page.locator('#view .head .sub .wx-line')).toContainText('rain likely');
+  // on the page, the wind blows the way the real wind does: 12 km/h from the east (90°) drifts gently left
+  await expect.poll(() => page.evaluate(() => (window.CadenceFX.wanted().weather || {}).wind)).toBeLessThan(0);
+  expect(await page.evaluate(() => window.CadenceFX.wanted().weather.wind)).toBeGreaterThan(-0.4);
   await page.evaluate(() => window.__wx.detail());
   await expect(page.locator('.modal .wx-days > div')).toHaveCount(7);
   expect(errs).toEqual([]);

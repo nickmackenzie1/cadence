@@ -19,7 +19,7 @@ test.beforeAll(async () => {
 test.afterAll(() => { server && server.kill(); rmSync(dir, { recursive: true, force: true }); });
 
 test('Music Radar view: charts, picks, thumbs and subreddits', async ({ page }) => {
-  test.setTimeout(60000);
+  test.setTimeout(120000);
   const errs = []; page.on('pageerror', e => errs.push(String(e)));
   await page.addInitScript(() => { localStorage.setItem('cadence.reviewNudge', (d => { d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); })(new Date())); localStorage.setItem('cadence.space', 'life'); });
   await page.goto(B + '/#view-radar');
@@ -48,6 +48,21 @@ test('Music Radar view: charts, picks, thumbs and subreddits', async ({ page }) 
   // years view switches
   await page.click('#mr-hy [data-v=month]');
   await expect(page.locator('#mr-hy [data-v=month]')).toHaveClass(/on/);
+
+  // other sources: combined across sources, each source on its own tab, and their settings
+  await page.goto(B + '/#view-radar');
+  const src = page.locator('#mr-sources');
+  await expect(src).toContainText('Glass Lantern');
+  await expect(src.locator('tr', { hasText: 'Glass Lantern' }).locator('.mr-src')).toHaveCount(5);   // blogs, Audius, ListenBrainz, Hype Machine, Reddit
+  await page.click('[data-src=hypem]');
+  await expect(src).toContainText('Mira Vale');
+  await page.click('[data-src=lastfm]');
+  await expect(src).toContainText('LASTFM_API_KEY');
+  await expect(page.locator('.mr-card', { hasText: 'Crossed over' })).toContainText('Ketamine Kids');
+  await page.click('#mr-srcset');
+  await page.fill('#mr-lb', 'nick');
+  await page.click('#mr-srcsave');
+  await expect.poll(async () => (await (await fetch(B + '/api/radar/data')).json()).sources.cfg.lbUser).toBe('nick');
 
   // it's all in cadence.db as radar_* tables, and the Database view shows them
   const raw = await (await fetch(B + '/api/radar/raw')).json();

@@ -16,7 +16,7 @@ module.exports = async function integrationsRoutes(req, res, { url, p }) {
       : (() => { const lat = +url.searchParams.get('lat'), lon = +url.searchParams.get('lon'), f = url.searchParams.get('units') === 'f';
           if (!isFinite(lat) || !isFinite(lon) || Math.abs(lat) > 90 || Math.abs(lon) > 180) return null;
           return `https://api.open-meteo.com/v1/forecast?latitude=${lat.toFixed(3)}&longitude=${lon.toFixed(3)}&timezone=auto&forecast_days=7${f ? '&temperature_unit=fahrenheit&wind_speed_unit=mph&precipitation_unit=inch' : ''}`
-            + '&current=temperature_2m,apparent_temperature,weather_code,wind_speed_10m,is_day,precipitation&hourly=temperature_2m,precipitation_probability,weather_code&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,sunrise,sunset'; })();
+            + '&current=temperature_2m,apparent_temperature,weather_code,wind_speed_10m,wind_direction_10m,is_day,precipitation&hourly=temperature_2m,precipitation_probability,weather_code&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,sunrise,sunset'; })();
     if (!u) return send(res, 400, { error: 'bad place' });
     const hit = wxCache.get(u); if (hit && Date.now() - hit.at < 15 * 60e3) return send(res, 200, hit.data);
     try { const r = await safeFetch(u, {}, 512 * 1024); const data = JSON.parse(r.buf.toString('utf8')); wxCache.set(u, { at: Date.now(), data }); if (wxCache.size > 40) wxCache.delete(wxCache.keys().next().value); return send(res, 200, data); }

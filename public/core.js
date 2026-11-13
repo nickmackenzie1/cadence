@@ -122,6 +122,7 @@ window.CadenceFX = (() => {
     },
     // several plugins can want snow, rain or lights at once: each says what it wants under its own key, the layer gets
     // the combination (snow if anyone wants it, the heaviest rain, the lights from whoever hangs them, the weather's wind)
+    wanted: () => JSON.parse(JSON.stringify(wants)),   // what each plugin asked for (tests, debugging)
     want(key, o){
       if(o) wants[key] = o; else delete wants[key];
       return this.world().then(w => {

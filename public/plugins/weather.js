@@ -44,7 +44,11 @@
         const c = d.current.weather_code, kmh = (d.current.wind_speed_10m || 0) * (o.units === 'f' ? 1.61 : 1);
         const snow = (c >= 71 && c <= 77) || c === 85 || c === 86;
         const rain = c >= 95 ? 4 : [65, 82].includes(c) ? 5 : [63, 81, 66, 67].includes(c) ? 3 : [61, 80].includes(c) ? 2 : c >= 51 && c <= 57 ? 1 : 0;
-        window.CadenceFX.want('weather', snow || rain ? { snow, everywhere: snow, rain, wind: Math.min(2, kmh / 18) } : { wind: Math.min(2, kmh / 18) });
+        // the wind as it blows across the screen: west wind (from 270°) goes right, east wind goes left, north/south barely
+        // sideways. Gentle on purpose: a 40 km/h wind is a firm drift, not a storm (the engine's own default is 0.3).
+        const dir = d.current.wind_direction_10m, side = dir == null ? 0 : -Math.sin(dir * Math.PI / 180);
+        const wind = Math.max(-0.8, Math.min(0.8, (kmh / 50) * side));
+        window.CadenceFX.want('weather', snow || rain ? { snow, everywhere: snow, rain, wind } : { wind });
       }
       G.onPage = onPage;
       load(false).then(() => onPage());

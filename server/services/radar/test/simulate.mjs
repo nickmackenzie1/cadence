@@ -15,6 +15,10 @@ const { run } = await import("../radar.mjs");
 const { digest } = await import("../digest.mjs");
 const { loadState, saveState } = await import("../lib/store.mjs");
 const { saveHistory } = await import("../lib/history.mjs");
+const store = await import("../lib/store.mjs");
+const { runSources } = await import("../lib/sources.mjs");
+const { mockFetch, TEST_BLOGS } = await import("./source-fixtures.mjs");
+store.setKv("sourcesCfg", { blogs: TEST_BLOGS });
 
 let seed = 7; const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
 const pick = (a) => a[Math.floor(rnd() * a.length)];
@@ -71,6 +75,11 @@ for (let r = 0; r < 14 * 4; r++) {
   }
   delete s.feedback.undefined;
   saveState(s);
+  // the other sources, once a simulated day, answered by fake responses in each API's real format
+  if (r % 4 === 3) {
+    const real = globalThis.fetch; globalThis.fetch = mockFetch(d);
+    try { await runSources(store.getKv("sourcesCfg"), { store, state: loadState(), log: () => {} }); } finally { globalThis.fetch = real; }
+  }
   if (r % 8 === 0) console.log(`day ${d}: ${pool.length} posts so far, ${picks.length} new picks`);
 }
 

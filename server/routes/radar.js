@@ -16,9 +16,10 @@ module.exports = async function radarRoutes(req, res, { url, p }) {
   if (p === '/api/radar/settings' && req.method === 'POST') { const b = await body(); radar.settings({ on: !!b.on }); return send(res, 200, radar.status()); }
   if (p === '/api/radar/run' && req.method === 'POST') {
     const b = await body();
-    const started = b.what === 'digest' ? radar.digestNow() : b.what === 'backfill' ? radar.backfill(b.options) : b.what === 'stop' ? (radar.stop(), true) : radar.scan();
+    const started = b.what === 'digest' ? radar.digestNow() : b.what === 'backfill' ? radar.backfill(b.options) : b.what === 'stop' ? (radar.stop(), true) : b.what === 'sources' ? radar.sourcesNow(Array.isArray(b.only) ? b.only.map(String) : null) : radar.scan();
     return send(res, started ? 200 : 409, { started, ...radar.status() });
   }
+  if (p === '/api/radar/sources' && req.method === 'POST') return send(res, 200, await radar.sourcesSettings(await body()));   // other sources: on/off, username, country, tags, blogs
   if (p === '/api/radar/raw' && req.method === 'GET') {   // read-only tables for the Database view
     const q = url.searchParams, r = await radar.raw(q.get('table') || '', Math.max(0, +q.get('offset') || 0), Math.min(500, Math.max(1, +q.get('limit') || 50)));
     return r ? send(res, 200, r) : send(res, 404, { error: 'No such table' });

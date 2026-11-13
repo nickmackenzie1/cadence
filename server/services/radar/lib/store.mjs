@@ -48,6 +48,13 @@ function open() {
       CREATE TABLE IF NOT EXISTS radar_edges (id TEXT PRIMARY KEY, a TEXT, b TEXT, n INTEGER, ts INTEGER);
       CREATE TABLE IF NOT EXISTS radar_digests (id TEXT PRIMARY KEY, ts INTEGER, title TEXT, file TEXT, html TEXT);
       CREATE TABLE IF NOT EXISTS radar_history (sub TEXT NOT NULL, month TEXT NOT NULL, posts INTEGER, music INTEGER, top_genres TEXT, json TEXT NOT NULL, PRIMARY KEY (sub, month));
+      CREATE TABLE IF NOT EXISTS radar_signals (id INTEGER PRIMARY KEY AUTOINCREMENT, source TEXT NOT NULL, uid TEXT NOT NULL, first_seen INTEGER, last_seen INTEGER, seen INTEGER DEFAULT 1,
+        artist TEXT, artist_key TEXT, title TEXT, type TEXT, feed TEXT, rank INTEGER, best_rank INTEGER, metric REAL, genres TEXT, date TEXT, url TEXT, image TEXT, json TEXT, UNIQUE (source, uid));
+      CREATE INDEX IF NOT EXISTS radar_signals_artist ON radar_signals(artist_key);
+      CREATE INDEX IF NOT EXISTS radar_signals_seen ON radar_signals(source, first_seen);
+      CREATE TABLE IF NOT EXISTS radar_chart_points (id INTEGER PRIMARY KEY AUTOINCREMENT, ts INTEGER, source TEXT, uid TEXT, artist TEXT, title TEXT, feed TEXT, rank INTEGER, metric REAL);
+      CREATE INDEX IF NOT EXISTS radar_chart_points_uid ON radar_chart_points(source, uid, ts);
+      CREATE TABLE IF NOT EXISTS radar_source_runs (id INTEGER PRIMARY KEY AUTOINCREMENT, ts INTEGER, source TEXT, ok INTEGER, n INTEGER, fresh INTEGER, ms INTEGER, error TEXT);
       CREATE TABLE IF NOT EXISTS radar_jobs (id INTEGER PRIMARY KEY AUTOINCREMENT, ts INTEGER, kind TEXT, ok INTEGER, ms INTEGER, errors INTEGER, problem TEXT, lines TEXT);`);
     for (const [name, cols] of Object.entries(SERIES)) {
       db.exec(`CREATE TABLE IF NOT EXISTS radar_${name} (id INTEGER PRIMARY KEY AUTOINCREMENT, ts INTEGER NOT NULL, ${cols.map((c) => `${c} ${c === "n" || c === "mentions" ? "INTEGER" : c === "score" ? "REAL" : "TEXT"}`).join(", ")}, json TEXT NOT NULL);
@@ -164,6 +171,44 @@ export function addJob(j) {
   if (!open()) { fs.appendFileSync(path.join(DATA, "jobs.jsonl"), JSON.stringify(j) + "\n"); return; }
   db.prepare("INSERT INTO radar_jobs (ts, kind, ok, ms, errors, problem, lines) VALUES (?, ?, ?, ?, ?, ?, ?)")
     .run(j.ts, j.kind, j.ok ? 1 : 0, j.ms, j.errors, j.problem ?? null, (j.lines || []).join("\n"));
+}
+
+// ---- other sources (lib/sources.mjs) ----
+export function getKv(key, dflt = null) {
+  if (!open()) return dflt;
+  const r = db.prepare("SELECT json FROM radar_kv WHERE key = ?").get(key);
+  return r ? JSON.parse(r.json) : dflt;
+}
+export function setKv(key, v) { if (open()) db.prepare("INSERT INTO radar_kv (key, json, updated_at) VALUES (?, ?, ?) ON CONFLICT(key) DO UPDATE SET json = excluded.json, updated_at = excluded.updated_at").run(key, J(v), Date.now()); }
+// returns how many were new; anything already known gets last_seen/rank updated, charts get a point per run
+export function upsertSignals(rows, ts) {
+  if (!open()) throw new Error("other sources need the database (node:sqlite)");
+  let fresh = 0;
+  tx(() => {
+    const get = db.prepare("SELECT id FROM radar_signals WHERE source = ? AND uid = ?");
+    const ins = db.prepare(`INSERT INTO radar_signals (source, uid, first_seen, last_seen, seen, artist, artist_key, title, type, feed, rank, best_rank, metric, genres, date, url, image, json)
+      VALUES (?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
+    const upd = db.prepare("UPDATE radar_signals SET last_seen = ?, seen = seen + 1, rank = ?, best_rank = MIN(COALESCE(best_rank, ?), COALESCE(?, best_rank)), metric = COALESCE(?, metric) WHERE id = ?");
+    const pt = db.prepare("INSERT INTO radar_chart_points (ts, source, uid, artist, title, feed, rank, metric) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
+    for (const r of rows) {
+      const g = list(r.genres), had = get.get(r.source, r.uid), rank = r.rank ?? null, metric = r.metric ?? null;
+      if (had) upd.run(ts, rank, rank, rank, metric, had.id);
+      else { ins.run(r.source, r.uid, ts, ts, r.artist, r.artist_key, r.title ?? null, r.type ?? null, r.feed ?? null, rank, rank, metric, g || null, r.date ?? null, r.url ?? null, r.image ?? null, J(r)); fresh++; }
+      if (rank != null) pt.run(ts, r.source, r.uid, r.artist, r.title ?? null, r.feed ?? null, rank, metric);
+    }
+  });
+  return fresh;
+}
+export function addSourceRun(r) { if (open()) db.prepare("INSERT INTO radar_source_runs (ts, source, ok, n, fresh, ms, error) VALUES (?, ?, ?, ?, ?, ?, ?)").run(r.ts, r.source, r.ok ? 1 : 0, r.n, r.fresh, r.ms, r.error ?? null); }
+export function sourceRuns() { return open() ? db.prepare("SELECT r.* FROM radar_source_runs r JOIN (SELECT source, MAX(id) AS id FROM radar_source_runs GROUP BY source) l ON l.id = r.id").all() : []; }
+export function signals({ since = 0, source = null, limit = 5000 } = {}) {
+  if (!open()) return [];
+  return db.prepare(`SELECT source, uid, first_seen, last_seen, seen, artist, artist_key, title, type, feed, rank, best_rank, metric, genres, date, url, image
+    FROM radar_signals WHERE last_seen >= ? ${source ? "AND source = ?" : ""} ORDER BY first_seen DESC, id DESC LIMIT ?`).all(...(source ? [since, source, limit] : [since, limit]));
+}
+export function chartPoints({ since = 0, uids = null } = {}) {
+  if (!open()) return [];
+  return db.prepare("SELECT ts, source, uid, artist, title, feed, rank, metric FROM radar_chart_points WHERE ts >= ? ORDER BY ts").all(since).filter((p) => !uids || uids.has(p.source + "|" + p.uid));
 }
 
 // ---- read-only table access for the Database view ----

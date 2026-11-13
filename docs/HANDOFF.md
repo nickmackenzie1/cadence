@@ -674,7 +674,28 @@ data, or peer-to-peer on the same LAN). Personal data and secrets stay on each p
 - Also: tests now silence the Friday review nudge properly (the old 'x' value never matched; failed on Friday
   afternoons UTC). The nudge text is now just "Weekly review".
 
-## Next (user request 2026-11-13 10:02): more Music Radar sources, view by source, combined, trends
-ListenBrainz fresh releases (+ per-user), Apple Music charts JSON, Audius trending, Last.fm charts/tag pages,
-Bandcamp discover (internal endpoint, "new" by tag), Hype Machine (no API), music blog RSS (Pitchfork, Stereogum,
-The Fader, Gorilla vs. Bear, Bandcamp Daily).
+## Shipped 2026-11-13 ~11:00: Music Radar other sources (user: "lets add this to the music radar, so we can look at it by source, combine them look at trends etc")
+- server/services/radar/lib/sources.mjs: ListenBrainz fresh releases (sitewide + per-user with a username), Apple Music
+  most-played albums/songs (country, default CA), Audius trending (week, a few genres), Last.fm top artists + tag top
+  artists (needs LASTFM_API_KEY), Bandcamp discover "new" by tag (discover_web, falls back to hub/2/dig_deeper), Hype
+  Machine popular/latest JSON, blog RSS (Pitchfork, Stereogum, The Fader, Gorilla vs. Bear, Bandcamp Daily; editable)
+  read for artist names (Claude if ANTHROPIC_API_KEY, else headline rules: fromHeadline()).
+  Tags: your liked genres first, then a starter set; editable.
+- Runs after every Reddit scan, or "Check sources" (POST /api/radar/run {what:'sources', only?}). Settings: POST
+  /api/radar/sources (kept in radar_kv.sourcesCfg).
+- Tables: radar_signals (unique source+uid; first/last seen, rank, best rank), radar_chart_points (rank per check),
+  radar_source_runs (per-source result/error).
+- lib/sources-data.mjs: per-source lists (charts by rank with movement), combined per artist over 30 days (weights:
+  Reddit/blogs/Hype 3, Audius 2, Bandcamp/ListenBrainz 1.5, Apple/Last.fm 1; rank bonus; 10-day half-life; ×(1+0.5 per
+  extra source)), new finds per day per source, genres across sources, chart movers, crossover (Reddit picks later on
+  the Apple chart), "also on" chips on picks.
+- Not verified against the live APIs from here (no network in the build sandbox): formats are from the docs/known
+  shapes, parsed defensively; any mismatch shows as that source's error in its tab. Audius/Hype Machine/Bandcamp are
+  the likeliest to need a tweak.
+- Tests: tests/radar-sources.spec.mjs (fixtures in server/services/radar/test/source-fixtures.mjs), radar.spec.
+- Ideas not done: sources in the weekly digest; boosting Reddit pick scores by other sources.
+
+## Fixed 2026-11-13: weather snow blew right
+- weather.js used wind speed only (always positive = always right) at kmh/18 (very strong). Now uses
+  wind_direction_10m (added to the Open-Meteo query) for the sideways component, scaled kmh/50, capped ±0.8.
+  CadenceFX.wanted() exposes the current wants.
