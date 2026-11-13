@@ -994,6 +994,21 @@ async function handle(req, res) {
       if (!/^https?:\/\//i.test(u)) return send(res, 400, { error: 'Paste the recipe’s web address' });
       try { return send(res, 200, await readRecipe(u)); } catch (e) { return send(res, 502, { error: 'Could not read that page: ' + e.message }); }
     }
+    // meeting screenshots: stored as files on the NAS, referenced by id from the meeting
+    if (p === '/api/shots' && req.method === 'POST') {
+      const type = String(req.headers['content-type'] || ''), ext = /png/.test(type) ? 'png' : /jpe?g/.test(type) ? 'jpg' : /webp/.test(type) ? 'webp' : null;
+      if (!ext) return send(res, 400, { error: 'Images only' });
+      const buf = await new Promise((resolve, reject) => { let n = 0; const ch = []; req.on('data', c => { n += c.length; if (n > 12 * 1024 * 1024) { reject(new Error('Image too large (12 MB max)')); req.destroy(); } else ch.push(c); }); req.on('end', () => resolve(Buffer.concat(ch))); req.on('error', reject); });
+      const dir = path.join(DATA_DIR, 'shots'); fs.mkdirSync(dir, { recursive: true });
+      const id = crypto.randomBytes(9).toString('hex') + '.' + ext; fs.writeFileSync(path.join(dir, id), buf);
+      return send(res, 200, { url: 'api/shots/' + id });
+    }
+    if (p.startsWith('/api/shots/') && req.method === 'GET') {
+      const id = p.slice(11); if (!/^[a-f0-9]{18}\.(png|jpg|webp)$/.test(id)) return send(res, 404, { error: 'Not found' });
+      const f = path.join(DATA_DIR, 'shots', id); if (!fs.existsSync(f)) return send(res, 404, { error: 'Not found' });
+      res.writeHead(200, { 'Content-Type': id.endsWith('png') ? 'image/png' : id.endsWith('webp') ? 'image/webp' : 'image/jpeg', 'Cache-Control': 'private, max-age=31536000, immutable' });
+      return res.end(fs.readFileSync(f));
+    }
     if (p === '/api/calendar/config' && req.method === 'GET') {
       // never send the secret URLs back to the browser
       return send(res, 200, { calendars: readCals().calendars.map(c => ({ id: c.id, name: c.name, color: c.color, host: (() => { try { return new URL(c.url.replace(/^webcal:/i, 'https:')).hostname; } catch { return ''; } })() })) });

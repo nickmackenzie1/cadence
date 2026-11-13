@@ -401,3 +401,37 @@ test('camping: trip setup, packing built from type, people, weather and menu, ro
   await expect(page.locator('.lk-card', { hasText: 'Maya' }).first()).not.toContainText('Card games / colouring');
   expect(errs).toEqual([]);
 });
+
+test('meeting: agenda comes up at the next meeting, gets checked off with follow-ups; screenshots paste in and get marked up', async ({ page }) => {
+  const errs = await open(page);
+  const cid = await page.evaluate(() => window.T.clients.add('Agendaco').id);
+  await page.evaluate(id => location.hash = 'client-' + id, cid);
+  for (const t of ['Pricing for phase 2', 'Who owns the Desk migration']) { await page.fill(`[data-agadd="${cid}"]`, t); await page.press(`[data-agadd="${cid}"]`, 'Enter'); }
+  await expect(page.locator('.ag-card .ag-row')).toHaveCount(2);
+  await page.evaluate(id => window.T.meetings.start(id), cid);
+  await expect(page.locator('.m-ag-it')).toHaveCount(2);
+  await page.locator('.m-ag-it', { hasText: 'Pricing' }).locator('.m-ag-f').click();
+  await expect(page.locator('.m-item')).toContainText(['Follow up: Pricing for phase 2']);
+  await expect(page.locator('.m-ag-it.done')).toHaveCount(1);
+  // paste a screenshot
+  await page.evaluate(async () => { const c = document.createElement('canvas'); c.width = 400; c.height = 300; c.getContext('2d').fillRect(0, 0, 400, 300); const b = await new Promise(r => c.toBlob(r, 'image/png'));
+    const dt = new DataTransfer(); dt.items.add(new File([b], 'shot.png', { type: 'image/png' })); document.dispatchEvent(new ClipboardEvent('paste', { clipboardData: dt })); });
+  await expect(page.locator('#meeting .m-shot')).toHaveCount(1);
+  await page.fill('#meeting .m-shot-cap', 'The broken layout');
+  await page.click('[data-shot=mark]');
+  const box = await page.locator('.mk-svg').boundingBox();
+  await page.mouse.move(box.x + 20, box.y + 20); await page.mouse.down(); await page.mouse.move(box.x + 150, box.y + 120, { steps: 5 }); await page.mouse.up();
+  await page.click('[data-tool=box]'); await page.mouse.move(box.x + 200, box.y + 40); await page.mouse.down(); await page.mouse.move(box.x + 300, box.y + 150, { steps: 5 }); await page.mouse.up();
+  await page.click('[data-mk=done]');
+  await expect(page.locator('#meeting .m-shot-im svg path')).toHaveCount(1);
+  await expect(page.locator('#meeting .m-shot-im svg rect')).toHaveCount(1);
+  // end: covered item leaves the agenda, the other carries over; the log keeps both and the shot
+  await page.click('[data-act=m-review]'); await page.click('[data-act=m-commit]');
+  await expect(page.locator('.ag-card .ag-row')).toHaveCount(1);
+  await expect(page.locator('.ag-card')).toContainText('Who owns the Desk migration');
+  await page.locator('details.mtg summary').first().click();
+  await expect(page.locator('.mlog-ag .done')).toContainText('Pricing for phase 2');
+  await expect(page.locator('.mlog-ag .done em')).toContainText('1 follow-up');
+  await expect(page.locator('.m-shots.log .m-shot')).toHaveCount(1);
+  expect(errs).toEqual([]);
+});
