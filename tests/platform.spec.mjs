@@ -99,3 +99,12 @@ test('views: a few pinned in the sidebar, the rest under All views, pins stick',
   expect(await tiles()).toBe(before + 1);
   expect(errs).toEqual([]);
 });
+
+test('accessibility: every visible icon-only button has a name', async ({ page }) => {
+  await open(page);
+  for (const h of ['today', 'upcoming', 'view-kanban', 'view-calendar']) {
+    await page.evaluate(h => location.hash = h, h); await page.waitForTimeout(250);
+    const nameless = await page.evaluate(() => [...document.querySelectorAll('button,a[href],[role=button]')].filter(el => el.offsetParent && !el.textContent.trim() && !el.getAttribute('aria-label') && !el.getAttribute('aria-labelledby')).map(el => el.outerHTML.slice(0, 90)));
+    expect(nameless, h).toEqual([]);
+  }
+});

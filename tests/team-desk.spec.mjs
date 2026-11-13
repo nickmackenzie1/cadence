@@ -210,6 +210,7 @@ test('record feed: a release date in the title becomes a "Releases" badge on the
     { title: `Band - Future Album (Releases ${iso}) (Red Vinyl)`, link: 'https://x/1', date: now, image: '' },
     { title: 'Band - Old Album (VG+/NM)', link: 'https://x/2', date: now, image: '' } ] } }));
   await page.evaluate(() => location.hash = 'view-feeds');
+  await expect(page.locator('#view')).toContainText('Future Album', { timeout: 15000 }).catch(async e => { console.log('FEEDS VIEW:', (await page.locator('#view').innerText()).slice(0, 800)); throw e; });
   await expect(page.locator('.rs-rel').first()).toContainText('Releases');
   expect(await page.locator('.rs-rel').count()).toBeGreaterThan(0);
   await expect(page.locator('.rs-press', { hasText: /Releases/ })).toHaveCount(0);

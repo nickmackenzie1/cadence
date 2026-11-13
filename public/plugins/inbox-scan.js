@@ -2,8 +2,8 @@
    short recap, the action items, and the dates worth putting in the calendar. Rule-based, works with no AI; with AI
    on the NAS there's a "Tidy with AI" pass. (Reading a mailbox directly comes later; credentials would live on the NAS.) */
 (() => {
-  const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
-  const css = (id, text) => { if (document.getElementById(id)) return; const s = document.createElement('style'); s.id = id; s.textContent = text; document.head.appendChild(s); };
+  const esc = window.CadenceKit.esc;
+  const css = window.CadenceKit.css;
   const MON = { jan: 0, feb: 1, mar: 2, apr: 3, may: 4, jun: 5, jul: 6, aug: 7, sep: 8, sept: 8, oct: 9, nov: 10, dec: 11 };
   const WD = { sun: 0, mon: 1, tue: 2, tues: 2, wed: 3, thu: 4, thur: 4, thurs: 4, fri: 5, sat: 6 };
   const CATS = [['School', /\b(school|teacher|class|classroom|grade \d|principal|field trip|report card|homework|pta|parent council|kindergarten|lunch program)\b/i],

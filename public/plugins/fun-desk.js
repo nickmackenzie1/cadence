@@ -4,9 +4,9 @@
    - Desk plant: grows as you finish things, droops when overdue work piles up.
    - Weekly rewind: your week as a short story, offered on Friday afternoon. */
 (() => {
-  const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+  const esc = window.CadenceKit.esc;
   const reduced = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
-  const css = (id, text) => { if (document.getElementById(id)) return; const s = document.createElement('style'); s.id = id; s.textContent = text; document.head.appendChild(s); };
+  const css = window.CadenceKit.css;
   const DAY = 864e5;
 
   /* ======================= Focus aquarium ======================= */

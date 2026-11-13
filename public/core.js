@@ -763,6 +763,21 @@ function registerPlugin(def){
   Reg.defs = Reg.defs.filter(d => d.id !== def.id); Reg.defs.push(def);
   rebuildPlugins(); if(booted){ cancelAnimationFrame(registerPlugin.raf); registerPlugin.raf = requestAnimationFrame(() => render()); }
 }
+/* accessibility: icon-only buttons and links get their tooltip as an accessible name, and anything clickable that
+   isn't a real button gets a role and a keyboard stop. Runs on every change, cheaply. */
+(() => {
+  const fix = root => { (root.querySelectorAll ? root : document).querySelectorAll('button:not([aria-label]),a:not([aria-label]),[role=button]:not([aria-label])').forEach(el => {
+    if(el.textContent.trim()) return; const t = el.getAttribute('title') || (el.querySelector('img[alt]') && el.querySelector('img[alt]').alt); if(t) el.setAttribute('aria-label', t); }); };
+  let q = false; const mo = new MutationObserver(() => { if(q) return; q = true; requestAnimationFrame(() => { q = false; fix(document); }); });
+  if(document.body) { mo.observe(document.body, { childList: true, subtree: true }); fix(document); }
+  else document.addEventListener('DOMContentLoaded', () => { mo.observe(document.body, { childList: true, subtree: true }); fix(document); });
+})();
+/* shared helpers for plugins (so each plugin doesn't carry its own copy) */
+window.CadenceKit = Object.freeze({
+  esc: s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]),
+  css: (id, text) => { if(document.getElementById(id)) return; const st = document.createElement('style'); st.id = id; st.textContent = text; document.head.appendChild(st); },
+  uid: () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+});
 window.Cadence = Object.freeze({ version:'0.5.0', registerPlugin,
   /* send a notification from anywhere: Cadence.notify({ title, body?, icon?, route?, taskId?, source? }) */
   notify: n => notify({ ...(n || {}), pid: (n && n.source) || 'external' }) });
@@ -1917,19 +1932,20 @@ document.addEventListener('paste', e => {
 });
 /* the markup editor: arrows, boxes, highlight, text, pen; undo; colours */
 function markup(sh, onDone, readonly){
-  const ov = document.createElement('div'); ov.className = 'mk-ov';
+  const ov = document.createElement('div'); ov.className = 'mk-ov'; ov.setAttribute('role', 'dialog'); ov.setAttribute('aria-modal', 'true'); ov.setAttribute('aria-label', 'Mark up screenshot');
   let tool = 'arrow', color = '#e5484d', cur = null; const COLS = ['#e5484d', '#f59e0b', '#22c55e', '#3b82f6', '#111111', '#ffffff'];
   const draw = () => { ov.querySelector('.mk-svg').innerHTML = marksSvg(cur ? { ...sh, marks: [...sh.marks, cur] } : sh); };
-  ov.innerHTML = `<div class="mk-bar">${readonly ? '' : `${[['arrow', '↗ Arrow'], ['box', '▢ Box'], ['hl', '▬ Highlight'], ['text', 'T Text'], ['pen', '✎ Pen']].map(([k, l]) => `<button data-tool="${k}" class="${k === tool ? 'on' : ''}">${l}</button>`).join('')}<span class="mk-sep"></span>${COLS.map(c => `<button class="mk-c ${c === color ? 'on' : ''}" data-col="${c}" style="background:${c}"></button>`).join('')}<span class="mk-sep"></span><button data-mk="undo">Undo</button><button data-mk="clear">Clear</button>`}<input class="mk-cap" value="${esc(sh.caption || '')}" placeholder="Description" ${readonly ? 'readonly' : ''}><button data-mk="done" class="pri">${readonly ? 'Close' : 'Done'}</button></div>
+  ov.innerHTML = `<div class="mk-bar">${readonly ? '' : `<span role="toolbar" aria-label="Markup tools" style="display:contents">${[['arrow', '↗ Arrow', 'A'], ['box', '▢ Box', 'B'], ['hl', '▬ Highlight', 'H'], ['text', 'T Text', 'T'], ['pen', '✎ Pen', 'P']].map(([k, l, key]) => `<button data-tool="${k}" class="${k === tool ? 'on' : ''}" aria-pressed="${k === tool}" title="${l.slice(2)} (${key})" aria-keyshortcuts="${key}">${l}</button>`).join('')}</span><span class="mk-sep"></span>${COLS.map((c, i) => `<button class="mk-c ${c === color ? 'on' : ''}" data-col="${c}" style="background:${c}" aria-pressed="${c === color}" aria-label="${['Red', 'Orange', 'Green', 'Blue', 'Black', 'White'][i]}" title="${['Red', 'Orange', 'Green', 'Blue', 'Black', 'White'][i]}"></button>`).join('')}<span class="mk-sep"></span><button data-mk="undo">Undo</button><button data-mk="clear">Clear</button>`}<input class="mk-cap" value="${esc(sh.caption || '')}" placeholder="Description" ${readonly ? 'readonly' : ''}><button data-mk="done" class="pri">${readonly ? 'Close' : 'Done'}</button></div>
     <div class="mk-stage"><div class="mk-wrap"><img src="${esc(sh.url)}" alt=""><svg class="mk-svg" viewBox="0 0 ${sh.w} ${sh.h}" preserveAspectRatio="none"></svg></div></div>`;
   document.body.appendChild(ov); draw();
   const svg = ov.querySelector('.mk-svg'), pt = e => { const r = svg.getBoundingClientRect(); return [Math.round((e.clientX - r.left) / r.width * sh.w), Math.round((e.clientY - r.top) / r.height * sh.h)]; };
   const close = () => { sh.caption = ov.querySelector('.mk-cap').value.trim(); ov.remove(); removeEventListener('keydown', key, true); onDone && onDone(); };
-  const key = e => { if(e.key === 'Escape' && !ov.querySelector('.mk-txt')){ e.stopPropagation(); close(); } if((e.metaKey || e.ctrlKey) && e.key === 'z' && !readonly){ e.preventDefault(); sh.marks.pop(); draw(); } };
+  const key = e => { if(e.key === 'Escape' && !ov.querySelector('.mk-txt')){ e.stopPropagation(); close(); }
+    if(!readonly && !e.metaKey && !e.ctrlKey && !/INPUT|TEXTAREA/.test(document.activeElement.tagName)){ const t = { a: 'arrow', b: 'box', h: 'hl', t: 'text', p: 'pen' }[e.key.toLowerCase()]; if(t){ e.preventDefault(); const b = ov.querySelector(`[data-tool=${t}]`); b && b.click(); } } if((e.metaKey || e.ctrlKey) && e.key === 'z' && !readonly){ e.preventDefault(); sh.marks.pop(); draw(); } };
   addEventListener('keydown', key, true);
   ov.addEventListener('click', e => { const b = e.target.closest('button'); if(!b) return;
-    if(b.dataset.tool){ tool = b.dataset.tool; $$('[data-tool]', ov).forEach(x => x.classList.toggle('on', x === b)); }
-    if(b.dataset.col){ color = b.dataset.col; $$('[data-col]', ov).forEach(x => x.classList.toggle('on', x === b)); }
+    if(b.dataset.tool){ tool = b.dataset.tool; $$('[data-tool]', ov).forEach(x => { x.classList.toggle('on', x === b); x.setAttribute('aria-pressed', x === b); }); }
+    if(b.dataset.col){ color = b.dataset.col; $$('[data-col]', ov).forEach(x => { x.classList.toggle('on', x === b); x.setAttribute('aria-pressed', x === b); }); }
     if(b.dataset.mk === 'undo'){ sh.marks.pop(); draw(); } if(b.dataset.mk === 'clear'){ sh.marks = []; draw(); } if(b.dataset.mk === 'done') close(); });
   if(readonly) return;
   svg.addEventListener('pointerdown', e => { e.preventDefault(); const [x, y] = pt(e);

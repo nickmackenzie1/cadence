@@ -4,8 +4,8 @@
    - Future-you negotiator: pushing a task back asks for a note to future you; future you can reject the excuse.
    - Regret minimizer: once a month, "which of these would you regret not doing at 80?" and those get promoted. */
 (() => {
-  const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
-  const css = (id, text) => { if (document.getElementById(id)) return; const s = document.createElement('style'); s.id = id; s.textContent = text; document.head.appendChild(s); };
+  const esc = window.CadenceKit.esc;
+  const css = window.CadenceKit.css;
   const DAY = 864e5;
   // shared: how many times each task has been pushed back (kept by the negotiator, read by the forecaster)
   const MOVES = () => { try { return JSON.parse(localStorage.getItem('cadence.moves') || '{}'); } catch (e) { return {}; } };

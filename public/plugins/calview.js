@@ -8,7 +8,7 @@
     tagline: 'Month and week grids', color: '#e5484d',
     icon: '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/><path d="M8 14h2M14 14h2M8 17h2"/>',
     setup(api) {
-      const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+      const esc = window.CadenceKit.esc;
       const U = api.util, key = d => U.ymd(d);
       const st = () => Object.assign({ mode: 'month', at: null }, api.storage.get('st') || {});
       const setSt = p => { api.storage.set('st', Object.assign(st(), p)); api.ui.refresh(); };

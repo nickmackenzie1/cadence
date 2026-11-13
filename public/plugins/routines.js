@@ -6,8 +6,8 @@
    - Rituals: install whole routines ("Sunday reset", "Month-end close") as bundles of repeating tasks, and share your
      own as a small file. */
 (() => {
-  const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
-  const css = (id, text) => { if (document.getElementById(id)) return; const s = document.createElement('style'); s.id = id; s.textContent = text; document.head.appendChild(s); };
+  const esc = window.CadenceKit.esc;
+  const css = window.CadenceKit.css;
 
   /* ======================= Energy-aware day ======================= */
   const HARD = /\b(write|draft|build|design|plan|proposal|report|taxes|migrate|migration|refactor|research|prepare|presentation|deck|strategy|audit|review all|budget|clean out|organi[sz]e|declutter|apply|study)\b/i;

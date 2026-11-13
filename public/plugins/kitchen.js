@@ -4,9 +4,9 @@
    - Meal plan: a week of dinners (plus breakfast/lunch if you like). Mark what you actually made, so favourites rise.
    - Shopping list: built from the week's plan or added by hand, grouped by aisle. One tap makes a "Groceries" task. */
 (() => {
-  const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
-  const css = (id, text) => { if (document.getElementById(id)) return; const s = document.createElement('style'); s.id = id; s.textContent = text; document.head.appendChild(s); };
-  const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+  const esc = window.CadenceKit.esc;
+  const css = window.CadenceKit.css;
+  const uid = window.CadenceKit.uid;
   const AISLES = [
     ['Produce', /\b(apple|banana|lemon|lime|orange|berr|grape|onion|garlic|shallot|potato|carrot|celery|pepper|tomato|lettuce|spinach|kale|cabbage|broccoli|cauliflower|zucchini|squash|cucumber|avocado|herb|parsley|cilantro|basil|mint|thyme|rosemary|ginger|mushroom|leek|scallion|green onion|corn|pea|bean sprout|fruit|vegetable)s?\b/i],
     ['Meat & fish', /\b(chicken|beef|pork|lamb|turkey|bacon|sausage|ham|steak|mince|ground|salmon|tuna|cod|shrimp|prawn|fish|anchov)/i],

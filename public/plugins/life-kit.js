@@ -1,9 +1,9 @@
 /* Life kit: small shared helpers for the Life plugins (forms, lists, areas, reminder tasks). Not a plugin itself. */
 (() => {
-  const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
-  const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+  const esc = window.CadenceKit.esc;
+  const uid = window.CadenceKit.uid;
   const DAY = 864e5;
-  const css = (id, text) => { if (document.getElementById(id)) return; const s = document.createElement('style'); s.id = id; s.textContent = text; document.head.appendChild(s); };
+  const css = window.CadenceKit.css;
   const ymd = d => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
   const fromYmd = s => { const [y, m, d] = String(s).split('-').map(Number); return new Date(y, m - 1, d); };
   const addDays = (s, n) => { const d = fromYmd(s); d.setDate(d.getDate() + n); return ymd(d); };

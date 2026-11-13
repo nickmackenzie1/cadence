@@ -4,10 +4,10 @@
    - Life quests: goals as a skill tree. Finish a step and the next ones unlock as real tasks.
    - Bucket list by urgency: sorted by how many good years each one realistically has left. Grim, but clarifying. */
 (() => {
-  const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
-  const css = (id, text) => { if (document.getElementById(id)) return; const s = document.createElement('style'); s.id = id; s.textContent = text; document.head.appendChild(s); };
+  const esc = window.CadenceKit.esc;
+  const css = window.CadenceKit.css;
   const DAY = 864e5;
-  const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+  const uid = window.CadenceKit.uid;
 
   /* ======================= Roulette ======================= */
   Cadence.registerPlugin({

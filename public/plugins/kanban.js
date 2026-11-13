@@ -8,7 +8,7 @@
     tagline: 'Drag your work between columns', color: '#0ea5e9',
     icon: '<rect x="3" y="4" width="5" height="16" rx="1.5"/><rect x="10" y="4" width="5" height="10" rx="1.5"/><rect x="17" y="4" width="4" height="13" rx="1.5"/>',
     setup(api) {
-      const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+      const esc = window.CadenceKit.esc;
       const U = api.util, today = () => U.todayKey(), plus = n => U.ymd(U.addDays(new Date(), n));
       const life = () => api.space() === 'life';
       const MODES = () => [['status', 'Status'], ['client', life() ? 'Area' : 'Client'], ['due', 'Due'], ...(life() ? [] : [['owner', 'Owner']])];

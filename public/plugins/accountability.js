@@ -4,8 +4,8 @@
      holds money; it keeps the pledge and links you to pay (or to Beeminder / stickK for real enforcement).
    - Public ledger: posts your oldest overdue tasks to a Zoho Cliq channel (webhook token kept on the NAS). */
 (() => {
-  const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
-  const css = (id, text) => { if (document.getElementById(id)) return; const s = document.createElement('style'); s.id = id; s.textContent = text; document.head.appendChild(s); };
+  const esc = window.CadenceKit.esc;
+  const css = window.CadenceKit.css;
   const DAY = 864e5;
   const overdue = api => { const t0 = api.util.todayKey(); return api.tasks.list(t => !t.done && t.owner !== 'client' && t.dueDate && t.dueDate < t0).map(t => ({ t, days: Math.round((new Date(t0) - new Date(t.dueDate)) / DAY) })).sort((a, b) => b.days - a.days); };
 

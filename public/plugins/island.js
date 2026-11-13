@@ -85,7 +85,7 @@
     G.pill = G.el.firstChild;
     G.queue = []; G.lives = new Map(); G.cur = null; G.sync = 'ok'; G.badge = 0;
   }
-  const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const esc = window.CadenceKit.esc;
   const checkSvg = '<span class="isl-check"><svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span>';
 
   /* ---- morph engine ---- */

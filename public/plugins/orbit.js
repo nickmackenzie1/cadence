@@ -9,7 +9,7 @@
   const G = window.__orbit = window.__orbit || {};
   const opt = () => { let v = null; try { v = JSON.parse(localStorage.getItem(KEY) || 'null'); } catch (e) {} return Object.assign({ radial: true }, v || {}); };
   const setOpt = n => { try { localStorage.setItem(KEY, JSON.stringify(Object.assign(opt(), n))); } catch (e) {} };
-  const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+  const esc = window.CadenceKit.esc;
   const reduced = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   Cadence.registerPlugin({
