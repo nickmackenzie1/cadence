@@ -1,5 +1,9 @@
 // Music Radar data cleanup: thread titles aren't artists, upload labels aren't genres, one subreddit can't make a breakout.
 import { test, expect } from '@playwright/test';
+import { mkdtempSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+process.env.RADAR_DATA ||= mkdtempSync(join(tmpdir(), 'cadence-radar-clean-'));   // the radar modules create their data folder on import
 const X = await import('../server/services/radar/lib/extract.mjs');
 const H = await import('../server/services/radar/lib/history.mjs');
 

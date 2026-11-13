@@ -883,8 +883,40 @@ data, or peer-to-peer on the same LAN). Personal data and secrets stay on each p
 - Sync: Pocket Casts has NO official API (their support page says so). There is a long-used unofficial one at
   api.pocketcasts.com (email + password login → token): user/podcast/list, user/history (with playedUpTo = your
   place in each episode), user/starred, up next, stats; position can be written back too (Music Assistant does
-  this). Reference: github niklas-heer/pocketcasts-stats (stats → Airtable), furgoose/Pocket-Casts (endpoint docs).
+  this). References (user, 13:24): github niklas-heer/pocketcasts-stats (stats → Airtable), furgoose/Pocket-Casts
+  (Python, endpoint docs), madisonrickert/pocketcasts-api (TypeScript client — closest to our Node server; read
+  it for endpoints/auth flow, write our own small fetch wrapper rather than adding the dependency).
 - Plan when picked up: NAS-side only (POCKETCASTS_EMAIL / POCKETCASTS_PASSWORD in the NAS .env, token never sent to
   the browser). Pull subscriptions + history + places into the Feeds player so "resume" starts where the phone left
   off; optionally push the place back when you pause in Cadence. Risk: unofficial, can break if they change it —
   fail quietly with one calm line.
+
+## Backlog (user, 2026-11-13 13:25): rebrand + README refresh
+- "the readme needs updating haha and the cadence name doesn't really apply anymore". Cadence started as a consultant
+  to-do app; it's now Work + Life spaces, themes, Music Radar, feeds, family/home plugins, games. Pick a new name with
+  the user (offer a short list), then rename: UI strings, title/manifest/icons, login page, README, docs, Docker image
+  and container names, localStorage keys (migrate `cadence.*` → keep reading old keys), window.Cadence API (keep an
+  alias for user plugins), deploy.sh paths on the NAS (careful: data dir and .env must not move without a migration).
+- README: rewrite for what it is now (features by space, install on Synology, the NAS-only rules: no Tailscale, not
+  exposed to the internet, secrets in the NAS .env only; optional keys table; plugin API pointer; tests/CI/stable flow).
+
+## Backlog (user, 2026-11-13 13:33): Kill Bill theme — blood dripping/effects with our engine
+- Use the Elements engine (CadenceFX world): drips from the top edge of panels and headings that run down and pool on
+  ledges, a splash when you finish a task. Respect Effects Off / reduced motion. Keep it stylised (the film's
+  saturated red on yellow/black), not gory.
+
+## Shipped 2026-11-13 13:40: Jurassic Park + Simpsons upgrades, Breath of the Wild (new Games category), NAS fonts
+- Fonts we can't ship (fan fonts, unclear licences: Hylia Serif "free while the site is up, not for profit";
+  the Jurassic Park font has no stated licence) are read from the NAS: drop the file in the data folder's `fonts/`
+  (e.g. HyliaSerifBeta-Regular.otf, JurassicPark.ttf, Simpsonfont.ttf). api/fonts/<name> finds it by name prefix;
+  missing → 404 and the theme uses its vendored fallback (Cinzel / Oswald / Fredoka). Theme font entries with
+  `mine: true` skip the format() hint.
+- Jurassic Park: timber park-sign heading with two flickering torches, hazard-striped fence on the sidebar edge,
+  red/yellow jeep stripes under group headers, amber checkboxes, amber drop with an insect when you finish a task,
+  three-toed footprints walking across the bottom now and then, the old ripple.
+- Simpsons: puffy cloud sky drifting behind the page (z-index -1, not in the fx layer), yellow pill group headers,
+  donut checkboxes, a frosted donut with sprinkles pops when you finish a task. No characters.
+- Breath of the Wild (plugins/themes-games.js, category Games): dusk hills, dark glass panels with cream inner frames,
+  corner-bracket cursor on hover, diamond checks that glow ancient-blue, a stamina wheel (top right) that fills with
+  today's done tasks, an item-get card with a cut gem for each finished task, drifting spirit lights.
+- Couldn't open the user's codepens/GitHub page from here (blocked), so these are built from the descriptions.

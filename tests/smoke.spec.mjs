@@ -295,12 +295,16 @@ test('3D, Halloween and Movie & TV themes apply cleanly; Halloween has lanterns'
   const errs = errorsOf(page); await boot(page);
   const ids = ['depth', 'halloween', 'jurassic', 'star-wars', 'shining', 'kill-bill', 'titan-ae', 'simpsons', 'family-guy', 'south-park', 'garden-wall', 'spirited-away', 'totoro'];
   for (const id of ids) { await page.evaluate(id => CadenceThemes.apply(id), id); expect(await page.evaluate(() => document.documentElement.dataset.skin)).toBe(id); }
+  await page.evaluate(() => CadenceThemes.apply('botw'));                 // Games: the stamina wheel comes and goes with the theme
+  await expect(page.locator('.bw-wheel')).toHaveCount(1);
+  expect(await page.evaluate(() => fetch('api/fonts/hylia-serif').then(r => r.status))).toBe(404);   // no fan font on this NAS: falls back
   await page.evaluate(() => CadenceThemes.apply('halloween'));
+  await expect(page.locator('.bw-wheel')).toHaveCount(0);
   await expect(page.locator('.hw-row .hw-p').first()).toBeVisible();
   await page.evaluate(() => CadenceThemes.apply('cadence'));
   await expect(page.locator('.hw-row, .hw-fog')).toHaveCount(0);
   const cats = await page.evaluate(() => [...new Set(CadenceThemes.list().map(t => t.category))]);
-  expect(cats).toEqual(expect.arrayContaining(['Movie & TV', 'Studio Ghibli', 'Seasonal']));
+  expect(cats).toEqual(expect.arrayContaining(['Movie & TV', 'Studio Ghibli', 'Seasonal', 'Games']));
   expect(errs).toEqual([]);
 });
 

@@ -1,5 +1,7 @@
-/* Movie & TV and Studio Ghibli themes (user backlog 2026-11-13). Homages: each borrows a palette, textures, type and a
-   mood from the film or show and is drawn for Cadence. No characters, logos, title lettering, stills or quotes.
+/* Movie & TV and Studio Ghibli themes (user backlog 2026-11-13). Each borrows a palette, textures, type, props and a
+   mood from the film or show, recreated in CSS. Lookalike fonts are fine (user, 13:16); no logos, quotes, stills, and
+   no drawings of the actual characters. Fonts we can't ship come from the NAS (data/fonts, api/fonts/<name>) and
+   fall back to a vendored one.
    Fonts are vendored (OFL / Apache-2.0, see vendor/themes/CREDITS.md). Effects respect the Effects setting and
    reduced motion (the engine skips effects() then). */
 (() => {
@@ -36,26 +38,52 @@
   const done = fn => { const h = e => fn(e.detail || {}); document.addEventListener('cadence:task-complete', h); return () => document.removeEventListener('cadence:task-complete', h); };
   const rowOf = t => t && t.id ? document.querySelector(`.task[data-id="${CSS.escape(t.id)}"]:not(.td-b)`) : null;
 
-  /* ---------------- Jurassic Park: jungle, amber, park signage, and a ripple now and then ---------------- */
-  R({ id: 'jurassic', name: 'Jurassic Park', category: TV, tagline: 'Deep jungle, amber and park-signage type. Every so often, a ripple in the water.',
-    fonts: [font('Oswald', 'oswald-latin-600-normal.woff2', 600)],
+  /* ---------------- Jurassic Park: jungle, a timber park sign with torches, hazard-striped fence, jeep stripes,
+     amber when you finish something, and now and then footprints (and a ripple) from something big ---------------- */
+  const PRINT = svg('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 52"><path fill="#06110a" d="M20 51c-7 0-11-5-9-12L4 24l9 7 3-22 4 20 4-20 3 22 9-7-7 15c2 7-2 12-9 12z"/></svg>');
+  R({ id: 'jurassic', name: 'Jurassic Park', category: TV, tagline: 'Deep jungle, a timber park sign with torches, hazard-striped fence and amber. Something big walks by now and then.',
+    fonts: [font('Oswald', 'oswald-latin-600-normal.woff2', 600), { family: 'Jurassic Park', src: 'api/fonts/jurassic-park', mine: true }],
     vars: { '--ambient': 'off', '--bg': '#13261b', '--panel': '#1c3326', '--side': '#0e1d14', '--text': '#efe6c8', '--muted': '#b4ac8c', '--faint': '#7b7660', '--line': '#2f4a37', '--hover': '#25402f',
       '--accent': '#e8a317', '--on-accent': '#1a1206', '--accent-soft': 'rgba(232,163,23,.16)', '--client': '#d9541e', '--client-soft': 'rgba(217,84,30,.18)', '--ok': '#6fbf4a', '--danger': '#e0452f', '--danger-soft': 'rgba(224,69,47,.16)', '--r': '6px', '--shadow': '0 8px 20px rgba(0,0,0,.35)' },
     preview: { bg: '#13261b', panel: '#1c3326', side: '#0e1d14', text: '#efe6c8', accent: '#e8a317', line: '#2f4a37', r: '6px' },
-    css: `:skin body{background:radial-gradient(900px 500px at 80% 0%,#1f3d2a,transparent 60%),repeating-linear-gradient(115deg,rgba(255,255,255,.012) 0 3px,transparent 3px 11px),#13261b}
+    css: `:skin body{background:radial-gradient(900px 500px at 80% 0%,#1f3d2a,transparent 60%),radial-gradient(700px 300px at 10% 100%,#0b1a10,transparent 70%),repeating-linear-gradient(115deg,rgba(255,255,255,.012) 0 3px,transparent 3px 11px),#13261b}
       :skin .app,:skin .main{background:transparent}
-      :skin .head h1,:skin .c-hero h1,:skin .group-h,:skin .th-cat,:skin .modal-h{font-family:Oswald,Impact,sans-serif;text-transform:uppercase;letter-spacing:.06em}
-      :skin .head h1{color:#e8a317;font-size:34px}
-      :skin .group-h{color:#e8a317}
+      :skin .head h1,:skin .c-hero h1,:skin .group-h,:skin .th-cat,:skin .modal-h{font-family:"Jurassic Park",Oswald,Impact,sans-serif;text-transform:uppercase;letter-spacing:.06em}
+      :skin .head h1{position:relative;display:inline-block;margin-top:10px;padding:6px 20px 4px;color:#f4c430;font-size:32px;text-shadow:0 2px 0 #2b1a0c;
+        background:repeating-linear-gradient(90deg,rgba(0,0,0,.09) 0 2px,transparent 2px 9px),repeating-linear-gradient(0deg,rgba(255,255,255,.04) 0 1px,transparent 1px 6px),linear-gradient(180deg,#6b4423,#4a2e17);
+        border:3px solid #2b1a0c;border-radius:4px;box-shadow:inset 0 0 0 2px #8a5a2e,0 5px 0 #2b1a0c,0 12px 20px rgba(0,0,0,.45)}
+      :skin .head h1::before,:skin .head h1::after{content:"";position:absolute;top:-16px;width:12px;height:18px;border-radius:50% 50% 45% 45%/60% 60% 40% 40%;
+        background:radial-gradient(circle at 50% 72%,#fff6c2 0 18%,#ffb52e 40%,#e0452f 72%,transparent 74%);filter:drop-shadow(0 0 8px rgba(255,160,40,.8));animation:jp-flame 1.1s ease-in-out infinite alternate;transform-origin:50% 100%}
+      :skin .head h1::before{left:-7px} :skin .head h1::after{right:-7px;animation-delay:-.5s}
+      @keyframes jp-flame{from{transform:scale(1,1) rotate(-3deg)}to{transform:scale(.88,1.12) rotate(3deg)}}
+      :skin .group-h{color:#e8a317;padding-bottom:7px;box-shadow:inset 0 -3px 0 #e8a317,inset 0 -6px 0 #c8102e}
       :skin .btn.primary,:skin .meet-btn{background:#c8102e;border-color:#c8102e;color:#fff;font-family:Oswald,sans-serif;text-transform:uppercase;letter-spacing:.05em}
-      :skin .side{border-right:3px solid #e8a317}
+      :skin .side{border-right:7px solid #e8a317;border-image:repeating-linear-gradient(180deg,#e8a317 0 16px,#14100a 16px 32px) 7}
       :skin .qa{border:2px solid #e8a317;background:#1c3326}
+      :skin .task:not(.td-b){border-left:3px solid transparent} :skin .task:not(.td-b):hover{border-left-color:#e8a317}
+      :skin .task.done .check{background:radial-gradient(circle at 35% 30%,#fff3b0,#ffb21e 45%,#c96a07);border-color:#8a4404}
       :skin .jp-ripple{position:fixed;left:50%;top:50%;width:10px;height:10px;margin:-5px 0 0 -5px;border:2px solid rgba(232,163,23,.5);border-radius:50%;animation:jp-r 2.2s ease-out forwards;pointer-events:none}
-      @keyframes jp-r{to{width:520px;height:520px;margin:-260px 0 0 -260px;opacity:0}}`,
+      @keyframes jp-r{to{width:520px;height:520px;margin:-260px 0 0 -260px;opacity:0}}
+      :skin .jp-print{position:fixed;width:40px;height:52px;background:${PRINT} center/contain no-repeat;opacity:0;pointer-events:none;animation:jp-p 7s ease-in-out forwards}
+      @keyframes jp-p{10%{opacity:.5}70%{opacity:.5}to{opacity:0}}
+      :skin .jp-amber{position:fixed;width:24px;height:28px;margin:-14px 0 0 -12px;border-radius:50% 50% 46% 46%/58% 58% 42% 42%;pointer-events:none;z-index:3000;
+        background:radial-gradient(circle at 34% 28%,rgba(255,255,255,.75),transparent 24%),radial-gradient(circle at 50% 60%,#ffb21e,#c96a07 70%,#8a4404);box-shadow:0 0 18px rgba(255,170,30,.65);animation:jp-am 1.6s ease-out forwards}
+      :skin .jp-amber::after{content:"";position:absolute;left:8px;top:12px;width:8px;height:3px;border-radius:2px;background:#3a1d05;box-shadow:-3px -3px 0 -1px #3a1d05,3px -3px 0 -1px #3a1d05,-3px 3px 0 -1px #3a1d05,3px 3px 0 -1px #3a1d05}
+      @keyframes jp-am{0%{opacity:0;transform:translateY(0) scale(.4)}20%{opacity:1;transform:translateY(-10px) scale(1)}to{opacity:0;transform:translateY(-70px) scale(1)}}
+      @media (prefers-reduced-motion:reduce){:skin .head h1::before,:skin .head h1::after{animation:none}}`,
     effects: ({ layer }) => {
-      // a ripple from the quick-add box, now and then, like footsteps far away
-      let t = 0; const go = () => { const q = document.querySelector('.qa'); if (q) { const r = q.getBoundingClientRect(); for (let i = 0; i < 3; i++) setTimeout(() => { const d = document.createElement('div'); d.className = 'jp-ripple'; d.style.left = r.left + r.width / 2 + 'px'; d.style.top = r.top + r.height / 2 + 'px'; layer.appendChild(d); setTimeout(() => d.remove(), 2300); }, i * 260); } t = setTimeout(go, rnd(35000, 70000)); };
-      t = setTimeout(go, 6000); return () => clearTimeout(t);
+      const timers = new Set(), later = (fn, ms) => { const t = setTimeout(() => { timers.delete(t); fn(); }, ms); timers.add(t); };
+      const add = (cls, x, y, extra = '') => { const d = document.createElement('div'); d.className = cls; d.style.cssText = `left:${x}px;top:${y}px;${extra}`; layer.appendChild(d); later(() => d.remove(), 8000); return d; };
+      // a ripple from the quick-add box, like footsteps far away
+      const ripple = () => { const q = document.querySelector('.qa'); if (q) { const r = q.getBoundingClientRect(); for (let i = 0; i < 3; i++) later(() => add('jp-ripple', r.left + r.width / 2, r.top + r.height / 2), i * 380); } later(ripple, 14000 + Math.random() * 8000); };
+      // a trail of big three-toed prints across the bottom of the page
+      const walk = () => { const y0 = innerHeight - 90, dir = Math.random() < .5 ? 1 : -1, x0 = dir > 0 ? 40 : innerWidth - 80;
+        for (let i = 0; i < 7; i++) later(() => add('jp-print', x0 + dir * i * 120, y0 + (i % 2 ? -22 : 10), `transform:rotate(${dir * 90}deg) scale(${dir > 0 ? 1 : -1},1)`), i * 650);
+        later(walk, 40000 + Math.random() * 25000); };
+      later(ripple, 5000); later(walk, 12000);
+      // finishing a task: a drop of amber with something preserved inside floats up from the row
+      const off = done(t => { const row = rowOf(t), r = row ? row.getBoundingClientRect() : { right: innerWidth / 2, top: innerHeight / 2, height: 0 }; add('jp-amber', Math.min(innerWidth - 30, r.right - 40), r.top + r.height / 2); });
+      return () => { off(); timers.forEach(clearTimeout); timers.clear(); };
     } });
 
   /* ---------------- Star Wars: deep space, a gold accent, a tilted crawl for headings, hyperspace when you finish ---------------- */
@@ -132,21 +160,40 @@
       draw: (cx, p) => { cx.save(); cx.translate(p.x, p.y); cx.rotate(p.r); cx.globalAlpha = p.o; cx.strokeStyle = '#9fe6ff'; cx.shadowColor = '#5fd3ff'; cx.shadowBlur = 8; cx.beginPath();
         for (let k = 0; k < 6; k++) { const a = k * Math.PI / 3; cx.lineTo(Math.cos(a) * p.s, Math.sin(a) * p.s); } cx.closePath(); cx.stroke(); cx.restore(); } }) });
 
-  /* ---------------- The Simpsons: sky blue with clouds, sunny yellow, a living-room purple ---------------- */
-  R({ id: 'simpsons', name: 'The Simpsons', category: TV, tagline: 'Cloud-dotted sky blue, sunny yellow, a living-room purple and chunky friendly type.',
-    fonts: [font('Fredoka', 'fredoka-latin-600-normal.woff2', 600)],
+  /* ---------------- The Simpsons: the cloud sky drifting by, sunny yellow, a living-room purple, chunky outlines,
+     donut checkboxes, and a pink-frosted donut with sprinkles when you finish something ---------------- */
+  const CLOUD = svg('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 220 90"><g fill="#fff"><circle cx="50" cy="58" r="30"/><circle cx="92" cy="40" r="38"/><circle cx="140" cy="48" r="32"/><circle cx="178" cy="62" r="24"/><rect x="40" y="58" width="150" height="30" rx="15"/></g></svg>');
+  const DONUT = 'radial-gradient(circle,var(--bg) 0 22%,#1d1d1d 23% 26%,transparent 27%),'
+    + 'radial-gradient(circle at 38% 34%,#fff 0 6%,transparent 7%),radial-gradient(circle at 64% 30%,#ffd90f 0 6%,transparent 7%),radial-gradient(circle at 72% 58%,#3fb4ff 0 6%,transparent 7%),radial-gradient(circle at 30% 62%,#7ad04f 0 6%,transparent 7%),radial-gradient(circle at 52% 78%,#fff 0 6%,transparent 7%),'
+    + 'radial-gradient(circle,transparent 0 30%,#f78fb3 31% 62%,#e2a35b 63% 72%,#1d1d1d 73% 78%,transparent 79%)';
+  R({ id: 'simpsons', name: 'The Simpsons', category: TV, tagline: 'The cloud sky drifting by, sunny yellow, living-room purple, chunky outlines and donuts. Add Simpsonfont to the NAS fonts folder for the lettering.',
+    fonts: [font('Fredoka', 'fredoka-latin-600-normal.woff2', 600), { family: 'Simpsonfont', src: 'api/fonts/simpsonfont', mine: true }],
     font: 'Fredoka,"Trebuchet MS",sans-serif',
     vars: { '--ambient': 'off', '--bg': '#70d1fe', '--panel': '#ffffff', '--side': '#fff3a8', '--text': '#1d1d1d', '--muted': '#55585e', '--faint': '#8a8d93', '--line': '#1d1d1d', '--hover': '#fff7c7',
       '--accent': '#8a5fb8', '--on-accent': '#fff', '--accent-soft': '#eadcf8', '--client': '#f26d8b', '--client-soft': '#ffdce5', '--ok': '#3aa64b', '--danger': '#e2352b', '--danger-soft': '#ffd8d4', '--r': '14px', '--shadow': '3px 3px 0 #1d1d1d' },
     preview: { bg: '#70d1fe', panel: '#fff', side: '#fff3a8', text: '#1d1d1d', accent: '#8a5fb8', line: '#1d1d1d', r: '14px' },
-    css: `:skin body{background:radial-gradient(60px 30px at 12% 18%,#fff 97%,transparent),radial-gradient(90px 40px at 18% 15%,#fff 97%,transparent),radial-gradient(60px 30px at 70% 30%,#fff 97%,transparent),radial-gradient(100px 44px at 77% 27%,#fff 97%,transparent),radial-gradient(70px 30px at 45% 75%,#fff 97%,transparent),#70d1fe;background-attachment:fixed}
+    css: `:skin body{background:${CLOUD} 6% 10%/260px auto no-repeat,${CLOUD} 78% 22%/320px auto no-repeat,${CLOUD} 40% 78%/220px auto no-repeat,${CLOUD} 96% 88%/180px auto no-repeat,linear-gradient(180deg,#5cc8fb,#8fdcff);background-attachment:fixed}
       :skin .app,:skin .main{background:transparent}
-      :skin .head h1,:skin .c-hero h1{color:#ffd90f;-webkit-text-stroke:2px #1d1d1d;paint-order:stroke fill;font-size:40px}
+      :skin .sp-sky{position:fixed;inset:0;z-index:-1;background:${CLOUD} 0 0/300px auto repeat-x;background-position:0 14%;opacity:.85;animation:sp-drift 90s linear infinite;pointer-events:none}
+      :skin .sp-sky.b{background-size:200px auto;background-position:0 62%;opacity:.6;animation-duration:140s}
+      @keyframes sp-drift{to{background-position-x:-1200px}}
+      :skin .head h1,:skin .c-hero h1{font-family:Simpsonfont,Fredoka,sans-serif;color:#ffd90f;-webkit-text-stroke:2px #1d1d1d;paint-order:stroke fill;font-size:40px;letter-spacing:.01em;text-shadow:3px 3px 0 #1d1d1d}
+      :skin .group-h{font-family:Simpsonfont,Fredoka,sans-serif;color:#1d1d1d;background:#ffd90f;display:inline-block;padding:2px 12px;border:2px solid #1d1d1d;border-radius:999px;box-shadow:2px 2px 0 #1d1d1d}
       :skin .head .sub,:skin .head .sub *{color:#1d1d1d}
       :skin .task:not(.td-b),:skin .gl,:skin .stat,:skin .qa{border:2px solid #1d1d1d;box-shadow:3px 3px 0 #1d1d1d;background:#fff}
+      :skin .task:not(.td-b):hover{transform:translate(-1px,-1px);box-shadow:4px 4px 0 #1d1d1d}
+      :skin .task.done .check{background:${DONUT};border-color:transparent} :skin .task.done .check svg{opacity:0}
       :skin .btn{border:2px solid #1d1d1d;border-radius:999px} :skin .btn.primary,:skin .meet-btn{background:#ffd90f;color:#1d1d1d;border:2px solid #1d1d1d}
       :skin .chip{background:#ffdce5;border:1.5px solid #1d1d1d}
-      :skin .side{border-right:2px solid #1d1d1d}` });
+      :skin .side{border-right:2px solid #1d1d1d}
+      :skin .sp-donut{position:fixed;width:46px;height:46px;margin:-23px 0 0 -23px;border-radius:50%;background:${DONUT.replace('var(--bg)', 'transparent')};pointer-events:none;z-index:3000;animation:sp-pop 1.5s cubic-bezier(.2,1.6,.4,1) forwards}
+      @keyframes sp-pop{0%{opacity:0;transform:scale(.2) rotate(-40deg)}25%{opacity:1;transform:scale(1.1) rotate(0)}70%{opacity:1;transform:scale(1) rotate(10deg) translateY(-12px)}to{opacity:0;transform:scale(.9) translateY(-40px)}}`,
+    effects: ({ layer }) => {
+      const a = document.createElement('div'), b = document.createElement('div'); a.className = 'sp-sky'; b.className = 'sp-sky b'; document.body.prepend(b, a); // behind the page, not in the fx layer on top
+      const off = done(t => { const row = rowOf(t), r = row ? row.getBoundingClientRect() : { right: innerWidth / 2, top: innerHeight / 2, height: 0 };
+        const d = document.createElement('div'); d.className = 'sp-donut'; d.style.left = Math.min(innerWidth - 30, r.right - 44) + 'px'; d.style.top = r.top + r.height / 2 + 'px'; layer.appendChild(d); setTimeout(() => d.remove(), 1600); });
+      return () => { off(); a.remove(); b.remove(); };
+    } });
 
   /* ---------------- Family Guy: a suburban living room, royal blue, warm beige stripes ---------------- */
   R({ id: 'family-guy', name: 'Family Guy', category: TV, tagline: 'Suburban living room: beige striped walls, royal blue, a red-letter accent.',

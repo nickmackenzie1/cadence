@@ -28,7 +28,7 @@
   const fontSt = document.createElement('style'); fontSt.id = 'cadence-skin-fonts'; document.head.appendChild(fontSt);
   function fontFaces() { fontSt.textContent = [...T.values()].map(t => cssFor(t, true)).join(''); }
   function cssFor(t, opts_fonts) {
-    if (opts_fonts) { let o = ''; for (const f of t.fonts || []) o += `@font-face{font-family:"${f.family}";src:url("${f.src}") format("${/\.ttf$/.test(f.src) ? 'truetype' : /\.woff$/.test(f.src) ? 'woff' : 'woff2'}");font-weight:${f.weight || 400};font-style:${f.style || 'normal'};font-display:swap}`; return o; }
+    if (opts_fonts) { let o = ''; for (const f of t.fonts || []) o += `@font-face{font-family:"${f.family}";src:url("${f.src}") ${f.mine ? '' : `format("${/\.ttf$/.test(f.src) ? 'truetype' : /\.woff$/.test(f.src) ? 'woff' : 'woff2'}")`};font-weight:${f.weight || 400};font-style:${f.style || 'normal'};font-display:swap}`; return o; }
     const sel = `html[data-skin="${t.id}"]`; let out = '';
     if (t.vars) out += `${sel}{${varsCss(t.vars)}}`;
     if (t.light) out += `${sel}:not([data-theme=dark]){${varsCss(t.light)}}`;
