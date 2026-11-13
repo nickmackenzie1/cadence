@@ -11,7 +11,7 @@ const PORT = await freePort(), B = `http://localhost:${PORT}`;
 let server, dir;
 test.beforeAll(async () => {
   dir = mkdtempSync(join(tmpdir(), 'cadence-radar-'));
-  const sim = spawnSync(process.execPath, ['server/services/radar/test/simulate.mjs'], { env: { ...process.env, RADAR_DATA: join(dir, 'radar'), ANTHROPIC_API_KEY: '', LASTFM_API_KEY: '' }, encoding: 'utf8' });
+  const sim = spawnSync(process.execPath, ['server/services/radar/test/simulate.mjs'], { env: { ...process.env, RADAR_DATA: join(dir, 'radar'), RADAR_DB: join(dir, 'cadence.db'), ANTHROPIC_API_KEY: '', LASTFM_API_KEY: '' }, encoding: 'utf8' });
   if (sim.status !== 0) throw new Error('simulate failed: ' + sim.stderr);
   server = spawn(process.execPath, ['--disable-warning=ExperimentalWarning', 'server.js'], { env: { ...process.env, PORT: String(PORT), DATA_DIR: dir, TLS_DIR: join(dir, 'x') }, stdio: 'ignore' });
   for (let i = 0; i < 150; i++) { try { if ((await fetch(B + '/api/health')).ok) return; } catch {} await new Promise(r => setTimeout(r, 100)); }
@@ -48,6 +48,14 @@ test('Music Radar view: charts, picks, thumbs and subreddits', async ({ page }) 
   // years view switches
   await page.click('#mr-hy [data-v=month]');
   await expect(page.locator('#mr-hy [data-v=month]')).toHaveClass(/on/);
+
+  // it's all in cadence.db as radar_* tables, and the Database view shows them
+  const raw = await (await fetch(B + '/api/radar/raw')).json();
+  expect(raw.storage).toBe('sqlite');
+  expect(raw.tables.find(t => t.name === 'radar_picks').count).toBeGreaterThan(5);
+  await page.goto(B + '/#view-db');
+  await page.click('[data-col="sql:radar_picks"]');
+  await expect(page.locator('.dbv [data-row]').first()).toBeVisible();
 
   // the RSS feed and a digest are served
   const rss = await (await fetch(B + '/api/radar/feed.xml')).text();

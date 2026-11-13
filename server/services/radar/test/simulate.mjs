@@ -5,6 +5,9 @@ import fs from "node:fs";
 import path from "node:path";
 if (!process.env.RADAR_DATA) { console.error("Set RADAR_DATA to a scratch folder first."); process.exit(1); }
 fs.rmSync(process.env.RADAR_DATA, { recursive: true, force: true });
+// the radar tables go in their own scratch database unless RADAR_DB says otherwise (never your real cadence.db)
+process.env.RADAR_DB ||= path.join(process.env.RADAR_DATA, "simulate.db");
+for (const f of ["", "-wal", "-shm"]) fs.rmSync(process.env.RADAR_DB + f, { force: true });
 const DAY = 86400, END = Math.floor(Date.now() / 1000);
 const START = END - 14 * DAY;
 process.env.RADAR_NOW = String(START);

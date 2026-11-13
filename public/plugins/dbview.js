@@ -87,7 +87,7 @@
       function cell(v, k, S) {
         if (v == null) return `<td class="nl">null</td>`;
         if (typeof v === 'boolean') return `<td class="b">${v}</td>`;
-        if (typeof v === 'number') { const ts = v > 1e12 && v < 4e12 && /At$|^start$|^end$|^t$|time/i.test(k); return `<td class="n" title="${ts ? new Date(v).toLocaleString() : ''}">${ts ? new Date(v).toISOString().replace('T', ' ').slice(0, 16) : v}</td>`; }
+        if (typeof v === 'number') { const tk = /At$|^start$|^end$|^t$|^ts$|time|^first_seen$/i.test(k), ms = tk && v > 1e12 && v < 4e12 ? v : tk && v > 1e9 && v < 4e9 ? v * 1000 : 0; return `<td class="n" title="${ms ? new Date(ms).toLocaleString() : ''}">${ms ? new Date(ms).toISOString().replace('T', ' ').slice(0, 16) : v}</td>`; }
         if (typeof v === 'object') return `<td class="o">${Array.isArray(v) ? `[${v.length}]` : `{${Object.keys(v).length}}`}</td>`;
         if (k === 'clientId') { const c = (S.clients || []).find(x => x.id === v); return `<td><a data-jump="${E(v)}">${E(c ? c.name : v)}</a></td>`; }
         return `<td title="${E(String(v).slice(0, 300))}">${E(String(v).slice(0, 120))}</td>`;
@@ -97,18 +97,38 @@
           str ? (colon ? `<span class="k">${str}</span>${colon}` : `<span class="s">${str}</span>`) : bool ? `<span class="bo">${m}</span>` : m === 'null' ? `<span class="nu">null</span>` : `<span class="n">${m}</span>`);
       }
 
+      // Music Radar keeps its own tables in cadence.db (radar_*): read-only, newest 500 rows per table
+      const SQL_MAX = 500;
+      async function radarTables() {
+        if (G.rt && Date.now() - G.rt.at < 10000) return G.rt.list;
+        try { const r = await (await fetch('api/radar/raw', { cache: 'no-store' })).json(); G.rt = { at: Date.now(), list: r.tables || [] }; } catch { G.rt = { at: Date.now(), list: [] }; }
+        return G.rt.list;
+      }
+      async function sqlRows(name) {
+        if (G.sq && G.sq.name === name && Date.now() - G.sq.at < 10000) return G.sq;
+        const r = await (await fetch(`api/radar/raw?table=${encodeURIComponent(name)}&limit=${SQL_MAX}`, { cache: 'no-store' })).json();
+        const rows = (r.rows || []).map(v => { const o = {}; r.columns.forEach((c, i) => { o[c] = v[i]; }); if (typeof o.json === 'string') try { o.json = JSON.parse(o.json); } catch {} return o; });
+        return (G.sq = { name, at: Date.now(), total: r.total || 0, columns: r.columns || [], rows });
+      }
+
       async function render(el) {
         const live = api.db.snapshot(), S = st.src ? st.src.data : live, cols = collections(S);
-        if (!cols.find(c => c[0] === st.col)) st.col = 'tasks';
-        const raw = cols.find(c => c[0] === st.col)[1], rows = asRows(raw), keys = columns(rows);
+        if (G.want) { st.col = G.want; st.sel = null; st.q = ''; st.sort = null; G.want = null; }
+        const sys = api.system(), rts = sys.mode === 'nas' && !st.src ? await radarTables() : [];
+        const sqlName = st.col.startsWith('sql:') ? st.col.slice(4) : null;
+        if (sqlName && !rts.find(t => t.name === sqlName)) st.col = 'tasks';
+        if (!st.col.startsWith('sql:') && !cols.find(c => c[0] === st.col)) st.col = 'tasks';
+        const sq = st.col.startsWith('sql:') ? await sqlRows(st.col.slice(4)).catch(() => ({ rows: [], columns: [], total: 0 })) : null;
+        const raw = sq ? sq.rows : cols.find(c => c[0] === st.col)[1], rows = sq ? sq.rows : asRows(raw), keys = sq ? sq.columns.filter(c => c !== 'json') : columns(rows);
         let list = rows.filter(r => matches(r, st.q));
         if (st.sort) list = list.slice().sort((a, b) => { const x = a[st.sort], y = b[st.sort]; return (x == null) - (y == null) || (x > y ? 1 : x < y ? -1 : 0) * st.dir; });
-        const sys = api.system(), tot = size(S);
-        const selRow = st.sel != null ? rows.find((r, i) => (r.id || r.key || i) === st.sel) : null;
+        const tot = size(S);
+        const selRow = st.sel != null ? rows.find((r, i) => (r.id || r.key || (r.sub && r.month ? r.sub + '/' + r.month : '') || i) == st.sel) : null;
         const diff = st.src ? ['clients', 'tasks', 'meetings'].map(k => { const a = new Set((live[k] || []).map(x => x.id)), b = new Set((S[k] || []).map(x => x.id)); const add = [...a].filter(x => !b.has(x)).length, rem = [...b].filter(x => !a.has(x)).length; return `${k} <b class="p">+${add}</b> <b class="m">−${rem}</b>`; }).join(' · ') : '';
 
         el.innerHTML = `<div class="dbv">
           <div class="dbv-side"><div class="h">Collections</div>${cols.map(([k, v]) => `<button data-col="${E(k)}" class="${k === st.col ? 'on' : ''}">${E(k)}<span>${Array.isArray(v) ? v.length : Object.keys(v || {}).length}</span></button>`).join('')}
+            ${rts.length ? `<div class="h">Music Radar tables</div>${rts.map(t => `<button data-col="sql:${E(t.name)}" class="${'sql:' + t.name === st.col ? 'on' : ''}">${E(t.name.replace(/^radar_/, ''))}<span>${t.count}</span></button>`).join('')}` : ''}
             <div class="h">On the NAS</div><div id="dbv-nas" class="muted" style="font-size:12px;padding:0 8px">${sys.mode === 'nas' ? 'Loading…' : 'Open Cadence on your NAS to see files and backups.'}</div></div>
           <div class="dbv-main">
             ${st.src ? `<div class="dbv-banner">Viewing backup <b style="font-family:var(--mono)">${E(st.src.name)}</b> · read-only · <span class="dbv-diff">now vs then: ${diff}</span><button class="btn" data-back>Back to live</button></div>` : ''}
@@ -120,12 +140,12 @@
               <div class="dbv-stat"><b>${Object.keys(S.pluginData || {}).length}</b><span>plugin stores · ${bytes(size(S.pluginData || {}))}</span></div>
               <div class="dbv-stat"><b>${sys.demo ? 'demo' : sys.mode}</b><span>${sys.latency != null ? sys.latency + ' ms · ' : ''}${S.updatedAt ? 'saved ' + new Date(S.updatedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : 'storage'}</span></div>
             </div>
-            <div class="dbv-bar"><input class="inp" id="dbv-q" placeholder="filter… e.g.  done:false  owner:them  priority>1  -clientId:null  zoho" value="${E(st.q)}"><span class="cnt">${list.length}/${rows.length} rows · ${bytes(size(raw))}</span><button class="btn" data-copy>Copy JSON</button><button class="btn" data-csv>CSV</button></div>
+            <div class="dbv-bar"><input class="inp" id="dbv-q" placeholder="filter… e.g.  done:false  owner:them  priority>1  -clientId:null  zoho" value="${E(st.q)}"><span class="cnt">${sq ? `${list.length}/${rows.length} rows${sq.total > rows.length ? ` (newest ${rows.length} of ${sq.total})` : ''} · table ${E(st.col.slice(4))}` : `${list.length}/${rows.length} rows · ${bytes(size(raw))}`}</span><button class="btn" data-copy>Copy JSON</button><button class="btn" data-csv>CSV</button></div>
             <div class="dbv-split ${selRow ? 'insp' : ''}">
               <div class="dbv-tw"><table><thead><tr>${keys.map(k => `<th data-sort="${E(k)}">${E(k)}${st.sort === k ? (st.dir > 0 ? ' ↑' : ' ↓') : ''}</th>`).join('')}</tr></thead>
-                <tbody>${list.slice(0, 500).map((r, i) => { const id = r.id || r.key || rows.indexOf(r); return `<tr data-row="${E(id)}" class="${id === st.sel ? 'on' : ''}">${keys.map(k => cell(r[k], k, S)).join('')}</tr>`; }).join('')}</tbody></table>
+                <tbody>${list.slice(0, 500).map((r, i) => { const id = r.id || r.key || (r.sub && r.month ? r.sub + '/' + r.month : '') || rows.indexOf(r); return `<tr data-row="${E(id)}" class="${id === st.sel ? 'on' : ''}">${keys.map(k => cell(r[k], k, S)).join('')}</tr>`; }).join('')}</tbody></table>
                 ${list.length > 500 ? `<div class="muted" style="padding:8px 10px;font-size:12px">Showing 500 of ${list.length} — narrow the filter.</div>` : ''}${!list.length ? '<div class="muted" style="padding:14px;font-size:13px">No rows match.</div>' : ''}</div>
-              ${selRow ? `<div class="dbv-insp"><div class="ih">${E(st.col)} / ${E(String(st.sel))}<button data-icopy>Copy</button><button data-iclose>✕</button></div><pre>${highlight(selRow)}</pre></div>` : ''}
+              ${selRow ? `<div class="dbv-insp"><div class="ih">${E(st.col.replace(/^sql:/, ''))} / ${E(String(st.sel))}<button data-icopy>Copy</button><button data-iclose>✕</button></div><pre>${highlight(selRow)}</pre></div>` : ''}
             </div>
           </div></div>`;
 
@@ -133,7 +153,7 @@
         q.oninput = () => { st.q = q.value; clearTimeout(G.qt); G.qt = setTimeout(() => { const pos = q.selectionStart; render(el).then(() => { const n = el.querySelector('#dbv-q'); n.focus(); n.setSelectionRange(pos, pos); }); }, 160); };
         el.querySelectorAll('[data-col]').forEach(b => b.onclick = () => { st.col = b.dataset.col; st.sel = null; st.sort = null; st.q = ''; render(el); });
         el.querySelectorAll('[data-sort]').forEach(th => th.onclick = () => { const k = th.dataset.sort; st.dir = st.sort === k ? -st.dir : 1; st.sort = k; render(el); });
-        el.querySelectorAll('[data-row]').forEach(tr => tr.onclick = e => { if (e.target.closest('[data-jump]')) return; const v = tr.dataset.row; st.sel = st.sel == v ? null : (isNaN(+v) || rows.some(r => r.id === v || r.key === v) ? v : +v); render(el); });
+        el.querySelectorAll('[data-row]').forEach(tr => tr.onclick = e => { if (e.target.closest('[data-jump]')) return; const v = tr.dataset.row; st.sel = st.sel == v ? null : (isNaN(+v) || rows.some(r => String(r.id) === v || r.key === v || (r.sub && r.sub + '/' + r.month === v)) ? v : +v); render(el); });
         el.querySelectorAll('[data-jump]').forEach(a => a.onclick = () => { st.col = 'clients'; st.sel = a.dataset.jump; st.q = ''; st.sort = null; render(el); });
         const ic = el.querySelector('[data-icopy]'); if (ic) ic.onclick = () => api.ui.copy(JSON.stringify(selRow, null, 2));
         const icl = el.querySelector('[data-iclose]'); if (icl) icl.onclick = () => { st.sel = null; render(el); };
@@ -158,7 +178,7 @@
         }
       }
 
-      api.views.add({ id: 'db', group: 'insights', title: 'Database', icon: '⛁', subtitle: 'Every record Cadence keeps, and your NAS backups', render: el => render(el) });
+      api.views.add({ id: 'db', group: 'insights', title: 'Database', icon: '⛁', wide: true, subtitle: 'Every record Cadence keeps, and your NAS backups', render: el => render(el) });
       api.commands.add({ title: 'Open database viewer', run: () => api.ui.navigate('view-db') });
     }
   });

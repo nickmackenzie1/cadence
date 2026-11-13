@@ -645,3 +645,21 @@ data, or peer-to-peer on the same LAN). Personal data and secrets stay on each p
 - View subtitles: one short phrase, no instructions, no trailing period.
 - Left alone, worth asking the user: Bucket list still sorts by "good years left" with life-in-weeks (its design);
   Desk plant still droops with old tasks (text softened); Haunted still exists, opt-in.
+
+## Shipped 2026-11-13 ~10:30: Music Radar data lives in cadence.db (user: "i really think it should be going into the db")
+- Symptom the user saw: archive ("Over the years") filled in, but scans gave 0 picks / 0 artists with no error. Cause:
+  the scanner swallowed per-subreddit Reddit failures (console.log only), so a refused scan looked successful.
+- Now: everything the scanner prints during a job is captured into the status log and stored in radar_jobs; a scan
+  where most Reddit requests fail sets lastError (with the HTTP code / network cause, and the REDDIT_CLIENT_ID/_SECRET
+  hint when Reddit answers 403/429). The Radar view shows it as a "The last run had a problem" note with a link to
+  the job log in Database.
+- server/services/radar/lib/store.mjs: SQLite (node:sqlite) on cadence.db, tables radar_kv, radar_artists, radar_picks,
+  radar_edges, radar_digests, radar_history, radar_snapshots, radar_genres, radar_terms, radar_jobs. Old files are
+  imported once on first start and renamed *.imported. Falls back to the files if node:sqlite is missing.
+  RADAR_DB overrides the DB path; simulate.mjs uses its own simulate.db unless RADAR_DB is set (never the real db).
+- Digests: HTML is in radar_digests; /api/radar/digests/<file> serves the file if present, else from the table.
+- Database view: "Music Radar tables" group (newest 500 rows per table, filter, inspector), page is now wide.
+  API: GET /api/radar/raw (table list), /api/radar/raw?table=radar_x&offset&limit.
+- Still to find out on the NAS: what the actual Reddit error is. Likely 403 without keys → add Reddit app keys.
+- Data quality without ANTHROPIC_API_KEY is rough (archive shows "Daily Discussion", "official video" as
+  artists/genres). The AI key fixes most of that; a stop-list for the plain extractor is a possible follow-up.

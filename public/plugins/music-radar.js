@@ -91,7 +91,7 @@
         el.innerHTML = `
           <div class="mr-top">
             <label class="mr-switch"><input type="checkbox" id="mr-on" ${S.on ? 'checked' : ''}> Scan every 6 hours, digest weekly</label>
-            <span class="mr-status">${S.job ? `${ic('loader')} ${esc(S.job.kind)} running…` : `Last scan ${esc(ago(S.lastScan || (D.generatedAt && Date.parse(D.generatedAt))))}`}${S.lastError ? ` · <span class="mr-err">${esc(S.lastError)}</span>` : ''}</span>
+            <span class="mr-status">${S.job ? `${ic('loader')} ${esc(S.job.kind)} running…` : `Last scan ${esc(ago(S.lastScan || (D.generatedAt && Date.parse(D.generatedAt))))}`}</span>
             <span class="mr-actions">
               <button class="btn" id="mr-scan" ${S.job ? 'disabled' : ''}>${ic('radar')}Scan now</button>
               <button class="btn" id="mr-digest" ${S.job ? 'disabled' : ''}>${ic('mail')}Write the digest</button>
@@ -99,6 +99,7 @@
               ${D.spotify.connected ? (D.spotify.url ? `<a class="btn" href="${esc(D.spotify.url)}" target="_blank" rel="noopener">${ic('music')}Spotify playlist</a>` : '') : D.spotify.app ? `<a class="btn" href="api/radar/spotify/login">${ic('music')}Connect Spotify</a>` : ''}
             </span>
           </div>
+          ${S.lastError && !S.job ? `<div class="mr-problem">${ic('circle-alert')}<div><b>The last run had a problem</b><div>${esc(S.lastError)}</div><a href="#view-db" id="mr-log">See the job log in Database</a></div></div>` : ''}
           <div class="mr-tiles">
             <div class="mr-tile"><b>${fmt(D.picksThisWeek)}</b><span>Picks this week</span></div>
             <div class="mr-tile"><b>${fmt(D.artistsTracked)}</b><span>Artists tracked</span></div>
@@ -152,6 +153,7 @@
         $('#mr-on').onchange = async e => { G.st = await post('api/radar/settings', { on: e.target.checked }); api.ui.toast(e.target.checked ? 'Music Radar is on: it scans every 6 hours' : 'Music Radar is off'); api.ui.refresh(); };
         $('#mr-scan').onclick = async () => { G.st = await post('api/radar/run', { what: 'scan' }); api.ui.toast('Scanning. It takes a few minutes; this page updates when it\'s done.'); load(); };
         $('#mr-digest').onclick = async () => { G.st = await post('api/radar/run', { what: 'digest' }); load(); };
+        const lg = $('#mr-log'); if (lg) lg.onclick = () => { (window.__dbv = window.__dbv || {}).want = 'sql:radar_jobs'; };
         const back = $('#mr-back'); if (back) back.onclick = async () => { G.st = await post('api/radar/run', { what: 'backfill' }); api.ui.toast('Pulling the archive on the NAS. You can leave this page.'); load(); };
         el.querySelectorAll('[data-fb]').forEach(b => b.onclick = async () => { const v = +b.dataset.v, cur = +b.dataset.cur; await post('api/radar/feedback', { id: b.dataset.fb, v: cur === v ? 0 : v }); load(); });
         el.querySelectorAll('[data-rm]').forEach(b => b.onclick = async () => { await post('api/radar/subs', { remove: b.dataset.rm }); load(); });
@@ -170,7 +172,8 @@
         .mr-top{display:flex;flex-wrap:wrap;align-items:center;gap:10px 16px;margin:0 0 16px}
         .mr-switch{display:flex;align-items:center;gap:8px;font-weight:600;font-size:13px}
         .mr-status{color:var(--muted);font-size:13px;display:inline-flex;align-items:center;gap:6px}.mr-status svg{width:14px;height:14px}.mr-err{color:var(--danger)}
-        .mr-actions{display:flex;flex-wrap:wrap;gap:6px;margin-left:auto}.mr-actions .btn{display:inline-flex;align-items:center;gap:6px;text-decoration:none}.mr-actions svg{width:15px;height:15px}
+        .mr-actions{display:flex;flex-wrap:wrap;gap:6px;margin-left:auto}.mr-actions .btn{color:var(--text);display:inline-flex;align-items:center;gap:6px;text-decoration:none}.mr-actions svg{width:15px;height:15px}
+        .mr-problem{display:flex;gap:10px;align-items:flex-start;border:1px solid var(--line);border-left:3px solid var(--client);border-radius:var(--r-l);background:var(--panel);padding:12px 14px;margin:0 0 16px;font-size:13px}.mr-problem svg{width:18px;height:18px;flex:none;color:var(--client);margin-top:1px}.mr-problem div div{color:var(--muted);margin:2px 0 4px}.mr-problem a{color:var(--accent);font-size:12.5px}
         .mr-tiles{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:16px}
         .mr-tile{border:1px solid var(--line);border-radius:var(--r-l);background:var(--panel);padding:12px 14px;display:flex;flex-direction:column;gap:2px;min-width:0}
         .mr-tile b{font-size:22px;font-weight:600;letter-spacing:-.02em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.mr-tile span{font-size:12px;color:var(--muted)}

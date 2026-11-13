@@ -19,6 +19,10 @@ module.exports = async function radarRoutes(req, res, { url, p }) {
     const started = b.what === 'digest' ? radar.digestNow() : b.what === 'backfill' ? radar.backfill(b.options) : b.what === 'stop' ? (radar.stop(), true) : radar.scan();
     return send(res, started ? 200 : 409, { started, ...radar.status() });
   }
+  if (p === '/api/radar/raw' && req.method === 'GET') {   // read-only tables for the Database view
+    const q = url.searchParams, r = await radar.raw(q.get('table') || '', Math.max(0, +q.get('offset') || 0), Math.min(500, Math.max(1, +q.get('limit') || 50)));
+    return r ? send(res, 200, r) : send(res, 404, { error: 'No such table' });
+  }
   if (p === '/api/radar/data' && req.method === 'GET') return send(res, 200, await radar.data());
   if (p === '/api/radar/feedback') {
     // POST from the app; GET from the thumbs links inside the RSS feed
@@ -29,7 +33,7 @@ module.exports = async function radarRoutes(req, res, { url, p }) {
   if (p === '/api/radar/subs' && req.method === 'POST') return send(res, 200, { subs: await radar.subs(await body()) });
   if (p === '/api/radar/feed.xml' && req.method === 'GET') return send(res, 200, await radar.rss(baseOf(req)), 'application/rss+xml; charset=utf-8');
   if (p.startsWith('/api/radar/digests/') && req.method === 'GET') {
-    const f = radar.digestFile(p.slice('/api/radar/digests/'.length));
+    const f = await radar.digestFile(p.slice('/api/radar/digests/'.length));
     return f ? send(res, 200, f, 'text/html; charset=utf-8') : send(res, 404, { error: 'Not found' });
   }
   if (p === '/api/radar/spotify/login' && req.method === 'GET') {

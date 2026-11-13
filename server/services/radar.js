@@ -30,16 +30,35 @@ function settings(patch) { const s = { ...readSettings(), ...(patch || {}) }; if
 let job = null, stopBackfill = false;
 const log = [];
 const note = line => { log.push(`${new Date().toISOString().slice(11, 19)} ${line}`); if (log.length > 60) log.shift(); };
+// Everything the scanner prints during a job (Reddit refusals included) goes into the log, and each job is kept
+// in the radar_jobs table so the Database view can show what happened even after a restart.
 function runJob(kind, fn) {
   if (job) return false;
   job = { kind, since: Date.now() };
+  const lines = [], errors = [];
+  const tee = orig => (...a) => { orig(...a); const t = a.map(x => (typeof x === 'string' ? x : x instanceof Error ? x.message : JSON.stringify(x))).join(' ').trim(); if (!t) return; lines.push(t); if (/^!|\bHTTP [45]\d\d\b|failed|skipped|error/i.test(t)) errors.push(t); note(t); };
+  const keep = { log: console.log, warn: console.warn, error: console.error };
+  console.log = tee(keep.log); console.warn = tee(keep.warn); console.error = tee(keep.error);
   note(`${kind} started`);
-  Promise.resolve().then(fn).then(() => { note(`${kind} done`); settings({ lastError: null }); })
-    .catch(e => { note(`${kind} failed: ${e.message}`); settings({ lastError: `${kind}: ${e.message}` }); console.error('radar', kind, e); })
-    .finally(() => { job = null; });
+  const finish = (ok, err) => {
+    Object.assign(console, keep);
+    const ms = Date.now() - job.since;
+    // a scan that "worked" but got refused by Reddit on most requests is not a success
+    const failed = errors.filter(e => /^! r\//.test(e)), done = lines.filter(l => /^r\/.*: done$/.test(l)).length;
+    let problem = err ? `${kind}: ${err.message}` : null;
+    if (!problem && kind === 'scan' && failed.length && failed.length >= done) {
+      const first = failed[0].replace(/^!\s*/, ''), refused = failed.some(e => /HTTP (403|429)/.test(e));
+      problem = `scan: ${failed.length} of the Reddit requests failed, e.g. ${first}.` + (refused ? ' Reddit is refusing the NAS: adding REDDIT_CLIENT_ID and REDDIT_CLIENT_SECRET to the NAS .env usually fixes this.' : ' Check that the NAS can reach reddit.com.');
+    }
+    note(problem ? `${kind} finished with problems` : `${kind} done`);
+    settings({ lastError: problem });
+    load().then(({ store }) => store.addJob({ ts: Date.now(), kind, ok: !problem, ms, errors: errors.length, problem, lines: lines.slice(-80) })).catch(e => console.error('radar job log', e));
+    job = null;
+  };
+  Promise.resolve().then(fn).then(() => finish(true), e => { console.error('radar', kind, e); finish(false, e); });
   return true;
 }
-const scan = () => runJob('scan', async () => { const { radar } = await load(); await radar.run({ quiet: true, playlist: false }); settings({ lastScan: Date.now() }); });
+const scan = () => runJob('scan', async () => { const { radar } = await load(); await radar.run({ quiet: false, playlist: false }); settings({ lastScan: Date.now() }); });
 const digestNow = () => runJob('digest', async () => { const { digest } = await load(); await digest.digest({}); settings({ lastDigest: Date.now() }); });
 const backfill = opts => { stopBackfill = false; return runJob('backfill', async () => { const { backfill } = await load(); await backfill.backfill({ ...(opts || {}), log: note, stop: () => stopBackfill }); }); };
 const stop = () => { stopBackfill = true; };
@@ -53,7 +72,18 @@ setInterval(() => {
 
 function status() {
   const s = readSettings();
-  return { ...s, job, log: log.slice(-12), keys: { ai: !!process.env.ANTHROPIC_API_KEY, lastfm: !!process.env.LASTFM_API_KEY, reddit: !!(process.env.REDDIT_CLIENT_ID && process.env.REDDIT_CLIENT_SECRET), ntfy: !!process.env.NTFY_TOPIC, spotify: !!(process.env.SPOTIFY_CLIENT_ID && process.env.SPOTIFY_CLIENT_SECRET) } };
+  return { ...s, job, log: log.slice(-40), keys: { ai: !!process.env.ANTHROPIC_API_KEY, lastfm: !!process.env.LASTFM_API_KEY, reddit: !!(process.env.REDDIT_CLIENT_ID && process.env.REDDIT_CLIENT_SECRET), ntfy: !!process.env.NTFY_TOPIC, spotify: !!(process.env.SPOTIFY_CLIENT_ID && process.env.SPOTIFY_CLIENT_SECRET) } };
+}
+// ---- raw tables for the Database view (read-only): the radar_* tables in cadence.db ----
+async function raw(name, offset = 0, limit = 50) {
+  const { store } = await load();
+  const ts = store.tables();
+  if (!ts) return { storage: 'files', note: store.storageNote, tables: [] };
+  if (!name) return { storage: 'sqlite', file: path.basename(store.DB_FILE), tables: ts.map(t => ({ name: t.name, count: t.count, columns: t.columns })) };
+  const r = store.tableRows(name, { offset, limit });
+  if (!r) return null;
+  r.rows = r.rows.map(row => row.map(v => (typeof v === 'string' && v.length > 600 ? v.slice(0, 600) + '…' : v)));
+  return r;
 }
 async function data() { const { store, data } = await load(); return data.dashboardData(store.loadState()); }
 async function feedback(id, v) {
@@ -71,7 +101,12 @@ async function subs({ add, remove }) {
   store.saveState(state); return list;
 }
 async function rss(base) { const { store, rss } = await load(); return rss.buildRss(store.loadState(), 80, base); }
-function digestFile(name) { const f = path.join(DIR, 'digests', path.basename(String(name))); return fs.existsSync(f) ? fs.readFileSync(f) : null; }
+async function digestFile(name) {
+  const f = path.join(DIR, 'digests', path.basename(String(name)));
+  if (fs.existsSync(f)) return fs.readFileSync(f);
+  const { store } = await load(), d = store.loadState().digests.find(x => x.file === path.basename(String(name)));   // kept in radar_digests
+  return d ? Buffer.from(`<!doctype html><meta charset="utf-8"><title>${String(d.title).replace(/</g, '&lt;')}</title><body style="font-family:system-ui,sans-serif;max-width:680px;margin:2rem auto;padding:0 1rem;line-height:1.5">${d.html}</body>`) : null;
+}
 async function spotify() { const { spotify } = await load(); return spotify; }
 
-module.exports = { settings, status, scan, digestNow, backfill, stop, data, feedback, subs, rss, digestFile, spotify };
+module.exports = { raw, settings, status, scan, digestNow, backfill, stop, data, feedback, subs, rss, digestFile, spotify };

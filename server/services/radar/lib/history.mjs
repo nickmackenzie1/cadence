@@ -6,8 +6,7 @@ import { httpJson } from "./http.mjs";
 import { norm } from "./extract.mjs";
 
 const FILE = path.join(DATA, "history.json");
-export const loadHistory = () => { try { return JSON.parse(fs.readFileSync(FILE, "utf8")); } catch { return {}; } };
-export const saveHistory = (h) => fs.writeFileSync(FILE, JSON.stringify(h));
+export { loadHistory, saveHistory } from "./store.mjs";   // stored in cadence.db (radar_history)
 
 export async function archivePage(sub, afterIso, limit = 100) {
   const url = `https://arctic-shift.photon-reddit.com/api/posts/search?subreddit=${encodeURIComponent(sub)}`
