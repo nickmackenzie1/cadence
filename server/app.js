@@ -2,6 +2,7 @@
 /* The request pipeline: security checks, the sign-in gate, the API routes, then the app's static files. */
 const fs = require('fs');
 const path = require('path');
+const zlib = require('zlib');
 const { MIME, PASSWORD, PUBLIC_DIR } = require('./config');
 const { OPEN, authorized, sameOrigin } = require('./lib/auth');
 const { NEXT, send } = require('./lib/http');
@@ -63,6 +64,9 @@ async function handle(req, res) {
     if (leaf === '/login') rel = '/login.html';
     const file = path.normalize(path.join(PUBLIC_DIR, rel));
     if (!file.startsWith(PUBLIC_DIR)) return send(res, 403, 'Forbidden', 'text/plain');
+    // vendored libraries (fonts, engines, Harper's 20 MB WebAssembly) don't change between deploys of the same build:
+    // the browser keeps them and asks "still the same?" (304), and big ones go out gzipped (compressed once, kept in memory)
+    if (rel.startsWith('/vendor/')) return sendVendor(req, res, file);
     fs.readFile(file, (err, buf) => {
       if (err) return fs.readFile(path.join(PUBLIC_DIR, 'index.html'), (e2, idx) => e2 ? send(res, 404, 'Not found', 'text/plain') : send(res, 200, idx, MIME['.html']));
       send(res, 200, buf, MIME[path.extname(file)] || 'application/octet-stream');
@@ -71,6 +75,29 @@ async function handle(req, res) {
     console.error(e);
     send(res, 500, { error: e.message });
   }
+}
+
+const gzCache = new Map();
+function sendVendor(req, res, file) {
+  fs.stat(file, (err, st) => {
+    if (err || !st.isFile()) return send(res, 404, 'Not found', 'text/plain');
+    const etag = `"${st.size.toString(36)}-${Math.round(st.mtimeMs).toString(36)}"`;
+    const type = MIME[path.extname(file)] || 'application/octet-stream';
+    const head = { 'Content-Type': type, 'Cache-Control': 'no-cache', ETag: etag, 'X-Content-Type-Options': 'nosniff', Vary: 'Accept-Encoding' };
+    if (req.headers['if-none-match'] === etag) { res.writeHead(304, head); return res.end(); }
+    const gz = st.size > 256 * 1024 && /\bgzip\b/.test(req.headers['accept-encoding'] || '') && !/woff2$/.test(file);
+    if (!gz) return fs.readFile(file, (e, buf) => { if (e) return send(res, 404, 'Not found', 'text/plain'); res.writeHead(200, head); res.end(buf); });
+    const hit = gzCache.get(file);
+    if (hit && hit.etag === etag) { res.writeHead(200, { ...head, 'Content-Encoding': 'gzip' }); return res.end(hit.buf); }
+    fs.readFile(file, (e, buf) => {
+      if (e) return send(res, 404, 'Not found', 'text/plain');
+      zlib.gzip(buf, { level: 6 }, (ze, out) => {
+        if (ze) { res.writeHead(200, head); return res.end(buf); }
+        gzCache.set(file, { etag, buf: out });
+        res.writeHead(200, { ...head, 'Content-Encoding': 'gzip' }); res.end(out);
+      });
+    });
+  });
 }
 
 module.exports = { handle };

@@ -711,3 +711,17 @@ data, or peer-to-peer on the same LAN). Personal data and secrets stay on each p
 - Fonts vendored from Fontsource (OFL): Cinzel 500/700, IBM Plex Sans 400/500/700, Source Serif 4 400/600. CREDITS.md.
 - Theme CSS must not style `.task` alone: schedule blocks are `.td-b.task`. Use `.task:not(.td-b)`.
 - Test: smoke "themes set 3". Also fixed: Radar's add-subreddit field keeps its text across redraws (flaky test).
+
+## Shipped 2026-11-13 ~12:15: Harper grammar checker (user picked from the backlog)
+- public/plugins/harper.js + public/vendor/harper (harper.js 3.0.0, Automattic, Apache-2.0, unmodified dist; the
+  WebAssembly is 20 MB, 8 MB gzipped). Loads only when you first focus a text box.
+- Checks textareas (not .te-title, code/JSON boxes, mono fonts, [data-no-grammar]); turns the browser's own
+  spellcheck off on the box it's checking. Underlines on a mirror layer ON TOP of the box (pointer-events none,
+  transparent text), so it works in dialogs too. Caret on a problem → popover: message, suggestions (deduped), Ignore,
+  Add to dictionary (synced plugin storage `cfg.words`). Settings: on/off, dialect (Canadian default).
+- LocalLinter on the page: the WorkerLinter build hangs unless the engine is also loaded on the page, and
+  setup() hangs in the worker. A check is a few ms after the first load (~0.8 s).
+- Core: the task editor no longer closes on clicks inside [data-keep-open] elements.
+- Server: /vendor/* is served with ETag + no-cache (304 when unchanged) and gzipped when over 256 KB (kept in
+  memory); MIME for .wasm and .woff2. Everything else is still no-store.
+- Plugins' setup() can run more than once (rebuilds): document-level listeners need a cleanup (see G.cleanup).

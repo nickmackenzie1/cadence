@@ -471,3 +471,33 @@ test('feed activity: new items per day charted from the history the NAS keeps', 
   await expect(page.locator('.fs-sum b').first()).toHaveText('9');   // the first look is a baseline, not "new"
   expect(errs).toEqual([]);
 });
+
+test('grammar: Harper underlines problems in task notes, a click fixes one, words go in your dictionary, code boxes are left alone', async ({ page }) => {
+  test.setTimeout(90000);
+  const errs = await open(page);
+  const id = await page.evaluate(() => { const t = window.T.tasks.add({ title: 'Write the recap', dueDate: window.T.util.todayKey() }); window.T.ui.refresh(); return t.id; });
+  await page.click(`.task[data-id="${id}"] .t-title`);
+  const notes = page.locator('.te-notes');
+  await notes.click();
+  await notes.pressSequentially('Their going to send the the files tomorow to Zorblax.', { delay: 5 });
+  await expect(page.locator('.hp-mirror mark')).toHaveCount(4, { timeout: 40000 });   // they're, the the, tomorrow, Zorblax
+  expect(await page.locator('.hp-mirror').count()).toBe(1);
+  expect(await notes.evaluate(t => t.spellcheck)).toBe(false);   // one set of squiggles, not the browser's too
+  // caret on "Their" → suggestions → fix
+  await notes.evaluate(t => { t.setSelectionRange(2, 2); t.dispatchEvent(new MouseEvent('click', { bubbles: true })); });
+  await expect(page.locator('.hp-pop')).toContainText('they');
+  expect(await page.locator('.hp-pop [data-i]').count()).toBe(1);   // duplicates removed
+  await page.click('.hp-pop [data-i="0"]');
+  await expect.poll(() => page.evaluate(id => window.T.tasks.get(id).notes, id)).toMatch(/^They're going/);
+  await expect(page.locator('.task.open')).toHaveCount(1);   // the editor stayed open
+  // a made-up name goes in the dictionary and stops being flagged
+  const pos = await notes.evaluate(t => t.value.indexOf('Zorblax') + 2);
+  await notes.evaluate((t, p) => { t.setSelectionRange(p, p); t.dispatchEvent(new MouseEvent('click', { bubbles: true })); }, pos);
+  await page.click('.hp-pop [data-dict]');
+  await expect(page.locator('.hp-mirror mark')).toHaveCount(2);
+  // code boxes are never checked
+  await page.evaluate(() => { const t = document.createElement('textarea'); t.id = 'dev-code'; t.value = 'Their going'; document.body.appendChild(t); t.focus(); });
+  await page.waitForTimeout(800);
+  expect(await page.locator('.hp-mirror').count()).toBe(0);
+  expect(errs).toEqual([]);
+});

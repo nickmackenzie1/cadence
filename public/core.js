@@ -2084,7 +2084,7 @@ document.addEventListener('click', e => {
   if(gl){ if(gl.dataset.task){ openTask(gl.dataset.task); return; } const g = gl.dataset.go; if(g && g.startsWith('#')){ const el = $(g); el && el.scrollIntoView({ behavior:'smooth', block:'start' }); } else if(g && g !== route()) go(g); return; }
   const tc = e.target.closest('[data-te]');
   if(tc && taskEl){ const t = S.tasks.find(x => x.id === taskEl.dataset.id); if(t) editChip(t, tc.dataset.te, tc); return; }
-  if(selTask && !e.target.closest('.task.open, .pop, .dp, .modal, .menu, .ftoast, .isl, .toast')) closeDrawer();
+  if(selTask && !e.target.closest('.task.open, .pop, .dp, .modal, .menu, .ftoast, .isl, .toast, [data-keep-open]')) closeDrawer();
   if(!a && taskEl){ openTask(taskEl.dataset.id); return; }
   if(e.target.id === 'scrim'){ closeModal(); return; }
   const sg = e.target.closest('[data-seg]');

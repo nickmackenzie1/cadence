@@ -28,7 +28,7 @@ fs.mkdirSync(COMPANY_DIR, { recursive: true });
 fs.mkdirSync(BACKUP_DIR, { recursive: true });
 fs.mkdirSync(ICON_DIR, { recursive: true });
 
-const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.svg': 'image/svg+xml', '.png': 'image/png', '.ico': 'image/x-icon', '.webmanifest': 'application/manifest+json' };
+const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.svg': 'image/svg+xml', '.png': 'image/png', '.ico': 'image/x-icon', '.webmanifest': 'application/manifest+json', '.wasm': 'application/wasm', '.woff2': 'font/woff2' };
 const STARTED = Date.now();
 
 module.exports = { API_KEY, BACKUP_DIR, BANNER_DIR, COMPANY_DIR, DATA_DIR, HTTPS_PORT, HTTPS_PUBLIC_PORT, ICON_DIR, KEEP_BACKUPS, MIME, MODEL, MODEL_QUICK, PASSWORD, PORT, PUBLIC_DIR, STARTED, STATE_FILE, TLS_DIR, USERNAME };
