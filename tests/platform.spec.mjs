@@ -61,7 +61,9 @@ test('sweep: every plugin settings dialog and every view renders cleanly', async
       if (d.length) problems.push(`${space} ${id} settings: duplicate ids ${d.join(',')}`);
       await page.keyboard.press('Escape'); await page.evaluate(() => document.querySelector('.mk-ov,#rw-ov,#kiosk')?.remove());
     }
-    const views = await page.evaluate(() => [...new Set([...document.querySelectorAll('a[href^="#view-"]')].map(a => a.getAttribute('href').slice(1)))]);
+    await page.click('[data-act=all-views]');
+    const views = await page.evaluate(() => [...new Set([...document.querySelectorAll('#modal a[href^="#view-"]')].map(a => a.getAttribute('href').slice(1)))]);
+    await page.keyboard.press('Escape');
     expect(views.length).toBeGreaterThan(5);
     for (const v of views) { await page.evaluate(v => location.hash = v, v); await page.waitForTimeout(150);
       const d = await dups(), len = await page.evaluate(() => document.getElementById('view').innerText.trim().length);
@@ -79,5 +81,21 @@ test('Cadence dialogs instead of browser popups: ask() returns values, cancel re
   expect(await p1).toEqual({ n: 'Riley' });
   const p2 = page.evaluate(() => window.T.ui.ask('x', [{ k: 'a', label: 'A' }]));
   await page.click('#ask-no'); expect(await p2).toBe(null);
+  expect(errs).toEqual([]);
+});
+
+test('views: a few pinned in the sidebar, the rest under All views, pins stick', async ({ page }) => {
+  const errs = await open(page);
+  const tiles = () => page.locator('.vgrid .vt:not(.more)').count();
+  const before = await tiles();
+  expect(before).toBeLessThanOrEqual(8);
+  await page.click('[data-act=all-views]');
+  await expect(page.locator('#modal .av-g').first()).toBeVisible();
+  const unpinned = page.locator('#modal .av-pin:not(.on)').first(); const id = await unpinned.getAttribute('data-av-pin');
+  await unpinned.click();
+  await expect(page.locator(`.vgrid a[href="#view-${id}"]`)).toHaveCount(1);
+  await page.locator(`#modal a[href="#view-${id}"]`).click();
+  await expect(page).toHaveURL(new RegExp('#view-' + id));
+  expect(await tiles()).toBe(before + 1);
   expect(errs).toEqual([]);
 });

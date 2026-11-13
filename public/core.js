@@ -867,7 +867,11 @@ function renderSide(){
       ${ntile('done', NAV_ICONS.done, 'Logbook')}
     </nav>
     ${(() => { const loose = Reg.views.filter(v => !v.group && !v.hidden), ins = Reg.views.filter(v => v.group === 'insights'); const tile = (id, ic, label) => `<a class="vt ${r===id?'on':''}" href="#${id}" aria-label="${label}"><span class="ic">${ic}</span><span class="vl">${label}</span></a>`;
-      const items = (ins.length ? [tile('insights', '✦', 'Insights')] : []).concat(loose.map(v => tile('view-'+v.id, esc(v.icon||'◇'), esc(v.title)))); return items.length ? `<div class="sect">Views</div><nav class="vgrid">${items.join('')}</nav>` : ''; })()}
+      // only pinned views get a tile (plus the one you're on); everything else lives behind "All views"
+      const pins = viewPins(loose), shown = loose.filter(v => pins.includes(v.id) || r === 'view-' + v.id).sort((x, y) => (pins.indexOf(x.id) + 1 || 99) - (pins.indexOf(y.id) + 1 || 99));
+      const items = (ins.length ? [tile('insights', '✦', 'Insights')] : []).concat(shown.map(v => tile('view-'+v.id, esc(v.icon||'◇'), esc(v.title))));
+      if(loose.length > shown.length) items.push(`<a class="vt more" href="#" data-act="all-views" aria-label="All views (${loose.length})"><span class="ic">${icon('layout-grid')}</span><span class="vl">All views</span></a>`);
+      return items.length ? `<div class="sect">Views</div><nav class="vgrid">${items.join('')}</nav>` : ''; })()}
     ${LIFE() ? `<div class="sect">Areas <button data-act="add-client" title="Add an area">+</button></div>
     <nav class="nav">${clients.map(cl => clientLink(cl, r, o)).join('') || (paused.length ? '' : `<a data-act="add-client"><span class="ic">+</span><span class="t muted">Add an area</span></a>`)}
       ${paused.length ? `<div class="more" data-act="toggle-paused">${showPaused ? '▾' : '▸'} Paused <span class="muted">${paused.length}</span></div>${showPaused ? paused.map(cl => clientLink(cl, r, o, true)).join('') : ''}` : ''}</nav>` : (() => {
@@ -1417,6 +1421,17 @@ function ask(title, fields, intro = ''){
     const obs = new MutationObserver(() => { if(!document.getElementById('ask-ok')){ obs.disconnect(); fin(null); } }); obs.observe($('#modal'), { childList: true });
     setTimeout(() => { const i = $('.modal .inp'); i && i.focus(); i && i.select && i.select(); }, 30);
   });
+}
+/* pinned views per space (synced), and the "All views" picker grouped by kind */
+const pinKey = () => 'cadence.pins.' + (LIFE() ? 'life' : 'work');
+function viewPins(loose){ let p = null; try { p = JSON.parse(localStorage.getItem(pinKey()) || 'null'); } catch(e){} return Array.isArray(p) ? p : loose.slice(0, 6).map(v => v.id); }
+function allViews(){
+  const loose = Reg.views.filter(v => !v.group && !v.hidden), pins = viewPins(loose), groups = {};
+  loose.forEach(v => { const d = Reg.defs.find(x => x.id === v.pid) || {}; (groups[d.category || 'Other'] = groups[d.category || 'Other'] || []).push(v); });
+  const body = () => Object.entries(groups).sort((a, b) => a[0].localeCompare(b[0])).map(([g, vs]) => `<div class="av-g"><div class="av-h">${esc(g)}</div><div class="av-l">${vs.map(v => { const on = viewPins(loose).includes(v.id); return `<div class="av-it"><a href="#view-${esc(v.id)}" data-av-go><span class="ic">${esc(v.icon || '◇')}</span><span><b>${esc(v.title)}</b>${v.subtitle ? `<small>${esc(v.subtitle)}</small>` : ''}</span></a><button class="av-pin ${on ? 'on' : ''}" data-av-pin="${esc(v.id)}" aria-pressed="${on}" aria-label="${on ? 'Unpin' : 'Pin'} ${esc(v.title)} in the sidebar" title="${on ? 'Unpin from' : 'Pin to'} the sidebar">${icon('pin')}</button></div>`; }).join('')}</div></div>`).join('');
+  openModalHTML('All views', `<p class="muted" style="margin:0 0 10px;font-size:12.5px">Pin the ones you use to keep them in the sidebar.</p><div id="av-body">${body()}</div>`, '', 'wide');
+  const wire = () => { $$('[data-av-pin]').forEach(b => b.onclick = () => { const cur = viewPins(loose), id = b.dataset.avPin; localStorage.setItem(pinKey(), JSON.stringify(cur.includes(id) ? cur.filter(x => x !== id) : [...cur, id])); $('#av-body').innerHTML = body(); wire(); renderSide(); });
+    $$('[data-av-go]').forEach(a => a.addEventListener('click', () => setTimeout(closeModal, 0))); }; wire();
 }
 function openModalHTML(title, body, foot = '', cls = ''){
   $('#modal').className = 'modal ' + cls;
@@ -2055,6 +2070,7 @@ document.addEventListener('click', e => {
     case 'pl-open': if(e.target.closest('button')) break; plugUI.open = plugUI.open === a.dataset.pid ? null : a.dataset.pid; route() === 'plugins' ? renderView() : openSettings(); break;
     case 'pl-close': plugUI.open = null; renderView(); break;
     case 'pl-settings': openPluginSettings(a.dataset.pid); break;
+    case 'all-views': e.preventDefault(); allViews(); break;
     case 'open-plugins': closeModal(); go('plugins'); break;
     case 'space': switchSpace(a.dataset.s); break;
     case 'ins-tab': S.settings.insightsTab = a.dataset.id; persistLocal(); render(); break;
