@@ -91,7 +91,7 @@ ensure_tls
 
 [ "$ENV_CHANGED" = yes ] && CHANGED="$CHANGED
 docker-compose.yml"
-if echo "$CHANGED" | grep -qE '^(all|server\.js|Dockerfile|docker-compose\.yml|deploy\.sh|tls\.sh)$'; then
+if echo "$CHANGED" | grep -qE '^(all|server\.js|server/.*|Dockerfile|docker-compose\.yml|deploy\.sh|tls\.sh)$'; then
   log "deploy $(echo "$NEW" | cut -c1-7): rebuilding container"
   dc up -d --build --remove-orphans >> "$LOG" 2>&1 && log "rebuild ok" || log "REBUILD FAILED — see above"
 else

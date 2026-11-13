@@ -1,6 +1,7 @@
 FROM node:22-alpine
 WORKDIR /app
 COPY server.js ./
+COPY server ./server
 COPY public ./public
 ENV PORT=8484 HTTPS_PORT=8443 TLS_DIR=/certs DATA_DIR=/data NODE_ENV=production
 VOLUME /data

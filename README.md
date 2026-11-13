@@ -9,7 +9,12 @@ public/core.js      core: state, sync, parsing, rendering, plugin host
 public/core.css     core styles
 public/plugins/     every feature beyond the core, one file each
 tests/              Playwright smoke tests
-server.js           tiny Node server: serves the app, stores data in data/cadence.db (SQLite), daily backups, optional AI proxy
+server.js           entry point: starts the Node server (no dependencies)
+server/config.js    settings from the environment, data folder layout
+server/app.js       request pipeline: security checks, sign-in gate, API routes, static files
+server/routes/      the API, one controller per area (auth, sync, feeds, push, calendar…)
+server/services/    the work behind the routes (feeds, push, calendars, company info, recipes, Cliq, AI)
+server/lib/         building blocks: http helpers, sessions, storage (SQLite in data/cadence.db), safe fetch, TLS
 Dockerfile          node:22-alpine image (built-in SQLite)
 docker-compose.yml  mounts public/ live, so UI changes need no rebuild
 deploy.sh           Synology auto-deploy: pulls from GitHub, rebuilds only when needed
@@ -31,7 +36,7 @@ docs/PLUGINS.md     plugin API for developers
 ```
 push to main  ->  NAS Task Scheduler runs deploy.sh every 5 min  ->  live
                     public/*                        : live on browser refresh
-                    server.js / Dockerfile / compose: container rebuilt automatically
+                    server.js / server/ / Dockerfile / compose: container rebuilt automatically
                     data/, .env, certs/, .mkcert-ca/: never touched
 ```
 

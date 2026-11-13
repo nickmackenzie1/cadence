@@ -480,3 +480,20 @@ data, or peer-to-peer on the same LAN). Personal data and secrets stay on each p
 - Queued: RSS "new entries per day" chart view; fire typing melts snow into water that streams down (SPH-style, see
   asadm/SPHjs); mobile pass; server.js restructure into routes/services with comments; meeting code out of core.js;
   single plugin bundle.
+
+## Shipped 2026-11-12 late: server restructure
+- server.js is now a thin entry point. Layout: server/config.js, server/app.js (pipeline: CA download → cross-site check →
+  auth routes → sign-in gate → API routes → static files), server/routes/*.js (controllers: auth, system, sync, lookup,
+  feeds, push, integrations, files, calendar), server/services/*.js, server/lib/*.js (http, auth, storage, net, tls, build).
+- Route contract: `async (req, res, { url, p, leaf })` answers, or returns `NEXT` (lib/http) to pass the request on.
+- Storage state is read through hasDb() / storageInfo() / allDocs() / resolveConflicts(); routes never touch `db` directly.
+- Dockerfile copies server/; deploy.sh rebuilds on server/* changes.
+- Sidebar count badges: the neutral badge was invisible (--hover on --side); now a solid grey pill, readable in both themes.
+- Known flake: spaces.spec "Life syncs to another device…" fails ~1 in 3 in isolation on the OLD server too (CI retries).
+
+## Backlog: Today redesign (user, 2026-11-12 22:33): "THIS LOOKS SO TYPICAL AI DESIGN — COULD USE A REDESIGN"
+- The Today header: big greeting, an energy pill row, four equal rounded stat cards (ring / overdue / chase / upcoming),
+  then the quick-add. Generic dashboard tropes: same-size white cards, soft shadows, truncated labels ("overdue — clear th…",
+  "9 coming up this …").
+- Direction to propose: drop the card grid for one editorial line or a timeline of the day; make overdue an inline action,
+  not a stat; let the quick-add lead; fold energy into the greeting; a real type scale and a distinctive accent.
