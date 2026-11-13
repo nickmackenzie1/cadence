@@ -188,7 +188,7 @@
                 + (D.picks.length > 15 && !G.all ? `<p><button class="btn" id="mr-all">Show all ${D.picks.length}</button></p>` : '') : empty('No picks yet. Press Scan now, or switch the radar on.')}</section>
             <section class="mr-card w4"><h3>Subreddits</h3><p class="mr-sub">What the radar scans</p>
               <div class="mr-chips">${D.subs.map(s => `<span class="mr-sc">r/${esc(s)}<button data-rm="${esc(s)}" aria-label="Remove r/${esc(s)}">${ic('x')}</button></span>`).join('')}</div>
-              <div class="mr-row"><input class="inp" id="mr-new" placeholder="Add a subreddit"><button class="btn" id="mr-add">Add</button></div>
+              <div class="mr-row"><input class="inp" id="mr-new" placeholder="Add a subreddit" value="${esc(G.newSub || '')}"><button class="btn" id="mr-add">Add</button></div>
               <h4>Suggested for you</h4><p class="mr-sub">Where artists you liked keep getting posted (refreshed by the weekly digest)</p>
               ${D.suggestions.length ? `<table class="mr-t">${D.suggestions.map(s => `<tr><td><a href="https://reddit.com/r/${esc(s.sub)}" target="_blank" rel="noopener">r/${esc(s.sub)}</a><div class="mr-small">${fmt(s.subscribers)} members · because: ${esc(s.because.slice(0, 3).join(', '))}</div></td><td><button class="btn" data-add="${esc(s.sub)}">Add</button></td></tr>`).join('')}</table>` : empty('The weekly digest finds suggestions.')}
               <h4>What it's learned</h4>
@@ -221,8 +221,12 @@
         el.querySelectorAll('[data-fb]').forEach(b => b.onclick = async () => { const v = +b.dataset.v, cur = +b.dataset.cur; await post('api/radar/feedback', { id: b.dataset.fb, v: cur === v ? 0 : v }); load(); });
         el.querySelectorAll('[data-rm]').forEach(b => b.onclick = async () => { await post('api/radar/subs', { remove: b.dataset.rm }); load(); });
         el.querySelectorAll('[data-add]').forEach(b => b.onclick = async () => { await post('api/radar/subs', { add: b.dataset.add }); load(); });
-        const add = async () => { const v = $('#mr-new').value.trim().replace(/^\/?r\//, ''); if (!v) return; await post('api/radar/subs', { add: v }); load(); };
+        const add = async () => { const v = $('#mr-new').value.trim().replace(/^\/?r\//, ''); if (!v) return; G.newSub = ''; await post('api/radar/subs', { add: v }); load(); };
         $('#mr-add').onclick = add; $('#mr-new').onkeydown = e => { if (e.key === 'Enter') add(); };
+        // a redraw (a scan finishing, a thumbs click) keeps what you were typing and where
+        const ni = $('#mr-new'); ni.oninput = () => { G.newSub = ni.value; };
+        if (G.newSubFocus) { ni.focus(); ni.setSelectionRange(ni.value.length, ni.value.length); }
+        ni.onfocus = () => { G.newSubFocus = true; }; ni.onblur = () => { setTimeout(() => { if (!el.contains(document.activeElement)) G.newSubFocus = false; else if (document.activeElement !== el.querySelector('#mr-new')) G.newSubFocus = false; }, 0); };
         el.querySelectorAll('#mr-srctabs [data-src]').forEach(b => b.onclick = () => { G.src = b.dataset.src; G.feed = ''; api.ui.refresh(); });
         el.querySelectorAll('[data-feed]').forEach(b => b.onclick = () => { G.feed = b.dataset.feed; api.ui.refresh(); });
         const mm = $('#mr-multi'); if (mm) mm.onchange = () => { G.multi = mm.checked; api.ui.refresh(); };

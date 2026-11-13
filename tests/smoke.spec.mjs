@@ -224,3 +224,34 @@ test('ambient light: client pages glow in their colours with a readable accent, 
   expect(await page.evaluate(() => document.getElementById('view').style.getPropertyValue('--accent'))).toBe('');
   expect(errs).toEqual([]);
 });
+
+test('themes set 3: Reddit votes change priority, the Pocket Casts player finishes the next task, Platformer counts coins, Adventure hearts', async ({ page }) => {
+  const errs = errorsOf(page); await boot(page);
+  await page.evaluate(() => Cadence.registerPlugin({ id: 'th3', name: 't', setup(api) { window.T3 = api; } }));
+  const id = await page.evaluate(() => window.T3.tasks.add({ title: 'Vote on me', dueDate: window.T3.util.todayKey() }).id);
+  for (const t of ['claude', 'reddit', 'pocket-casts', 'blades', 'adventure', 'platformer']) expect(await page.evaluate(t => CadenceThemes.list().some(x => x.id === t), t)).toBe(true);
+  // Reddit: upvote twice = priority 2, downvote = 1
+  await page.evaluate(() => { location.hash = 'today'; CadenceThemes.apply('reddit'); });
+  const row = page.locator(`#view .task[data-id="${id}"]`);
+  await row.locator('.rd-up').click();
+  await expect.poll(() => page.evaluate(id => window.T3.tasks.get(id).priority, id)).toBe(1);
+  await page.locator(`#view .task[data-id="${id}"] .rd-up`).click();
+  await expect.poll(() => page.evaluate(id => window.T3.tasks.get(id).priority, id)).toBe(2);
+  await page.locator(`#view .task[data-id="${id}"] .rd-dn`).click();
+  await expect.poll(() => page.evaluate(id => window.T3.tasks.get(id).priority, id)).toBe(1);
+  expect(await page.locator('.td-b .rd-vote').count()).toBe(0);   // never inside the schedule strip
+  // Adventure: a heart per task due or done today
+  await page.evaluate(() => CadenceThemes.apply('adventure'));
+  await expect(page.locator('.adv-hearts i')).toHaveCount(1);
+  // Platformer: the coin counter
+  await page.evaluate(() => CadenceThemes.apply('platformer'));
+  await expect(page.locator('.pl-hud')).toContainText('×00');
+  // Pocket Casts: the player's button finishes the next task
+  await page.evaluate(() => CadenceThemes.apply('pocket-casts'));
+  await expect(page.locator('.pc-player')).toContainText('Vote on me');
+  await page.click('.pc-play');
+  await expect.poll(() => page.evaluate(id => window.T3.tasks.get(id).done, id)).toBe(true);
+  await page.evaluate(() => CadenceThemes.apply('cadence'));
+  await expect(page.locator('.pc-player, .pl-hud, .bl-blades, .rd-vote')).toHaveCount(0);   // everything cleans up
+  expect(errs).toEqual([]);
+});

@@ -699,3 +699,15 @@ data, or peer-to-peer on the same LAN). Personal data and secrets stay on each p
 - weather.js used wind speed only (always positive = always right) at kmh/18 (very strong). Now uses
   wind_direction_10m (added to the Open-Meteo query) for the sideways component, scaled kmh/50, capped ±0.8.
   CadenceFX.wanted() exposes the current wants.
+
+## Shipped 2026-11-13 ~11:30: six more themes (backlog 2026-11-12 22:11)
+- public/plugins/themes-extra.js (after themes-more.js): Claude (ivory/clay, Source Serif 4 headings, roomy composer,
+  light+dark), Reddit (IBM Plex Sans, tasks as posts with a vote column: up/down = priority, light+dark), Pocket Casts
+  (dark/red, rounded art, an Up Next player bar: next task due + done-today progress, its button completes it),
+  Blades (2005 console dashboard: glossy coloured blades on the right edge navigate Today/Upcoming/Inbox/Logbook, green
+  glow), Adventure (parchment over forest, Cinzel gold headings, a heart per task due/done today, "You finished" banner),
+  Platformer (blue sky, drifting clouds, brick floor, pixel borders, coin counter + coin pop with synthesized blip).
+- Homages only: no logos, mascots, characters or brand artwork (Zelda/Mario became Adventure/Platformer).
+- Fonts vendored from Fontsource (OFL): Cinzel 500/700, IBM Plex Sans 400/500/700, Source Serif 4 400/600. CREDITS.md.
+- Theme CSS must not style `.task` alone: schedule blocks are `.td-b.task`. Use `.task:not(.td-b)`.
+- Test: smoke "themes set 3". Also fixed: Radar's add-subreddit field keeps its text across redraws (flaky test).
