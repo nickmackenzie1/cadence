@@ -7,6 +7,7 @@ const { MIME, PASSWORD, PUBLIC_DIR } = require('./config');
 const { OPEN, authorized, sameOrigin } = require('./lib/auth');
 const { NEXT, send } = require('./lib/http');
 const { TLS, sendCA } = require('./lib/tls');
+const bundle = require('./lib/bundle');
 
 const routes = {
   auth: require('./routes/auth'),
@@ -67,9 +68,11 @@ async function handle(req, res) {
     // vendored libraries (fonts, engines, Harper's 20 MB WebAssembly) don't change between deploys of the same build:
     // the browser keeps them and asks "still the same?" (304), and big ones go out gzipped (compressed once, kept in memory)
     if (rel.startsWith('/vendor/')) return sendVendor(req, res, file);
+    // the app's own scripts go out as one gzipped bundle.js (server/lib/bundle.js); index.html points at it
+    if (rel === '/bundle.js') return bundle.serve(req, res, url);
     fs.readFile(file, (err, buf) => {
-      if (err) return fs.readFile(path.join(PUBLIC_DIR, 'index.html'), (e2, idx) => e2 ? send(res, 404, 'Not found', 'text/plain') : send(res, 200, idx, MIME['.html']));
-      send(res, 200, buf, MIME[path.extname(file)] || 'application/octet-stream');
+      if (err) return fs.readFile(path.join(PUBLIC_DIR, 'index.html'), (e2, idx) => e2 ? send(res, 404, 'Not found', 'text/plain') : send(res, 200, bundle.page(idx, url), MIME['.html']));
+      send(res, 200, rel === '/index.html' ? bundle.page(buf, url) : buf, MIME[path.extname(file)] || 'application/octet-stream');
     });
   } catch (e) {
     console.error(e);

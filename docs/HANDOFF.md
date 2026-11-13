@@ -821,3 +821,50 @@ data, or peer-to-peer on the same LAN). Personal data and secrets stay on each p
 - themes.js CATS order: Useful, Editor, daisyUI, Fun, Movie & TV, Studio Ghibli, Games, Seasonal, Crazy.
 - Harper: engine starts loading in the background on idle after the app opens (user: slowdown on first typo).
 - Tests: smoke "3D, Halloween and Movie & TV…", tests/mirror.spec.mjs (fake camera; needs its own file for launch args).
+
+## Backlog (user, 2026-11-13 12:49): Music Radar's Reddit scan is getting 403s — "do we really need an API? what's the cost?"
+- Seen: "scan: 45 of the Reddit requests failed, e.g. r/listentothis/hot: HTTP 403". Reddit now blocks all non-OAuth
+  traffic (anonymous .json from a server IP), so the old keyless fetch is dead, not flaky.
+- Cost: the official Data API is $0 for personal, non-commercial use (100 requests/min per app, far more than the scan
+  needs). The catch is access, not money: 2026 reports say self-serve keys ended and new requests need Reddit's
+  approval (some say new requests closed 2026-10-31). So REDDIT_CLIENT_ID/SECRET only helps if the user already has an app.
+- Options to weigh with the user: (1) try registering a "script" app at reddit.com/prefs/apps; (2) per-subreddit RSS
+  (/r/x/hot/.rss) — may hit the same block, test from the NAS first; (3) drop Reddit and lean on sources that need no
+  keys (Bandcamp, label/blog RSS, Last.fm, the record-store feed); (4) make the Reddit part quiet when it fails —
+  one calm line, not a "problem" notice. Do (4) regardless. Secrets stay in the NAS .env only.
+
+## Backlog (user, 2026-11-13 12:57): Music Radar data is noisy (screenshot of Most-posted / Albums / Breakout / Genres)
+- Not artists, counted as artists: "Daily Discussion", "Teatime & Trending Topics", "TOP TEN POP TEN" (subreddit
+  megathreads / recurring posts). Filter by flair and recurring title patterns, and skip mod/sticky posts.
+- One name with decorative unicode ("҉shɥro"-style) — normalise or drop names that are mostly symbols.
+- Dove Cameron 3 → 69 as "breakout": probably one subreddit or a spam burst. Cap per-subreddit/per-poster weight, and
+  require the name to show up in 2+ sources or subreddits before it can be a breakout.
+- "Genres that jumped" are junk tags: "áudio oficial", "and ambient folk" (a split fragment), "live at the brit awards
+  2026", "radio edit". Need a tag blocklist (video/audio labels, events, edits), better splitting, and a minimum count;
+  "0% → 0.14%" is too small to call a jump — show counts and hide anything under a floor.
+- Related: the Reddit 403s above. If Reddit goes, most of this noise goes with it.
+
+## Shipped 2026-11-13 afternoon: meeting.js, one bundle, faster boot, feed notice dupes
+- Meeting mode moved out of core.js into public/meeting.js. core.js is one closure, so meeting.js is a factory:
+  core calls window.CadenceMeeting({ S/AI live getters, save, render, … }) just before user plugins load.
+- One download for the app: index.html marks its scripts with <!-- bundle --> … <!-- /bundle -->; the server swaps
+  that for <script src="bundle.js?v=HASH"> (server/lib/bundle.js). Built in memory from public/ (no build step),
+  gzipped (1.5 MB → 450 KB), cached forever by hash. Each file still runs as its own <script> (same globals, one
+  broken plugin doesn't stop the rest, devtools names via sourceURL). Debug: open with ?nobundle or CADENCE_BUNDLE=0.
+  72 script requests → 6.
+- Found while measuring: every registerPlugin re-ran EVERY plugin's setup (~1,800 setups per load), so Calendar
+  fetched its events 53 times and Feeds 60+ times on each load. Registrations during load now set up once at
+  DOMContentLoaded. Calendar 53 → 1, feeds 62 → 7.
+- Feeds "1 new at Something Else Records" repeated every reload (user screenshot): the "told you" memory was per
+  page load. Now the newest announced item per feed is stored (synced), so each item is announced once.
+- smoke "data survives a reload" waits for the push to reach the NAS instead of a fixed 1.5 s.
+
+## Backlog (user, 2026-11-13 13:09–13:12): theme add-ons from links
+- Simpsons theme + "The Simpsons in CSS" (alvaromontoro.com, github pattle/simpsons-in-css): those are drawings of the
+  actual characters. Same homage rule as every screen theme (no characters, logos, quotes), so NOT adding them.
+  Possible instead: more of the look (sky/cloud wallpaper, yellow + blue palette, chunky outlines), all original.
+- Zelda theme: BOTW menu UI (github myantalgik/w3 zelda_botw_menu_ui) — the layout ideas (dark translucent panels,
+  thin gold frames, slot grid, tab strip) are fine to rebuild in our own CSS. The codepens with Sheikah symbols and
+  rupees copy Nintendo's designs: skip the glyphs, use generic gem/rune shapes of our own.
+- Fonts: Hylia Serif (artsyomni.com) and the zeldauniverse.net set — check each licence before vendoring; only ship
+  ones that allow it, with LICENSE-*.txt in public/vendor/themes/fonts/ like the others.

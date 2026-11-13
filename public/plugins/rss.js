@@ -303,10 +303,13 @@
         markSeen();
       }
       G.openPanel = openPanel;
-      // new arrivals since your last look → one Island notice per feed per session
+      // new arrivals since your last look → one notice per item, ever: the newest item already announced is remembered
+      // per feed (synced, so a reload, another tab or another device doesn't tell you about the same record again)
       function announce(f, d) {
         G.told = G.told || {}; const s0 = seen(); if (!s0 || G.told[f.id]) return; G.told[f.id] = 1;
-        const fresh = d.items.filter(it => it.date && new Date(it.date).getTime() > s0); if (!fresh.length) return;
+        const told = api.storage.get('told') || {}, from = Math.max(s0, told[f.id] || 0), t = it => new Date(it.date).getTime();
+        const fresh = d.items.filter(it => it.date && t(it) > from && t(it) <= Date.now() + 864e5); if (!fresh.length) return;
+        api.storage.set('told', { ...told, [f.id]: Math.max(...fresh.map(t)) });
         const p = parts(fresh[0], f);
         setTimeout(() => api.island.show({ image: fresh[0].image ? `<img src="${E(fresh[0].image)}" alt="">` : '', icon: fresh[0].image ? '' : '◉', title: `${fresh.length} new at ${f.title || 'your feed'}`, sub: p.b ? `${p.a} — ${p.b}` : p.a, ms: 7000,
           actions: [{ label: 'Timeline', run: () => openPanel(f) }, { label: 'Wall', run: () => api.ui.navigate('view-feeds') }] }), 9000);

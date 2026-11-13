@@ -28,11 +28,12 @@ async function boot(page) {
 
 test('boots with every plugin registered and no errors', async ({ page }) => {
   const errs = errorsOf(page); await boot(page);
-  const scripts = await page.locator('script[src^="plugins/"]:not([src*="themes-"])').count();
+  const scripts = await page.locator('script[data-src^="plugins/"]:not([data-src*="themes-"])').count();
   await page.click('[data-act=settings]'); await page.click('[data-act=set-tab][data-tab=plugins]');
   await expect(page).toHaveURL(/#plugins/);
   await page.click('[data-act=pl-tab][data-t=all]');
   await expect(page.locator('.pl-card').first()).toBeVisible();
+  expect(scripts).toBeGreaterThan(40); // the plugins arrive in one bundle.js and each runs as its own script
   expect(await page.locator('.pl-card').count()).toBeGreaterThanOrEqual(scripts);
   expect(errs).toEqual([]);
 });
@@ -54,8 +55,12 @@ test('quick add parses client, owner, dates and keeps names after prepositions',
 test('data survives a reload through the NAS', async ({ page, context }) => {
   await boot(page);
   await page.fill('#qa', 'Persist me today'); await page.keyboard.press('Escape'); await page.focus('#qa'); await page.press('#qa', 'Enter');
-  await page.waitForTimeout(1500);
-  const p2 = await context.newPage(); await p2.goto(`http://localhost:${PORT}/`); await p2.evaluate(() => localStorage.clear()); await p2.reload();
+  // wait for the push to land on the NAS rather than a fixed pause (the first push can queue behind the seed's)
+  await expect.poll(() => page.evaluate(async () => /Persist me/.test(await (await fetch('api/sync?since=0')).text())), { timeout: 8000 }).toBe(true);
+  await page.close(); // the first tab shares localStorage and would write it back after the clear below
+  const p2 = await context.newPage(); await p2.goto(`http://localhost:${PORT}/`);
+  await expect(p2.locator('#sync')).toContainText('NAS', { timeout: 8000 }); // let its first sync land, or it writes storage back after the clear
+  await p2.evaluate(() => localStorage.clear()); await p2.reload();
   await expect(p2.locator('.t-title', { hasText: 'Persist me' })).toBeVisible({ timeout: 8000 });
 });
 

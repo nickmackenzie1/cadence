@@ -794,6 +794,13 @@ function registerPlugin(def){
   if(loadingUser != null) def = Object.assign({}, def, { userCode: loadingUser });
   else if(!('builtin' in def)) def = Object.assign({}, def, { builtin: true }); // shipped in plugins/*.js
   Reg.defs = Reg.defs.filter(d => d.id !== def.id); Reg.defs.push(def);
+  // while the page is still loading, ~60 plugins register one after another: set them all up once when the last has
+  // arrived (DOMContentLoaded) instead of re-running every plugin's setup on each registration (that was ~1,800 setups
+  // and dozens of duplicate fetches on every load)
+  if(document.readyState === 'loading'){
+    if(!registerPlugin.waiting){ registerPlugin.waiting = true; document.addEventListener('DOMContentLoaded', () => { registerPlugin.waiting = false; rebuildPlugins(); if(booted) render(); }, { once:true }); }
+    return;
+  }
   rebuildPlugins(); if(booted){ cancelAnimationFrame(registerPlugin.raf); registerPlugin.raf = requestAnimationFrame(() => render()); }
 }
 /* accessibility: icon-only buttons and links get their tooltip as an accessible name, and anything clickable that
