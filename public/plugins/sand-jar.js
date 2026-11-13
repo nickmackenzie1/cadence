@@ -24,6 +24,7 @@
       // the jar, refilled to today's level
       async function build() {
         if (!window.CadenceFX || reduced() || !read().on || !api.plugins.enabled('sand-jar')) return;
+        if (innerWidth < 700) return;   // phones: no room in the corner, it would sit on the list
         w = await window.CadenceFX.world(); if (!w) return;
         const r = rect(); w.jar(r);
         pour(Math.min(read().n, 40) * PER_TASK, true);

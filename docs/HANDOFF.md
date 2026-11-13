@@ -733,3 +733,15 @@ data, or peer-to-peer on the same LAN). Personal data and secrets stay on each p
 - elements-engine.js world API: melt(x, y, r = 40, rx = r) in px.
 - typing-fx.js (fire, matter on): each key melts the drift on the TOP EDGE of the box being typed in (that's where
   snow rests; the caret is ~25 px lower), wider on Enter. Test: team-desk "typing fire melts the snow".
+
+## Shipped 2026-11-13 ~13:10: mobile pass (backlog)
+- Audit: every view at 390×844 (scripts were .scratch/audit-m.mjs, mob-ui.mjs). Already OK: slide-over menu, task
+  editor, dialogs, Today, lists, dashboard, calendar, board (scrolls sideways by design), Radar.
+- Fixed (core.css "phones (≤640px)" block): page top room for the Island (titles were covered by toasts), .stats in
+  two columns, Insights table scrolls sideways, .seg/.tabs scroll instead of clipping, Kitchen meal-plan columns
+  have a minimum width and scroll, dialogs fit the screen, 16px inputs (no iOS zoom), meeting bar wraps under the
+  Island and the menu button hides during meetings, safe-area insets (viewport-fit=cover, home-screen app metas).
+- core.js: tapping anything that does something in the slide-over menu closes it (not dock-* actions).
+- sand-jar: no jar under 700px wide (it sat on the task list).
+- Test: platform "on a phone" (no sideways scroll on 13 views, stats rows, menu, meeting).
+- Not done: no command palette button on phones (⌘K only); swipe gestures; a bottom tab bar.

@@ -179,3 +179,34 @@ test('havoc elements: a picture from another site is still read in (through the 
     expect(errs.filter(e => !/502|Bad Gateway/.test(e))).toEqual([]);   // the proxy refuses localhost on purpose
   } finally { other.close(); }
 });
+
+test.describe('on a phone', () => {
+  test.use({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+  test('nothing scrolls sideways, the menu slides over and closes on use, stats fit, the meeting bar wraps', async ({ page }) => {
+    test.setTimeout(90000);
+    const errs = await open(page);
+    await page.evaluate(() => { const T = window.T, A = T.clients.add('Acme'); for (let i = 0; i < 6; i++) T.tasks.add({ title: 'A fairly long task title number ' + i, clientId: A.id, dueDate: T.util.todayKey() }); T.ui.refresh(); });
+    for (const r of ['today', 'upcoming', 'inbox', 'waiting', 'dev', 'done', 'insights', 'plugins', 'view-kanban', 'view-calendar', 'view-dash', 'view-db', 'view-themes']) {
+      await page.evaluate(r => { location.hash = r; }, r); await page.waitForTimeout(250);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth), r).toBeLessThanOrEqual(1);
+    }
+    // stats two to a row
+    await page.evaluate(() => { location.hash = 'dev'; }); await page.waitForTimeout(200);
+    const tops = await page.locator('.stats .stat').evaluateAll(els => els.map(e => Math.round(e.getBoundingClientRect().top)));
+    expect(new Set(tops).size).toBe(2);
+    // the menu
+    await expect(page.locator('.nav-btn')).toBeVisible();
+    await page.tap('.nav-btn');
+    await expect(page.locator('body.nav-open')).toHaveCount(1);
+    await page.locator('.side a[href="#upcoming"], .side [data-r="upcoming"], .side .ntile', { hasText: 'Upcoming' }).first().tap();
+    await expect(page.locator('body.nav-open')).toHaveCount(0);
+    // a meeting from the menu: the menu closes, its button hides, the bar wraps inside the screen
+    await page.tap('.nav-btn'); await page.locator('.side .meet-btn').tap();
+    await expect(page.locator('#meeting.open')).toHaveCount(1);
+    await expect(page.locator('body.nav-open')).toHaveCount(0);
+    await expect(page.locator('.nav-btn')).toBeHidden();
+    const head = await page.locator('#meeting .m-head').boundingBox();
+    expect(head.x + head.width).toBeLessThanOrEqual(391);
+    expect(errs).toEqual([]);
+  });
+});

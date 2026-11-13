@@ -86,7 +86,7 @@
         el.innerHTML = `<div class="kp-bar"><button class="btn" data-w="-1">‹</button><b>${esc(api.util.fmtDate(days[0]))} – ${esc(api.util.fmtDate(days[6]))}</b><button class="btn" data-w="1">›</button><span class="sp"></span>
             ${MEALS.map(m => `<label class="kp-ml"><input type="checkbox" data-meal="${m}" ${o.meals.includes(m) ? 'checked' : ''}>${m[0].toUpperCase() + m.slice(1)}</label>`).join('')}<button class="btn primary" id="kp-shop">Shopping list from this week</button></div>
           <datalist id="kp-rl">${rs.map(r => `<option value="${esc(r.name)}">`).join('')}</datalist>
-          <div class="kp-grid" style="grid-template-columns:90px repeat(7,minmax(0,1fr))"><span></span>${days.map(d => `<span class="kp-dh ${d === t0 ? 'today' : ''}">${esc(api.util.fromYmd(d).toLocaleDateString([], { weekday: 'short', day: 'numeric' }))}</span>`).join('')}
+          <div class="kp-grid" style="grid-template-columns:90px repeat(7,minmax(var(--kp-col,0px),1fr))"><span></span>${days.map(d => `<span class="kp-dh ${d === t0 ? 'today' : ''}">${esc(api.util.fromYmd(d).toLocaleDateString([], { weekday: 'short', day: 'numeric' }))}</span>`).join('')}
             ${o.meals.map(m => `<span class="kp-mh">${m}</span>${days.map(d => cell(d, m)).join('')}`).join('')}</div>`;
         el.querySelectorAll('[data-w]').forEach(b => b.onclick = () => { api.storage.set('week', off + +b.dataset.w); api.ui.refresh(); });
         el.querySelectorAll('[data-meal]').forEach(c => c.onchange = () => { const ms = MEALS.filter(m => el.querySelector(`[data-meal=${m}]`).checked); api.storage.set('opts', { ...o, meals: ms.length ? ms : ['dinner'] }); api.ui.refresh(); });

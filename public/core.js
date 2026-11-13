@@ -2356,6 +2356,8 @@ Store.init();
 $('#nav-btn') && $('#nav-btn').addEventListener('click', () => document.body.classList.toggle('nav-open'));
 $('#nav-scrim') && $('#nav-scrim').addEventListener('click', () => document.body.classList.remove('nav-open'));
 addEventListener('hashchange', () => document.body.classList.remove('nav-open'));
+// phones: anything you tap in the slide-over menu that does something closes it (not the widget dock, which opens beside it)
+document.addEventListener('click', e => { if(!document.body.classList.contains('nav-open')) return; const a = e.target.closest('.side a[href], .side [data-act]'); if(a && !/^dock-/.test(a.dataset.act || '')) setTimeout(() => document.body.classList.remove('nav-open'), 30); });
 if(window.claude && window.claude.use){
   claude.use('sample').then(s => { AI = s || null; rebuildPlugins(); }).catch(() => {});
 }

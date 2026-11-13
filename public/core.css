@@ -702,3 +702,28 @@ svg.lu{width:1.1em;height:1.1em;display:inline-block;vertical-align:-.17em;fill:
 /* top priority is warm, not alarming */
 .te-chip.p3,.te-chip.p3 svg,.chip.pri3{color:var(--client)}.te-chip.p2 svg,.chip.pri2{color:var(--accent)}.chip.pri1{color:var(--muted)}
 .task.p3 .check,.dw-task.p3 .check{border-color:var(--client)}
+
+/* ---------- phones (≤640px): room for the Island above titles, stats in two columns, wide things scroll ---------- */
+@media (max-width:640px){
+  .wrap{padding-top:96px!important}
+  .stats{display:grid!important;grid-template-columns:1fr 1fr;gap:8px}
+  .stats .stat{min-width:0}
+  table.pulse{display:block;overflow-x:auto;white-space:nowrap;-webkit-overflow-scrolling:touch}
+  .seg,.tabs{max-width:100%;overflow-x:auto;scrollbar-width:none;flex-wrap:nowrap}
+  .seg::-webkit-scrollbar,.tabs::-webkit-scrollbar{display:none}
+  .seg button,.tabs button{flex:none}
+  .kp-grid{--kp-col:84px;overflow-x:auto}
+  .modal{width:calc(100vw - 16px)!important;max-height:calc(100dvh - 24px)!important}
+  .btn,.chip,.ntile,.nav a{touch-action:manipulation}
+  input,select,textarea{font-size:16px}   /* iOS zooms into anything smaller */
+  /* the meeting screen: no menu button on top of it, the bar wraps below the Island */
+  /* notched phones (installed to the home screen): keep clear of the status bar and the home indicator */
+  .nav-btn{top:calc(12px + env(safe-area-inset-top));left:calc(12px + env(safe-area-inset-left))}
+  .wrap{padding-bottom:calc(100px + env(safe-area-inset-bottom))!important}
+  .side{padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom)}
+  body:has(#meeting.open) .nav-btn{display:none}
+  .m-head{flex-wrap:wrap;gap:8px;padding:56px 14px 10px}
+  .m-head select{flex:1 1 150px;min-width:0}
+  .m-head .btn{padding-left:10px;padding-right:10px}
+  .qa input{font-size:16px}
+}

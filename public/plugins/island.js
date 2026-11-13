@@ -7,7 +7,7 @@
   if (!G.el) {
     const st = document.createElement('style');
     st.textContent = `
-      .isl{position:fixed;top:10px;left:calc(276px + (100vw - 276px) / 2);transform:translateX(-50%);z-index:80;pointer-events:none}
+      .isl{position:fixed;top:calc(10px + env(safe-area-inset-top));left:calc(276px + (100vw - 276px) / 2);transform:translateX(-50%);z-index:80;pointer-events:none}
       @media (max-width:900px){.isl{left:50%}}
       /* themed: at rest it is part of the UI (panel colour, hairline border); a notice makes it surface */
       .isl-pill{--isl-fg:var(--text,#1d1c1a);--isl-sub:var(--muted,#8a877f);--isl-line:var(--line,#e7e4dd);--isl-hover:var(--hover,rgba(0,0,0,.04));--glow:var(--accent,#5b5bd6);
