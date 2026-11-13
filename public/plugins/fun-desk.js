@@ -39,7 +39,7 @@
         const nf = { id: Date.now().toString(36), k, hue: Math.floor(Math.random() * 360), size: .85 + Math.random() * .3 + (f.mins >= 50 ? .2 : 0), at: Date.now(), mins: f.mins };
         api.storage.set('fish', [...fish(), nf].slice(-60)); const st = stats(); api.storage.set('stats', { minutes: st.minutes + f.mins, sessions: st.sessions + 1 });
         api.island.celebrate ? api.island.celebrate({ icon: '🐟', title: `A ${sp.name} joined your tank`, sub: `${f.mins} minutes of focus · ${fish().length} fish` }) : api.ui.toast(`A ${sp.name} joined your tank`);
-        api.notify({ title: `Focus done: a ${sp.name} joined your tank`, body: `${f.mins} minutes`, route: 'view-aquarium' });
+        api.notify({ title: `Focus done: a ${sp.name} joined your tank`, body: `${f.mins} minutes`, route: 'view-aquarium', quiet: true });
         refresh();
       }
       function tick() {

@@ -663,7 +663,10 @@ const ErrLog = (() => { let list = []; try { list = JSON.parse(sessionStorage.ge
 })();
 window.CadenceErrors = ErrLog;
 /* notifications: everything goes through here so the notification centre (notify.js) sees it all */
-function notify(n){ n = Object.assign({ id: uid('n'), at: Date.now(), pid: 'core', title: '', body: '' }, n); const handled = Reg.listeners.some(l => l.ev === 'notify'); emit('notify', n); return handled; }
+function notify(n){ n = Object.assign({ id: uid('n'), at: Date.now(), pid: 'core', title: '', body: '' }, n); const handled = Reg.listeners.some(l => l.ev === 'notify'); emit('notify', n);
+  // no notification centre: still show it in the Island
+  if(!handled && !n.quiet && window.CadenceIsland) window.CadenceIsland.show({ icon: n.icon || '🔔', color: n.color || '', title: n.title, sub: n.body || '' });
+  return handled; }
 function emit(ev, payload){ for(const l of Reg.listeners) if(l.ev === ev || l.ev === '*') { try { l.fn(payload, ev); } catch(e){ console.error(`[plugin ${l.pid}]`, e); ErrLog.add(`[${l.pid}] ${e.message}`, e.stack); } } }
 function makeApi(pid){
   return Object.freeze({
@@ -679,6 +682,7 @@ function makeApi(pid){
     island: (() => { const I = () => enabled('island') && window.CadenceIsland; const noop = { update(){}, done(p){ if(p && p.title) toast(p.title); }, dismiss(){} };
       return {
         available: () => !!I(),
+        notify: n => notify({ ...n, pid }),
         show: n => { if(n && n.title && n.log !== false) notify({ pid, title: n.title, body: n.sub || '', icon: n.icon || '', color: n.color || '', quiet: true }); return I() ? I().show(n) : (toast(n.title + (n.sub ? ' — ' + n.sub : ''), n.actions || []), noop); },
         celebrate: n => I() ? I().celebrate(n) : (toast((n.icon ? n.icon + ' ' : '') + n.title), noop),
         progress: (key, title, o) => I() ? I().progress(key, title, o) : noop,
@@ -735,7 +739,9 @@ function registerPlugin(def){
   Reg.defs = Reg.defs.filter(d => d.id !== def.id); Reg.defs.push(def);
   rebuildPlugins(); if(booted){ cancelAnimationFrame(registerPlugin.raf); registerPlugin.raf = requestAnimationFrame(() => render()); }
 }
-window.Cadence = Object.freeze({ version:'0.5.0', registerPlugin });
+window.Cadence = Object.freeze({ version:'0.5.0', registerPlugin,
+  /* send a notification from anywhere: Cadence.notify({ title, body?, icon?, route?, taskId?, source? }) */
+  notify: n => notify({ ...(n || {}), pid: (n && n.source) || 'external' }) });
 
 /* =========================================================
    Routing & render
@@ -1301,7 +1307,7 @@ function checkReminders(){
       { label:'Snooze 10m', run: () => { updateTask(t.id, { remindMode:'custom', remindAt: Date.now() + 600000 }); render(); } },
       { label:'Open', run: () => openTask(t.id) }
     ], { sticky:true, cls:'rem', bottom:true });
-    const handled = notify({ pid: 'reminders', kind: 'reminder', title: t.title, body: (c ? c.name : '') + (t.dueTime ? (c ? ' · ' : '') + 'due ' + fmtTime(t.dueTime) : ''), taskId: t.id, tag: 'rem-' + t.id, desktop: true });
+    const handled = notify({ pid: 'reminders', kind: 'reminder', quiet: true, title: t.title, body: (c ? c.name : '') + (t.dueTime ? (c ? ' · ' : '') + 'due ' + fmtTime(t.dueTime) : ''), taskId: t.id, tag: 'rem-' + t.id, desktop: true });
     if(!handled) try { if('Notification' in window && Notification.permission === 'granted') new Notification('Cadence', { body: t.title + (c ? ' · ' + c.name : ''), tag: 'rem-' + t.id }); } catch(e){}
     try { const a = new (window.AudioContext || window.webkitAudioContext)(); const o = a.createOscillator(), g = a.createGain(); o.frequency.value = 880; g.gain.setValueAtTime(.08, a.currentTime); g.gain.exponentialRampToValueAtTime(.0001, a.currentTime + .5); o.connect(g).connect(a.destination); o.start(); o.stop(a.currentTime + .5); } catch(e){}
     emit('reminder', clone(t));

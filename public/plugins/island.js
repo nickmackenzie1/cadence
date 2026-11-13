@@ -76,13 +76,14 @@
       @keyframes islshine{to{transform:translateX(100%)}}
       @keyframes islconf{0%{opacity:1;transform:translateY(0) rotate(0)}100%{opacity:0;transform:translateY(-34px) rotate(260deg)}}
       .isl-measure{position:fixed;left:-9999px;top:0;visibility:hidden}
+      .isl-bell{display:inline-flex;align-items:center;gap:3px;margin-left:8px;padding:2px 7px 2px 5px;border-radius:999px;background:var(--glow);color:#fff;font:700 11px/1 Inter,system-ui}.isl-bell svg{width:12px;height:12px;fill:none;stroke:currentColor;stroke-width:2.2}
     `;
     document.head.appendChild(st);
     G.el = document.createElement('div'); G.el.className = 'isl';
     G.el.innerHTML = '<div class="isl-pill"></div>';
     document.body.appendChild(G.el);
     G.pill = G.el.firstChild;
-    G.queue = []; G.lives = new Map(); G.cur = null; G.sync = 'ok';
+    G.queue = []; G.lives = new Map(); G.cur = null; G.sync = 'ok'; G.badge = 0;
   }
   const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const checkSvg = '<span class="isl-check"><svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span>';
@@ -112,10 +113,12 @@
   /* ---- idle / live ---- */
   function idleView() {
     const live = [...G.lives.values()].sort((a, b) => (b.prio || 0) - (a.prio || 0))[0];
-    if (live) return live.view();
+    if (live) { const v = live.view(); return G.badge && !v.onClick ? { ...v, html: v.html + bell(), onClick: G.panelFn ? () => G.panelFn(G.pill) : null } : v; }
     const t = new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
-    return { html: `<span class="isl-dot ${G.sync}"></span><span class="isl-time">${t}</span>` };
+    return { html: `<span class="isl-dot ${G.sync}"></span><span class="isl-time">${t}</span>${bell()}`, onClick: G.panelFn ? () => G.panelFn(G.pill) : null };
   }
+  // unread notifications: a bell with a count in the pill; clicking the pill opens the notification centre
+  const bell = () => G.badge ? `<span class="isl-bell"><svg viewBox="0 0 24 24"><path d="M10.268 21a2 2 0 0 0 3.464 0"/><path d="M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326"/></svg><b>${G.badge > 9 ? '9+' : G.badge}</b></span>` : '';
   function idle() { if (G.cur) return; morph(idleView()); }
   clearInterval(G.clock); G.clock = setInterval(() => { if (!G.cur) { const v = idleView(); const tEl = G.pill.querySelector('.isl-time'); const lt = G.pill.querySelector('[data-live-tick]'); if (tEl && !G.lives.size) tEl.textContent = new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }); else if (lt && v.tick) lt.textContent = v.tick(); else if (!tEl && !lt) idle(); } }, 1000);
 
@@ -197,6 +200,11 @@
     live(key, l) { G.lives.set(key, l); if (!G.cur) idle(); },
     clear(key) { G.lives.delete(key); if (!G.cur) idle(); },
     setSync(s) { G.sync = s; const d = G.pill.querySelector('.isl-dot:not(.rec)'); if (d) d.className = 'isl-dot ' + s; },
+    /* notifications: Island + notification centre. CadenceIsland.notify({ title, body, icon, route, taskId, source }) */
+    notify(n) { return window.Cadence && window.Cadence.notify ? window.Cadence.notify(n) : show({ title: n.title, sub: n.body, icon: n.icon }); },
+    setBadge(n) { n = +n || 0; if (n === G.badge) return; G.badge = n; if (!G.cur) idle(); },
+    panel(fn) { G.panelFn = fn; if (!G.cur) idle(); },
+    pill: () => G.pill,
     toast(msg, actions = [], opts = {}) { return show({ title: msg, actions, sticky: opts.sticky, icon: opts.icon, color: opts.color, check: /^(Completed|Added|Saved|Updated|Restored|Deleted|Copied|Removed|Imported)/.test(msg) }); },
   };
 

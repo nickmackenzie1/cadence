@@ -64,19 +64,27 @@ test('calendar view: month and week grids, drag to reschedule, click a day to ad
   expect(errs).toEqual([]);
 });
 
-test('notifications: reminders and plugin notices land in the centre, mute per plugin, push endpoints', async ({ page, request }) => {
+test('notifications: everything goes to the Island, its count opens the centre, mute per plugin, push endpoints', async ({ page, request }) => {
   const errs = await open(page);
-  await page.evaluate(() => { window.T.tasks.add({ title: 'Ring the bank', remindMode: 'custom', remindAt: Date.now() - 1000 }); });
-  await expect(page.locator('[data-foot="notify:bell"] .fb-n')).toHaveText(/\d/, { timeout: 15000 });
-  await page.click('[data-foot="notify:bell"]');
-  await expect(page.locator('#nt-panel .nt-it.new')).toContainText('Ring the bank');
-  await page.click('#nt-panel [data-nt=read]');
-  await expect(page.locator('#nt-panel .nt-it.new')).toHaveCount(0);
-  await page.keyboard.press('Escape'); await page.mouse.click(700, 400);
-  // a plugin notice through api.island.show is logged too, and can be muted
+  // a plugin notification pops in the Island and lands in the centre
   await page.evaluate(() => Cadence.registerPlugin({ id: 'pinger', name: 'Pinger', setup(api) { window.P = api; } }));
-  await page.evaluate(() => window.P.notify({ title: 'Ping one' }));
-  await expect.poll(() => page.evaluate(() => window.__notify.list()[0].title)).toBe('Ping one');
+  await page.evaluate(() => window.P.notify({ title: 'Ping one', body: 'From a plugin' }));
+  await expect(page.locator('.isl-pill')).toContainText('Ping one');
+  // the public APIs: Cadence.notify and CadenceIsland.notify
+  await page.evaluate(() => { Cadence.notify({ title: 'From outside', source: 'script' }); window.CadenceIsland.notify({ title: 'From the Island API' }); });
+  await expect.poll(() => page.evaluate(() => window.__notify.list().map(n => n.title))).toEqual(expect.arrayContaining(['Ping one', 'From outside', 'From the Island API']));
+  // reminders too (shown once by the Island, logged once)
+  await page.evaluate(() => { window.T.tasks.add({ title: 'Ring the bank', remindMode: 'custom', remindAt: Date.now() - 1000 }); });
+  await expect.poll(() => page.evaluate(() => window.__notify.list().some(n => n.title === 'Ring the bank')), { timeout: 15000 }).toBe(true);
+  for (let i = 0; i < 6; i++) { await page.evaluate(() => window.CadenceIsland.dismiss()); await page.waitForTimeout(300); }
+  await expect(page.locator('.isl-pill .isl-c:not(.leaving) .isl-bell b')).toHaveText(/\d/, { timeout: 10000 });
+  await page.click('.isl-pill');
+  await expect(page.locator('#nt-panel .nt-it.new').first()).toBeVisible();
+  await expect(page.locator('#nt-panel')).toContainText('Ring the bank');
+  await expect(page.locator('.isl-pill .isl-c:not(.leaving) .isl-bell')).toHaveCount(0, { timeout: 5000 });   // opening marks them seen
+  await page.mouse.click(700, 500);
+  await expect(page.locator('#nt-panel')).toHaveCount(0);
+  // mute a plugin
   await page.evaluate(() => window.__notify.settings());
   await expect(page.locator('[data-mute="pinger"]')).toBeChecked();
   await page.uncheck('[data-mute="pinger"]'); await page.click('#nt-done');

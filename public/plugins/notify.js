@@ -1,11 +1,13 @@
 /* Notifications: one place for everything Cadence tells you.
-   - A bell in the sidebar footer opens the notification centre: history (synced), unread dots, click to jump.
+   - Everything shows up in the Island (the pill at the top). Its unread count opens the notification centre, which
+     drops down from it: history (synced), unread dots, click to jump. Send one from anywhere: api.notify({...}),
+     api.island.notify({...}), window.CadenceIsland.notify({...}) or Cadence.notify({...}).
    - Per-plugin switches: mute any plugin's notices, or let them through to desktop notifications too.
    - Quiet hours: nothing pops up or pings (still kept in the history).
    - Push notifications: this device subscribes through a service worker; the NAS sends reminders even when no Cadence tab
      is open (keys and subscriptions live on the NAS only; the push goes out through your browser's push service). */
 (() => {
-  const BELL = '<svg class="lu" viewBox="0 0 24 24" aria-hidden="true"><path d="M10.268 21a2 2 0 0 0 3.464 0"/><path d="M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326"/></svg>';
+  const BELL_UNUSED = '<svg class="lu" viewBox="0 0 24 24" aria-hidden="true"><path d="M10.268 21a2 2 0 0 0 3.464 0"/><path d="M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326"/></svg>';
   const G = window.__notify = window.__notify || {};
   Cadence.registerPlugin({
     id: 'notify', name: 'Notifications', version: '1.0.0', category: 'Essentials', spaces: ['work', 'life'],
@@ -18,7 +20,8 @@
       const cfg = () => Object.assign({ muted: {}, desktop: { reminders: true }, quiet: null }, api.storage.get('cfg') || {});
       const setCfg = p => { api.storage.set('cfg', Object.assign(cfg(), p)); };
       const list = () => api.storage.get('items') || [];
-      const setList = l => { api.storage.set('items', l.slice(0, 150)); api.ui.refreshSide(); };
+      const setList = l => { api.storage.set('items', l.slice(0, 150)); badge(); };
+      const badge = () => window.CadenceIsland && window.CadenceIsland.setBadge(unread());
       const unread = () => list().filter(n => !n.read).length;
       const inQuiet = () => { const q = cfg().quiet; if (!q || !q.from || !q.to) return false; const d = new Date(), m = d.getHours() * 60 + d.getMinutes(), [a, b] = [q.from, q.to].map(x => { const [h, mm] = x.split(':').map(Number); return h * 60 + mm; }); return a < b ? m >= a && m < b : m >= a || m < b; };
       const nameOf = pid => pid === 'reminders' ? 'Reminders' : pid === 'core' ? 'Cadence' : (api.plugins.list().find(p => p.id === pid) || {}).name || pid;
@@ -30,6 +33,7 @@
         // the same notice twice in a row within a minute (e.g. a re-render) is one notice
         const l = list(); if (l[0] && l[0].title === item.title && l[0].pid === item.pid && item.at - l[0].at < 60e3) return;
         setList([item, ...l]);
+        if (!n.quiet && !inQuiet() && window.CadenceIsland) window.CadenceIsland.show({ key: 'nt:' + item.id, icon: n.icon || '🔔', color: n.color || '', title: item.title, sub: item.body, onClick: (item.taskId || item.route) ? () => go(item) : null });
         const wantDesk = n.desktop || c.desktop[n.pid];
         if (wantDesk && !inQuiet() && 'Notification' in window && Notification.permission === 'granted' && (document.hidden || n.kind === 'reminder')) {
           const opts = { body: item.body, tag: n.tag || item.id, icon: 'favicon.svg' };
@@ -37,16 +41,19 @@
         }
       });
 
-      /* the centre */
+      /* the centre: drops down from the Island */
       let panel = null;
+      const go = n => { if (n.taskId) { const t = api.tasks.get(n.taskId); if (t) { api.ui.navigate(t.clientId ? 'client-' + t.clientId : 'today'); setTimeout(() => api.ui.openTask(t.id), 80); return; } } if (n.route) api.ui.navigate(n.route); };
       const ago = t => { const s = (Date.now() - t) / 1000; return s < 60 ? 'now' : s < 3600 ? Math.round(s / 60) + 'm' : s < 86400 ? Math.round(s / 3600) + 'h' : new Date(t).toLocaleDateString([], { month: 'short', day: 'numeric' }); };
       function center(btn) {
         if (panel) return close();
         panel = document.createElement('div'); panel.id = 'nt-panel'; document.body.appendChild(panel);
-        const r = btn.getBoundingClientRect(); panel.style.left = Math.max(8, r.left - 20) + 'px'; panel.style.bottom = (innerHeight - r.top + 10) + 'px';
-        draw(); setTimeout(() => document.addEventListener('pointerdown', outside, true), 0);
+        const pill = (window.CadenceIsland && window.CadenceIsland.pill()) || btn, r = pill.getBoundingClientRect(), W = Math.min(380, innerWidth - 16);
+        panel.style.width = W + 'px'; panel.style.left = Math.max(8, Math.min(innerWidth - W - 8, r.left + r.width / 2 - W / 2)) + 'px'; panel.style.top = (r.bottom + 8) + 'px';
+        draw(); if (unread()) setTimeout(() => { if (panel) { api.storage.set('items', list().map(n => ({ ...n, read: true }))); badge(); } }, 1500);
+        setTimeout(() => document.addEventListener('pointerdown', outside, true), 0);
       }
-      const outside = e => { if (panel && !panel.contains(e.target) && !e.target.closest('[data-foot="notify:bell"]')) close(); };
+      const outside = e => { if (panel && !panel.contains(e.target) && !e.target.closest('.isl-pill')) close(); };
       function close() { panel && panel.remove(); panel = null; document.removeEventListener('pointerdown', outside, true); }
       function draw() {
         if (!panel) return; const l = list(), t0 = new Date().setHours(0, 0, 0, 0);
@@ -56,13 +63,15 @@
         panel.onclick = e => {
           const b = e.target.closest('[data-nt]'), it = e.target.closest('.nt-it');
           if (b) { const k = b.dataset.nt; if (k === 'read') setList(list().map(n => ({ ...n, read: true }))); if (k === 'clear') setList([]); if (k === 'cfg') { close(); G.settings(); return; } draw(); return; }
-          if (it) { const n = list().find(x => x.id === it.dataset.id); setList(list().map(x => x.id === it.dataset.id ? { ...x, read: true } : x)); close();
-            if (n && n.taskId) { const t = api.tasks.get(n.taskId); if (t) { api.ui.navigate(t.clientId ? 'client-' + t.clientId : 'today'); setTimeout(() => api.ui.openTask(t.id), 80); } } else if (n && n.route) api.ui.navigate(n.route); }
+          if (it) { const n = list().find(x => x.id === it.dataset.id); setList(list().map(x => x.id === it.dataset.id ? { ...x, read: true } : x)); close(); if (n) go(n); }
         };
         // opening the centre marks things as seen (dots stay until you click or mark read)
       }
-      api.footer.add({ id: 'bell', icon: BELL, title: 'Notifications', badge: () => { const n = unread(); return n ? (n > 9 ? '9+' : n) : ''; }, run: btn => center(btn) });
-      api.commands.add({ title: 'Notifications', hint: 'History and settings', run: () => { const b = document.querySelector('[data-foot="notify:bell"]'); b ? center(b) : G.settings(); } });
+      // the Island is the notification surface: its pill shows the unread count and opens this centre
+      if (window.CadenceIsland) { window.CadenceIsland.panel(btn => center(btn)); setTimeout(badge, 0); }
+      api.on('sync', () => badge());
+      G.open = () => center(null);
+      api.commands.add({ title: 'Notifications', hint: 'History and settings', run: () => setTimeout(() => center(null), 50) });
       api.commands.add({ title: 'Notification settings…', run: () => G.settings() });
 
       /* push on this device */
@@ -116,8 +125,8 @@
       if (!document.getElementById('nt-css')) {
         const st = document.createElement('style'); st.id = 'nt-css';
         st.textContent = `
-        #nt-panel{position:fixed;z-index:60;width:360px;max-height:min(70vh,560px);display:flex;flex-direction:column;background:var(--panel);color:var(--text);border:1px solid var(--line);border-radius:14px;box-shadow:0 20px 50px -15px rgba(0,0,0,.35);overflow:hidden;animation:ntIn .18s ease-out}
-        @keyframes ntIn{from{opacity:0;transform:translateY(6px)}}
+        #nt-panel{position:fixed;z-index:85;max-height:min(70vh,560px);display:flex;flex-direction:column;color:var(--text);border-radius:22px;overflow:hidden;background:color-mix(in srgb,var(--panel,#fff) 86%,transparent);-webkit-backdrop-filter:blur(18px) saturate(1.4);backdrop-filter:blur(18px) saturate(1.4);box-shadow:0 0 0 1px var(--line) inset,0 24px 60px -18px rgba(0,0,0,.4);transform-origin:50% 0;animation:ntIn .28s cubic-bezier(.3,1.3,.5,1)}
+        @keyframes ntIn{from{opacity:0;transform:scale(.6,.2)}}
         #nt-panel header{display:flex;align-items:center;gap:6px;padding:10px 12px;border-bottom:1px solid var(--line);font-size:13.5px}
         #nt-panel header .sp{flex:1}#nt-panel header button{background:none;border:0;color:var(--muted);font:600 11.5px Inter,system-ui;cursor:pointer;padding:4px 6px;border-radius:6px;display:inline-flex;align-items:center}
         #nt-panel header button:hover{background:var(--hover);color:var(--text)}#nt-panel header svg{width:15px;height:15px}
