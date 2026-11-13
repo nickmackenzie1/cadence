@@ -928,3 +928,52 @@ data, or peer-to-peer on the same LAN). Personal data and secrets stay on each p
   in the synced doc + localStorage; the server can't see it, so either send it as ?p= on bundle.js or load disabled
   ones lazily on demand when switched on in Settings → Plugins). Themes files split the same way (load the theme
   pack only when its theme is active or the Themes screen opens). Measure on a phone before/after.
+
+## Backlog (user, 2026-11-13 13:49): code review — data safety, speed, security, deploy/CI, code health
+Claims checked against the code 2026-11-13 (all real). Planned in 4 groups; do in this order.
+
+### Group 1 — cheap safety batch (one session)
+- #9  Basic auth skips the login lockout (lib/auth.js basicOK/authorized never call lockedFor/noteFail): count
+      Basic failures per IP too and refuse while locked.
+- #10 feedparse.js abs() passes `javascript:` (and data:) URLs: allow only http/https.
+- #12 safeFetch resolves DNS then fetches separately (rebinding to a LAN address): pin the resolved IP for the
+      connection (custom lookup on the agent).
+- #13 Dockerfile runs as root, no healthcheck: `USER node` (check data/ and certs/ ownership on the NAS first) and
+      `HEALTHCHECK` on /api/health.
+- #14 a slow CI run can force-push an older commit to `stable`: add a `concurrency` group to test.yml AND make the
+      promote step refuse to move backwards (`git merge-base --is-ancestor origin/stable HEAD`).
+- #15 deploy.sh updates live public/ before the container rebuild: rebuild first (or stage), check /api/health
+      after, roll back to the previous commit on failure.
+- #16 deploy.sh rewrites itself via `git reset --hard` mid-run: copy to a temp file and re-exec it first.
+- #17 CI reinstalls Chromium every run and there's no package-lock.json: commit the lockfile, `npm ci`, cache
+      ~/.cache/ms-playwright keyed on the Playwright version.
+- #1  persistLocal() swallows errors (localStorage ~5 MB cap → saves stop silently): show a calm notice when a
+      local save fails (IndexedDB move is in group 3).
+- #7  app files (core.css, icons, login page) are sent no-store: same ETag + no-cache (+ gzip) as /vendor/.
+
+### Group 2 — database health
+- #3  every change to any record copies the full blob into `history` for 60 days; plugin blobs (feeds, mural)
+      rewrite constantly; tombstones never purged. Keep history only for task/client/meeting; purge deleted
+      records older than ~90 days (after all devices have had time to sync); VACUUM after the first cleanup.
+- #4  refreshDoc() reassembles and rewrites the whole doc on every push, only for long-gone "older tabs".
+      Retire it (or run daily), keeping api/state working for the fallback path.
+- #2  backups sit on the same NAS: don't build it in — write the user step-by-step Synology Hyper Backup setup
+      (encrypted, nightly, to a USB drive or second NAS; nothing exposed, secrets stay on the NAS).
+
+### Group 3 — speed (felt daily)
+- #5  bundle only enabled plugins (see "load only the plugins that are turned on" above).
+- #6  Harper (20 MB) preloads on every load (harper.js ~line 210, added because the user asked 12:39): keep the
+      preload on desktop; on phones / narrow screens / Save-Data, load on first focus of a text box.
+- #8  the app can't open away from home (service worker caches nothing; rule: no internet exposure). Cache the app
+      shell in the service worker so it opens offline from local data and syncs back on the LAN; move local saves
+      to IndexedDB at the same time (#1).
+
+### Group 4 — housekeeping
+- #18 radar test/simulate.mjs and source-fixtures.mjs aren't in `npm test`: wire in or delete.
+- #20 CI retries twice and hides flakes: log which tests needed a retry (reporter), then fix those (known: radar,
+      platform refocus, smoke themes-set-3, team-desk, kids, kanban, dashboard).
+- #19 core.js is ~2,100 lines with lines up to 2,900 chars: run a formatter in its own commit (no other changes),
+      then keep splitting modules like meeting.js.
+- #21 HANDOFF.md is ~900 lines, much superseded: trim to a short CLAUDE.md (rules, structure, how to test/deploy)
+      plus docs/archive.
+- #22 README is stale (sessions.json, a JSON mirror retired Nov 9): rewrite, ideally with the rebrand.
