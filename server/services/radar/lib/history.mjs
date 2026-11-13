@@ -3,7 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { DATA } from "./config.mjs";
 import { httpJson } from "./http.mjs";
-import { norm } from "./extract.mjs";
+import { norm, isArtist, cleanName, cleanGenre } from "./extract.mjs";
 
 const FILE = path.join(DATA, "history.json");
 export { loadHistory, saveHistory } from "./store.mjs";   // stored in cadence.db (radar_history)
@@ -23,7 +23,7 @@ export function aggregateMonth(posts, ext) {
   const m = { posts: posts.length, music: 0, genres: {}, artists: {}, albums: {} };
   for (const p of posts) {
     const e = ext[p.id];
-    if (!e?.music || !e.artist) continue;
+    if (!e?.music || !e.artist || !isArtist(e.artist)) continue;
     m.music++;
     for (const g of e.genres || []) m.genres[g] = (m.genres[g] || 0) + 1;
     const key = norm(e.artist);
@@ -44,18 +44,21 @@ export function aggregateMonth(posts, ext) {
 export function historyTrends(hist, { topGenres = 8 } = {}) {
   const years = {};               // year -> { music, genres, artists, albums }
   const months = {};              // "YYYY-MM" -> { music, genres }
-  for (const subMonths of Object.values(hist)) {
+  // the archive was read with older, looser rules: tidy it here too (thread titles, decorated names, upload labels)
+  for (const [sub, subMonths] of Object.entries(hist)) {
     for (const [month, m] of Object.entries(subMonths)) {
       const y = month.slice(0, 4);
       const Y = (years[y] ||= { music: 0, genres: {}, artists: {}, albums: {} });
       const M = (months[month] ||= { music: 0, genres: {} });
       Y.music += m.music; M.music += m.music;
-      for (const [g, n] of Object.entries(m.genres)) { Y.genres[g] = (Y.genres[g] || 0) + n; M.genres[g] = (M.genres[g] || 0) + n; }
+      for (const [g0, n] of Object.entries(m.genres)) { const g = cleanGenre(g0); if (!g) continue; Y.genres[g] = (Y.genres[g] || 0) + n; M.genres[g] = (M.genres[g] || 0) + n; }
       for (const [k, a] of Object.entries(m.artists)) {
-        const t = (Y.artists[k] ||= { name: a.name, n: 0, score: 0 }); t.n += a.n; t.score += a.score;
+        if (!isArtist(a.name)) continue;
+        const t = (Y.artists[k] ||= { name: cleanName(a.name), n: 0, score: 0, subs: {} }); t.n += a.n; t.score += a.score; t.subs[sub] = (t.subs[sub] || 0) + a.n;
       }
       for (const [k, a] of Object.entries(m.albums)) {
-        const t = (Y.albums[k] ||= { ...a, n: 0, score: 0 }); t.n += a.n; t.score += a.score;
+        if (!isArtist(a.artist)) continue;
+        const t = (Y.albums[k] ||= { ...a, artist: cleanName(a.artist), n: 0, score: 0 }); t.n += a.n; t.score += a.score;
       }
     }
   }
@@ -74,8 +77,9 @@ export function historyTrends(hist, { topGenres = 8 } = {}) {
   for (let i = 1; i < yearList.length; i++) {
     const a = years[yearList[i - 1]], b = years[yearList[i]];
     for (const g of Object.keys(b.genres)) {
-      if ((b.genres[g] || 0) < 5) continue;
+      if ((b.genres[g] || 0) < 10) continue;
       const before = share(a, g), after = share(b, g);
+      if (after < 0.01 || after - before < 0.005) continue;   // under 1% of posts, or barely moved: not a jump
       genreJumps.push({ year: yearList[i], genre: g, from: +(100 * before).toFixed(2), to: +(100 * after).toFixed(2),
                         change: before ? (after - before) / before : null });
     }
@@ -94,7 +98,11 @@ export function historyTrends(hist, { topGenres = 8 } = {}) {
   for (const y of yearList) {
     for (const [k, a] of Object.entries(years[y].artists)) {
       const prev = seenBefore[k] || 0;
-      if (a.n >= 4 && a.n >= 3 * (prev + 1)) breakouts.push({ year: y, artist: a.name, mentions: a.n, before: prev });
+      // one busy subreddit can't make a breakout on its own: it has to show up in 2+ subs, and no single sub may
+      // count for more than 3x the rest combined
+      const per = Object.values(a.subs || {}), top = Math.max(0, ...per), rest = a.n - top;
+      const n = Math.min(a.n, rest * 4);
+      if (per.length >= 2 && n >= 4 && n >= 3 * (prev + 1)) breakouts.push({ year: y, artist: a.name, mentions: n, before: prev, subs: per.length });
     }
     for (const [k, a] of Object.entries(years[y].artists)) seenBefore[k] = Math.max(seenBefore[k] || 0, a.n);
   }

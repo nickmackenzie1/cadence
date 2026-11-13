@@ -28,10 +28,16 @@ const toPost = (p, sub) => ({
   created: p.created_utc, url: p.url ?? "", permalink: "https://reddit.com" + p.permalink,
 });
 
+// Reddit refuses keyless requests from servers (403). After a few refusals in a row, stop asking for the rest of
+// this scan instead of logging one failure per subreddit and listing; the other sources still run.
+export const refusal = { n: 0, gaveUp: false };
 export async function fetchPosts(subs) {
   const seen = new Set(), posts = [];
+  refusal.n = 0; refusal.gaveUp = false;
   for (const sub of subs) {
+    if (refusal.gaveUp) break;
     for (const listing of LISTINGS) {
+      if (refusal.gaveUp) break;
       try {
         const data = await redditGet(`/r/${sub}/${listing}.json?limit=${POSTS_PER_LISTING}&raw_json=1`);
         for (const { data: p } of data?.data?.children ?? []) {
@@ -39,9 +45,13 @@ export async function fetchPosts(subs) {
           seen.add(p.id);
           posts.push(toPost(p, sub));
         }
-      } catch (e) { console.log(`  ! r/${sub}/${listing}: ${e.message}`); }
+        refusal.n = 0;
+      } catch (e) {
+        if (/HTTP (403|429)/.test(e.message) && ++refusal.n >= 3) { refusal.gaveUp = true; console.log(`  Reddit is refusing the NAS (HTTP 403), skipping Reddit for this scan`); break; }
+        console.log(`  ! r/${sub}/${listing}: ${e.message}`);
+      }
     }
-    console.log(`  r/${sub}: done`);
+    if (!refusal.gaveUp) console.log(`  r/${sub}: done`);
   }
   return posts;
 }

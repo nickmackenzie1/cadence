@@ -8,6 +8,25 @@ const BRACKET_RE = /[[(]([^\])]*)[\])]/g;
 const NOT_GENRE = /^(\d{4}s?|official|video|audio|lyrics?|full album|album|ep|lp|single|live|remix|hd|hq|music video|visualizer|cover|demo|\d+)$/i;
 const ALBUM_HINT = /\b(full album|album stream|lp|full ep|ep)\b/i;
 
+// Recurring threads and roundups look like "Name - something" too ("Daily Discussion - Nov 13", "TOP TEN POP TEN -
+// Week 42"). They are not artists.
+const THREAD_RE = /\b(discussion|thread|megathread|trending topics?|teatime|top (ten|10|five|5|20|25|50|100)\b|pop ten|round-?up|recommendations|(daily|weekly|monthly|friday|weekend) (check-?in|recs?|chat|post|q&a)|\bama\b|mod post|listening party|tier list|state of the sub|giveaway|announcement)/i;
+// Bracket text that describes the upload, an edit or an event, not a genre
+const NOT_GENRE_RE = /(official|oficial|offiziell|video|v[ií]deo|audio|[aá]udio|lyrics?|letra|visuali[sz]er|edit\b|extended|remaster|version|vers[aã]o|live\b|ao vivo|en vivo|session|explicit|clean|prod\.?|feat|ft\.|\b(19|20)\d\d\b|bbc|tiny desk|kexp|performance|cover|premiere|out now|teaser|trailer|snippet|unreleased|leak|sped up|slowed|reverb|instrumental|acapella|a cappella|bonus|deluxe|anniversary|award|festival|tour|session|mix\b|hd\b|4k|\bmv\b|m\/v|single|album|ep\b|lp\b|demo|remix|full)/i;
+export function isThread(name) { return THREAD_RE.test(String(name)); }
+// names that are mostly decoration (combining marks, symbols) aren't usable
+export function cleanName(name) {
+  const t = String(name).normalize("NFC").replace(/\p{M}+/gu, "").replace(/[^\p{L}\p{N}\s&'.!$+\-]/gu, "").replace(/\s+/g, " ").trim();
+  const core = String(name).replace(/\s/g, ""), kept = t.replace(/\s/g, "");
+  return kept.length >= 2 && kept.length >= core.length * 0.6 ? t : null;
+}
+export function isArtist(name) { return !!name && !isThread(name) && !!cleanName(name); }
+export function cleanGenre(g) {
+  const t = String(g).toLowerCase().normalize("NFC").replace(/[-_]+/g, " ").replace(/^(and|&|or|\+)\s+/, "").replace(/\s+/g, " ").trim();
+  if (!t || t.length < 3 || t.length > 24 || t.split(" ").length > 3 || /^\d/.test(t) || NOT_GENRE_RE.test(t) || NOT_GENRE.test(t)) return null;
+  return t;
+}
+
 export function norm(name) {
   return String(name).toLowerCase().trim()
     .replace(/\s+(feat\.?|ft\.?|featuring|with|x|&|,)\s+.*$/, "")
@@ -22,15 +41,16 @@ export function parseTitle(title) {
   const tagKind = tag ? tag[2].trim().toLowerCase() : "";
   const genres = [];
   for (const m of title.matchAll(BRACKET_RE)) {
-    for (const g of m[1].split(/[\/,;|]/)) {
-      const t = g.trim().toLowerCase().replace(/[-_]+/g, " ").replace(/\s+/g, " ");
-      if (t && t.length < 30 && !NOT_GENRE.test(t) && !/^(fresh|new$|feat|ft\.|prod|with |w\/|remix|from )/.test(t)) genres.push(t);
+    for (const g of m[1].split(/[\/,;|]|\s+and\s+|\s+&\s+/)) {
+      const t = cleanGenre(g);
+      if (t && !/^(fresh|new$|with |w\/|from )/.test(t)) genres.push(t);
     }
   }
   let t = title.replace(TAG_RE, "").trim();
   const m = t.match(SPLIT_RE);
   if (!m) return null;
-  const artist = m.groups.artist.trim().replace(/^["']+|["']+$/g, "");
+  const artist = cleanName(m.groups.artist.trim().replace(/^["']+|["']+$/g, ""));
+  if (!artist || isThread(artist) || isThread(m.groups.song) && /\d|week|day/i.test(m.groups.song)) return null;
   let song = m.groups.song;
   const isAlbum = /album|ep|lp/.test(tagKind) || ALBUM_HINT.test(song);
   song = song.replace(/\s*[[(][^\])]*[\])]/g, "").trim().replace(/^["']+|["']+$/g, "");
@@ -109,10 +129,10 @@ export async function extractAll(posts) {
         if (!a) continue;
         result[p.id] = {
           music: !!a.music || (a.mentioned?.length > 0),
-          artist: a.artist || null, song: a.song || null,
+          artist: isArtist(a.artist) ? cleanName(a.artist) : null, song: a.song || null,
           type: ["album", "ep"].includes(a.type) ? a.type : r.type,
           fresh: r.fresh,
-          genres: (a.genres || []).map((g) => g.toLowerCase()).slice(0, 3),
+          genres: (a.genres || []).map(cleanGenre).filter(Boolean).slice(0, 3),
           mentioned: (a.mentioned || []).slice(0, 5),
           soundsLike: (a.sounds_like || []).filter((x) => Array.isArray(x) && x.length === 2).slice(0, 5),
           terms: (a.terms || []).map((s) => s.toLowerCase()).slice(0, 5),

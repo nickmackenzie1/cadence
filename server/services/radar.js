@@ -46,7 +46,10 @@ function runJob(kind, fn) {
     // a scan that "worked" but got refused by Reddit on most requests is not a success
     const failed = errors.filter(e => /^! r\//.test(e)), done = lines.filter(l => /^r\/.*: done$/.test(l)).length;
     let problem = err ? `${kind}: ${err.message}` : null;
-    if (!problem && kind === 'scan' && failed.length && failed.length >= done) {
+    // Reddit turning the NAS away is expected these days (no keys): a calm note, not a "problem"
+    const refused = kind === 'scan' && lines.some(l => /Reddit is refusing the NAS/.test(l));
+    if (kind === 'scan') settings({ redditNote: refused ? 'Reddit isn\u2019t letting the NAS in right now, so this scan used the other sources.' : null });
+    if (!problem && kind === 'scan' && !refused && failed.length && failed.length >= done) {
       const first = failed[0].replace(/^!\s*/, ''), refused = failed.some(e => /HTTP (403|429)/.test(e));
       problem = `scan: ${failed.length} of the Reddit requests failed, e.g. ${first}.` + (refused ? ' Reddit is refusing the NAS: adding REDDIT_CLIENT_ID and REDDIT_CLIENT_SECRET to the NAS .env usually fixes this.' : ' Check that the NAS can reach reddit.com.');
     }

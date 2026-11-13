@@ -876,3 +876,15 @@ data, or peer-to-peer on the same LAN). Personal data and secrets stay on each p
   stay generic (a gem, not a rupee; a rune, not a Sheikah glyph).
 - Jurassic Park (user, 13:14): codepen GemmaCroad/vYGLPLr as reference (skip the logo); font options on fontspace
   "jurassic-park" and cdnfonts "jurassic-park" — check the licence, vendor the file, LICENSE-*.txt.
+
+## Backlog (user, 2026-11-13 13:23): Pocket Casts — "love that app"; sync my podcasts, "place and all that"
+- Reference for look/feel: github FelicianoTech/pocket-casts-desktop-app (the web app packaged for Linux). Our Pocket
+  Casts theme + the Feeds mini player could borrow more of its layout.
+- Sync: Pocket Casts has NO official API (their support page says so). There is a long-used unofficial one at
+  api.pocketcasts.com (email + password login → token): user/podcast/list, user/history (with playedUpTo = your
+  place in each episode), user/starred, up next, stats; position can be written back too (Music Assistant does
+  this). Reference: github niklas-heer/pocketcasts-stats (stats → Airtable), furgoose/Pocket-Casts (endpoint docs).
+- Plan when picked up: NAS-side only (POCKETCASTS_EMAIL / POCKETCASTS_PASSWORD in the NAS .env, token never sent to
+  the browser). Pull subscriptions + history + places into the Feeds player so "resume" starts where the phone left
+  off; optionally push the place back when you pause in Cadence. Risk: unofficial, can break if they change it —
+  fail quietly with one calm line.

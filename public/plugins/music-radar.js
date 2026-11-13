@@ -162,6 +162,7 @@
             </span>
           </div>
           ${S.lastError && !S.job ? `<div class="mr-problem">${ic('circle-alert')}<div><b>The last run had a problem</b><div>${esc(S.lastError)}</div><a href="#view-db" id="mr-log">See the job log in Database</a></div></div>` : ''}
+          ${S.redditNote && !S.lastError && !S.job ? `<p class="mr-sub mr-note">${ic('cloud')}${esc(S.redditNote)}</p>` : ''}
           <div class="mr-tiles">
             <div class="mr-tile"><b>${fmt(D.picksThisWeek)}</b><span>Picks this week</span></div>
             <div class="mr-tile"><b>${fmt(D.artistsTracked)}</b><span>Artists tracked</span></div>
@@ -245,6 +246,7 @@
         .mr-switch{display:flex;align-items:center;gap:8px;font-weight:600;font-size:13px}
         .mr-status{color:var(--muted);font-size:13px;display:inline-flex;align-items:center;gap:6px}.mr-status svg{width:14px;height:14px}.mr-err{color:var(--danger)}
         .mr-actions{display:flex;flex-wrap:wrap;gap:6px;margin-left:auto}.mr-actions .btn{color:var(--text);display:inline-flex;align-items:center;gap:6px;text-decoration:none}.mr-actions svg{width:15px;height:15px}
+        .mr-note{display:flex;align-items:center;gap:6px;margin:0 0 10px}.mr-note svg{width:14px;height:14px;flex:none}
         .mr-problem{display:flex;gap:10px;align-items:flex-start;border:1px solid var(--line);border-left:3px solid var(--client);border-radius:var(--r-l);background:var(--panel);padding:12px 14px;margin:0 0 16px;font-size:13px}.mr-problem svg{width:18px;height:18px;flex:none;color:var(--client);margin-top:1px}.mr-problem div div{color:var(--muted);margin:2px 0 4px}.mr-problem a{color:var(--accent);font-size:12.5px}
         .mr-src{display:inline-block;font-size:11px;font-weight:600;padding:1px 7px;border-radius:999px;color:var(--c);background:color-mix(in srgb,var(--c) 13%,transparent);white-space:nowrap;margin:1px 0}
         .mr-tabs{margin:4px 0 12px;flex-wrap:wrap;height:auto}.mr-tabs button{display:inline-flex;align-items:center;gap:5px}.mr-n{font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums}.mr-n.bad{color:var(--client)}

@@ -7,10 +7,12 @@ import { trackRecord } from "./discover.mjs";
 import { loadHistory, historyTrends } from "./history.mjs";
 import { spotifyConnected, hasSpotifyApp, playlistUrl } from "./spotify.mjs";
 import { sourcesData } from "./sources-data.mjs";
+import { isArtist, cleanGenre } from "./extract.mjs";
 
 export function dashboardData(state) {
   const t = now();
-  const snaps = readJsonl("snapshots", t - 15 * DAY);
+  // older scans stored thread titles ("Daily Discussion") as artists and upload labels as genres: leave them out
+  const snaps = readJsonl("snapshots", t - 15 * DAY).filter((s) => isArtist(s.artist));
   const rise = riseData(snaps, t);
   const taste = tasteModel(state);
 
@@ -27,11 +29,11 @@ export function dashboardData(state) {
     sources,
     rise,
     albums: [...albums.values()].sort((a, b) => b.score - a.score).slice(0, 12),
-    genres: momentum(readJsonl("genres", t - 28 * DAY), t, "genre").slice(0, 20),
+    genres: momentum(readJsonl("genres", t - 28 * DAY).filter((r) => cleanGenre(r.genre)), t, "genre").slice(0, 20),
     buzz: momentum(readJsonl("terms", t - 28 * DAY), t, "term", 4).slice(0, 20),
     subLead: subLeadTimes(state.artists).filter((s) => s.samples >= 2).slice(0, 15),
     graph: soundsLikeGraph(state.edges, taste.liked),
-    picks: [...state.picks].sort((a, b) => b.ts - a.ts).slice(0, 40).map((p) => ({ ...p, feedback: state.feedback[p.id] || 0, alsoOn: sources.alsoOn?.[p.key] || [] })),
+    picks: [...state.picks].filter((p) => !p.artist || isArtist(p.artist)).sort((a, b) => b.ts - a.ts).slice(0, 40).map((p) => ({ ...p, feedback: state.feedback[p.id] || 0, alsoOn: sources.alsoOn?.[p.key] || [] })),
     picksThisWeek: state.picks.filter((p) => t - p.ts < 7 * DAY).length,
     artistsTracked: Object.keys(state.artists).length,
     subs: state.subs || DEFAULT_SUBS,
