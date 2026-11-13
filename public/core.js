@@ -81,6 +81,29 @@ function resetDemo(){ try { localStorage.removeItem('cadence.demo.v1'); } catch(
 function exitDemo(){ try { sessionStorage.removeItem('cadence.demo'); } catch(e){} location.href = location.pathname; }
 
 /* storage: localStorage instantly, account sync (artifact db) when available */
+/* ---- settings that follow you: these browser-saved settings are mirrored to the NAS (last write wins), so the
+   weather town, Christmas, typing effects, focus timer, energy check-in, podcast spots… are the same on every device ---- */
+const Prefs = (() => {
+  const KEYS = new Set(['cadence.weather', 'cadence.typing', 'cadence.xmas', 'cadence.focus', 'cadence.energy', 'cadence.podpos', 'cadence.sheep', 'cadence.orbit', 'cadence.moves', 'cadence.donelist', 'cadence.grandma', 'cadence.kind', 'cadence.areas', 'cadence.pins']);
+  const sync = k => KEYS.has(k) || /^cadence\.pins\./.test(k);
+  const LS = window.localStorage, set0 = Storage.prototype.setItem, del0 = Storage.prototype.removeItem;
+  const ats = () => { try { return JSON.parse(LS.getItem('cadence.prefs.at') || '{}'); } catch(e){ return {}; } };
+  let out = {}, t = 0, on = false;
+  const queue = (k, v) => { const a = ats(); a[k] = Date.now(); set0.call(LS, 'cadence.prefs.at', JSON.stringify(a)); out[k] = { v, at: a[k] }; clearTimeout(t); t = setTimeout(flush, 800); };
+  async function flush(){ if(!on || !Object.keys(out).length) return; const body = out; out = {}; try { await fetch('api/prefs', { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) }); } catch(e){ Object.assign(out, body); } }
+  Storage.prototype.setItem = function(k, v){ set0.call(this, k, v); if(this === LS && sync(k)) queue(k, String(v)); };
+  Storage.prototype.removeItem = function(k){ del0.call(this, k); if(this === LS && sync(k)) queue(k, null); };
+  async function pull(){
+    if(!on) return; let d; try { d = await (await fetch('api/prefs', { cache:'no-store' })).json(); } catch(e){ return; }
+    const a = ats(); let changed = false;
+    for(const [k, x] of Object.entries(d || {})){ if(!sync(k) || (a[k] || 0) >= x.at) continue; a[k] = x.at; changed = true; x.v == null ? del0.call(LS, k) : set0.call(LS, k, x.v); }
+    // anything set here before the NAS knew about it goes up
+    for(const k of Object.keys(a)) if(sync(k) && (!d[k] || d[k].at < a[k])) out[k] = { v: LS.getItem(k), at: a[k] };
+    set0.call(LS, 'cadence.prefs.at', JSON.stringify(a)); flush();
+    if(changed){ rebuildPlugins(); render(); }
+  }
+  return { start(){ on = true; pull(); setInterval(pull, 120000); document.addEventListener('visibilitychange', () => { if(!document.hidden) pull(); }); }, pull, flush };
+})();
 const Store = {
   ref:null, busy:false, again:false, status:'local', timer:null,
   async init(){
@@ -112,6 +135,7 @@ const Store = {
       const h = await fetch('api/health', { cache:'no-store' }); if(!h.ok) return;
       const info = await h.json(); if(!info.ok) return;
       this.server = true; this.health = info; render(); emit('sync', { phase:'connected', health: info });
+      if(!DEMO) Prefs.start();
       if(DEMO){ this.status = 'demo'; this.setStatus('demo'); }
       if(info.ai){
         const f = async (prompt, opts = {}) => { const r = await fetch('api/ai', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ prompt, tier: opts.modelTier || 'default' }) }); const j = await r.json(); if(!r.ok) throw Object.assign(new Error(j.error || 'AI error'), { code: r.status === 429 ? 'rate_limited' : 'error' }); return { text: j.text || '' }; };

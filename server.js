@@ -1009,6 +1009,16 @@ async function handle(req, res) {
       res.writeHead(200, { 'Content-Type': id.endsWith('png') ? 'image/png' : id.endsWith('webp') ? 'image/webp' : 'image/jpeg', 'Cache-Control': 'private, max-age=31536000, immutable' });
       return res.end(fs.readFileSync(f));
     }
+    // small settings that follow you between devices (weather town, effects, timers…): last write wins per key
+    if (p === '/api/prefs') {
+      const F = path.join(DATA_DIR, 'prefs.json'); let d = {}; try { d = JSON.parse(fs.readFileSync(F, 'utf8')); } catch {}
+      if (req.method === 'GET') return send(res, 200, d);
+      if (req.method === 'PUT') {
+        const b = JSON.parse(await readBody(req, 256 * 1024)); let n = 0;
+        for (const [k, x] of Object.entries(b || {})) { if (!/^cadence\.[\w.-]{1,60}$/.test(k) || !x || typeof x.at !== 'number') continue; if (!d[k] || d[k].at < x.at) { d[k] = { v: x.v == null ? null : String(x.v).slice(0, 64 * 1024), at: x.at }; n++; } }
+        if (n) fs.writeFileSync(F, JSON.stringify(d)); return send(res, 200, { ok: true, changed: n });
+      }
+    }
     if (p === '/api/calendar/config' && req.method === 'GET') {
       // never send the secret URLs back to the browser
       return send(res, 200, { calendars: readCals().calendars.map(c => ({ id: c.id, name: c.name, color: c.color, host: (() => { try { return new URL(c.url.replace(/^webcal:/i, 'https:')).hostname; } catch { return ''; } })() })) });
