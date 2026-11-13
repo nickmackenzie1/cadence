@@ -334,6 +334,9 @@ test('kids: a child, sizes, an activity with a registration task, memories, heal
   await page.fill('#lk-name', 'Swimming'); await page.selectOption('#lk-day', '6'); await page.fill('#lk-time', '09:30');
   const reg = await page.evaluate(() => window.T.util.ymd(window.T.util.addDays(new Date(), 20)));
   await page.fill('#lk-reg', reg); await page.fill('#lk-carpool', 'Us, the Patels'); await page.click('#lk-ok');
+  // first time: where should family things go? (a new Family area) — the tasks made meanwhile move over
+  await page.click('#ask-ok');
+  await expect.poll(() => page.evaluate(() => { const f = window.T.clients.list().find(c => c.name === 'Family'); return f && window.T.tasks.list(t => /Register Maya/.test(t.title))[0].clientId === f.id; })).toBe(true);
   expect(await page.evaluate(() => window.T.tasks.list(t => /Register Maya for Swimming/.test(t.title)).length)).toBe(1);
   expect(await page.evaluate(() => window.T.tasks.list(t => /Maya: Swimming/.test(t.title) && t.repeat).length)).toBe(1);
   await page.click('[data-tab=mem]'); await page.fill('#kd-mem', 'Dinosaurs are just big chickens'); await page.click('#kd-madd');

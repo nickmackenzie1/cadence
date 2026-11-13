@@ -24,9 +24,33 @@
     setTimeout(() => { const first = document.querySelector('.lk-form input,.lk-form textarea'); first && first.focus(); }, 30);
   }
   // an area in the Life space (created if missing)
-  function area(api, name, icon) { let c = api.clients.list().find(x => x.name.toLowerCase() === name.toLowerCase()); if (!c) { c = api.clients.add(name); if (icon) api.clients.update(c.id, { icon }); } return c.id; }
+  // which area things like "Family" or "Money" go in: asked once (an existing area, a new one, or none), remembered
+  // across devices. Until you answer, new tasks wait with no area and move over when you do.
+  const amap = () => { try { return JSON.parse(localStorage.getItem('cadence.areas') || '{}'); } catch (e) { return {}; } };
+  const asking = {};
+  let pending = null;
+  function area(api, name, icon) {
+    const m = amap(), key = name.toLowerCase();
+    if (m[key] === 'none') return null;
+    if (m[key] && api.clients.get(m[key])) return m[key];
+    const ex = api.clients.list().find(x => x.name.toLowerCase() === key && !x.archived);
+    if (ex) { localStorage.setItem('cadence.areas', JSON.stringify({ ...m, [key]: ex.id })); return ex.id; }
+    pending = name; if (!asking[key]) { asking[key] = true; setTimeout(() => choose(api, name, icon), 60); }
+    return null;
+  }
+  function choose(api, name, icon) {
+    const areas = api.clients.list().filter(c => !c.archived);
+    api.ui.ask(`Where should ${name.toLowerCase()} things go?`, [{ k: 'a', label: 'Area', type: 'select', def: 'new', opts: [['new', `A new “${name}” area`], ...areas.map(c => [c.id, c.name]), ['none', 'No area']] }],
+      `Some ${name.toLowerCase()} reminders were just set up. Pick an area for them. Cadence remembers your answer.`).then(v => {
+      const key = name.toLowerCase(); asking[key] = false; if (!v) return;
+      let id = v.a; if (id === 'new') { const c = api.clients.add(name); if (icon) api.clients.update(c.id, { icon }); id = c.id; }
+      localStorage.setItem('cadence.areas', JSON.stringify({ ...amap(), [key]: id }));
+      if (id !== 'none') for (const t of api.tasks.list(x => x.lkArea === name && !x.clientId)) api.tasks.update(t.id, { clientId: id, lkArea: null });
+      api.ui.refresh();
+    });
+  }
   // one task that this plugin owns (key), created or updated in place
-  function ownTask(api, key, patch) { const t = api.tasks.list(x => x.lk === key && !x.done)[0]; if (t) { api.tasks.update(t.id, patch); return t.id; } return api.tasks.add({ ...patch, lk: key }).id; }
+  function ownTask(api, key, patch) { if (patch.clientId == null && pending) patch = { ...patch, lkArea: pending }; pending = null; const t = api.tasks.list(x => x.lk === key && !x.done)[0]; if (t) { api.tasks.update(t.id, patch); return t.id; } return api.tasks.add({ ...patch, lk: key }).id; }
   function dropTask(api, key) { for (const t of api.tasks.list(x => x.lk === key && !x.done)) api.tasks.remove(t.id); }
   const tabs = (list, cur) => `<div class="seg lk-tabs">${list.map(([v, l]) => `<button data-tab="${esc(v)}" class="${cur === v ? 'on' : ''}">${esc(l)}</button>`).join('')}</div>`;
   const empty = t => `<div class="lk-empty">${esc(t)}</div>`;

@@ -95,9 +95,9 @@
       const nextDay = dow => { const d = new Date(); for (let i = 0; i < 7; i++) { const x = api.util.addDays(d, i); if (x.getDay() === dow) return api.util.ymd(x); } return api.util.todayKey(); };
       function install(b) {
         let clientId = null;
-        if (b.area && api.space() === 'life') { let c = api.clients.list().find(x => x.name.toLowerCase() === b.area[0].toLowerCase()); if (!c) { c = api.clients.add(b.area[0]); api.clients.update(c.id, { icon: b.area[1] }); } clientId = c.id; }
+        if (b.area && api.space() === 'life') clientId = window.LifeKit ? window.LifeKit.area(api, b.area[0], b.area[1]) : null;
         const ids = b.tasks.map(([title, rep]) => { const r = { unit: rep.unit, n: rep.n || 1 }, due = rep.unit === 'week' && rep.day != null ? nextDay(rep.day) : rep.unit === 'month' ? (() => { const d = new Date(); return api.util.ymd(new Date(d.getFullYear(), d.getMonth() + (d.getDate() > 1 ? 1 : 0), 1)); })() : api.util.todayKey();
-          return api.tasks.add({ title, repeat: r, dueDate: due, clientId, tags: ['ritual'], ritual: b.id }).id; });
+          return api.tasks.add({ title, repeat: r, dueDate: due, clientId, tags: ['ritual'], ritual: b.id, ...(clientId || !b.area ? {} : { lkArea: b.area[0] }) }).id; });
         api.storage.set('installed', { ...installed(), [b.id]: { name: b.name, at: Date.now(), ids } });
         api.ui.toast(`${b.name}: ${ids.length} repeating tasks added`); api.ui.refresh();
       }
