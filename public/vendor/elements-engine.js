@@ -397,15 +397,48 @@
       clipCache.clear();
       return L;
     }
-    // ambient: the page's cards, buttons and headings are ledges matter rests on; sent to the engine as [x0, x1, y, …]
+    // ambient: the page is invisible ground, like Havoc's: the top of every line of text and of everything solid-looking
+    // (cards, buttons, fields, pictures, chips) is a ledge snow and rain rest on; sent to the engine as [x0, x1, y, …].
+    // Read when the page changes (scroll, typing, a new view, resize), not on a timer.
+    let ledgesDirty = true, ledgeMO = null;
+    const SOLIDISH = /^(IMG|SVG|INPUT|BUTTON|TEXTAREA|SELECT|CANVAS|VIDEO|HR)$/;
     function ledges() {
-      const out = ['surf'];
-      for (const el of document.querySelectorAll(cfg.ledges || '.task, .group-h, .head h1, .qa, .ntile, .gl, .btn, .td-sched, .pl-card, .c-hero, .cal-strip, .db-item')) {
-        const r = el.getBoundingClientRect(); if (r.width < 8 || r.bottom < 0 || r.top > innerHeight) continue;
-        const y = Math.floor(r.top / CELL); if (y < 2 || y >= H) continue;
-        out.push(Math.max(0, Math.floor(r.left / CELL)), Math.min(W, Math.ceil(r.right / CELL)), y);
+      ledgesDirty = false;
+      const out = ['surf'], seen = new Set(), add = (l, rt, t) => {
+        if (rt - l < 6 || t < 2 * CELL || t >= innerHeight) return;
+        const x0 = Math.max(0, Math.floor(l / CELL)), x1 = Math.min(W, Math.ceil(rt / CELL)), y = Math.floor(t / CELL), k = y * 4096 + x0;
+        if (y < 2 || y >= H || seen.has(k)) return; seen.add(k); out.push(x0, x1, y);
+      };
+      if (cfg.ledges) { for (const el of document.querySelectorAll(cfg.ledges)) { const r = el.getBoundingClientRect(); add(r.left, r.right, r.top); } inputQ.push(out); return; }
+      // things that look solid
+      let n = 0;
+      const walk = document.createTreeWalker(document.body, NodeFilter.SHOW_ELEMENT, { acceptNode: el => (ours(el) || el.closest('#xm-string,#xm-glow,#xm-ring,.hp-mirror,.nav-scrim') ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT) });
+      for (let el = walk.nextNode(); el && n < 1500; el = walk.nextNode()) {
+        const r = el.getBoundingClientRect(); if (r.width < 10 || r.height < 6 || r.bottom < 0 || r.top > innerHeight || r.right < 0 || r.left > innerWidth) continue;
+        n++;
+        if (SOLIDISH.test(el.tagName.toUpperCase())) { add(r.left, r.right, r.top); continue; }
+        const cs = getComputedStyle(el); if (cs.visibility === 'hidden' || +cs.opacity < 0.2) continue;
+        const bg = parseColor(cs.backgroundColor), bw = parseFloat(cs.borderTopWidth) || 0;
+        if ((bg[3] > 0.15 && r.width < innerWidth * 0.9) || (bw >= 1 && cs.borderTopStyle !== 'none') || cs.backgroundImage !== 'none' && r.width < innerWidth * 0.9) add(r.left + 2, r.right - 2, r.top);
+      }
+      // every line of text: snow sits on the letters
+      const tw = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, { acceptNode: t => (/\S/.test(t.nodeValue) && t.parentElement && !ours(t.parentElement) && !t.parentElement.closest('script,style,#xm-string,.hp-mirror') ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT) });
+      const range = document.createRange(); let m = 0;
+      for (let t = tw.nextNode(); t && m < 2500; t = tw.nextNode()) {
+        const pr = t.parentElement.getBoundingClientRect(); if (pr.bottom < 0 || pr.top > innerHeight || !pr.width) continue;
+        range.selectNodeContents(t);
+        for (const rc of range.getClientRects()) { m++; if (rc.width > 4 && rc.height > 6) add(rc.left, rc.right, rc.top + rc.height * 0.22); }   // just under the cap height, where letters start
       }
       inputQ.push(out);
+    }
+    function watchLedges(on) {
+      const dirty = () => { ledgesDirty = true; };
+      if (on && !ledgeMO) {
+        ledgeMO = new MutationObserver(muts => { if (muts.some(m => !(m.target.closest && (ours(m.target) || m.target.closest('#xm-string,#xm-glow,#xm-ring,.hp-mirror'))))) dirty(); });
+        ledgeMO.observe(document.body, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ['class', 'style', 'hidden'] });
+        addEventListener('scroll', dirty, true); addEventListener('resize', dirty);
+        ledgeMO.off = () => { ledgeMO.disconnect(); removeEventListener('scroll', dirty, true); removeEventListener('resize', dirty); };
+      } else if (!on && ledgeMO) { ledgeMO.off(); ledgeMO = null; }
     }
 
     /* ---------------- sending the page to the engine ---------------- */
@@ -427,7 +460,7 @@
       port.post(msg, [L.grid.buffer, L.colR.buffer, L.colG.buffer, L.colB.buffer, L.owner.buffer, L.layer.buffer, L.boxOf.buffer]);
       allocBufs(); sizeCanvas(); busy = false; ready = true; lastFrame = null;
       api.stats = { pieces: L.els.length, pictures, foreign, cells: W * H, worker: port.worker, compositor: comp.kind };
-      if (AMBIENT) ledges();
+      if (AMBIENT) { ledgesDirty = true; ledges(); watchLedges(true); }
     }
 
     /* ---------------- frames back from the engine ---------------- */
@@ -450,9 +483,9 @@
     const rnd = (a, b) => a + R() * (b - a);
     function sizeAir() { airCv.width = innerWidth * DPR; airCv.height = innerHeight * DPR; }
     function newFlake(anywhere) {
-      const z = R(), near = !reduced && z > 0.94, far = z < 0.22;
+      const z = R(), near = !AMBIENT && !reduced && z > 0.94, far = z < 0.22;   // the calm layer: plain flakes only (no blurry front ones, no crystals)
       const r = far ? rnd(0.5, 1.1) : near ? rnd(5, 9) : rnd(1.1, 2.6);
-      const crys = !far && !near && R() < 0.25;
+      const crys = !AMBIENT && !far && !near && R() < 0.25;
       return { x: rnd(-40, innerWidth + 40), y: anywhere ? rnd(-60, innerHeight * 0.9) : rnd(-40, -8), r: crys ? r * 2.2 : r, near, far, crys, spr: (R() * 3) | 0,
         vx: 0, vy: 0, ph: R() * 6.28, sp: rnd(0.6, 1.6), rot: R() * 6.28, vr: rnd(-0.03, 0.03), o: far ? rnd(0.35, 0.6) : near ? rnd(0.25, 0.45) : rnd(0.7, 1),
         pass: R() < (S.snowEverywhere ? 0.85 : 0.35) };
@@ -515,7 +548,7 @@
         const hide = (cfg.hidden && cfg.hidden()) || document.hidden;
         if (hide !== wasHidden) { wasHidden = hide; host.style.setProperty('display', hide ? 'none' : 'block', 'important'); }
         if (hide) return;
-        if (now - ledgeT > 400) { ledgeT = now; ledges(); }
+        if ((ledgesDirty && now - ledgeT > 250) || now - ledgeT > 4000) { ledgeT = now; ledges(); }
       }
       // nothing happening: ask the engine for a frame only now and then
       const idle = AMBIENT && lastFrame && lastFrame.quiet && !flakes.length && !S.snowing && !S.rain && !inputQ.length;
@@ -732,6 +765,7 @@
       removeEventListener('keydown', onKey, true); removeEventListener('resize', onResize); removeEventListener('pointermove', onMouse);
       locked.forEach(([el, v]) => { el.style.overflow = v; if (!el.getAttribute('style')) el.removeAttribute('style'); }); locked = [];
       Sound.disable(); S.sound = false;
+      watchLedges(false);
       host && host.remove(); host = null; hud = null; cv = null; comp = null; flakes = [];
       if (port) { port.kill(); port = null; }   // a fresh engine next time
     }

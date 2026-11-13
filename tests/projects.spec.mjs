@@ -207,3 +207,24 @@ test('Elements look: Christmas snow and lights, typing fire and the sand jar sha
   await expect.poll(() => page.evaluate(async () => { const c = await window.__fx.counts(); return (c[16] || 0) + (c[17] || 0); }), { timeout: 15000 }).toBe(0);
   expect(errs).toEqual([]);
 });
+
+test('Elements look: one set of lights after resizes and theme changes, snow settles on text and cards, plain flakes', async ({ page }) => {
+  test.setTimeout(60000);
+  const errs = []; page.on('pageerror', e => errs.push(String(e)));
+  await page.addInitScript(() => { localStorage.setItem('cadence.reviewNudge', (d => { d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); })(new Date())); });
+  await page.goto(B + '/#today');
+  await expect(page.locator('#sync')).toContainText('NAS', { timeout: 8000 });
+  await page.evaluate(() => window.__xmas.reset({ look: 'elements', chaos: 1, tune: null }));
+  await page.evaluate(() => { window.__xmas.flip('lights'); window.__xmas.flip('snow'); });
+  await expect(page.locator('#elements-ambient')).toHaveCount(1);
+  // the classic string never comes back: not on resize, not on a theme change, not when the Island changes
+  await page.setViewportSize({ width: 1200, height: 800 }); await page.waitForTimeout(400);
+  await page.evaluate(() => window.CadenceThemes && window.CadenceThemes.apply('nord')); await page.waitForTimeout(400);
+  await page.evaluate(() => window.CadenceIsland && window.CadenceIsland.notify && window.CadenceIsland.notify({ title: 'Hello' })); await page.waitForTimeout(1500);
+  await expect(page.locator('#xm-string, #xm-glow')).toHaveCount(0);
+  // the page is ground: snow dropped above the greeting comes to rest on its letters, not below it
+  const h = await page.evaluate(() => { const r = document.querySelector('#view h1, #view .hello').getBoundingClientRect(); return { left: r.left, right: Math.min(r.right, r.left + 240), top: r.top - 24, bottom: r.top + r.height * 0.5, x: r.left, y: r.top }; });
+  await page.evaluate(h => { for (let x = h.x + 8; x < h.right; x += 5) window.__fx.spawn(x, h.y - 18, window.__fx.M.SNOW, 2, 0.9); }, h);
+  await expect.poll(() => page.evaluate(h => window.__fx.count(h, window.__fx.M.SNOW), h), { timeout: 8000 }).toBeGreaterThan(15);
+  expect(errs).toEqual([]);
+});

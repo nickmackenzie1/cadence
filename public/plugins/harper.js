@@ -71,7 +71,7 @@
         ta.dataset.hpSpell = ta.spellcheck ? '1' : '0'; ta.spellcheck = false;   // one set of squiggles, not two
         cur = { ta, mirror, lints: [], text: null, timer: 0 };
         ta.addEventListener('input', onInput); ta.addEventListener('keydown', onKeyUndo); ta.addEventListener('scroll', place); ta.addEventListener('click', onCaret); ta.addEventListener('keyup', onCaret); ta.addEventListener('blur', onBlur);
-        const loop = () => { if (!cur || cur.ta !== ta) return; place(); cur.raf = requestAnimationFrame(loop); }; loop();
+        const loop = () => { if (!cur || cur.ta !== ta) return; place(); if (cur && cur.ta === ta) cur.raf = requestAnimationFrame(loop); }; loop();   // place() detaches if the box left the page
         check(); linter();
       }
       function detach() {

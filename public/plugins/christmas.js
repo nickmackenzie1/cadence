@@ -97,7 +97,10 @@
       /* ---------------- lights ---------------- */
       // the string hooks onto the Island pill (the wire swags into its sides), and the pill wears its own ring of tiny bulbs
       let ringRO = null, ringT = 0, followUntil = 0, followRaf = 0, ringMO = null;
+      // the Elements look draws its own lights and snow in the engine: the classic ones stay off, whoever redraws them
+      const classicOff = o => o && o.look !== 'classic' && !reduced();
       function lights(o) {
+        if (classicOff(o)) o = { ...o, lights: false };
         let el = document.getElementById('xm-string');
         if (!o.on || !o.lights) { el && el.remove(); document.getElementById('xm-glow')?.remove(); document.getElementById('xm-ring')?.remove(); ringRO && ringRO.disconnect(); ringRO = null; ringMO && ringMO.disconnect(); ringMO = null; cancelAnimationFrame(followRaf); followRaf = 0; G.bulbs = null; return; }
         if (!el) { el = document.createElement('div'); el.id = 'xm-string'; el.setAttribute('aria-hidden', 'true'); document.body.appendChild(el); }
@@ -379,6 +382,7 @@
       }
       function size() { if (!cv) return; DPR = Math.min(2, devicePixelRatio || 1); cv.width = innerWidth * DPR; cv.height = innerHeight * DPR; }
       function snow(o, user) {
+        if (classicOff(o)) o = { ...o, snow: false };
         const want = o.on && o.snow && !reduced();
         if (!want) { cancelAnimationFrame(raf); raf = 0; cv && cv.remove(); cv = cx = null; flakes = []; if (user && (!o.on || !o.snow)) shovel(); else { piles.clear(); save(); } return; }
         T = tuneOf(o);

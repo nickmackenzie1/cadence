@@ -757,3 +757,25 @@ data, or peer-to-peer on the same LAN). Personal data and secrets stay on each p
   straight after restores your word and keeps it for the session (G.keep). Words in your dictionary are never touched.
 - Harper starts loading as soon as a box is focused.
 - Tests: more.spec "grammar…" and "autocorrect…".
+
+## Fixed 2026-11-13 ~14:20: Christmas Elements look had two light strings and two kinds of snow (user report + screenshot)
+- Two strings: christmas.js turned the classic DOM string off only in apply(); resize/theme/Island-pill redraws called
+  lights(G.o) with the full settings and brought it back. lights() and snow() now force their classic part off
+  themselves when look !== 'classic' (classicOff).
+- Snow "less aware of the page than Havoc": the ambient layer only had ledges on a few selectors' top edges, and most
+  falling snow was v5 air flakes (crystals, blurry front bokeh). Now ledges() reads the page like ground: the top of
+  every line of text (at ~22% of the line box) and of everything solid-looking (bg/border/bg-image, IMG/SVG/INPUT/
+  BUTTON/…), up to 1500 elements and 2500 text rects; re-read when the page changes (MutationObserver + scroll +
+  resize, at most every 250 ms, and every 4 s anyway). No long tasks measured. Ambient flakes are plain (no crystals,
+  no near bokeh); Havoc keeps all three.
+- Also fixed: Harper's position loop threw when its box left the page mid-frame (place() detaches; check cur after).
+- Test: projects "Elements look: one set of lights after resizes and theme changes, snow settles on text".
+
+## Backlog (user, 2026-11-13 12:05)
+- Themes, new categories. "Movie & TV": Jurassic Park, Star Wars, The Shining, Kill Bill, Titan A.E., The Simpsons,
+  Family Guy, South Park, Over the Garden Wall. "Studio Ghibli": Spirited Away, My Neighbor Totoro. As with the other
+  homages: palettes, textures, type and mood only, no characters, logos, title wordmarks or stills (e.g. Shining =
+  the hexagon hallway carpet pattern + typewriter; Kill Bill = yellow/black, katana-slash dividers; Totoro = forest
+  greens, rain, soft painted sky; Jurassic = jungle greens, amber, park-signage type).
+- Themes screen redesign: it's very long, needs better navigation (category tabs/side index, search, maybe a compact
+  grid + live preview). Bug: picking a theme scrolls the page back to the top.
