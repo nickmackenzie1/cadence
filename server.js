@@ -492,6 +492,26 @@ async function readRecipe(u) {
     tags: [...list(rec.recipeCategory), ...list(rec.recipeCuisine)].slice(0, 6), site: new URL(r.url).hostname.replace(/^www\./, '') };
 }
 
+
+// ---- feed history: every item a feed has ever shown, with when it first appeared, so we can chart how often a
+// feed updates. Feeds you've opened in the last two weeks are also checked every 30 minutes in the background. ----
+const FEEDLOG = path.join(DATA_DIR, 'feedlog.json');
+let feedLog = null, feedLogT = 0;
+const readFeedLog = () => { if (!feedLog) { try { feedLog = JSON.parse(fs.readFileSync(FEEDLOG, 'utf8')); } catch { feedLog = {}; } } return feedLog; };
+const saveFeedLog = () => { clearTimeout(feedLogT); feedLogT = setTimeout(() => { try { fs.writeFileSync(FEEDLOG, JSON.stringify(feedLog)); } catch (e) { console.error('feedlog', e.message); } }, 2000); };
+function logFeed(u, data, asked) {
+  const L = readFeedLog(), fresh = !L[u], f = L[u] = L[u] || { title: '', seen: {}, asked: 0 }, now = Date.now();   // the first look is a baseline, not "new"
+  f.title = data.title || f.title; if (asked) f.asked = now;
+  for (const it of data.items || []) { const k = String(it.link || it.title || '').slice(0, 300); if (!k || f.seen[k]) continue; const pub = Date.parse(it.date) || 0; f.seen[k] = [fresh ? 0 : now, pub && pub < now + 864e5 ? pub : 0]; }
+  const ks = Object.keys(f.seen); if (ks.length > 3000) for (const k of ks.slice(0, ks.length - 3000)) delete f.seen[k];
+  saveFeedLog();
+}
+setInterval(async () => {
+  const L = readFeedLog();
+  for (const [u, f] of Object.entries(L)) { if (Date.now() - (f.asked || 0) > 14 * 864e5) continue;
+    try { const r = await safeFetch(u, { headers: { Accept: 'application/rss+xml, application/atom+xml, application/xml, text/xml, */*' } }, 3 * 1024 * 1024); logFeed(u, parseFeed(r.buf.toString('utf8'), r.url), false); } catch {} }
+}, 30 * 60e3).unref();
+
 // ---- company info: logo, banner, description, industry from the client's website ----
 const INDUSTRIES = {
   software:      ['software','saas','platform','cloud','app ','apps','api','developer','cybersecurity','it services','managed services','tech'],
@@ -929,6 +949,17 @@ async function handle(req, res) {
       res.writeHead(200, { 'Content-Type': hit.type, 'Cache-Control': 'private, max-age=86400', 'X-Content-Type-Options': 'nosniff' }); return res.end(hit.buf);
     }
 
+    if (p === '/api/feed/stats') {
+      // per feed: items per day by when Cadence first saw them and by their publish date, plus weekday/hour patterns
+      const L = readFeedLog(), want = url.searchParams.get('url'), dayKey = ms => new Date(ms).toLocaleDateString('en-CA', { timeZone: LOCAL_TZ });
+      const out = Object.entries(L).filter(([u]) => !want || u === want).map(([u, f]) => {
+        const seen = {}, pub = {}, wd = Array(7).fill(0), hr = Array(24).fill(0); let first = Infinity, last = 0;
+        for (const [s1, p1] of Object.values(f.seen)) { if (s1) { seen[dayKey(s1)] = (seen[dayKey(s1)] || 0) + 1; first = Math.min(first, s1); }
+          if (p1) { pub[dayKey(p1)] = (pub[dayKey(p1)] || 0) + 1; last = Math.max(last, p1); const d = new Date(new Date(p1).toLocaleString('en-US', { timeZone: LOCAL_TZ })); wd[d.getDay()]++; hr[d.getHours()]++; } }
+        return { url: u, title: f.title, seen, published: pub, weekday: wd, hour: hr, since: first === Infinity ? null : first, lastPublished: last || null, total: Object.keys(f.seen).length };
+      });
+      return send(res, 200, { feeds: out, tz: LOCAL_TZ });
+    }
     if (p === '/api/feed') {
       const u = String(url.searchParams.get('url') || '');
       if (!/^https?:\/\//i.test(u) || u.length > 2000) return send(res, 400, { error: 'Bad feed URL' });
@@ -942,6 +973,7 @@ async function handle(req, res) {
         if (!data.items.length && !data.title) return send(res, 422, { error: 'That URL is not an RSS or Atom feed' });
         if (wantPrices) await addPrices(data, u, 6000);
         feedCache.set(u, { at: Date.now(), data }); if (feedCache.size > 50) feedCache.delete(feedCache.keys().next().value);
+        logFeed(u, data, true);
         return send(res, 200, data);
       } catch (e) { return hit ? send(res, 200, hit.data) : send(res, 502, { error: 'Could not fetch feed: ' + e.message }); }
     }

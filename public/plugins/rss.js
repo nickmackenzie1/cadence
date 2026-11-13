@@ -84,6 +84,11 @@
       .rs-film .rw{position:absolute;right:5px;top:5px;background:rgba(0,0,0,.6);border-radius:50%;width:20px;height:20px;display:flex;align-items:center;justify-content:center;color:#40bcf4}.rs-film .rw svg{width:12px;height:12px}
       .rs-film b{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:4px}.rs-film .yr,.rs-film .wd{color:var(--muted);font-size:11px}
       .rs-film .st{color:#00c030;letter-spacing:1px;font-size:12px;display:flex;align-items:center;gap:4px;min-height:15px}.rs-film .st em svg{width:12px;height:12px;color:#ff8000;fill:#ff8000}
+.fs-bar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}.fs-sum{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px}.fs-sum div{border:1px solid var(--line);border-radius:12px;padding:12px;background:var(--panel)}.fs-sum b{display:block;font:800 24px/1.1 ui-rounded,system-ui}.fs-sum span{font-size:12px;color:var(--muted)}
+      .fs-chart{width:100%;height:260px;display:block}.fs-chart line{stroke:var(--line);stroke-dasharray:3 4}.fs-chart text{font:10.5px Inter,system-ui;fill:var(--muted);text-anchor:middle}.fs-chart rect:hover{opacity:.8}
+      .fs-leg{display:flex;flex-wrap:wrap;gap:6px 16px;margin:8px 0 18px;font-size:12.5px}.fs-leg i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:6px;vertical-align:-1px}.fs-leg em{font-style:normal;font-weight:700}.fs-leg small{color:var(--muted)}
+      .fs-pat{display:grid;grid-template-columns:1fr 2fr;gap:24px}.fs-pat h4{margin:0 0 8px;font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}.fs-mini{display:flex;align-items:flex-end;gap:3px;height:62px}.fs-mini i{flex:1;background:var(--accent);opacity:.75;border-radius:3px 3px 0 0}.fs-ml{display:flex;gap:3px;font-size:10px;color:var(--muted)}.fs-ml span{flex:1;text-align:center}
+      @media (max-width:800px){.fs-pat,.fs-sum{grid-template-columns:1fr}}
       .rs-pin .ph{position:relative;border-radius:12px;overflow:hidden;background:var(--hover);box-shadow:0 1px 1px rgba(0,0,0,.04),0 6px 18px -6px rgba(40,30,10,.22);transform:translateZ(0);transition:transform .35s cubic-bezier(.2,.9,.25,1),box-shadow .35s}
       .rs-pin .ph img{display:block;width:100%;height:auto;transform:scale(1.035);transition:transform .6s cubic-bezier(.2,.9,.25,1),opacity .4s;opacity:0}
       .rs-pin .ph img.in{opacity:1}
@@ -395,6 +400,36 @@
       });
 
       /* full view */
+      /* how often each feed updates: new items per day (by publish date, or by when Cadence first saw them), plus which
+         weekdays and hours they tend to post. History is kept by the NAS, which also checks your feeds every 30 minutes. */
+      async function statsView(el) {
+        const o = Object.assign({ days: 30, by: 'published' }, api.storage.get('statsOpt') || {});
+        el.innerHTML = '<div class="muted">Loading feed history…</div>';
+        let d; try { d = await (await fetch('api/feed/stats')).json(); } catch (e) { el.innerHTML = '<div class="muted">Feed history is kept by your NAS.</div>'; return; }
+        const mine = feeds().map(f => ({ f, s: (d.feeds || []).find(x => x.url === f.url) })).filter(x => x.s);
+        const COL = ['#5b5bd6', '#e5484d', '#22a06b', '#f59e0b', '#0ea5e9', '#a855f7', '#ec4899', '#14b8a6'];
+        const days = Array.from({ length: o.days }, (_, i) => { const x = new Date(); x.setDate(x.getDate() - (o.days - 1 - i)); return x.toLocaleDateString('en-CA'); });
+        const per = mine.map((m, i) => ({ ...m, c: COL[i % COL.length], v: days.map(k => (m.s[o.by] || {})[k] || 0) }));
+        const tot = days.map((_, j) => per.reduce((a, p) => a + p.v[j], 0)), max = Math.max(1, ...tot), W = 760, H = 220, bw = W / o.days;
+        const bars = days.map((k, j) => { let y = H; return per.map(p => { const h = p.v[j] / max * (H - 16); y -= h; return h ? `<rect x="${(j * bw + 1).toFixed(1)}" y="${y.toFixed(1)}" width="${Math.max(1, bw - 2).toFixed(1)}" height="${h.toFixed(1)}" fill="${p.c}" rx="2"><title>${E(p.f.title || p.s.title)} · ${k}: ${p.v[j]}</title></rect>` : ''; }).join(''); }).join('');
+        const labels = days.map((k, j) => j % Math.ceil(o.days / 8) === 0 ? `<text x="${(j * bw + bw / 2).toFixed(1)}" y="${H + 14}">${new Date(k + 'T12:00').toLocaleDateString([], { month: 'short', day: 'numeric' })}</text>` : '').join('');
+        const sum = tot.reduce((a, b) => a + b, 0), best = tot.indexOf(Math.max(...tot));
+        const mini = (arr, lab) => { const m = Math.max(1, ...arr); return `<div class="fs-mini">${arr.map((n, i) => `<i style="height:${4 + n / m * 56}px" title="${lab(i)}: ${n}"></i>`).join('')}</div><div class="fs-ml">${arr.map((_, i) => `<span>${arr.length === 7 ? lab(i)[0] : i % 6 === 0 ? lab(i) : ''}</span>`).join('')}</div>`; };
+        const wd = Array(7).fill(0), hr = Array(24).fill(0); mine.forEach(m => { m.s.weekday.forEach((n, i) => wd[i] += n); m.s.hour.forEach((n, i) => hr[i] += n); });
+        const DN = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+        el.innerHTML = `<div class="fs-bar"><div class="seg">${[[7, '7 days'], [30, '30 days'], [90, '90 days']].map(([v, l]) => `<button data-fd="${v}" class="${o.days === v ? 'on' : ''}">${l}</button>`).join('')}</div>
+            <div class="seg">${[['published', 'By publish date'], ['seen', 'By when it showed up']].map(([v, l]) => `<button data-fb="${v}" class="${o.by === v ? 'on' : ''}">${l}</button>`).join('')}</div></div>
+          ${!mine.length ? '<div class="muted" style="padding:20px 0">No history yet. Open your feeds once and the NAS starts keeping track.</div>' : `
+          <div class="fs-sum"><div><b>${sum}</b><span>new items in ${o.days} days</span></div><div><b>${(sum / o.days).toFixed(1)}</b><span>a day on average</span></div><div><b>${sum ? new Date(days[best] + 'T12:00').toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' }) : '—'}</b><span>busiest day (${tot[best] || 0})</span></div></div>
+          <svg class="fs-chart" viewBox="0 -4 ${W} ${H + 22}" preserveAspectRatio="none">${[.25, .5, .75].map(k => `<line x1="0" x2="${W}" y1="${H - k * (H - 16)}" y2="${H - k * (H - 16)}"/>`).join('')}${bars}${labels}</svg>
+          <div class="fs-leg">${per.map(p => `<span><i style="background:${p.c}"></i>${E(p.f.title || p.s.title || p.f.url)} <em>${p.v.reduce((a, b) => a + b, 0)}</em>${p.s.lastPublished ? ` <small>last ${E(ago(new Date(p.s.lastPublished).toISOString()))}</small>` : ''}</span>`).join('')}</div>
+          <div class="fs-pat"><div><h4>Which days they post</h4>${mini(wd, i => DN[i])}</div><div><h4>What time of day</h4>${mini(hr, i => (i % 12 || 12) + (i < 12 ? 'a' : 'p'))}</div></div>
+          ${o.by === 'seen' ? `<p class="muted" style="font-size:12px">“When it showed up” counts from the first time the NAS checked each feed (${per.filter(p => p.s.since).map(p => E(p.f.title || '') + ' since ' + new Date(p.s.since).toLocaleDateString()).join(', ') || 'just now'}).</p>` : ''}`}`;
+        el.querySelectorAll('[data-fd]').forEach(b => b.onclick = () => { api.storage.set('statsOpt', { ...o, days: +b.dataset.fd }); statsView(el); });
+        el.querySelectorAll('[data-fb]').forEach(b => b.onclick = () => { api.storage.set('statsOpt', { ...o, by: b.dataset.fb }); statsView(el); });
+      }
+      api.views.add({ id: 'feed-stats', title: 'Feed activity', icon: '📈', subtitle: 'How often your feeds post new things', wide: true, render: el => { statsView(el); } });
+      api.commands.add({ title: 'Feed activity', hint: 'New items per day, chart', run: () => api.ui.navigate('view-feed-stats') });
       api.views.add({ id: 'feeds', title: 'Feeds', icon: '◉', subtitle: 'Your RSS and Atom feeds', render: (el) => {
         const list = feeds();
         const mode = api.storage.get('viewMode') || 'wall';

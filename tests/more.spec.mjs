@@ -4,7 +4,7 @@ import { createServer } from 'node:net';
 // a free port from the OS, so test files running side by side never collide
 const freePort = () => new Promise(r => { const s = createServer().listen(0, () => { const p = s.address().port; s.close(() => r(p)); }); });
 import { spawn } from 'node:child_process';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -446,5 +446,24 @@ test('meeting: agenda comes up at the next meeting, gets checked off with follow
   await expect(page.locator('.mlog-ag .done')).toContainText('Pricing for phase 2');
   await expect(page.locator('.mlog-ag .done em')).toContainText('1 follow-up');
   await expect(page.locator('.m-shots.log .m-shot')).toHaveCount(1);
+  expect(errs).toEqual([]);
+});
+
+test('feed activity: new items per day charted from the history the NAS keeps', async ({ page }) => {
+  const now = Date.now(), D = 864e5, seen = {};
+  for (let i = 0; i < 12; i++) seen['https://shop/x' + i] = [i < 3 ? 0 : now - (i % 5) * D, now - (i % 5) * D - 3600e3];
+  writeFileSync(join(dir, 'feedlog.json'), JSON.stringify({ 'https://shop.example/feed': { title: 'Record shop', seen, asked: now } }));
+  const errs = await open(page);
+  // point the rss plugin at that feed (its storage holds the feed list)
+  await page.evaluate(() => location.hash = 'view-feeds');
+  await page.evaluate(() => document.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', metaKey: true, ctrlKey: true, bubbles: true })));
+  await page.keyboard.type('Manage feeds'); await page.keyboard.press('Enter');
+  await page.route('**/api/feed?*', r => r.fulfill({ json: { title: 'Record shop', items: [] } }));
+  await page.fill('#rs-url', 'https://shop.example/feed'); await page.click('#rs-add'); await page.click('#rs-save');
+  await page.evaluate(() => location.hash = 'view-feed-stats');
+  await expect(page.locator('.fs-sum b').first()).toHaveText('12');
+  await expect(page.locator('.fs-chart rect')).not.toHaveCount(0);
+  await page.click('[data-fb=seen]');
+  await expect(page.locator('.fs-sum b').first()).toHaveText('9');   // the first look is a baseline, not "new"
   expect(errs).toEqual([]);
 });
