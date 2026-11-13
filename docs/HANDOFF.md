@@ -977,3 +977,28 @@ Claims checked against the code 2026-11-13 (all real). Planned in 4 groups; do i
 - #21 HANDOFF.md is ~900 lines, much superseded: trim to a short CLAUDE.md (rules, structure, how to test/deploy)
       plus docs/archive.
 - #22 README is stale (sessions.json, a JSON mirror retired Nov 9): rewrite, ideally with the rebrand.
+
+## Backlog (user, 2026-11-13 13:54): weird and wonderful
+- The NAS dreams: overnight job uses the NAS AI key to write a short surreal dream from yesterday's tasks and
+  clients ("Patagonia was a lighthouse. You owed it a SOW."); waiting for you in the morning (Today card or Island).
+  Calm tone, never anxious; skip if no AI key.
+- Civilization in your backlog: tiny people settle on your oldest tasks, build villages, develop a religion around
+  the Start Meeting button; finishing an old task is the extinction event they prophesied. (Elements engine?)
+- Plugins gossip: the intern, sheep, ghosts and Chad have a group chat you can read. They talk about you
+  (gently). AI-written when a key is set, canned lines otherwise.
+
+## Shipped 2026-11-13 14:15: load only the plugins you use (code review #5 / user 13:39)
+- server/lib/bundle.js builds a manifest (which plugins each plugins/*.js registers) by running the files in a vm
+  sandbox that only records Cadence.registerPlugin. index.html's bundle block becomes an inline chooser: it reads the
+  saved Work/Life docs (localStorage cadence.v1 / cadence.life.v1 → `disabled`), and leaves out every file whose
+  plugins are all off (or not offered) in both spaces → bundle.js?v=HASH&skip=…. A space this browser never opened
+  counts as all-off (switching to it fetches what it needs). First visit (nothing saved) loads everything; demo too.
+- core.js LazyPlugins: left-out plugins get placeholder defs (stub: file) so Settings → Plugins lists them; when one
+  becomes enabled (toggle, sync from another device, space switch) rebuildPlugins fetches bundle.js?only=<file> and
+  the real registerPlugin replaces the placeholder.
+- Never left out (ALWAYS): island, datepick, templates, chase, recap, prep, weather, life-kit — other code uses their
+  globals. Themes files always load (next candidate: load theme packs only when needed).
+- Savings: all optional plugins off → bundle 458 KB → 188 KB gzipped (1.5 MB → 0.64 MB of JS to parse).
+- Also: the accessibility labeller now labels buttons the moment they're added (was rAF-deferred → the
+  "icon-only button has a name" test flaked); dock buttons carry aria-label directly.
+- tests/lazy-plugins.spec.mjs.

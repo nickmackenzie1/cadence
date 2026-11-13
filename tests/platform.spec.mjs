@@ -108,6 +108,7 @@ test('accessibility: every visible icon-only button has a name', async ({ page }
   await open(page);
   for (const h of ['today', 'upcoming', 'view-kanban', 'view-calendar']) {
     await page.evaluate(h => location.hash = h, h); await page.waitForTimeout(250);
+    await page.evaluate(() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r))));   // the labeller runs on the next frame after a change
     const nameless = await page.evaluate(() => [...document.querySelectorAll('button,a[href],[role=button]')].filter(el => el.offsetParent && !el.textContent.trim() && !el.getAttribute('aria-label') && !el.getAttribute('aria-labelledby')).map(el => el.outerHTML.slice(0, 90)));
     expect(nameless, h).toEqual([]);
   }

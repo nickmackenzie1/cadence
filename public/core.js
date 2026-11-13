@@ -780,9 +780,26 @@ function makeApi(pid){
     util: { parse: parseQuick, ymd, fmtDate, dueLabel, addDays, todayKey, dueState, fromYmd, fmtTime }
   });
 }
+/* plugins whose files were left out of this load because they're switched off everywhere (server/lib/bundle.js):
+   they show in Settings → Plugins as placeholders, and their file is fetched the moment one is switched on (here, on
+   another device, or by moving to the other space) — the real plugin then registers over its placeholder. */
+const LazyPlugins = (() => {
+  const B = window.__cadenceBundle, loading = new Set();
+  if(B && B.skipped) for(const f of B.skipped) for(const m of (B.plugins[f] || [])) Reg.defs.push(Object.assign({}, m, { builtin: true, stub: f, setup(){} }));
+  return {
+    load(f){
+      if(!B || loading.has(f)) return; loading.add(f);
+      const s = document.createElement('script'); s.src = `bundle.js?v=${B.v}&only=${encodeURIComponent(f)}`;
+      s.onerror = () => { loading.delete(f); s.remove(); toast('That plugin didn’t load. It will try again next time.'); };
+      document.body.appendChild(s);
+    },
+    get skipped(){ return (B && B.skipped) || []; }
+  };
+})();
 function rebuildPlugins(){
   for(const k of ['commands','views','parsers','extractors','taskActions','meetingActions','clientActions','sidebar','listeners','settingsPanels','widgets','chips','cards','footer']) Reg[k] = [];
   for(const def of Reg.defs){
+    if(def.stub){ if(enabled(def.id)) LazyPlugins.load(def.stub); continue; }
     if(!enabled(def.id)) continue;
     try { def.setup(makeApi(def.id)); } catch(e){ console.error(`Plugin ${def.id} failed`, e); ErrLog.add(`Plugin ${def.id} failed to start: ${e.message}`, e.stack); }
   }
@@ -808,7 +825,8 @@ function registerPlugin(def){
 (() => {
   const fix = root => { (root.querySelectorAll ? root : document).querySelectorAll('button:not([aria-label]),a:not([aria-label]),[role=button]:not([aria-label])').forEach(el => {
     if(el.textContent.trim()) return; const t = el.getAttribute('title') || (el.querySelector('img[alt]') && el.querySelector('img[alt]').alt); if(t) el.setAttribute('aria-label', t); }); };
-  let q = false; const mo = new MutationObserver(() => { if(q) return; q = true; requestAnimationFrame(() => { q = false; fix(document); }); });
+  // straight away on the added nodes (the observer runs right after each change), so nothing is ever briefly unlabelled
+  const mo = new MutationObserver(ms => { for(const m of ms) for(const n of m.addedNodes) if(n.nodeType === 1){ fix(n); if(n.matches && n.matches('button,a,[role=button]')) fix(n.parentNode || n); } });
   if(document.body) { mo.observe(document.body, { childList: true, subtree: true }); fix(document); }
   else document.addEventListener('DOMContentLoaded', () => { mo.observe(document.body, { childList: true, subtree: true }); fix(document); });
 })();
@@ -982,7 +1000,7 @@ function renderWidgets(){
     const def = Reg.defs.find(d => d.id === w.pid) || {}, key = wKey(w), name = w.title || def.name || w.id;
     if(w.slot === 'top') top.appendChild(el);
     else if(pinnedW().includes(key)){ const wrap = document.createElement('div'); wrap.className = 'swp'; wrap.innerHTML = `<button class="sw-dock" data-act="dock-unpin" data-k="${esc(key)}" title="Move ${esc(name)} to the dock">⤓</button>`; wrap.appendChild(el); box.appendChild(wrap); }
-    else { hold.appendChild(el); dock.insertAdjacentHTML('beforeend', `<button class="dk" data-act="dock-open" data-k="${esc(key)}" title="${esc(name)}" style="--c:${esc(def.color || 'var(--accent)')}">${def.icon ? `<svg viewBox="0 0 24 24">${def.icon}</svg>` : esc((name[0] || '?').toUpperCase())}</button>`); el.dataset.k = key; el.dataset.name = name; }
+    else { hold.appendChild(el); dock.insertAdjacentHTML('beforeend', `<button class="dk" data-act="dock-open" data-k="${esc(key)}" title="${esc(name)}" aria-label="${esc(name)}" style="--c:${esc(def.color || 'var(--accent)')}">${def.icon ? `<svg viewBox="0 0 24 24">${def.icon}</svg>` : esc((name[0] || '?').toUpperCase())}</button>`); el.dataset.k = key; el.dataset.name = name; }
     try { w.render(el, makeApi(w.pid)); } catch(e){ console.error('[widget ' + w.id + ']', e); ErrLog.add(`[widget ${w.id}] ${e.message}`, e.stack); }
   }
   if(dock.children.length) box.appendChild(dock);
