@@ -745,3 +745,15 @@ data, or peer-to-peer on the same LAN). Personal data and secrets stay on each p
 - sand-jar: no jar under 700px wide (it sat on the task list).
 - Test: platform "on a phone" (no sideways scroll on 13 views, stats rows, menu, meeting).
 - Not done: no command palette button on phones (⌘K only); swipe gestures; a bottom tab bar.
+
+## Shipped 2026-11-13 ~13:40: Harper in single-line boxes + autocorrect (user: "i dont see it? … auto correct like if i did ther it would do the")
+- The user's screenshot was the meeting box (#m-in, an <input>): Harper only did textareas then; those squiggles were
+  the browser's. Now also checks LINES = '#qa,#m-in,.qa input,.m-add input,input[data-grammar]' and task titles.
+  Single-line mirror: white-space:pre, line-height = inner height, scrollLeft synced. Quick-add syntax tokens
+  (@client ^owner >dev !1 #tag) are never flagged.
+- Autocorrect (setting "auto", default on): on space/punctuation after a word: a built-in SLIPS list (teh/ther→the,
+  dont→don't, tomorow→tomorrow, i→I, …) or, once Harper has loaded, its first spelling suggestion if it's 1 edit away
+  (≤5 letters) or 2 (longer), lowercase words of 4+ letters only. The fixed word glows blue (.hp-fixed). Backspace
+  straight after restores your word and keeps it for the session (G.keep). Words in your dictionary are never touched.
+- Harper starts loading as soon as a box is focused.
+- Tests: more.spec "grammar…" and "autocorrect…".

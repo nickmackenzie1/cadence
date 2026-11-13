@@ -480,7 +480,8 @@ test('grammar: Harper underlines problems in task notes, a click fixes one, word
   const notes = page.locator('.te-notes');
   await notes.click();
   await notes.pressSequentially('Their going to send the the files tomorow to Zorblax.', { delay: 5 });
-  await expect(page.locator('.hp-mirror mark')).toHaveCount(4, { timeout: 40000 });   // they're, the the, tomorrow, Zorblax
+  await expect(page.locator('.hp-mirror mark:not(.hp-fixed)')).toHaveCount(3, { timeout: 40000 });   // they're, the the, Zorblax
+  await expect(notes).toHaveValue(/files tomorrow to/);   // "tomorow" was autocorrected as it was typed
   expect(await page.locator('.hp-mirror').count()).toBe(1);
   expect(await notes.evaluate(t => t.spellcheck)).toBe(false);   // one set of squiggles, not the browser's too
   // caret on "Their" → suggestions → fix
@@ -494,10 +495,37 @@ test('grammar: Harper underlines problems in task notes, a click fixes one, word
   const pos = await notes.evaluate(t => t.value.indexOf('Zorblax') + 2);
   await notes.evaluate((t, p) => { t.setSelectionRange(p, p); t.dispatchEvent(new MouseEvent('click', { bubbles: true })); }, pos);
   await page.click('.hp-pop [data-dict]');
-  await expect(page.locator('.hp-mirror mark')).toHaveCount(2);
+  await expect(page.locator('.hp-mirror mark:not(.hp-fixed)')).toHaveCount(1);   // only "the the" left
   // code boxes are never checked
   await page.evaluate(() => { const t = document.createElement('textarea'); t.id = 'dev-code'; t.value = 'Their going'; document.body.appendChild(t); t.focus(); });
   await page.waitForTimeout(800);
   expect(await page.locator('.hp-mirror').count()).toBe(0);
+  expect(errs).toEqual([]);
+});
+
+test('autocorrect: slips are fixed when you finish a word, Backspace puts it back, quick-add syntax is left alone, the meeting box is checked', async ({ page }) => {
+  test.setTimeout(90000);
+  const errs = await open(page);
+  const qa = page.locator('#qa');
+  await qa.click();
+  await qa.pressSequentially('ther meeting is tomorow ', { delay: 15 });
+  await expect(qa).toHaveValue('the meeting is tomorrow ');
+  // Backspace straight after a fix puts the word back (and leaves it alone)
+  await qa.fill(''); await qa.pressSequentially('teh ', { delay: 15 });
+  await expect(qa).toHaveValue('the ');
+  await page.keyboard.press('Backspace');
+  await expect(qa).toHaveValue('teh ');
+  await qa.fill(''); await qa.pressSequentially('teh ', { delay: 15 });
+  await expect(qa).toHaveValue('teh ');
+  // a near miss Harper knows (after it has loaded), and quick-add syntax is never touched
+  await qa.fill(''); await qa.pressSequentially('x', { delay: 15 });
+  await expect.poll(() => page.evaluate(() => !!window.__harper.linter), { timeout: 40000 }).toBe(true);
+  await qa.fill(''); await qa.pressSequentially('Review the managment report @acm #fiannce ', { delay: 15 });
+  await expect(qa).toHaveValue('Review the management report @acm #fiannce ');
+  // the meeting's action item box is checked too
+  await page.evaluate(() => window.T.meetings && document.querySelector('[data-act="meeting"],.meet-btn').click());
+  const m = page.locator('#m-in'); await expect(m).toBeVisible();
+  await m.click(); await m.pressSequentially('Send thier logins ', { delay: 15 });
+  await expect(m).toHaveValue('Send their logins ');
   expect(errs).toEqual([]);
 });
