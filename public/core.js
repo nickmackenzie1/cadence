@@ -1332,7 +1332,7 @@ function checkReminders(){
       { label:'Snooze 10m', run: () => { updateTask(t.id, { remindMode:'custom', remindAt: Date.now() + 600000 }); render(); } },
       { label:'Open', run: () => openTask(t.id) }
     ], { sticky:true, cls:'rem', bottom:true });
-    const handled = notify({ pid: 'reminders', kind: 'reminder', quiet: true, title: t.title, body: (c ? c.name : '') + (t.dueTime ? (c ? ' · ' : '') + 'due ' + fmtTime(t.dueTime) : ''), taskId: t.id, tag: 'rem-' + t.id, desktop: true });
+    const handled = notify({ pid: 'reminders', kind: 'reminder', title: t.title, body: (c ? c.name : '') + (t.dueTime ? (c ? ' · ' : '') + 'due ' + fmtTime(t.dueTime) : ''), taskId: t.id, tag: 'rem-' + t.id, desktop: true });
     if(!handled) try { if('Notification' in window && Notification.permission === 'granted') new Notification('Cadence', { body: t.title + (c ? ' · ' + c.name : ''), tag: 'rem-' + t.id }); } catch(e){}
     try { const a = new (window.AudioContext || window.webkitAudioContext)(); const o = a.createOscillator(), g = a.createGain(); o.frequency.value = 880; g.gain.setValueAtTime(.08, a.currentTime); g.gain.exponentialRampToValueAtTime(.0001, a.currentTime + .5); o.connect(g).connect(a.destination); o.start(); o.stop(a.currentTime + .5); } catch(e){}
     emit('reminder', clone(t));

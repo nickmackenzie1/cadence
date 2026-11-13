@@ -33,7 +33,9 @@
         // the same notice twice in a row within a minute (e.g. a re-render) is one notice
         const l = list(); if (l[0] && l[0].title === item.title && l[0].pid === item.pid && item.at - l[0].at < 60e3) return;
         setList([item, ...l]);
-        if (!n.quiet && !inQuiet() && window.CadenceIsland) window.CadenceIsland.show({ key: 'nt:' + item.id, icon: n.icon || '🔔', color: n.color || '', title: item.title, sub: item.body, onClick: (item.taskId || item.route) ? () => go(item) : null });
+        if (!n.quiet && !inQuiet() && window.CadenceIsland) window.CadenceIsland.show(item.kind === 'reminder' && item.taskId
+          ? { key: 'nt:' + item.id, icon: '🔔', color: '#5b5bd6', title: item.title, sub: item.body || 'Reminder', sticky: true, actions: remActs(item) }
+          : { key: 'nt:' + item.id, icon: n.icon || '🔔', color: n.color || '', title: item.title, sub: item.body, onClick: (item.taskId || item.route) ? () => go(item) : null });
         const wantDesk = n.desktop || c.desktop[n.pid];
         if (wantDesk && !inQuiet() && 'Notification' in window && Notification.permission === 'granted' && (document.hidden || n.kind === 'reminder')) {
           const opts = { body: item.body, tag: n.tag || item.id, icon: 'favicon.svg' };
@@ -41,6 +43,9 @@
         }
       });
 
+      // reminders carry the same buttons everywhere: in the Island and in the centre
+      const markRead = id => setList(list().map(x => x.id === id ? { ...x, read: true } : x));
+      const remActs = item => [{ label: 'Done', run: () => { api.tasks.complete(item.taskId); markRead(item.id); } }, { label: 'Snooze 10m', run: () => { api.tasks.update(item.taskId, { remindMode: 'custom', remindAt: Date.now() + 600000 }); markRead(item.id); } }, { label: 'Dismiss', run: () => markRead(item.id) }];
       /* the centre: drops down from the Island */
       let panel = null;
       const go = n => { if (n.taskId) { const t = api.tasks.get(n.taskId); if (t) { api.ui.navigate(t.clientId ? 'client-' + t.clientId : 'today'); setTimeout(() => api.ui.openTask(t.id), 80); return; } } if (n.route) api.ui.navigate(n.route); };
@@ -57,12 +62,13 @@
       function close() { panel && panel.remove(); panel = null; document.removeEventListener('pointerdown', outside, true); }
       function draw() {
         if (!panel) return; const l = list(), t0 = new Date().setHours(0, 0, 0, 0);
-        const sec = (title, xs) => xs.length ? `<div class="nt-sec">${title}</div>` + xs.map(n => `<button class="nt-it ${n.read ? '' : 'new'}" data-id="${esc(n.id)}"><span class="nt-src">${esc(nameOf(n.pid))}</span><b>${esc(n.title)}</b>${n.body ? `<span class="nt-b">${esc(n.body)}</span>` : ''}<span class="nt-t">${ago(n.at)}</span></button>`).join('') : '';
+        const sec = (title, xs) => xs.length ? `<div class="nt-sec">${title}</div>` + xs.map(n => `<button class="nt-it ${n.read ? '' : 'new'}" data-id="${esc(n.id)}"><span class="nt-src">${esc(nameOf(n.pid))}</span><b>${esc(n.title)}</b>${n.body ? `<span class="nt-b">${esc(n.body)}</span>` : ''}<span class="nt-t">${ago(n.at)}</span>${n.kind === 'reminder' && n.taskId && api.tasks.get(n.taskId) && !api.tasks.get(n.taskId).done ? `<span class="nt-acts"><i data-ra="done">Done</i><i data-ra="snooze">Snooze 10m</i></span>` : ''}</button>`).join('') : '';
         panel.innerHTML = `<header><b>Notifications</b>${inQuiet() ? '<span class="nt-q">Quiet hours</span>' : ''}<span class="sp"></span><button data-nt="read" title="Mark all read">Mark read</button><button data-nt="clear" title="Clear all">Clear</button><button data-nt="cfg" title="Settings">${api.ui.icon('settings')}</button></header>
           <div class="nt-list">${l.length ? sec('Today', l.filter(n => n.at >= t0)) + sec('Earlier', l.filter(n => n.at < t0)) : '<div class="nt-empty">You’re all caught up.</div>'}</div>`;
         panel.onclick = e => {
           const b = e.target.closest('[data-nt]'), it = e.target.closest('.nt-it');
           if (b) { const k = b.dataset.nt; if (k === 'read') setList(list().map(n => ({ ...n, read: true }))); if (k === 'clear') setList([]); if (k === 'cfg') { close(); G.settings(); return; } draw(); return; }
+          const ra = e.target.closest('[data-ra]'); if (ra && it) { const n = list().find(x => x.id === it.dataset.id); if (n) remActs(n)[ra.dataset.ra === 'done' ? 0 : 1].run(); draw(); return; }
           if (it) { const n = list().find(x => x.id === it.dataset.id); setList(list().map(x => x.id === it.dataset.id ? { ...x, read: true } : x)); close(); if (n) go(n); }
         };
         // opening the centre marks things as seen (dots stay until you click or mark read)
@@ -137,6 +143,7 @@
         .nt-it:hover{background:var(--hover)}.nt-it.new:before{content:'';position:absolute;left:9px;top:14px;width:7px;height:7px;border-radius:50%;background:var(--accent)}
         .nt-it .nt-src{grid-column:1;font-size:10.5px;color:var(--muted);font-weight:600}.nt-it b{grid-column:1;font-weight:600}.nt-it .nt-b{grid-column:1;color:var(--muted);font-size:12px}
         .nt-it .nt-t{grid-column:2;grid-row:1;font-size:11px;color:var(--muted)}
+        .nt-acts{grid-column:1/-1;display:flex;gap:6px;margin-top:5px}.nt-acts i{font-style:normal;font:600 11.5px Inter,system-ui;border:1px solid var(--line);border-radius:7px;padding:2px 9px;background:var(--bg)}.nt-acts i:hover{border-color:var(--accent);color:var(--accent)}
         .nt-empty{padding:34px 14px;text-align:center;color:var(--muted);font-size:13px}
         .nt-grid{display:grid;grid-template-columns:1fr auto auto;gap:6px 18px;align-items:center;font-size:13px}.nt-grid b{font-size:11px;color:var(--muted);font-weight:600}.nt-grid input{justify-self:center}`;
         document.head.appendChild(st);

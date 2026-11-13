@@ -69,7 +69,7 @@ test('notifications: everything goes to the Island, its count opens the centre, 
   // a plugin notification pops in the Island and lands in the centre
   await page.evaluate(() => Cadence.registerPlugin({ id: 'pinger', name: 'Pinger', setup(api) { window.P = api; } }));
   await page.evaluate(() => window.P.notify({ title: 'Ping one', body: 'From a plugin' }));
-  await expect(page.locator('.isl-pill')).toContainText('Ping one');
+  await expect(page.locator('.isl-pill')).toContainText('Ping one', { timeout: 15000 });   // after the startup sequence
   // the public APIs: Cadence.notify and CadenceIsland.notify
   await page.evaluate(() => { Cadence.notify({ title: 'From outside', source: 'script' }); window.CadenceIsland.notify({ title: 'From the Island API' }); });
   await expect.poll(() => page.evaluate(() => window.__notify.list().map(n => n.title))).toEqual(expect.arrayContaining(['Ping one', 'From outside', 'From the Island API']));
@@ -81,6 +81,9 @@ test('notifications: everything goes to the Island, its count opens the centre, 
   await page.click('.isl-pill');
   await expect(page.locator('#nt-panel .nt-it.new').first()).toBeVisible();
   await expect(page.locator('#nt-panel')).toContainText('Ring the bank');
+  await expect(page.locator('#nt-panel .nt-it', { hasText: 'Ring the bank' }).locator('[data-ra=done]')).toBeVisible();
+  await page.locator('#nt-panel .nt-it', { hasText: 'Ring the bank' }).locator('[data-ra=snooze]').click();
+  expect(await page.evaluate(() => window.T.tasks.list(t => t.title === 'Ring the bank')[0].remindAt > Date.now() + 500000)).toBe(true);
   await expect(page.locator('.isl-pill .isl-c:not(.leaving) .isl-bell')).toHaveCount(0, { timeout: 5000 });   // opening marks them seen
   await page.mouse.click(700, 500);
   await expect(page.locator('#nt-panel')).toHaveCount(0);

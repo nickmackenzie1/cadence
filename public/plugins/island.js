@@ -260,6 +260,7 @@
         }, 7000);
       });
       api.on('reminder', t => {
+        if (api.plugins.enabled('notify')) return;   // the notification centre shows reminders (with the same buttons)
         const c = t.clientId && api.clients.get(t.clientId);
         show({ icon: '🔔', color: '#5b5bd6', title: t.title, sub: (c ? c.name + ' · ' : '') + (t.dueTime ? 'due ' + t.dueTime : 'reminder'), sticky: true,
           actions: [{ label: 'Done', run: () => api.tasks.complete(t.id) }, { label: 'Snooze 10m', run: () => api.tasks.update(t.id, { remindMode: 'custom', remindAt: Date.now() + 600000 }) }, { label: 'Dismiss', run: () => {} }] });
