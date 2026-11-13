@@ -8,8 +8,8 @@
 
   /* ------------------------------------------------------------------ materials */
   const CELL = 2;
-  const E = 0, SAND = 1, WATER = 2, ICE = 3, FIRE = 4, WOOD = 5, STEAM = 6, STONE = 7, OIL = 8, LAVA = 9, EMBER = 10, ASH = 11, SMOKE = 12, SNOW = 13, PAGE = 14, GLASS = 15;
-  const fluid = new Uint8Array(16), gas = new Uint8Array(16), dens = new Uint8Array(16);
+  const E = 0, SAND = 1, WATER = 2, ICE = 3, FIRE = 4, WOOD = 5, STEAM = 6, STONE = 7, OIL = 8, LAVA = 9, EMBER = 10, ASH = 11, SMOKE = 12, SNOW = 13, PAGE = 14, GLASS = 15, WIRE = 16, BULB = 17;
+  const fluid = new Uint8Array(32), gas = new Uint8Array(32), dens = new Uint8Array(32);
   fluid[WATER] = fluid[OIL] = fluid[LAVA] = 1; gas[STEAM] = gas[FIRE] = gas[SMOKE] = 1;
   dens[OIL] = 1; dens[WATER] = 2; dens[LAVA] = 3; dens[SAND] = 4; dens[ASH] = 4; dens[SNOW] = 1;
   const R = Math.random, rr = (a, b) => a + ((R() * (b - a)) | 0);
@@ -17,14 +17,19 @@
   const UP5 = [[-1, -1], [0, -1], [1, -1], [-1, 0], [1, 0]];
 
   // the grid and everything stored per cell
-  let W = 0, H = 0, N = 0, grid, life, shade, stamp, owner, colR, colG, colB;
+  let W = 0, H = 0, N = 0, grid, life, shade, stamp, owner, colR, colG, colB, pristine;
+  const DPR = Math.min(2, devicePixelRatio || 1);
+  let sharpMode = true;   // untouched page shows a crisp full-resolution copy; anything touched becomes pixels
+  let bulbs = [], bright = new Float32Array(256), lightMode = -1, wireY = new Int16Array(0);   // -1 = no lights
+  const LIGHT_MODES = ['Twinkle', 'Chase', 'Steady'];
+  const BCOL = [[255, 48, 40], [40, 225, 80], [60, 120, 255], [255, 175, 30], [255, 80, 205]];
   let els = [];   // page pieces: { cells, total, lost, released, vy, acc, children, thresh }
   let tick = 1, fc = 0, paused = false, snowing = false, glow = 1, bg = [247, 246, 243];
 
   function set(x, y, m, l) {
     const i = y * W + x, o = owner[i];
     if (o) { const e = els[o]; if (e) e.lost++; owner[i] = 0; }
-    grid[i] = m; life[i] = l || 0; shade[i] = (R() * 256) | 0; stamp[i] = tick;
+    grid[i] = m; life[i] = l || 0; shade[i] = (R() * 256) | 0; stamp[i] = tick; pristine[i] = 0;
   }
   const setI = (j, m, l) => set(j % W, (j / W) | 0, m, l);
   function swap(i, j) {
@@ -36,6 +41,7 @@
     t = colG[i]; colG[i] = colG[j]; colG[j] = t;
     t = colB[i]; colB[i] = colB[j]; colB[j] = t;
     stamp[i] = stamp[j] = tick;
+    pristine[i] = pristine[j] = 0;   // anything that moves becomes pixels
   }
   function randN(x, y) {
     const d = N8[(R() * 8) | 0], nx = x + d[0], ny = y + d[1];
@@ -95,7 +101,7 @@
     for (let y = H - 1; y >= 0; y--) {
       for (let k = 0; k < W; k++) {
         const x = ltr ? k : W - 1 - k, i = y * W + x, m = grid[i];
-        if (m === E || m === STONE || m === WOOD || m === PAGE || stamp[i] === tick) continue;
+        if (m === E || m === STONE || m === WOOD || m === PAGE || m === WIRE || stamp[i] === tick) continue;
         switch (m) {
           case SAND: {
             if (life[i]) {
@@ -105,7 +111,15 @@
             powder(i, x, y, m); break;
           }
           case ASH: powder(i, x, y, m); break;
-          case WATER: liquid(i, x, y, m, 5); break;
+          case WATER: {
+            // icicles: while it snows, drips hanging from the lights freeze solid
+            if (snowing && bulbs.length && y > 0 && y < H - 1 && grid[i + W] === E && R() < 0.15 && hangsFromLights(x, y)) { set(x, y, ICE); break; }
+            liquid(i, x, y, m, 5); break;
+          }
+          case BULB: {   // lit bulbs are warm and slowly melt the snow touching them
+            if (bright[life[i]] > 0.4 && R() < 0.02) { const j = randN(x, y); if (j >= 0 && grid[j] === SNOW && R() < 0.25) setI(j, WATER); }
+            break;
+          }
           case OIL: liquid(i, x, y, m, 3); break;
           case GLASS: {
             if (life[i]) {
@@ -127,7 +141,10 @@
             const d = R() < 0.5 ? -1 : 1;
             if (R() < 0.35 && fall(i, m, x + d, y + 1)) break;
             if (fall(i, m, x, y + 1)) break;
-            if (R() < 0.25) fall(i, m, x + d, y + 1);
+            if (R() < 0.25 && fall(i, m, x + d, y + 1)) break;
+            // resting on the light string: keep the drift shallow, extra snow blows off
+            const wy = wireY[x];
+            if (wy > 0 && y < wy && wy - y > 5 && R() < 0.15) grid[i] = E;
             break;
           }
           case ICE: {
@@ -261,7 +278,7 @@
       r = u[0] + (r - u[0]) * a; g = u[1] + (g - u[1]) * a; b = u[2] + (b - u[2]) * a;
     }
     if (owner[i] && els[owner[i]]) els[owner[i]].total--;   // covered by something on top: no longer part of the piece below
-    grid[i] = PAGE; owner[i] = id; colR[i] = r; colG[i] = g; colB[i] = b; life[i] = 0; shade[i] = (R() * 256) | 0;
+    grid[i] = PAGE; owner[i] = id; colR[i] = r; colG[i] = g; colB[i] = b; life[i] = 0; shade[i] = (R() * 256) | 0; pristine[i] = 1;
   }
   // the part of an element you can actually see: inside the window and inside every scrolling/clipping ancestor
   const clipCache = new Map();
@@ -292,7 +309,12 @@
   const ours = el => el && el.closest && el.closest('#elements-host, #havoc-host');
 
   let run = 0;   // bumped on every start and stop, so callbacks from a closed run do nothing
+  let hi, hx;   // the sharp copy of the screen, at full resolution
+  const rrect = (x, y, w, h, rad) => { hx.beginPath(); if (hx.roundRect) hx.roundRect(x, y, w, h, Math.max(0, Math.min(rad, w / 2, h / 2))); else hx.rect(x, y, w, h); };
+  const clipTo = c => { hx.save(); hx.beginPath(); hx.rect(c.l, c.t, c.r - c.l, c.b - c.t); hx.clip(); };
   async function harvest(my) {
+    hi = document.createElement('canvas'); hi.width = W * CELL * DPR; hi.height = H * CELL * DPR;
+    hx = hi.getContext('2d'); hx.scale(DPR, DPR);
     const idOf = new Map(), area = innerWidth * innerHeight;
     const pieceOf = el => { for (let e = el && el.parentElement; e; e = e.parentElement) if (idOf.has(e)) return idOf.get(e); return 0; };
     const all = document.body.querySelectorAll('*');
@@ -312,6 +334,20 @@
       const id = newEl(0.2); idOf.set(el, id);
       const parent = pieceOf(el); if (parent) els[parent].children.push(id);
       const rad = Math.round(parseFloat(cs.borderTopLeftRadius) / CELL) || 0;
+      { // sharp copy: background, then borders (one rounded stroke when all four match, else per side)
+        const rp = parseFloat(cs.borderTopLeftRadius) || 0, px = ['Top', 'Right', 'Bottom', 'Left'].map(k => cs['border' + k + 'Style'] === 'none' ? 0 : parseFloat(cs['border' + k + 'Width']) || 0);
+        clipTo(clipOf(el.parentElement));
+        if (bgc[3] >= 0.02) { hx.fillStyle = cs.backgroundColor; rrect(r.left, r.top, r.width, r.height, rp); hx.fill(); }
+        const same = px.every(v => v === px[0]) && ['Right', 'Bottom', 'Left'].every(k => cs['border' + k + 'Color'] === cs.borderTopColor);
+        if (same && px[0] > 0) { hx.lineWidth = px[0]; hx.strokeStyle = cs.borderTopColor; rrect(r.left + px[0] / 2, r.top + px[0] / 2, r.width - px[0], r.height - px[0], Math.max(0, rp - px[0] / 2)); hx.stroke(); }
+        else {
+          if (px[0]) { hx.fillStyle = cs.borderTopColor; hx.fillRect(r.left, r.top, r.width, px[0]); }
+          if (px[2]) { hx.fillStyle = cs.borderBottomColor; hx.fillRect(r.left, r.bottom - px[2], r.width, px[2]); }
+          if (px[3]) { hx.fillStyle = cs.borderLeftColor; hx.fillRect(r.left, r.top, px[3], r.height); }
+          if (px[1]) { hx.fillStyle = cs.borderRightColor; hx.fillRect(r.right - px[1], r.top, px[1], r.height); }
+        }
+        hx.restore();
+      }
       for (let y = b.y0; y < b.y1; y++) for (let x = b.x0; x < b.x1; x++) {
         if (!inRound(x, y, b, rad)) continue;
         let c = null;
@@ -332,7 +368,8 @@
       let d;
       try { ox.drawImage(src, 0, 0, w, h); d = ox.getImageData(0, 0, w, h).data; } catch (e) { return; }
       const id = newEl(0.18); const parent = pieceOf(el); if (parent) els[parent].children.push(id);
-      const rad = Math.round(parseFloat(getComputedStyle(el).borderTopLeftRadius) / CELL) || 0;
+      const rpx = parseFloat(getComputedStyle(el).borderTopLeftRadius) || 0, rad = Math.round(rpx / CELL) || 0;
+      clipTo(clipOf(el.parentElement)); rrect(r.left, r.top, r.width, r.height, rpx); hx.clip(); hx.drawImage(src, r.left, r.top, r.width, r.height); hx.restore();
       for (let y = b.y0; y < b.y1; y++) for (let x = b.x0; x < b.x1; x++) {
         if (!inRound(x, y, b, rad)) continue;
         const k = ((y - b.ry0) * w + (x - b.rx0)) * 4, a = d[k + 3] / 255;
@@ -381,6 +418,7 @@
       if ('letterSpacing' in tx) tx.letterSpacing = cs.letterSpacing === 'normal' ? '0px' : cs.letterSpacing;
       const m = tx.measureText(text), asc = m.fontBoundingBoxAscent || r.height * 0.8;
       tx.fillText(text, r.left - x0 * CELL, r.top - y0 * CELL + asc);
+      clipTo(clip); hx.font = tx.font; hx.fillStyle = cs.color; if ('letterSpacing' in hx) hx.letterSpacing = tx.letterSpacing; hx.fillText(text, r.left, r.top + asc); hx.restore();
       const d = tx.getImageData(0, 0, tc.width, tc.height).data;
       const id = newEl(0.12); const parent = pieceOf(el); if (parent) els[parent].children.push(id);
       const cx0 = Math.max(0, Math.floor(clip.l / CELL)), cx1 = Math.min(W, Math.ceil(clip.r / CELL)), cy0 = Math.max(0, Math.floor(clip.t / CELL)), cy1 = Math.min(H, Math.ceil(clip.b / CELL));
@@ -389,7 +427,7 @@
         let a = 0;
         for (let sy = 0; sy < CELL; sy++) for (let sx = 0; sx < CELL; sx++) a += d[((cy * CELL + sy) * tc.width + cx * CELL + sx) * 4 + 3];
         a /= CELL * CELL;
-        if (a > 80) put(gy * W + gx, id, col[0], col[1], col[2], col[3]);
+        if (a > 30) put(gy * W + gx, id, col[0], col[1], col[2], col[3]);
       }
     };
     let words = 0;
@@ -424,6 +462,64 @@
     return true;
   }
 
+  /* ------------------------------------------------------------------ Christmas lights: an unbreakable wire with bulbs, across the top */
+  const BULB_SHAPE = ['.CCC.', '.CCC.', '.BBB.', 'BHBBB', 'BBBBB', 'BBBBB', '.BBB.', '..B..'];
+  // icicles only grow from the light string, up to 5 cells long
+  function hangsFromLights(x, y) {
+    for (let k = 1; k <= 5; k++) {
+      if (y - k < 0) return false;
+      const t = grid[(y - k) * W + x];
+      if (t === WIRE || t === BULB) return true;
+      if (t !== ICE) return false;
+    }
+    return false;
+  }
+  const claim = i => { const o = owner[i]; if (o && els[o]) { els[o].total--; els[o].lost++; } owner[i] = 0; pristine[i] = 0; };
+  function buildLights() {
+    bulbs = []; wireY = new Int16Array(W);
+    const segs = Math.max(2, Math.round(W / 120)), sw = W / segs, sag = 16, top = 7;
+    const wy = x => { const t = (x % sw) / sw; return Math.round(top + sag * 4 * t * (1 - t)); };
+    const wire = (x, y) => { if (x < 0 || x >= W || y < 0 || y >= H) return; const i = y * W + x; claim(i); grid[i] = WIRE; life[i] = 0; shade[i] = (R() * 16) | 0; };
+    let prev = wy(0);
+    for (let x = 0; x < W; x++) { const y = wy(x); wireY[x] = y; for (let yy = Math.min(prev, y); yy <= Math.max(prev, y); yy++) wire(x, yy); prev = y; }
+    for (let sg = 0; sg <= segs; sg++) {   // little hooks the wire hangs from
+      const hx0 = Math.min(W - 1, Math.round(sg * sw));
+      for (let yy = top - 4; yy < top; yy++) wire(hx0, yy);
+      wire(hx0 - 1, top - 4); wire(hx0 + 1, top - 4);
+    }
+    let k = 0;
+    for (let x = 9; x < W - 4; x += 13) {
+      const t = (x % sw) / sw; if (t < 0.07 || t > 0.93) continue;
+      const y = wy(x) + 1;
+      BULB_SHAPE.forEach((row, ry) => [...row].forEach((ch, rx) => {
+        if (ch === '.') return;
+        const gx = x - 2 + rx, gy = y + ry; if (gx < 0 || gx >= W || gy >= H) return;
+        const i = gy * W + gx; claim(i); grid[i] = BULB; life[i] = k; shade[i] = ch === 'C' ? 0 : ch === 'H' ? 2 : 1;
+      }));
+      const cx = x, cy = y + 4, hj = [], hf = [];
+      for (let dy = -8; dy <= 8; dy++) for (let dx = -8; dx <= 8; dx++) {
+        const gx = cx + dx, gy = cy + dy; if (gx < 0 || gx >= W || gy < 0 || gy >= H) continue;
+        const d = Math.hypot(dx, dy * 0.85);
+        const f = d < 3.5 ? 0.6 : d < 5.5 ? 0.32 : d < 7.5 && ((gx + gy) & 1) ? 0.16 : 0;   // stepped, dithered pixel halo
+        if (f) { hj.push(gy * W + gx); hf.push(f); }
+      }
+      bulbs.push({ k, col: BCOL[k % 5], hj: Int32Array.from(hj), hf: Float32Array.from(hf) });
+      if (++k >= 255) break;
+    }
+  }
+  function removeLights() { for (let i = 0; i < N; i++) if (grid[i] === WIRE || grid[i] === BULB) grid[i] = E; bulbs = []; wireY = new Int16Array(W); }
+  function updateLights() {
+    for (let k = 0; k < bulbs.length; k++) {
+      bright[k] = lightMode === 0 ? 0.42 + 0.58 * (0.5 + 0.5 * Math.sin(fc * 0.035 + k * 2.39))
+                : lightMode === 1 ? (((k + ((fc / 14) | 0)) % 3) === 0 ? 1 : 0.16)
+                : 0.93 + 0.07 * R();
+    }
+  }
+  function cycleLights() {
+    lightMode = lightMode >= LIGHT_MODES.length - 1 ? -1 : lightMode + 1;
+    if (lightMode === 0) buildLights(); else if (lightMode === -1) removeLights();
+  }
+
   /* ------------------------------------------------------------------ drawing */
   const cl = v => v < 0 ? 0 : v > 255 ? 255 : v | 0;
   const rgba = (r, g, b, a) => (cl(a) << 24) | (cl(b) << 16) | (cl(g) << 8) | cl(r);
@@ -441,15 +537,16 @@
   const pal = (m, r, g, b, v) => { for (let s = 0; s < 16; s++) { const k = (R() - 0.5) * v; PR[m * 16 + s] = r + k; PG[m * 16 + s] = g + k * 0.9; PB[m * 16 + s] = b + k * 0.8; } };
   pal(SAND, 214, 182, 112, 44); pal(ICE, 168, 214, 240, 22); pal(STONE, 96, 98, 106, 34); pal(ASH, 92, 90, 88, 26);
 
-  let cv, ctx, base, bctx, light, lctx, l1, l2, l3, l1c, l2c, l3c, img, buf, limg, lbuf, BG;
+  let cv, ctx, base, bctx, light, lctx, l1, l2, l3, l1c, l2c, l3c, img, buf, limg, lbuf, BG, mask, mctx, mimg, mbuf, sharp, sctx;
   const mix = (a, c) => [bg[0] + (c[0] - bg[0]) * a, bg[1] + (c[1] - bg[1]) * a, bg[2] + (c[2] - bg[2]) * a];
   function render() {
     for (let x = 0; x < W; x++) {
       let depth = 0, liq = 0;
       for (let y = 0; y < H; y++) {
         const i = y * W + x, m = grid[i];
-        lbuf[i] = 0;
+        lbuf[i] = 0; mbuf[i] = 0;
         let r, g, b;
+        if (sharpMode && m === PAGE && pristine[i] && life[i] === 0) { buf[i] = BG; mbuf[i] = 0xff000000; depth++; liq = 0; continue; }   // untouched: the sharp copy shows here
         switch (m) {
           case E: buf[i] = BG; depth = 0; liq = 0; continue;
           case FIRE: {
@@ -511,6 +608,18 @@
             }
             depth++; liq = 0; break;
           }
+          case WIRE: { const s = shade[i] & 15; r = 26 + s; g = 56 + s; b = 32 + s * 0.5; depth++; liq = 0; break; }
+          case BULB: {
+            const k = life[i], p = shade[i];
+            if (p === 0 || !bulbs[k]) { r = 74; g = 84; b = 72; }   // socket cap
+            else {
+              const c = bulbs[k].col, br = bright[k], dim = 0.26 + 0.74 * br;
+              r = c[0] * dim; g = c[1] * dim; b = c[2] * dim;
+              if (p === 2) { r += (255 - r) * 0.7 * br; g += (255 - g) * 0.7 * br; b += (255 - b) * 0.7 * br; }   // glass highlight
+              lbuf[i] = rgb(c[0] * br, c[1] * br, c[2] * br);
+            }
+            depth++; liq = 0; break;
+          }
           case GLASS: {
             const s = shade[i] & 15, above = y > 0 ? grid[i - W] : E;
             r = 140 + s; g = 205 + s; b = 195 + s;
@@ -536,10 +645,27 @@
         buf[i] = rgb(r, g, b);
       }
     }
+    // pixel halos around lit bulbs; they tint snow, ice and water nearby too
+    for (const bl of bulbs) {
+      const br = bright[bl.k]; if (br < 0.05) continue;
+      const cr = bl.col[0], cg = bl.col[1], cb = bl.col[2];
+      for (let n = 0; n < bl.hj.length; n++) {
+        const j = bl.hj[n], f = bl.hf[n] * br, m = grid[j];
+        if (m === BULB || m === WIRE) continue;
+        if (mbuf[j]) { mbuf[j] = 0; pristine[j] = 0; }   // the glow sits on the pixel version of the page
+        const v = buf[j];
+        buf[j] = rgb((v & 255) + (cr - (v & 255)) * f * 0.55, ((v >> 8) & 255) + (cg - ((v >> 8) & 255)) * f * 0.55, ((v >> 16) & 255) + (cb - ((v >> 16) & 255)) * f * 0.55);
+      }
+    }
     bctx.putImageData(img, 0, 0); lctx.putImageData(limg, 0, 0);
     const DW = cv.width, DH = cv.height;
     ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1;
     ctx.imageSmoothingEnabled = false; ctx.drawImage(base, 0, 0, DW, DH);
+    // the sharp page, cut out cell by cell wherever it is still untouched
+    mctx.putImageData(mimg, 0, 0);
+    sctx.globalCompositeOperation = 'copy'; sctx.imageSmoothingEnabled = false; sctx.drawImage(mask, 0, 0, DW, DH);
+    sctx.globalCompositeOperation = 'source-in'; sctx.drawImage(hi, 0, 0);
+    ctx.drawImage(sharp, 0, 0);
     if (glow > 0) {   // bloom: shrink the glowing layer a few times, then add it back blurred
       l1c.clearRect(0, 0, l1.width, l1.height); l1c.drawImage(light, 0, 0, l1.width, l1.height);
       l2c.clearRect(0, 0, l2.width, l2.height); l2c.drawImage(l1, 0, 0, l2.width, l2.height);
@@ -572,6 +698,8 @@
     snowfall: '<path d="M4 14.9A7 7 0 1 1 15.7 8h1.8a4.5 4.5 0 0 1 2.5 8.2M8 15h.01M8 19h.01M12 17h.01M12 21h.01M16 15h.01M16 19h.01"/>',
     pause: '<rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/>',
     play: '<path d="M6 3l14 9-14 9z"/>',
+    lights: '<path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5M9 18h6M10 22h4"/>',
+    look: '<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18M15 3v18"/>',
     reset: '<path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/>',
     close: '<path d="M18 6 6 18M6 6l12 12"/>',
   };
@@ -643,7 +771,7 @@
       + `<div class="modes" role="group" aria-label="Mode"><button data-mode="physics" aria-pressed="false">Physics</button><button data-mode="elements" class="on" aria-pressed="true">Elements</button></div><div class="sep"></div>`
       + TOOLS.map(t => btn('t' + t.id, t.name, t.color, t.key, t.icon)).join('')
       + `<div class="sep"></div><label class="size">Size <input type="range" min="1" max="16" value="${brush}" aria-label="Brush size"></label>`
-      + btn('ignite', 'Ignite', '#ff7a1f', 'I', ICONS.ignite) + btn('snowfall', 'Snowfall', '#dfe8f7', 'S', ICONS.snowfall)
+      + btn('ignite', 'Ignite', '#ff7a1f', 'I', ICONS.ignite) + btn('snowfall', 'Snowfall', '#dfe8f7', 'S', ICONS.snowfall) + btn('lights', 'Lights', '#ffb020', 'L', ICONS.lights) + btn('look', 'Look: sharp or pixel', '#fff', 'P', ICONS.look)
       + btn('pause', 'Pause', '#fff', '', ICONS.pause) + btn('reset', 'Rebuild the page', '#fff', '', ICONS.reset) + btn('close', 'Exit (Esc)', '#fff', '', ICONS.close);
     tipEl = document.createElement('div'); tipEl.className = 'tip';
     hud.addEventListener('click', e => {
@@ -653,6 +781,8 @@
       if (id[0] === 't') tool = +id.slice(1);
       else if (id === 'ignite') ignite();
       else if (id === 'snowfall') snowing = !snowing;
+      else if (id === 'lights') cycleLights();
+      else if (id === 'look') sharpMode = !sharpMode;
       else if (id === 'pause') paused = !paused;
       else if (id === 'reset') { stop(); setTimeout(start, 60); return; }
       else if (id === 'close') { stop(); return; }
@@ -662,7 +792,7 @@
     hud.addEventListener('pointerover', e => {
       const b = e.target.closest('button'); if (!b || b.dataset.mode) return;
       const t = TOOLS.find(x => 't' + x.id === b.dataset.id);
-      const label = t ? `<b>${t.name}</b> · ${t.hint}` : { ignite: '<b>Ignite</b> · set a few things alight', snowfall: '<b>Snowfall</b> · let it snow', pause: paused ? 'Play · Space' : 'Pause · Space', reset: 'Rebuild the page and start over', close: 'Exit and restore · Esc' }[b.dataset.id];
+      const label = t ? `<b>${t.name}</b> · ${t.hint}` : { ignite: '<b>Ignite</b> · set a few things alight', snowfall: '<b>Snowfall</b> · let it snow', lights: '<b>Lights</b> · ' + (lightMode < 0 ? 'hang a string of lights' : lightMode < LIGHT_MODES.length - 1 ? 'switch to ' + LIGHT_MODES[lightMode + 1] : 'take them down'), look: sharpMode ? '<b>Look</b> · switch to all pixels' : '<b>Look</b> · switch to sharp', pause: paused ? 'Play · Space' : 'Pause · Space', reset: 'Rebuild the page and start over', close: 'Exit and restore · Esc' }[b.dataset.id];
       tipEl.style.setProperty('--c', t ? t.color : '#fff'); tipEl.innerHTML = label; tipEl.classList.add('show');
     });
     hud.addEventListener('pointerout', () => tipEl.classList.remove('show'));
@@ -673,7 +803,7 @@
     if (!hud) return;
     hud.querySelectorAll('button[data-id]').forEach(b => {
       const id = b.dataset.id;
-      b.classList.toggle('on', id === 't' + tool || (id === 'snowfall' && snowing) || (id === 'pause' && paused));
+      b.classList.toggle('on', id === 't' + tool || (id === 'snowfall' && snowing) || (id === 'pause' && paused) || (id === 'lights' && lightMode >= 0) || (id === 'look' && !sharpMode));
       if (id === 'pause') { b.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true">${paused ? ICONS.play : ICONS.pause}</svg>`; b.setAttribute('aria-label', paused ? 'Play' : 'Pause'); }
     });
   }
@@ -694,6 +824,8 @@
     if (t) { tool = t.id; e.preventDefault(); }
     else if (e.key === 'i' || e.key === 'I') ignite();
     else if (e.key === 's' || e.key === 'S') snowing = !snowing;
+    else if (e.key === 'l' || e.key === 'L') cycleLights();
+    else if (e.key === 'p' || e.key === 'P') sharpMode = !sharpMode;
     else if (e.key === ' ') { e.preventDefault(); paused = !paused; }
     else if (e.key === '[') brush = Math.max(1, brush - 1);
     else if (e.key === ']') brush = Math.min(16, brush + 1);
@@ -707,6 +839,7 @@
       if (snowing) for (let n = 0; n < 5; n++) { const x = (R() * W) | 0; if (grid[x] === E && R() < 0.6) set(x, 0, SNOW); }
       step(); bodies();
     }
+    if (bulbs.length) updateLights();
     render();
     raf = requestAnimationFrame(frame);
   }
@@ -718,8 +851,8 @@
     S.active = true;
     W = Math.ceil(innerWidth / CELL); H = Math.ceil(innerHeight / CELL); N = W * H;
     grid = new Uint8Array(N); life = new Uint8Array(N); shade = new Uint8Array(N); stamp = new Uint8Array(N);
-    owner = new Uint16Array(N); colR = new Uint8Array(N); colG = new Uint8Array(N); colB = new Uint8Array(N);
-    els = [null]; tick = 1; paused = false; snowing = false;
+    owner = new Uint16Array(N); colR = new Uint8Array(N); colG = new Uint8Array(N); colB = new Uint8Array(N); pristine = new Uint8Array(N);
+    els = [null]; tick = 1; paused = false; snowing = false; lightMode = -1; bulbs = []; wireY = new Int16Array(W);
     // the backdrop: the page's own background colour
     const pick = el => { const c = parseColor(getComputedStyle(el).backgroundColor); return c[3] > 0.5 ? c : null; };
     const under = document.elementFromPoint(innerWidth * 0.6, innerHeight * 0.5);
@@ -746,7 +879,9 @@
     l1c = l1.getContext('2d'); l2c = l2.getContext('2d'); l3c = l3.getContext('2d');
     img = bctx.createImageData(W, H); buf = new Uint32Array(img.data.buffer);
     limg = lctx.createImageData(W, H); lbuf = new Uint32Array(limg.data.buffer);
-    cv = document.createElement('canvas'); cv.className = 'sim'; cv.width = W * CELL; cv.height = H * CELL;
+    mask = mk(W, H); mctx = mask.getContext('2d'); mimg = mctx.createImageData(W, H); mbuf = new Uint32Array(mimg.data.buffer);
+    sharp = mk(W * CELL * DPR, H * CELL * DPR); sctx = sharp.getContext('2d');
+    cv = document.createElement('canvas'); cv.className = 'sim'; cv.width = W * CELL * DPR; cv.height = H * CELL * DPR;
     cv.style.width = W * CELL + 'px'; cv.style.height = H * CELL + 'px'; ctx = cv.getContext('2d');
     root.insertBefore(cv, root.firstChild.nextSibling);
     cv.addEventListener('pointerdown', e => { down = true; cv.setPointerCapture(e.pointerId); [px, py] = toGrid(e); paint(px, py); });
@@ -769,7 +904,7 @@
     removeEventListener('keydown', onKey, true); removeEventListener('resize', onResize);
     locked.forEach(([el, v]) => { el.style.overflow = v; if (!el.getAttribute('style')) el.removeAttribute('style'); }); locked = [];
     host && host.remove(); host = null; hud = null; cv = null;
-    grid = life = shade = stamp = owner = colR = colG = colB = null; els = [];
+    grid = life = shade = stamp = owner = colR = colG = colB = pristine = null; els = []; hi = hx = null; bulbs = [];
   }
   S.start = start; S.stop = stop;
   S._debug = { get grid() { return grid; }, get els() { return els; }, get W() { return W; }, get H() { return H; }, ignite, PAGE, FIRE };

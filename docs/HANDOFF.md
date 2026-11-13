@@ -559,3 +559,21 @@ data, or peer-to-peer on the same LAN). Personal data and secrets stay on each p
   fast, and fold christmas.js snow/water into the same core.
 
 ## Backlog (user, 23:15): weather in the Today greeting — maybe, undecided. Taken out of the mockup for now.
+
+## Shipped 2026-11-12 late: Today direction A, and the user's engine v2 in Havoc Elements
+- Today: greeting + date, add line, schedule strip (api.today.schedule for plugins; calendar meetings use it), Earlier
+  rows with Tomorrow / Next week / Clear (+ undo), Done today folded at the bottom, energy as a small switch.
+- Elements engine v2 (from the user's page (3).html): sharp mode (untouched cells show a full-resolution copy of the
+  screen, touched cells become pixels; P toggles), Christmas lights (WIRE/BULB, Twinkle/Chase/Steady, pixel halos,
+  warm bulbs melt snow, icicles grow from the string while it snows, snow on the wire stays shallow; L cycles).
+
+## Next (user, 23:24): "apply it across the board — snow, lights, typing where it needs it"
+- One engine core (vendor/elements-core.js: grid, materials, step, render, sharp mask, lights) used by Havoc Elements,
+  christmas.js (snow + lights + icicles replace the current canvas snow and DOM lights) and typing-fx.js (fire at the
+  caret is real fire that chars text and melts snow). Ambient uses run on a region (the top strip / around the caret),
+  not the whole screen, and pause when hidden.
+- Ideas to pick from (see chat 23:3x): Halloween (carved pumpkins with candle fire glowing through the faces, fog, bats,
+  dripping slime), autumn leaves, spring rain + puddles, summer fireflies, lava lamp focus timer, sand hourglass, done
+  tasks to sand jar, campfire for the camping planner, fireworks for a finished project, aquarium water, snow globe.
+- Havoc Physics + engine: blasts ignite and scatter matter, black hole swallows sand/water, rain becomes real water,
+  "melt" becomes real lava.
