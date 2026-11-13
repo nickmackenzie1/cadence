@@ -14,7 +14,7 @@ Cadence.registerPlugin({
       <label style="display:flex;gap:8px;align-items:center;margin:8px 0"><input type="checkbox" id="am-dr" ${o.drift ? 'checked' : ''}> Lights drift slowly (like a living room at night)</label>
       <label style="display:flex;gap:8px;align-items:center;margin:8px 0"><input type="checkbox" id="am-fl" ${o.flow ? 'checked' : ''}> Header gradient flows through the brand colours</label>
       <label style="display:flex;gap:8px;align-items:center;margin:8px 0"><input type="checkbox" id="am-ac" ${o.accent ? 'checked' : ''}> Buttons and checks use the client's colour</label>
-      <p class="muted" style="font-size:12.5px;margin:10px 0 0">Colours come from the Brand plugin (logo and website) or the client's own colour. Some retro themes switch the glow off.</p>`,
+      <p class="muted" style="font-size:13px;margin:10px 0 0">Colours come from the Brand plugin (logo and website) or the client's own colour. Some retro themes switch the glow off.</p>`,
       `<button class="btn primary" id="am-save">Done</button>`);
     let level = o.level;
     document.querySelectorAll('#am-lv button').forEach(b => b.onclick = () => { level = b.dataset.v; document.querySelectorAll('#am-lv button').forEach(x => x.classList.toggle('on', x === b)); });

@@ -8,7 +8,7 @@ registerPlugin({
     function chase(c){
       const t = api.util.todayKey();
       const items = api.tasks.list(x => !x.done && x.clientId === c.id && x.owner === 'client').sort((a,b) => (a.dueDate||'9999').localeCompare(b.dueDate||'9999'));
-      if(!items.length) return api.ui.toast(`${c.name} doesn’t owe you anything right now 🎉`);
+      if(!items.length) return api.ui.toast(`${c.name} doesn’t owe you anything right now`);
       const over = items.filter(x => x.dueDate && x.dueDate < t).length;
       const mark = () => items.forEach(x => api.tasks.update(x.id, { lastChased: Date.now() }));
       const intro = over

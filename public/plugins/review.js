@@ -3,7 +3,7 @@
 const registerPlugin = def => Cadence.registerPlugin(def);
 registerPlugin({
   id:'review', name:'Weekly review', version:'1.0.0', icon: '<rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 9.5h16M8.5 3v4M15.5 3v4M9 14.5l2 2 4-4"/>', color: '#8e4ec6', category: 'Productivity', tagline: 'Friday: look back, plan ahead', builtin:true,
-  description:'Friday-afternoon look back: what got done per client, what slipped, who owes you, who has gone quiet, and what’s coming next week.',
+  description:'Friday-afternoon look back: what got done per client, what carried over, who owes you, who has gone quiet, and what’s coming next week.',
   setup(api){
     const E = api.ui.esc;
     const monday = () => { const d = new Date(); d.setHours(0,0,0,0); d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); return d; };
@@ -22,16 +22,16 @@ registerPlugin({
       const row = (x, extra = '') => `<div class="rv-row" data-go="${x.clientId ? 'client-' + x.clientId : ''}"><span>${E(x.title)}</span>${extra}</div>`;
       el.innerHTML = `
         <div class="muted" style="margin:-14px 0 18px">Week of ${monday().toLocaleDateString(undefined,{month:'long',day:'numeric'})}</div>
-        <div class="stats">${stat(doneWk.length, 'Completed this week', 'var(--ok)')}${stat(mtgWk.length, 'Meetings')}${stat(slipped.length, 'Slipped (overdue on me)', slipped.length ? 'var(--danger)' : '')}${stat(owed.length, 'Overdue from clients', owed.length ? 'var(--client)' : '')}</div>
+        <div class="stats">${stat(doneWk.length, 'Completed this week', 'var(--ok)')}${stat(mtgWk.length, 'Meetings')}${stat(slipped.length, 'Carried over')}${stat(owed.length, 'Owed by clients', owed.length ? 'var(--client)' : '')}</div>
         <div class="cols">
           <div>
             <div class="group"><div class="group-h">✓ Done this week<span class="c">${doneWk.length}</span></div>
               ${byClient(doneWk).map(([cid, xs]) => `<details class="rv-c"><summary>${cname(cid)}<span class="muted" style="margin-left:auto">${xs.length}</span></summary>${xs.map(x => row(x)).join('')}</details>`).join('') || '<div class="muted" style="padding:8px 4px">Nothing completed yet this week.</div>'}</div>
-            <div class="group"><div class="group-h danger">⚠ Slipped<span class="c">${slipped.length}</span></div>
-              ${slipped.map(x => row(x, `<span class="chip">${cmap[x.clientId] ? E(cmap[x.clientId].name) : ''}</span><span class="chip due over">${E(api.util.fmtDate(x.dueDate))}</span>`)).join('') || '<div class="muted" style="padding:8px 4px">Nothing slipped. Nice.</div>'}</div>
+            <div class="group"><div class="group-h">Carried over<span class="c">${slipped.length}</span></div>
+              ${slipped.map(x => row(x, `<span class="chip">${cmap[x.clientId] ? E(cmap[x.clientId].name) : ''}</span><span class="chip due">${E(api.util.fmtDate(x.dueDate))}</span>`)).join('') || '<div class="muted" style="padding:8px 4px">Nothing slipped. Nice.</div>'}</div>
           </div>
           <div>
-            <div class="group"><div class="group-h client">↗ Clients owe you (overdue)<span class="c">${owed.length}</span></div>
+            <div class="group"><div class="group-h client">↗ Clients owe you<span class="c">${owed.length}</span></div>
               ${byClient(owed).map(([cid, xs]) => `<div class="rv-c-row">${cname(cid)}<span class="muted">${xs.length} item${xs.length===1?'':'s'}</span>${cmap[cid] && window.CadenceChase ? `<button class="btn" data-chase="${cid}" style="margin-left:auto;padding:4px 10px">⚑ Chase</button>` : ''}</div>`).join('') || '<div class="muted" style="padding:8px 4px">Everyone’s on time.</div>'}</div>
             <div class="group"><div class="group-h">◌ Gone quiet (14+ days)<span class="c">${quiet.length}</span></div>
               ${quiet.map(r => `<div class="rv-c-row" data-go="client-${r.c.id}" style="cursor:pointer">${cname(r.c.id)}<span class="muted" style="margin-left:auto">${r.days === null ? 'no activity' : r.days + ' days'}</span></div>`).join('') || '<div class="muted" style="padding:8px 4px">You’re in touch with everyone.</div>'}</div>
@@ -44,7 +44,7 @@ registerPlugin({
       el.querySelectorAll('[data-chase]').forEach(b => b.addEventListener('click', e => { e.stopPropagation(); window.CadenceChase.chase(cmap[b.dataset.chase]); }));
       el.querySelector('#rv-copy').onclick = () => {
         const n = id => cmap[id] ? cmap[id].name : 'No client';
-        api.ui.copy(`Weekly review — week of ${monday().toLocaleDateString(undefined,{month:'short',day:'numeric'})}\n\nDone (${doneWk.length})\n${byClient(doneWk).map(([cid, xs]) => `  ${n(cid)}: ${xs.map(x => x.title).join('; ')}`).join('\n') || '  —'}\n\nSlipped (${slipped.length})\n${slipped.map(x => `  • ${x.title} (${n(x.clientId)}, ${api.util.fmtDate(x.dueDate)})`).join('\n') || '  —'}\n\nOwed by clients (${owed.length})\n${byClient(owed).map(([cid, xs]) => `  ${n(cid)}: ${xs.length}`).join('\n') || '  —'}\n\nGone quiet: ${quiet.map(r => r.c.name).join(', ') || '—'}\nNext 7 days: ${nextWk.length} tasks`);
+        api.ui.copy(`Weekly review — week of ${monday().toLocaleDateString(undefined,{month:'short',day:'numeric'})}\n\nDone (${doneWk.length})\n${byClient(doneWk).map(([cid, xs]) => `  ${n(cid)}: ${xs.map(x => x.title).join('; ')}`).join('\n') || '  —'}\n\nCarried over (${slipped.length})\n${slipped.map(x => `  • ${x.title} (${n(x.clientId)}, ${api.util.fmtDate(x.dueDate)})`).join('\n') || '  —'}\n\nOwed by clients (${owed.length})\n${byClient(owed).map(([cid, xs]) => `  ${n(cid)}: ${xs.length}`).join('\n') || '  —'}\n\nGone quiet: ${quiet.map(r => r.c.name).join(', ') || '—'}\nNext 7 days: ${nextWk.length} tasks`);
       };
     }});
     api.commands.add({ title:'Weekly review', hint:'R', run: api => api.ui.navigate('view-review') });

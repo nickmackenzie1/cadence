@@ -4,7 +4,7 @@
 Cadence.registerPlugin({
   id: 'haunted', name: 'Haunted backlog', version: '1.0.0', category: 'Fun',
   description: 'Overdue tasks become ghosts that drift across the screen, faster the older they get. Completing a task exorcises its ghost. Hover a ghost to read it, click to jump to the client.',
-  tagline: 'Overdue tasks haunt you', color: '#6b5bd6',
+  tagline: 'Old tasks drift by as ghosts (opt-in)', color: '#6b5bd6',
   icon: '<path d="M6 20V11a6 6 0 0 1 12 0v9l-2-1.5-2 1.5-2-1.5-2 1.5-2-1.5z"/><path d="M10 11h.01M14 11h.01"/>',
   settings(api) {
     const cur = api.storage.get('level') || 'full';
@@ -25,7 +25,7 @@ Cadence.registerPlugin({
         .hn-body{transition:transform .25s}
         .hn-g svg{display:block;width:100%;overflow:visible;filter:drop-shadow(0 0 6px color-mix(in srgb,var(--c) 60%,transparent));animation:hnsway 2.6s ease-in-out infinite alternate}
         .hn-g:hover{opacity:.97;z-index:2}
-        .hn-g .tag{position:absolute;left:50%;top:100%;transform:translate(-50%,6px);background:var(--panel);color:var(--text);border:1px solid var(--line);box-shadow:var(--shadow);border-radius:9px;padding:6px 9px;font:500 12px/1.3 Inter,system-ui;white-space:nowrap;max-width:260px;overflow:hidden;text-overflow:ellipsis;opacity:0;pointer-events:none;transition:opacity .2s}
+        .hn-g .tag{position:absolute;left:50%;top:100%;transform:translate(-50%,6px);background:var(--panel);color:var(--text);border:1px solid var(--line);box-shadow:var(--shadow);border-radius:var(--r-m);padding:6px 9px;font:500 12px/1.3 Inter,system-ui;white-space:nowrap;max-width:260px;overflow:hidden;text-overflow:ellipsis;opacity:0;pointer-events:none;transition:opacity .2s}
         .hn-g .tag small{display:block;color:var(--danger);font-weight:600;font-size:11px}
         .hn-g:hover .tag{opacity:1}
         .hn-g.poof{pointer-events:none;animation:hnpoof 1.1s cubic-bezier(.3,0,.6,1) forwards}
@@ -36,7 +36,7 @@ Cadence.registerPlugin({
         .hn-spark{position:absolute;width:6px;height:6px;border-radius:50%;background:#fff;box-shadow:0 0 8px 2px var(--c);pointer-events:none;animation:hnsp .9s ease-out forwards}
         @keyframes hnsp{to{transform:translate(var(--dx),var(--dy)) scale(0);opacity:0}}
         .hn-g .hem{animation:hnhem .5s steps(2) infinite}
-        .hn-bub{position:absolute;bottom:100%;left:50%;transform:translate(-50%,-4px) scale(.6);opacity:0;background:var(--panel);color:var(--text);border:1px solid var(--line);box-shadow:var(--shadow);border-radius:12px;padding:5px 9px;font:600 12px/1.25 Inter,system-ui;white-space:nowrap;pointer-events:none;transition:opacity .2s,transform .3s cubic-bezier(.3,1.6,.5,1)}
+        .hn-bub{position:absolute;bottom:100%;left:50%;transform:translate(-50%,-4px) scale(.6);opacity:0;background:var(--panel);color:var(--text);border:1px solid var(--line);box-shadow:var(--shadow);border-radius:var(--r-l);padding:5px 9px;font:600 12px/1.25 Inter,system-ui;white-space:nowrap;pointer-events:none;transition:opacity .2s,transform .3s cubic-bezier(.3,1.6,.5,1)}
         .hn-bub::after{content:'';position:absolute;left:50%;top:100%;border:5px solid transparent;border-top-color:var(--panel);transform:translateX(-50%)}
         .hn-g.talk .hn-bub{opacity:1;transform:translate(-50%,-8px) scale(1)}
         .hn-g.talk{opacity:.95}

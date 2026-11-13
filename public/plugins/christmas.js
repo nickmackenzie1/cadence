@@ -508,7 +508,7 @@
         @keyframes xmsw{0%,100%{rotate:-9deg}50%{rotate:9deg}}
         @media (prefers-reduced-motion:reduce){#xm-string i{animation:none!important}}
         .xm-row{display:flex;gap:8px;align-items:center;margin:8px 0;font-size:14px}
-        .xm-adv{margin:4px 0 10px;border:1px solid var(--line);border-radius:10px;padding:8px 12px}.xm-adv summary{cursor:pointer;font-weight:600;font-size:13px}
+        .xm-adv{margin:4px 0 10px;border:1px solid var(--line);border-radius:var(--r);padding:8px 12px}.xm-adv summary{cursor:pointer;font-weight:600;font-size:13px}
         .xm-sl{display:grid;grid-template-columns:110px 1fr 54px;gap:10px;align-items:center;margin:8px 0;font-size:13px}.xm-sl input{width:100%;accent-color:var(--accent)}.xm-sl em{font-style:normal;color:var(--muted);font-variant-numeric:tabular-nums;text-align:right}
       `; document.head.appendChild(st); }
       apply();

@@ -19,7 +19,7 @@ registerPlugin({
       if(!agenda.trim()){
         const lines = [];
         if(done.length) lines.push('• Recap wins: ' + done.slice(0,3).map(x => x.title).join('; '));
-        if(theirs.length) lines.push(`• Their open items (${theirs.length}) — confirm dates` + (theirs.some(isOver) ? ', some overdue' : ''));
+        if(theirs.length) lines.push(`• Their open items (${theirs.length}) — confirm dates` + (theirs.some(isOver) ? ', some from earlier' : ''));
         if(mineOver.length || mine.length) lines.push(`• Our progress & blockers (${mineOver.length + mine.length} open)`);
         lines.push('• Next steps & next meeting');
         agenda = lines.join('\n');
@@ -29,7 +29,7 @@ registerPlugin({
       api.ui.modal(`${api.ui.avatar(c, 22)}&nbsp; Prep — ${E(c.name)}`, `
         <div class="muted" style="margin-top:-6px;font-size:13px">${last ? `Last meeting ${E(api.util.fmtDate(api.util.ymd(new Date(last.start))).toLowerCase())} · ${mtgs.length} meeting${mtgs.length===1?'':'s'} logged` : 'No meetings logged yet'}${c.domain ? ` · ${E(c.domain)}` : ''}</div>
         <div class="prep-grid">
-          ${sec('Overdue on me', mineOver, 'danger', 'Nothing overdue 👍')}
+          ${sec('From earlier, on me', mineOver, '', 'Nothing from earlier')}
           ${sec('Waiting on them', theirs, 'client', 'Nothing outstanding')}
           ${sec('Open on me', mine, '', 'All clear')}
           ${sec(last ? 'Done since last meeting' : 'Done in the last 2 weeks', done, 'ok', 'Nothing yet')}

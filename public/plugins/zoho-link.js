@@ -78,15 +78,15 @@ Cadence.registerPlugin({
       a.chip.zl-chip{text-decoration:none;color:inherit;cursor:pointer}a.chip.zl-chip:hover{border-color:var(--accent);color:var(--accent)}
       .zl-mark.zl-crm{background:#0a6ed1}.zl-mark.zl-books{background:#1f9d63}.zl-mark.zl-creator{background:#7a3fc4}.zl-mark.zl-projects,.zl-mark.zl-sprints{background:#e42527}
       .chip.zl-chip{gap:5px}
-      .zl-card{display:flex;align-items:center;gap:12px;margin:8px 0 10px;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:var(--panel)}
-      .zl-card .zl-mark{width:32px;height:32px;border-radius:9px}.zl-card .zl-mark svg{width:20px;height:20px}
-      .zl-tx{flex:1;min-width:0;display:flex;flex-direction:column}.zl-tx b{font-size:13.5px}.zl-tx span{font-size:12px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-      .zl-card .btn{text-decoration:none;padding:6px 12px;font-size:12.5px}
-      .zl-paste{display:flex;align-items:center;gap:8px;margin:6px 0 8px;padding:6px 10px;border:1px dashed var(--line);border-radius:10px;color:var(--faint)}
+      .zl-card{display:flex;align-items:center;gap:12px;margin:8px 0 10px;padding:10px 12px;border:1px solid var(--line);border-radius:var(--r-l);background:var(--panel)}
+      .zl-card .zl-mark{width:32px;height:32px;border-radius:var(--r-m)}.zl-card .zl-mark svg{width:20px;height:20px}
+      .zl-tx{flex:1;min-width:0;display:flex;flex-direction:column}.zl-tx b{font-size:13px}.zl-tx span{font-size:12px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+      .zl-card .btn{text-decoration:none;padding:6px 12px;font-size:13px}
+      .zl-paste{display:flex;align-items:center;gap:8px;margin:6px 0 8px;padding:6px 10px;border:1px dashed var(--line);border-radius:var(--r);color:var(--faint)}
       .zl-paste svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;flex:none}
-      .zl-paste input{flex:1;min-width:0;border:0;outline:0;background:none;font:inherit;font-size:12.5px;color:var(--text)}
+      .zl-paste input{flex:1;min-width:0;border:0;outline:0;background:none;font:inherit;font-size:13px;color:var(--text)}
       .zl-paste:focus-within{border-style:solid;border-color:var(--accent);color:var(--accent)}.zl-paste input.bad{color:var(--danger)}
-      .zl-x{color:var(--faint);padding:4px 6px;border-radius:6px;font-size:12px}.zl-x:hover{background:var(--hover);color:var(--danger)}
+      .zl-x{color:var(--faint);padding:4px 6px;border-radius:var(--r-s);font-size:12px}.zl-x:hover{background:var(--hover);color:var(--danger)}
     `; document.head.appendChild(st); }
   }
 });

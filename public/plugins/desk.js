@@ -132,13 +132,13 @@ Cadence.registerPlugin({
       const s = document.getElementById('dk-save'), old = s.onclick; s.onclick = () => { const v = document.getElementById('dk-title').value.trim(); if (v) api.tasks.update(id, { title: v }); old(); };
       const x = document.querySelector('#modal [data-act=close-modal]'); if (x) x.addEventListener('click', () => { const t = api.tasks.get(id); if (t && t.title === 'New ticket' && !t.ticket.no) api.tasks.remove(id); }); }, 40); }
 
-    api.views.add({ id: 'tickets', title: 'Tickets', icon: '🎫', subtitle: 'Tickets you’ve opened with Zoho for clients, and your own Desk tickets. Oldest and past-SLA first.', render: el => board(el) });
+    api.views.add({ id: 'tickets', title: 'Tickets', icon: '🎫', subtitle: 'Zoho tickets for clients and your own Desk tickets, oldest first', render: el => board(el) });
     api.on('render', e => { const w = document.querySelector('#view'); if (w) w.classList.toggle('dk-wide', !!(e && e.route === 'view-tickets')); });
     api.commands.add({ title: 'Open Desk tickets', hint: 'Desk tickets', run: () => api.ui.navigate('view-tickets') });
     api.clientActions.add({ label: '🎫 Tickets', primary: true, run: c => { filter = c.id; api.ui.navigate('view-tickets'); } });
     api.widgets.add({ id: 'open', title: 'Open tickets', icon: '🎫', size: 'm', spaces: ['work'], description: 'Desk tickets still open, past-SLA first.', render: el => {
       const xs = tickets(t => !t.done).sort((a, b) => (sla(b.ticket) === 'breach') - (sla(a.ticket) === 'breach') || a.ticket.opened - b.ticket.opened).slice(0, 8);
-      el.innerHTML = xs.length ? `<div class="dw-list">${xs.map(t => `<div class="dw-row" data-open="${E(t.id)}"><span class="dk-no sm">${E(label(t.ticket))}</span><span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${E(t.title)}</span><em class="dk-age ${sla(t.ticket)}">${ageDays(t.ticket)}d</em></div>`).join('')}</div>` : '<div class="dw-empty">No open tickets. 🎉</div>';
+      el.innerHTML = xs.length ? `<div class="dw-list">${xs.map(t => `<div class="dw-row" data-open="${E(t.id)}"><span class="dk-no sm">${E(label(t.ticket))}</span><span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${E(t.title)}</span><em class="dk-age ${sla(t.ticket)}">${ageDays(t.ticket)}d</em></div>`).join('')}</div>` : '<div class="dw-empty">No open tickets.</div>';
       el.querySelectorAll('[data-open]').forEach(r => r.onclick = () => edit(r.dataset.open));
     } });
 
@@ -151,26 +151,26 @@ Cadence.registerPlugin({
         .chip.tkt.st-hold,.chip.tkt.st-customer{background:var(--hover);color:var(--muted)}
         .chip.tkt.warn{box-shadow:inset 0 0 0 1px color-mix(in srgb,#d97706 60%,transparent)}.chip.tkt.breach{background:var(--danger);color:#fff}
         .dk-head{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:16px}
-        .dk-sum{display:flex;gap:16px;font-size:13.5px;color:var(--muted)}.dk-sum b{font-size:20px;color:var(--text);margin-right:3px}.dk-sum .breach,.dk-sum .breach b{color:var(--danger)}.dk-sum .ok b{color:var(--ok)}
+        .dk-sum{display:flex;gap:16px;font-size:13px;color:var(--muted)}.dk-sum b{font-size:20px;color:var(--text);margin-right:3px}.dk-sum .breach,.dk-sum .breach b{color:var(--danger)}.dk-sum .ok b{color:var(--ok)}
         .dk-tools{display:flex;gap:8px;align-items:center}.dk-tools select{width:auto;height:34px;padding:4px 10px}
         .dk-board{display:grid;grid-template-columns:repeat(4,minmax(200px,1fr));gap:12px;align-items:start;overflow-x:auto;padding-bottom:6px}
-        .dk-col{background:color-mix(in srgb,var(--text) 3.5%,transparent);border-radius:14px;padding:8px;min-height:120px;transition:background .15s}.dk-col.over{background:var(--accent-soft)}
+        .dk-col{background:color-mix(in srgb,var(--text) 3.5%,transparent);border-radius:var(--r-l);padding:8px;min-height:120px;transition:background .15s}.dk-col.over{background:var(--accent-soft)}
         .dk-ch{display:flex;justify-content:space-between;font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);padding:4px 6px 8px}.dk-ch span{font-weight:600}
         .dk-col[data-col=escalated] .dk-ch{color:var(--danger)}
-        .dk-card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px 11px;margin-bottom:8px;box-shadow:0 1px 2px rgba(0,0,0,.04);cursor:grab;border-left:3px solid transparent}
+        .dk-card{background:var(--panel);border:1px solid var(--line);border-radius:var(--r-l);padding:10px 11px;margin-bottom:8px;box-shadow:0 1px 2px rgba(0,0,0,.04);cursor:grab;border-left:3px solid transparent}
         .dk-card.warn{border-left-color:#d97706}.dk-card.breach{border-left-color:var(--danger)}.dk-card.drag{opacity:.4}
         .dk-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px}
-        .dk-via{font-size:10px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;padding:2px 6px;border-radius:5px;margin-right:6px;background:var(--hover);color:var(--muted)}.dk-via.v-zoho{background:color-mix(in srgb,#e42527 12%,transparent);color:#c41d1f}
+        .dk-via{font-size:10px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;padding:2px 6px;border-radius:var(--r-s);margin-right:6px;background:var(--hover);color:var(--muted)}.dk-via.v-zoho{background:color-mix(in srgb,#e42527 12%,transparent);color:#c41d1f}
         .dk-top{justify-content:flex-start!important}.dk-top .dk-pri{margin-left:auto}
         .chip.tkt .tkt-via{font-weight:700;margin-right:4px}
         .dk-tools .seg{flex:none}
         .dk-no{font:600 12px ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--muted)}.dk-no a{color:var(--accent);text-decoration:none}.dk-no a:hover{text-decoration:underline}.dk-no.sm{flex:none;margin-right:8px}
-        .dk-pri{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;padding:2px 7px;border-radius:999px;background:var(--hover);color:var(--muted)}
+        .dk-pri{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;padding:2px 7px;border-radius:999px;background:var(--hover);color:var(--muted)}
         .dk-pri.p-urgent{background:var(--danger);color:#fff}.dk-pri.p-high{background:color-mix(in srgb,var(--danger) 14%,transparent);color:var(--danger)}.dk-pri.p-low{opacity:.7}
-        .dk-t{font-size:14px;font-weight:550;line-height:1.35;overflow-wrap:anywhere;cursor:pointer;margin-bottom:8px}.dk-t:hover{color:var(--accent)}
+        .dk-t{font-size:14px;font-weight:500;line-height:1.35;overflow-wrap:anywhere;cursor:pointer;margin-bottom:8px}.dk-t:hover{color:var(--accent)}
         .dk-meta{display:flex;flex-wrap:wrap;gap:5px;align-items:center;margin-bottom:8px}
-        .dk-age{margin-left:auto;font-size:11.5px;font-weight:700;font-style:normal;color:var(--muted)}.dk-age.warn{color:#d97706}.dk-age.breach{color:var(--danger)}
-        .dk-st{width:100%;font:inherit;font-size:12px;padding:4px 6px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--text)}
+        .dk-age{margin-left:auto;font-size:12px;font-weight:700;font-style:normal;color:var(--muted)}.dk-age.warn{color:#d97706}.dk-age.breach{color:var(--danger)}
+        .dk-st{width:100%;font:inherit;font-size:12px;padding:4px 6px;border:1px solid var(--line);border-radius:var(--r-m);background:var(--bg);color:var(--text)}
         .dk-empty{color:var(--faint);text-align:center;padding:18px 0;font-size:13px}
         @media (max-width:900px){.dk-board{grid-template-columns:repeat(4,240px)}}
       `;

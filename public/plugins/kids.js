@@ -57,7 +57,7 @@
           + (inv.length ? K.card('Parties we’re invited to', inv.map(x => `<div class="lk-row"><span class="grow">${esc(x.who)}’s party</span><em>${esc(x.gift || 'Gift idea?')}</em><em>${esc(api.util.fmtDate(x.date))}</em></div>`).join('')) : '');
       }
       function view(el) {
-        const ks = kids(); if (!ks.length) { el.innerHTML = `<div class="lk-empty">Add your kids to start. Only names and birthdays.</div><button class="btn primary" id="kd-add">Add a child</button>`; el.querySelector('#kd-add').onclick = () => addKid(); return; }
+        const ks = kids(); if (!ks.length) { el.innerHTML = `<div class="empty sm"><b>No kids added yet</b>Only names and birthdays.<br><button class="btn primary" id="kd-add">Add a child</button></div>`; el.querySelector('#kd-add').onclick = () => addKid(); return; }
         const k = kid(sel()) || ks[0], t = tab();
         el.innerHTML = `<div class="lk-top">${ks.map(x => `<button class="kd-kid ${x.id === k.id ? 'on' : ''}" data-kid="${esc(x.id)}">${esc(x.name)}${age(x) != null ? `<span>${age(x)}</span>` : ''}</button>`).join('')}<button class="lk-btn" id="kd-add">+</button><span class="sp"></span><button class="lk-btn" id="kd-edit">Edit ${esc(k.name)}</button></div>
           ${K.tabs([['sizes', 'Sizes'], ['acts', 'Activities'], ['mem', 'Memory jar'], ['health', 'Health'], ['chores', 'Chores'], ['party', 'Parties']], t)}<div id="kd-body">${({ sizes, acts: activities, mem: memories, health, chores, party: parties })[t](k)}</div>`;
@@ -94,7 +94,7 @@
       window.__kids = { today: () => { const dow = new Date().getDay(), wk = Math.floor(Date.now() / (7 * 864e5)); return (api.storage.get('acts') || []).filter(a => a.day !== '' && a.day != null && +a.day === dow).map(a => { const rot = (a.carpool || '').split(',').map(x => x.trim()).filter(Boolean); const k = kid(a.kid); return { kid: k ? k.name : '', name: a.name, time: a.time, where: a.where, driver: rot.length ? rot[wk % rot.length] : '' }; }); } };
       api.views.add({ id: 'kids', title: 'Kids', icon: '👶', subtitle: 'Sizes, activities, memories, health, chores and parties', render: view });
       K.css('kd-css', `.kd-kid{border:1px solid var(--line);background:var(--panel);border-radius:999px;padding:5px 12px;font:600 13px Inter,system-ui;cursor:pointer;color:var(--text);display:inline-flex;gap:6px;align-items:center}.kd-kid span{font-size:11px;color:var(--muted)}.kd-kid.on{background:#f472b6;border-color:#f472b6;color:#fff}.kd-kid.on span{color:#fff}
-        .kd-alert{background:color-mix(in srgb,#e5484d 12%,var(--panel));border:1px solid color-mix(in srgb,#e5484d 40%,var(--line));color:#b42318;border-radius:10px;padding:8px 12px;font-weight:700;font-size:13px;margin-bottom:10px}
+        .kd-alert{background:color-mix(in srgb,#e5484d 12%,var(--panel));border:1px solid color-mix(in srgb,#e5484d 40%,var(--line));color:#b42318;border-radius:var(--r);padding:8px 12px;font-weight:700;font-size:13px;margin-bottom:10px}
         .kd-bal{display:flex;align-items:center;gap:10px;margin-bottom:12px}.kd-bal b{font:900 34px/1 ui-rounded,system-ui;color:#f472b6}.kd-bal span{flex:1;color:var(--muted);font-size:13px}`);
     },
   });

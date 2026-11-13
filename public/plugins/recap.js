@@ -51,7 +51,7 @@ registerPlugin({
         <div class="field"><label>Intro</label><textarea class="inp" id="rc-intro" style="min-height:60px">${E(d.intro)}</textarea></div>
         <div class="field"><label style="display:flex;align-items:center;gap:8px">Summary (optional)${api.ai && o.notes ? '<button class="btn" id="rc-ai" style="text-transform:none;letter-spacing:0;margin-left:auto">✦ Write from meeting notes</button>' : ''}</label>
           <textarea class="inp" id="rc-summary" style="min-height:70px" placeholder="Key decisions and context — a few bullets"></textarea></div>
-        <div class="field"><label>Preview</label><div id="rc-preview" style="background:#fff;color:#1d1c1a;border:1px solid var(--line);border-radius:10px;padding:20px 22px"></div></div>`,
+        <div class="field"><label>Preview</label><div id="rc-preview" style="background:#fff;color:#1d1c1a;border:1px solid var(--line);border-radius:var(--r);padding:20px 22px"></div></div>`,
         `<span class="muted" style="font-size:12px;margin-right:auto;align-self:center">Paste into Outlook or Gmail — formatting is kept.</span><button class="btn" id="rc-plain">Copy plain text</button><button class="btn primary" id="rc-copy">Copy formatted email</button>`, 'wide');
       const $ = s => document.querySelector(s);
       const sync = () => { d.subject = $('#rc-subject').value; d.greeting = $('#rc-greeting').value; d.intro = $('#rc-intro').value; d.summary = $('#rc-summary').value.trim(); d.next = $('#rc-next').value.trim(); $('#rc-preview').innerHTML = emailHTML(d); };

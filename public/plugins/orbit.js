@@ -81,7 +81,7 @@
         </svg><div class="ob-ctr"><b>${now.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</b>${nx ? `<span>Next: ${esc(nx.title.slice(0, small ? 22 : 34))}<br>in ${Math.round(nx.m - mins) >= 60 ? Math.floor((nx.m - mins) / 60) + 'h ' : ''}${Math.round((nx.m - mins) % 60)}m</span>` : '<span>Nothing else timed today</span>'}</div></div>`;
       }
 
-      api.views.add({ id: 'orbit', title: 'Orbit', icon: '🪐', subtitle: 'Recent clients orbit closest · planet size = open work · moons = what they owe you', render: el => {
+      api.views.add({ id: 'orbit', title: 'Orbit', icon: '🪐', subtitle: 'Recent clients closest, size is open work', render: el => {
         el.innerHTML = `<div class="ob-wrap"><div class="ob-left" id="ob-sys"></div><div class="ob-right"><div class="sect">Your day</div><div id="ob-clock"></div>
           <div class="ob-legend"><span><i class="lg ev"></i>Meetings</span><span><i class="lg tk"></i>Timed tasks</span><span><i class="lg nt"></i>Night</span></div></div></div>`;
         system(el.querySelector('#ob-sys')); dayClock(el.querySelector('#ob-clock'));
@@ -158,7 +158,7 @@
         .ob-moon{position:absolute;left:50%;top:50%;width:6px;height:6px;margin:-3px;border-radius:50%;background:color-mix(in srgb,var(--c) 55%,#fff);box-shadow:0 0 4px rgba(0,0,0,.25);
           transform:rotate(calc(var(--m) / var(--mn) * 360deg)) translateX(calc(50% + 14px)) ;animation:obMoon 7s linear infinite;--r0:calc(var(--m) / var(--mn) * 360deg)}
         @keyframes obMoon{from{transform:rotate(var(--r0)) translateX(24px)}to{transform:rotate(calc(var(--r0) + 360deg)) translateX(24px)}}
-        .ob-tip{position:absolute;left:50%;bottom:calc(100% + 10px);transform:translateX(-50%);white-space:nowrap;background:var(--panel,#fff);color:var(--text);border:1px solid var(--line);border-radius:9px;padding:6px 9px;font:12px/1.35 Inter,system-ui;box-shadow:0 8px 24px -8px rgba(0,0,0,.25);opacity:0;pointer-events:none;transition:opacity .15s}
+        .ob-tip{position:absolute;left:50%;bottom:calc(100% + 10px);transform:translateX(-50%);white-space:nowrap;background:var(--panel,#fff);color:var(--text);border:1px solid var(--line);border-radius:var(--r-m);padding:6px 9px;font:12px/1.35 Inter,system-ui;box-shadow:0 8px 24px -8px rgba(0,0,0,.25);opacity:0;pointer-events:none;transition:opacity .15s}
         .ob-tip b{display:block}.ob-tip em{color:#e5484d;font-style:normal;font-weight:600}
         .ob-pl:hover .ob-tip{opacity:1}
         .ob-empty{position:absolute;transform:translateX(-50%);color:var(--muted);font-size:13px;white-space:nowrap}
@@ -177,7 +177,7 @@
         .ob-clock .hand{stroke:#e5484d!important;stroke-width:2.2!important;stroke-linecap:round}.ob-clock .hub{fill:#e5484d}
         .ob-ctr{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);text-align:center;pointer-events:none;width:56%}
         .ob-ctr b{display:block;font:800 22px/1.1 ui-rounded,system-ui;color:var(--text)}.ob-clock.sm .ob-ctr b{font-size:16px}
-        .ob-ctr span{display:block;font:12px/1.35 Inter,system-ui;color:var(--muted);margin-top:4px}.ob-clock.sm .ob-ctr span{font-size:10.5px}
+        .ob-ctr span{display:block;font:12px/1.35 Inter,system-ui;color:var(--muted);margin-top:4px}.ob-clock.sm .ob-ctr span{font-size:11px}
         
         .ob-legend{display:flex;gap:14px;font-size:12px;color:var(--muted);margin-top:10px}
         .ob-legend .lg{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:5px;vertical-align:-1px}

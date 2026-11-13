@@ -71,10 +71,10 @@
       window.__donelist = { set, on };
       api.commands.add({ title: 'Bad day: show only what I’ve done', hint: 'Done-list mode', run: () => set(!on()) });
       live();
-      css('dl-css', `.dl-big{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:8px 0 18px}.dl-big div{border:1px solid var(--line);border-radius:14px;padding:16px;background:color-mix(in srgb,#10b981 7%,var(--panel))}
-        .dl-big b{display:block;font:900 34px/1 ui-rounded,system-ui;color:#059669}.dl-big span{font-size:12.5px;color:var(--muted)}
+      css('dl-css', `.dl-big{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:8px 0 18px}.dl-big div{border:1px solid var(--line);border-radius:var(--r-l);padding:16px;background:color-mix(in srgb,#10b981 7%,var(--panel))}
+        .dl-big b{display:block;font:900 34px/1 ui-rounded,system-ui;color:#059669}.dl-big span{font-size:13px;color:var(--muted)}
         .dl-it{display:flex;align-items:center;gap:10px;padding:8px 2px;border-bottom:1px solid var(--line);font-size:14px}.dl-it svg{width:16px;height:16px;color:#10b981;flex:none}.dl-it span{flex:1}.dl-it em{font-style:normal;font-size:12px;color:var(--muted)}
-        .dl-soft{padding:18px;border-radius:12px;background:var(--hover);font-size:14px;margin-bottom:10px}`);
+        .dl-soft{padding:18px;border-radius:var(--r-l);background:var(--hover);font-size:14px;margin-bottom:10px}`);
     },
   });
 
@@ -95,7 +95,7 @@
         addMove(t.id); const n = MOVES()[t.id] || 1; if (n < opt().from) return;
         asking = true;
         const strict = (t.excuses || []).some(x => x.rejected);
-        api.ui.modal(strict ? 'Again?' : 'A note to future you', `<p style="margin:0 0 10px;font-size:13.5px">${strict ? `Future you already rejected an excuse for <b>${esc(t.title)}</b>. This is push number ${n}.` : `You’re pushing <b>${esc(t.title)}</b> from ${esc(api.util.fmtDate(prev))} to ${esc(api.util.fmtDate(t.dueDate))}${n > 1 ? ` (push number ${n})` : ''}. Why? Future you will read this.`}</p>
+        api.ui.modal(strict ? 'Again?' : 'A note to future you', `<p style="margin:0 0 10px;font-size:13px">${strict ? `Future you already rejected an excuse for <b>${esc(t.title)}</b>. This is push number ${n}.` : `You’re pushing <b>${esc(t.title)}</b> from ${esc(api.util.fmtDate(prev))} to ${esc(api.util.fmtDate(t.dueDate))}${n > 1 ? ` (push number ${n})` : ''}. Why? Future you will read this.`}</p>
           <textarea class="inp" id="fy-n" rows="3" placeholder="Waiting on the API keys, honestly"></textarea>`,
           `<button class="btn" id="fy-undo" style="margin-right:auto">Never mind, keep ${esc(api.util.fmtDate(prev))}</button><button class="btn" id="fy-skip">Skip</button><button class="btn primary" id="fy-ok">Send to future me</button>`);
         const done = note => { asking = false; api.ui.close(); if (note) { const cur = api.tasks.get(t.id); api.tasks.update(t.id, { excuses: [...((cur && cur.excuses) || []), { at: Date.now(), note: note.slice(0, 280), from: prev, to: t.dueDate }] }); } };
@@ -113,8 +113,8 @@
       window.__futureYou = { prime };
       api.commands.add({ title: 'Future-you negotiator settings', run: () => api.ui.ask('Future-you negotiator', [{ k: 'n', label: 'Ask for a note to future you from', type: 'select', def: opt().from, opts: [[1, 'Every time I push a task back'], [2, 'The second push onwards'], [3, 'The third push onwards']] }]).then(v => { if (v) api.storage.set('opt', { from: +v.n }); }) });
       css('fy-css', `.fy-chip{color:#f43f5e}.fy-chip svg{width:12px;height:12px;margin-right:3px}
-        .fy-card{border:1px solid color-mix(in srgb,#f43f5e 35%,var(--line));background:color-mix(in srgb,#f43f5e 6%,var(--panel));border-radius:12px;padding:10px 12px;margin-top:8px}
-        .fy-card small{color:var(--muted);font-size:11.5px}.fy-card p{margin:4px 0 8px;font-size:14px;font-style:italic}.fy-card div{display:flex;gap:6px}`);
+        .fy-card{border:1px solid color-mix(in srgb,#f43f5e 35%,var(--line));background:color-mix(in srgb,#f43f5e 6%,var(--panel));border-radius:var(--r-l);padding:10px 12px;margin-top:8px}
+        .fy-card small{color:var(--muted);font-size:12px}.fy-card p{margin:4px 0 8px;font-size:14px;font-style:italic}.fy-card div{display:flex;gap:6px}`);
     },
   });
 

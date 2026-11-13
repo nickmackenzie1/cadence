@@ -238,35 +238,35 @@ Cadence.registerPlugin({
       const st = document.createElement('style'); st.id = 'gh-css';
       st.textContent = `
         .gh-steps{display:flex;gap:6px;margin:-4px 0 14px}.gh-steps i{flex:1;height:4px;border-radius:4px;background:var(--line)}.gh-steps i.done{background:var(--accent)}.gh-steps i.on{background:color-mix(in srgb,var(--accent) 55%,var(--line))}
-        .gh-h{margin:0;font-size:20px;letter-spacing:-.02em}.gh-sub{margin:4px 0 14px;color:var(--muted);font-size:13.5px}
-        .gh-q{margin-bottom:16px}.gh-q>label{display:block;font-size:12.5px;font-weight:600;color:var(--muted);margin-bottom:8px}
+        .gh-h{margin:0;font-size:20px;letter-spacing:-.02em}.gh-sub{margin:4px 0 14px;color:var(--muted);font-size:13px}
+        .gh-q{margin-bottom:16px}.gh-q>label{display:block;font-size:13px;font-weight:600;color:var(--muted);margin-bottom:8px}
         .gh-opts{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px}
-        .gh-o{display:flex;align-items:center;gap:10px;padding:10px 12px;border:1.5px solid var(--line);border-radius:12px;font-size:13.5px;font-weight:550;text-align:left;background:var(--panel);transition:border-color .15s,background .15s,transform .1s}
+        .gh-o{display:flex;align-items:center;gap:10px;padding:10px 12px;border:1.5px solid var(--line);border-radius:var(--r-l);font-size:13px;font-weight:500;text-align:left;background:var(--panel);transition:border-color .15s,background .15s,transform .1s}
         .gh-o span{font-size:20px;width:24px;text-align:center}.gh-o:hover{border-color:color-mix(in srgb,var(--accent) 45%,var(--line))}.gh-o:active{transform:scale(.98)}
         .gh-o.on{border-color:var(--accent);background:var(--accent-soft)}
         .gh-plan{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:10px;max-height:52vh;overflow:auto}
-        .gh-g{border:1px solid var(--line);border-radius:12px;padding:10px 12px}.gh-g>b{display:block;font-size:12px;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);margin-bottom:6px}
-        .gh-i{display:flex;align-items:baseline;gap:8px;padding:4px 0;font-size:13.5px;cursor:pointer}.gh-i input{accent-color:var(--accent)}.gh-i span{flex:1}.gh-i em{font-style:normal;font-size:11.5px;color:var(--muted);white-space:nowrap}
+        .gh-g{border:1px solid var(--line);border-radius:var(--r-l);padding:10px 12px}.gh-g>b{display:block;font-size:12px;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);margin-bottom:6px}
+        .gh-i{display:flex;align-items:baseline;gap:8px;padding:4px 0;font-size:13px;cursor:pointer}.gh-i input{accent-color:var(--accent)}.gh-i span{flex:1}.gh-i em{font-style:normal;font-size:12px;color:var(--muted);white-space:nowrap}
         .gh-hero{text-align:center;padding:30px 20px;max-width:520px;margin:0 auto}.gh-house{font-size:64px;animation:ghb 2.4s ease-in-out infinite}@keyframes ghb{50%{transform:translateY(-6px)}}
         .gh-hero h2{margin:10px 0 6px;font-size:24px;letter-spacing:-.02em}.gh-hero p{color:var(--muted);line-height:1.55;margin:0 0 18px}
         .gh-top{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:14px;font-size:14px}.gh-top b{font-size:18px}.gh-top a{color:var(--accent);text-decoration:none;font-weight:600}.gh-top a:hover{text-decoration:underline}
-        .gh-jobs{grid-column:1/-1;margin-top:14px}.gh-job{display:flex;gap:12px;align-items:center;padding:8px 0;border-bottom:1px solid var(--line);flex-wrap:wrap}.gh-jt{flex:1;min-width:220px}.gh-jt b{display:block;font-size:13.5px}.gh-jt span{font-size:12px;color:var(--muted)}
-        .gh-files{display:flex;gap:6px;align-items:center;flex-wrap:wrap}.gh-ph{position:relative;width:44px;height:44px;border-radius:8px;background:center/cover;border:1px solid var(--line)}.gh-ph button,.gh-ln button{position:absolute;top:-6px;right:-6px;width:16px;height:16px;border-radius:50%;border:0;background:var(--text);color:var(--bg);font-size:9px;cursor:pointer;display:none}.gh-ph:hover button{display:block}
-        .gh-ln{position:relative;font-size:12px;border:1px solid var(--line);border-radius:7px;padding:3px 8px}.gh-ln:hover button{display:block}.gh-files .lk-btn{font-size:11.5px;padding:3px 8px;border:1px solid var(--line);background:none;border-radius:8px;cursor:pointer;color:var(--text)}
+        .gh-jobs{grid-column:1/-1;margin-top:14px}.gh-job{display:flex;gap:12px;align-items:center;padding:8px 0;border-bottom:1px solid var(--line);flex-wrap:wrap}.gh-jt{flex:1;min-width:220px}.gh-jt b{display:block;font-size:13px}.gh-jt span{font-size:12px;color:var(--muted)}
+        .gh-files{display:flex;gap:6px;align-items:center;flex-wrap:wrap}.gh-ph{position:relative;width:44px;height:44px;border-radius:var(--r-m);background:center/cover;border:1px solid var(--line)}.gh-ph button,.gh-ln button{position:absolute;top:-6px;right:-6px;width:16px;height:16px;border-radius:50%;border:0;background:var(--text);color:var(--bg);font-size:10px;cursor:pointer;display:none}.gh-ph:hover button{display:block}
+        .gh-ln{position:relative;font-size:12px;border:1px solid var(--line);border-radius:var(--r-s);padding:3px 8px}.gh-ln:hover button{display:block}.gh-files .lk-btn{font-size:12px;padding:3px 8px;border:1px solid var(--line);background:none;border-radius:var(--r-m);cursor:pointer;color:var(--text)}
         .gh-year{display:grid;grid-template-columns:repeat(12,1fr);gap:4px;margin-bottom:20px}
-        .gh-m{position:relative;border:1px solid var(--line);border-radius:10px;padding:8px 4px;text-align:center;background:var(--panel);cursor:default}
-        .gh-m b{display:block;font-size:11px;color:var(--muted);font-weight:600}.gh-m span{display:block;font-size:17px;font-weight:700;min-height:22px}
+        .gh-m{position:relative;border:1px solid var(--line);border-radius:var(--r);padding:8px 4px;text-align:center;background:var(--panel);cursor:default}
+        .gh-m b{display:block;font-size:11px;color:var(--muted);font-weight:600}.gh-m span{display:block;font-size:18px;font-weight:700;min-height:22px}
         .gh-m.now{border-color:var(--accent);box-shadow:0 0 0 2px color-mix(in srgb,var(--accent) 25%,transparent)}.gh-m.now b{color:var(--accent)}
-        .gh-tip{display:none;position:absolute;z-index:5;top:100%;left:50%;transform:translate(-50%,6px);width:220px;text-align:left;background:var(--panel);border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadow);padding:8px 10px;font-size:12px;line-height:1.5}
+        .gh-tip{display:none;position:absolute;z-index:5;top:100%;left:50%;transform:translate(-50%,6px);width:220px;text-align:left;background:var(--panel);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow);padding:8px 10px;font-size:12px;line-height:1.5}
         .gh-m:hover .gh-tip{display:block}
         .gh-cards{display:grid;align-items:start;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:14px}
-        .gh-card{border:1px solid var(--line);border-radius:14px;background:var(--panel);padding:14px}.gh-card.wide{grid-column:1/-1}
+        .gh-card{border:1px solid var(--line);border-radius:var(--r-l);background:var(--panel);padding:14px}.gh-card.wide{grid-column:1/-1}
         .gh-card h4{margin:0 0 10px;font-size:14px}
-        .gh-f{display:block;margin-bottom:8px}.gh-f span{display:block;font-size:11.5px;color:var(--muted);font-weight:600;margin-bottom:3px}
+        .gh-f{display:block;margin-bottom:8px}.gh-f span{display:block;font-size:12px;color:var(--muted);font-weight:600;margin-bottom:3px}
         .gh-row{display:flex;gap:6px;margin-bottom:6px;align-items:center}.gh-row .inp{min-width:0;padding:6px 8px;height:32px}
-        .gh-x{width:26px;height:26px;border-radius:7px;color:var(--faint);flex:none}.gh-x:hover{background:var(--hover);color:var(--danger)}
-        .gh-add{font-size:12.5px;color:var(--accent);font-weight:600;padding:4px 2px}
-        .gh-hint{font-size:11.5px;color:var(--muted);margin:6px 0 0}
+        .gh-x{width:26px;height:26px;border-radius:var(--r-s);color:var(--faint);flex:none}.gh-x:hover{background:var(--hover);color:var(--danger)}
+        .gh-add{font-size:13px;color:var(--accent);font-weight:600;padding:4px 2px}
+        .gh-hint{font-size:12px;color:var(--muted);margin:6px 0 0}
         @media (max-width:700px){.gh-year{grid-template-columns:repeat(6,1fr)}}
       `;
       document.head.appendChild(st);
@@ -288,7 +288,7 @@ Cadence.registerPlugin({
       el.querySelectorAll('[data-fimg]').forEach(i => i.onchange = () => { const f = i.files[0]; if (!f) return; const img = new Image(), r = new FileReader(); r.onload = () => { img.onload = () => { const k = Math.min(1, 640 / Math.max(img.width, img.height)), c = document.createElement('canvas'); c.width = img.width * k; c.height = img.height * k; c.getContext('2d').drawImage(img, 0, 0, c.width, c.height); addFile(i.dataset.fimg, { type: 'img', url: c.toDataURL('image/jpeg', .72), name: f.name.slice(0, 60) }); }; img.src = r.result; }; r.readAsDataURL(f); });
       el.querySelectorAll('[data-fdel]').forEach(b => b.onclick = e => { e.preventDefault(); const [gh, i] = b.dataset.fdel.split(':'), q = prof(); q.files[gh] = (q.files[gh] || []).filter((_, j) => j !== +i); saveProf(q); api.ui.refresh(); });
     }
-    api.views.add({ id: 'house', title: 'My home', icon: '🏡', subtitle: 'Maintenance on autopilot, and every detail about the house in one place.', render: el => view(el) });
+    api.views.add({ id: 'house', title: 'My home', icon: '🏡', subtitle: 'Maintenance and every detail about the house', render: el => view(el) });
     api.commands.add({ title: 'Set up home maintenance', hint: 'Good Homeowner', run: () => wizard() });
     api.widgets.add({ id: 'month', title: 'This month at home', icon: '🏡', size: 'm', spaces: ['life'], description: 'Home maintenance due this month.', render: el => {
       const t = new Date(), end = api.util.ymd(new Date(t.getFullYear(), t.getMonth() + 1, 0));

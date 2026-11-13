@@ -47,7 +47,7 @@
       css('rl-css', `.rl{position:relative;display:flex;flex-direction:column;align-items:center;gap:12px}.rl-w{filter:drop-shadow(0 10px 24px rgba(0,0,0,.2))}
         .rl-g{transform-origin:160px 160px}.rl-t{font:600 10.5px Inter,system-ui;fill:#fff}
         .rl-ptr{position:absolute;top:-4px;left:50%;margin-left:-11px;width:0;height:0;border:11px solid transparent;border-top:20px solid var(--text);z-index:2}
-        .rl-res{text-align:center;font-size:13px;color:var(--muted);min-height:54px}.rl-res small{display:block;text-transform:uppercase;letter-spacing:.1em;font-size:10.5px;font-weight:700}.rl-res b{display:block;font-size:18px;color:var(--text);margin:2px 0}`);
+        .rl-res{text-align:center;font-size:13px;color:var(--muted);min-height:54px}.rl-res small{display:block;text-transform:uppercase;letter-spacing:.1em;font-size:11px;font-weight:700}.rl-res b{display:block;font-size:18px;color:var(--text);margin:2px 0}`);
     },
   });
 
@@ -85,9 +85,9 @@
       window.__rival = { rival, mine };
       api.sidebar.add({ id: 'rival', slot: 'bottom', order: 23, title: 'Rival', render: draw });
       api.widgets.add({ id: 'rival', title: 'Rival', icon: 'swords', size: 's', description: 'You vs your imaginary rival, today.', render: draw });
-      css('rv-css', `.rv{font-size:12.5px;display:flex;flex-direction:column;gap:6px;padding:4px 2px}.rv-r{display:grid;grid-template-columns:60px 1fr 24px;gap:8px;align-items:center}
+      css('rv-css', `.rv{font-size:13px;display:flex;flex-direction:column;gap:6px;padding:4px 2px}.rv-r{display:grid;grid-template-columns:60px 1fr 24px;gap:8px;align-items:center}
         .rv-r i{height:8px;border-radius:999px;background:var(--hover);overflow:hidden}.rv-r b{display:block;height:100%;border-radius:999px;background:var(--accent);transition:width .5s}
-        .rv-r.them b{background:#64748b}.rv-r em{font-style:normal;font-weight:700;text-align:right}.rv-n{cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.rv-s{color:var(--muted);font-size:11.5px}`);
+        .rv-r.them b{background:#64748b}.rv-r em{font-style:normal;font-weight:700;text-align:right}.rv-n{cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.rv-s{color:var(--muted);font-size:12px}`);
     },
   });
 
@@ -143,11 +143,11 @@
           api.ui.close(); start(null, { title, nodes }); };
       }
       window.__quests = { start, all };
-      api.views.add({ id: 'quests', title: 'Quests', icon: '🗺️', subtitle: 'Goals as a skill tree. Finish a step, the next ones unlock as tasks.', wide: true, render: view });
-      css('qs-css', `.qs{border:1px solid var(--line);border-radius:14px;padding:12px 14px;margin-bottom:14px;background:var(--panel)}.qs header{display:flex;align-items:center;gap:10px;margin-bottom:8px}.qs header span{color:var(--muted);font-size:12px}
+      api.views.add({ id: 'quests', title: 'Quests', icon: '🗺️', subtitle: 'Goals as a skill tree', wide: true, render: view });
+      css('qs-css', `.qs{border:1px solid var(--line);border-radius:var(--r-l);padding:12px 14px;margin-bottom:14px;background:var(--panel)}.qs header{display:flex;align-items:center;gap:10px;margin-bottom:8px}.qs header span{color:var(--muted);font-size:12px}
         .qbar{flex:1;height:6px;border-radius:999px;background:var(--hover);overflow:hidden;max-width:240px}.qbar b{display:block;height:100%;background:#8b5cf6;border-radius:999px}
         .qscroll{overflow-x:auto;padding:6px 0}.qt{position:relative}.qt>svg{position:absolute;inset:0}.qt path{fill:none;stroke:var(--line);stroke-width:2}.qt path.on{stroke:#8b5cf6}
-        .qn{position:absolute;width:148px;height:48px;display:flex;align-items:center;gap:7px;padding:0 10px;border-radius:12px;border:1.5px solid var(--line);background:var(--bg);font-size:12px;line-height:1.25}
+        .qn{position:absolute;width:148px;height:48px;display:flex;align-items:center;gap:7px;padding:0 10px;border-radius:var(--r-l);border:1.5px solid var(--line);background:var(--bg);font-size:12px;line-height:1.25}
         .qn span{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}.qn svg{width:15px;height:15px;flex:none}
         .qn.done{border-color:#8b5cf6;background:color-mix(in srgb,#8b5cf6 12%,var(--bg))}.qn.done svg{color:#8b5cf6}
         .qn.open{border-color:#f59e0b;box-shadow:0 0 0 3px color-mix(in srgb,#f59e0b 20%,transparent)}.qn.open svg{color:#f59e0b}.qn.locked{opacity:.55}
@@ -173,8 +173,8 @@
         el.innerHTML = `${a == null ? `<div class="bk-setup"><b>When were you born?</b> It’s only used here, to work out the years each item has left. <input class="inp" id="bk-born" type="number" min="1920" max="2020" placeholder="1988" style="width:110px"> <button class="btn primary" id="bk-save">Save</button></div>`
           : `<div class="bk-life"><div class="bk-grid">${Array.from({ length: Math.ceil(total / 52) }, (_, y) => `<i class="${y * 52 < weeks ? (y * 52 + 52 <= weeks ? 'past' : 'now') : ''}"></i>`).join('')}</div>
             <div class="bk-txt"><b>${Math.max(0, total - weeks).toLocaleString()}</b> weeks left, if you’re average (expectancy ${c.expect}). <button class="btn ghost" id="bk-edit">Change</button></div></div>`}
-          <div class="bk-add"><input class="inp" id="bk-t" placeholder="Something you want to do before you die"><select class="inp" id="bk-p">${Object.entries(LIMIT).reverse().map(([k, [l]]) => `<option value="${k}">${l}</option>`).join('')}</select><input class="inp" id="bk-by" type="number" min="1" max="120" placeholder="By age (optional)" style="width:150px"><button class="btn primary" id="bk-go">Add</button></div>
-          <div class="bk-list">${list.map(it => { const y = yearsLeft(it); return `<div class="bk-it ${it.done ? 'done' : ''} ${y != null && y < 5 && !it.done ? 'hot' : ''}"><button class="bk-chk" data-bk="${esc(it.id)}">${it.done ? api.ui.icon('check') : ''}</button><div><b>${esc(it.t)}</b><span>${LIMIT[it.phys || 1][0]}${it.by ? ' · by ' + it.by : ''}</span></div><em>${it.done ? 'Lived' : y == null ? '' : y < 1 ? 'Now or never' : Math.floor(y) + ' good years left'}</em><button class="bk-x" data-bkx="${esc(it.id)}" title="Remove">${api.ui.icon('x')}</button></div>`; }).join('') || '<div class="muted" style="padding:16px 0">Nothing yet. What would you regret never doing?</div>'}</div>`;
+          <div class="bk-add"><input class="inp" id="bk-t" placeholder="Something you want to do someday"><select class="inp" id="bk-p">${Object.entries(LIMIT).reverse().map(([k, [l]]) => `<option value="${k}">${l}</option>`).join('')}</select><input class="inp" id="bk-by" type="number" min="1" max="120" placeholder="By age (optional)" style="width:150px"><button class="btn primary" id="bk-go">Add</button></div>
+          <div class="bk-list">${list.map(it => { const y = yearsLeft(it); return `<div class="bk-it ${it.done ? 'done' : ''} ${y != null && y < 5 && !it.done ? 'hot' : ''}"><button class="bk-chk" data-bk="${esc(it.id)}">${it.done ? api.ui.icon('check') : ''}</button><div><b>${esc(it.t)}</b><span>${LIMIT[it.phys || 1][0]}${it.by ? ' · by ' + it.by : ''}</span></div><em>${it.done ? 'Lived' : y == null ? '' : y < 1 ? 'Now or never' : Math.floor(y) + ' good years left'}</em><button class="bk-x" data-bkx="${esc(it.id)}" title="Remove">${api.ui.icon('x')}</button></div>`; }).join('') || '<div class="empty sm"><b>Nothing on the list yet</b>Add the first thing above.</div>'}</div>`;
         const $ = id => el.querySelector('#' + id);
         $('bk-save') && ($('bk-save').onclick = () => { const b = +$('bk-born').value; if (b > 1900) { api.storage.set('cfg', { ...cfg(), born: b }); api.ui.refresh(); } });
         $('bk-edit') && ($('bk-edit').onclick = () => { api.ui.ask('Your numbers', [{ k: 'b', label: 'Birth year', type: 'number', def: c.born, min: 1900, max: 2025 }, { k: 'e', label: 'Life expectancy to plan around', type: 'number', def: c.expect, min: 50, max: 110 }]).then(v => { if (!v) return; api.storage.set('cfg', { born: v.b || c.born, expect: Math.max(50, Math.min(110, v.e || c.expect)) }); api.ui.refresh(); }); });
@@ -183,8 +183,8 @@
         el.querySelectorAll('[data-bk]').forEach(b => b.onclick = () => { api.storage.set('items', items().map(x => x.id === b.dataset.bk ? { ...x, done: !x.done, at: Date.now() } : x)); if (!items().find(x => x.id === b.dataset.bk).done) {} api.ui.refresh(); });
         el.querySelectorAll('[data-bkx]').forEach(b => b.onclick = () => { api.storage.set('items', items().filter(x => x.id !== b.dataset.bkx)); api.ui.refresh(); });
       }
-      api.views.add({ id: 'bucket', title: 'Bucket list', icon: '💀', subtitle: 'Sorted by how many good years each one has left', render: view });
-      css('bk-css', `.bk-setup{padding:14px;border:1px dashed var(--line);border-radius:12px;margin-bottom:14px;font-size:13px}
+      api.views.add({ id: 'bucket', title: 'Bucket list', icon: '💀', subtitle: 'Things to do someday', render: view });
+      css('bk-css', `.bk-setup{padding:14px;border:1px dashed var(--line);border-radius:var(--r-l);margin-bottom:14px;font-size:13px}
         .bk-life{display:flex;gap:16px;align-items:center;margin-bottom:16px}.bk-grid{display:grid;grid-template-columns:repeat(15,8px);gap:3px}.bk-grid i{width:8px;height:8px;border-radius:2px;background:var(--hover)}.bk-grid i.past{background:color-mix(in srgb,var(--text) 55%,transparent)}.bk-grid i.now{background:#e5484d}
         .bk-txt{font-size:13px;color:var(--muted)}.bk-txt b{display:block;font:900 34px/1 ui-rounded,system-ui;color:var(--text)}
         .bk-add{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap}.bk-add #bk-t{flex:1;min-width:220px}.bk-add select{width:auto}

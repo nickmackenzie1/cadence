@@ -75,7 +75,7 @@
       window.__partner = { remind, nextOcc };
       api.views.add({ id: 'partner', title: 'Partner', icon: '❤️', subtitle: 'Mental load, date night, gift ideas, weekly check-in', render: view });
       api.commands.add({ title: 'Save a gift idea', run: () => { api.storage.set('tab', 'gifts'); api.ui.navigate('view-partner'); setTimeout(() => document.getElementById('pt-gift') && document.getElementById('pt-gift').focus(), 100); } });
-      K.css('pt-css', `.pt-agenda{display:grid;grid-template-columns:1fr 1fr;gap:8px}.pt-agenda label{font-size:12.5px;color:var(--muted);display:flex;flex-direction:column;gap:4px}`);
+      K.css('pt-css', `.pt-agenda{display:grid;grid-template-columns:1fr 1fr;gap:8px}.pt-agenda label{font-size:13px;color:var(--muted);display:flex;flex-direction:column;gap:4px}`);
     },
   });
 
@@ -102,7 +102,7 @@
       }
       function binder() {
         const b = Object.assign({ contacts: '', papers: '', accounts: '', steps: '' }, api.storage.get('binder') || {});
-        return K.card('Emergency binder', `<p class="muted" style="font-size:12.5px;margin:0 0 8px">What someone would need if one of you is out of commission. Don’t put passwords here; say where they’re kept.</p>
+        return K.card('Emergency binder', `<p class="muted" style="font-size:13px;margin:0 0 8px">What someone would need if one of you is out of commission. Don’t put passwords here; say where they’re kept.</p>
           ${[['contacts', 'Who to call (doctor, lawyer, accountant, employer, neighbours)'], ['papers', 'Where the papers are (will, insurance, deeds, birth certificates)'], ['accounts', 'Accounts and bills (bank, utilities, where passwords are kept)'], ['steps', 'What to do first']].map(([k, l]) => `<div class="field"><label>${esc(l)}</label><textarea class="inp" data-bd="${k}" rows="3">${esc(b[k])}</textarea></div>`).join('')}
           <div class="lk-top"><button class="btn primary" id="hh-bsave">Save</button><button class="btn" id="hh-bprint">Print it</button></div>`);
       }
@@ -145,7 +145,7 @@
         const mt = api.tasks.list(x => x.lk && x.lk.startsWith('self:') && !x.done);
         el.innerHTML = K.tabs([['maint', 'Maintenance'], ['friends', 'Friends'], ['solo', 'Solo time']], t) + (t === 'maint' ? K.card('Keep yourself serviced', MAINT.map(([n, mo]) => { const x = mt.find(y => y.lk === 'self:' + n); return `<div class="lk-row"><span class="grow">${esc(n)}</span><em>every ${mo < 2 ? Math.round(mo * 4.3) + ' weeks' : mo + ' months'}</em>${x ? `<em>next ${esc(api.util.fmtDate(x.dueDate))}</em><button class="lk-btn" data-moff="${esc(n)}">Stop</button>` : `<button class="lk-btn" data-mon="${esc(n)}">Track</button>`}</div>`; }).join(''))
           : t === 'friends' ? `<div class="lk-top"><button class="lk-btn" id="yf-add">Add a friend</button></div>` + K.card('Friendship keeper', fr.map(f => { const d = due(f); return `<div class="lk-row"><span class="grow"><b>${esc(f.name)}</b> <span class="muted">every ${f.every} weeks</span></span><em class="${d < 0 ? 'hot' : d < 7 ? 'soon' : ''}">${f.last ? 'last seen ' + esc(api.util.fmtDate(f.last)) : 'not seen yet'}</em><button class="lk-btn" data-seen="${esc(f.id)}">Saw them</button><button class="lk-x" data-fdel="${esc(f.id)}">${api.ui.icon('x')}</button></div>`; }).join('') || K.empty('Who do you want to see more often?'))
-          : K.card('Protected solo time', `<p class="muted" style="font-size:12.5px;margin:0 0 8px">A block of alone time each week, alternating between the two of you.</p><div class="lk-row"><span class="grow">${esc(solo.a)} and ${esc(solo.b)}, on ${['Sundays', 'Mondays', 'Tuesdays', 'Wednesdays', 'Thursdays', 'Fridays', 'Saturdays'][solo.day]}</span><button class="lk-btn" id="ys-set">${solo.on ? 'Change' : 'Set it up'}</button></div>${solo.on ? `<div class="lk-row"><span class="grow">This week it’s <b>${esc(soloWho(solo))}</b>’s turn</span></div>` : ''}`));
+          : K.card('Protected solo time', `<p class="muted" style="font-size:13px;margin:0 0 8px">A block of alone time each week, alternating between the two of you.</p><div class="lk-row"><span class="grow">${esc(solo.a)} and ${esc(solo.b)}, on ${['Sundays', 'Mondays', 'Tuesdays', 'Wednesdays', 'Thursdays', 'Fridays', 'Saturdays'][solo.day]}</span><button class="lk-btn" id="ys-set">${solo.on ? 'Change' : 'Set it up'}</button></div>${solo.on ? `<div class="lk-row"><span class="grow">This week it’s <b>${esc(soloWho(solo))}</b>’s turn</span></div>` : ''}`));
         const all = q => el.querySelectorAll(q), $ = q => el.querySelector(q);
         all('[data-tab]').forEach(b => b.onclick = () => { api.storage.set('tab', b.dataset.tab); api.ui.refresh(); });
         all('[data-mon]').forEach(b => b.onclick = () => { const [n, mo] = MAINT.find(m => m[0] === b.dataset.mon); form(api, n, [{ k: 'last', label: 'When was the last one? (roughly)', type: 'date' }], null, v => { const next = v.last ? addDays(v.last, Math.round(mo * 30.4)) : today();

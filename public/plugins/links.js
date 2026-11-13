@@ -6,17 +6,17 @@
     G.style = document.createElement('style');
     G.style.textContent = `
       .cl-links{position:relative;display:flex;flex-wrap:wrap;gap:6px;margin-top:12px;align-items:center}
-      .cl-link{display:inline-flex;align-items:center;gap:7px;height:30px;padding:0 6px 0 9px;border-radius:9px;background:var(--panel);border:1px solid var(--line);color:var(--text);text-decoration:none;font-size:12.5px;font-weight:550;transition:border-color .15s,transform .1s,box-shadow .15s}
+      .cl-link{display:inline-flex;align-items:center;gap:7px;height:30px;padding:0 6px 0 9px;border-radius:var(--r-m);background:var(--panel);border:1px solid var(--line);color:var(--text);text-decoration:none;font-size:13px;font-weight:500;transition:border-color .15s,transform .1s,box-shadow .15s}
       .cl-link:hover{border-color:var(--faint);box-shadow:0 3px 10px rgba(0,0,0,.06)}
       .cl-link:active{transform:scale(.97)}
-      .cl-link .ico{width:18px;height:18px;border-radius:5px;display:grid;place-items:center;font:800 9.5px/1 ui-sans-serif,system-ui;color:#fff;flex:none;letter-spacing:-.02em}
+      .cl-link .ico{width:18px;height:18px;border-radius:var(--r-s);display:grid;place-items:center;font:800 9.5px/1 ui-sans-serif,system-ui;color:#fff;flex:none;letter-spacing:-.02em}
       .cl-link .ar{opacity:.4;font-size:11px;margin-right:2px}
-      .cl-link .x{width:18px;height:18px;border-radius:5px;display:none;place-items:center;color:var(--muted);font-size:13px}
+      .cl-link .x{width:18px;height:18px;border-radius:var(--r-s);display:none;place-items:center;color:var(--muted);font-size:13px}
       .cl-link:hover .x{display:grid}.cl-link .x:hover{background:var(--hover);color:var(--danger)}
       .cl-link:hover .ar{display:none}
-      .cl-add{height:30px;padding:0 10px;border-radius:9px;border:1px dashed var(--line);color:var(--muted);font-size:12.5px;font-weight:550;background:transparent;cursor:pointer}
+      .cl-add{height:30px;padding:0 10px;border-radius:var(--r-m);border:1px dashed var(--line);color:var(--muted);font-size:13px;font-weight:500;background:transparent;cursor:pointer}
       .cl-add:hover{border-color:var(--faint);color:var(--text)}
-      .cl-detect{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--muted);margin-top:6px;min-height:20px}
+      .cl-detect{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted);margin-top:6px;min-height:20px}
     `;
     document.head.appendChild(G.style);
   }
@@ -67,7 +67,7 @@
         let auto = !cur;
         const show = () => {
           const lines = urlIn.value.split(/\s*\n\s*/).filter(Boolean), d = lines.length === 1 ? detect(lines[0]) : null;
-          $('#lk-det').innerHTML = lines.length > 1 ? `${lines.length} links — labels detected automatically` : d ? `<span class="ico" style="width:18px;height:18px;border-radius:5px;display:inline-grid;place-items:center;background:${d.color};color:#fff;font:800 9.5px ui-sans-serif">${E(d.abbr)}</span> ${E(d.label)}${d.zoho ? ' · Zoho' : ''}` : '';
+          $('#lk-det').innerHTML = lines.length > 1 ? `${lines.length} links — labels detected automatically` : d ? `<span class="ico" style="width:18px;height:18px;border-radius:var(--r-s);display:inline-grid;place-items:center;background:${d.color};color:#fff;font:800 9.5px ui-sans-serif">${E(d.abbr)}</span> ${E(d.label)}${d.zoho ? ' · Zoho' : ''}` : '';
           if (auto && d) lab.value = d.label;
         };
         urlIn.addEventListener('input', show); lab.addEventListener('input', () => auto = false);

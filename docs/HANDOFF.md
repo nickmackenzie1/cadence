@@ -631,3 +631,17 @@ data, or peer-to-peer on the same LAN). Personal data and secrets stay on each p
 - Test: tests/radar.spec.mjs (simulated data via simulate.mjs into a temp DATA_DIR).
 - Lucide icons added: loader, thumbs-down, circle-check, circle, history.
 - Not done yet: ntfy alerts are wired in the user's code but untested here; no Navidrome link-up (backlog: music server).
+
+## Shipped 2026-11-13 ~06:30: design pass, sharpening not redefining (user: "sure", after "whats next")
+- Corners: one base `--r` (10px) and multiples `--r-s/-m/-l/-xl` (6/8/12/16). Every radius in core + plugins uses them
+  (themes*.js and havoc keep their own). The Themes corner slider now just sets `--r`; the old !important class list
+  is gone.
+- Type: no half-pixel sizes (9.5→10, 10.5→11, 11.5→12, 12.5/13.5→13, 14.5→15, 17→18, 19/21→20, 26→28); weights are
+  400/500/600/700 only. Script: the one-off normaliser lived in /tmp, regex over core.css, core.js, plugins (not themes).
+- Calm: "Overdue" is now "From earlier" everywhere (client/project/dev stats, dashboard, Pulse, Board column, Island,
+  prep, review "Carried over"); no red for unfinished work (closing block in core.css); top priority is warm orange,
+  not red. Haunted backlog is OFF by default (new data and demo) — existing setups keep their choice.
+- Empty states: `api.ui.empty(title, sub, icon, sm)` and LifeKit.empty both render the core `.empty` look.
+- View subtitles: one short phrase, no instructions, no trailing period.
+- Left alone, worth asking the user: Bucket list still sorts by "good years left" with life-in-weeks (its design);
+  Desk plant still droops with old tasks (text softened); Haunted still exists, opt-in.

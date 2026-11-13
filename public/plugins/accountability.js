@@ -87,7 +87,7 @@
         for (const t of api.tasks.list(x => x.stake && x.stake.status === 'live' && !x.done && x.dueDate && x.dueDate < t0)) {
           api.tasks.update(t.id, { stake: { ...t.stake, status: 'lost', lostAt: Date.now() } });
           api.notify({ title: `You owe ${money(t.stake.amount)} to ${t.stake.cause}`, body: `“${t.title}” missed its date`, taskId: t.id });
-          api.ui.modal('A deal’s a deal', `<p style="font-size:14px;margin:0 0 8px">“${esc(t.title)}” wasn’t done by ${esc(api.util.fmtDate(t.dueDate))}.</p><p style="font-size:22px;font-weight:800;margin:0 0 8px">You owe ${esc(money(t.stake.amount))} to ${esc(t.stake.cause)}.</p><p class="muted" style="font-size:12.5px;margin:0">Next time, stake less or plan more.</p>`,
+          api.ui.modal('A deal’s a deal', `<p style="font-size:14px;margin:0 0 8px">“${esc(t.title)}” wasn’t done by ${esc(api.util.fmtDate(t.dueDate))}.</p><p style="font-size:22px;font-weight:700;margin:0 0 8px">You owe ${esc(money(t.stake.amount))} to ${esc(t.stake.cause)}.</p><p class="muted" style="font-size:13px;margin:0">Next time, stake less or plan more.</p>`,
             `${t.stake.url ? `<a class="btn primary" href="${esc(t.stake.url)}" target="_blank" rel="noopener">Pay up</a>` : ''}<button class="btn" data-act="close-modal">I’ll pay</button>`);
           break;
         }
@@ -134,7 +134,7 @@
       api.commands.add({ title: 'Post my overdue list to Cliq', hint: 'Public ledger', run: () => post(true) });
       api.commands.add({ title: 'Copy my public ledger', run: () => { api.ui.copy(text()); api.ui.toast('Copied'); } });
       clearInterval(window.__lgIv); window.__lgIv = setInterval(tick, 5 * 60e3); setTimeout(tick, 15000);
-      css('lg-css', `.lg-pre{white-space:pre-wrap;background:var(--hover);border-radius:10px;padding:10px;font:12.5px/1.45 var(--mono,monospace);margin:6px 0 0}`);
+      css('lg-css', `.lg-pre{white-space:pre-wrap;background:var(--hover);border-radius:var(--r);padding:10px;font:12.5px/1.45 var(--mono,monospace);margin:6px 0 0}`);
     },
   });
 })();

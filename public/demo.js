@@ -72,7 +72,7 @@ window.CadenceDemo = (() => {
       momentum: { state: { xp, streak: 9, best: 14, lastDay: ymd(day(0)), ach: { first: now - 39 * 864e5, ten: now - 35 * 864e5, streak7: now - 2 * 864e5, crit: now - 20 * 864e5 }, sound: false, log, awarded: {}, crits: 11, loot: 3 } },
       calendar: { settings: { sample: true, lead: 10 } }
     };
-    return { v: 1, demo: true, clients, tasks, meetings, settings: { myName: 'Alex', theme: 'light', remindLead: 10 }, disabled: [], userPlugins: [], pluginData, activeMeeting: null, fixPrep: 1, updatedAt: now };
+    return { v: 1, demo: true, clients, tasks, meetings, settings: { myName: 'Alex', theme: 'light', remindLead: 10 }, disabled: ['haunted'], userPlugins: [], pluginData, activeMeeting: null, fixPrep: 1, updatedAt: now };
   }
   return { build };
 })();

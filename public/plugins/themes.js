@@ -53,7 +53,7 @@
     const FONTS = { sans: 'Inter, system-ui, sans-serif', serif: '"Iowan Old Style", "Palatino Linotype", Georgia, serif', mono: '"JetBrains Mono", ui-monospace, monospace', system: 'system-ui, -apple-system, "Segoe UI", sans-serif', rounded: 'ui-rounded, "SF Pro Rounded", "Nunito", system-ui, sans-serif' };
     let rules = '';
     if (c.font && FONTS[c.font]) rules += `body,button,input,textarea,select{font-family:${FONTS[c.font]}!important}`;
-    if (c.radius != null) rules += `.btn,.inp,.qa,.gl,.stat,.task,.modal,.pl-card,.th-card,.pop,.toast,.nav a,.drawer,.c-hero,.isl-pill{border-radius:${c.radius}px!important}`;
+    // corners: --r is the base; every radius in the app is a multiple of it (core.css --r-s/-m/-l/-xl)
     if (rules) { if (!fo) { fo = document.createElement('style'); fo.id = 'cadence-skin-custom'; document.head.appendChild(fo); } fo.textContent = rules; }
     else if (fo) fo.remove();
   }
@@ -193,7 +193,7 @@
         `;
         document.head.appendChild(s);
       }
-      api.views.add({ id: 'themes', title: 'Themes', icon: '◐', subtitle: 'Pick a look. Everything, plugins included, follows it, and it syncs to all your devices.', render: el => gallery(el) });
+      api.views.add({ id: 'themes', title: 'Themes', icon: '◐', subtitle: 'One look for the whole app, on every device', render: el => gallery(el) });
       api.commands.add({ title: 'Theme gallery', hint: 'Look & feel', run: () => api.ui.navigate('view-themes') });
       api.commands.add({ title: 'Next theme', run: () => { const l = [...T.keys()]; const id = l[(l.indexOf(current) + 1) % l.length]; window.CadenceThemes.apply(id); api.island.show({ icon: '◐', title: T.get(id).name, sub: T.get(id).tagline || '', ms: 2200 }); } });
       for (const t of T.values()) api.commands.add({ title: `Theme: ${t.name}`, run: () => window.CadenceThemes.apply(t.id) });

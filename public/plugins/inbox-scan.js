@@ -75,12 +75,12 @@
         el.querySelector('#is-go').onclick = () => { const raw = el.querySelector('#is-t').value; if (!raw.trim()) return; const mail = /^[\w-]+:\s.+\n(?:[\w-]+:.*\n|\s.+\n)*\n/m.test(raw.slice(0, 2000)) && /^(from|subject|date|received|return-path):/im.test(raw.slice(0, 400)) ? parseEml(raw) : { subject: el.querySelector('#is-s').value.trim(), from: '', body: raw }; go(mail); };
         const ta = el.querySelector('#is-t'); ta.addEventListener('dragover', e => e.preventDefault()); ta.addEventListener('drop', async e => { const f = e.dataTransfer.files[0]; if (!f) return; e.preventDefault(); go(parseEml(await f.text())); });
       }
-      api.views.add({ id: 'scan', title: 'Inbox scanner', icon: '📥', subtitle: 'Paste a school, sports or program email. Get the recap, the to-dos and the dates.', render: view });
+      api.views.add({ id: 'scan', title: 'Inbox scanner', icon: '📥', subtitle: 'School, sports and program emails into to-dos and dates', render: view });
       api.commands.add({ title: 'Scan an email', hint: 'Recap, action items, dates', run: () => api.ui.navigate('view-scan') });
-      css('is-css', `.is-in{display:flex;flex-direction:column;gap:8px;margin-bottom:14px}.is-res{border:1px solid var(--line);border-radius:14px;padding:14px;background:var(--panel);margin-bottom:16px}
-        .is-h{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.is-h b{font-size:15px}.is-h em{font-style:normal;color:var(--muted);font-size:12.5px}
-        .is-cat{font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;background:color-mix(in srgb,#2563eb 14%,transparent);color:#2563eb;border-radius:999px;padding:2px 8px}
-        .is-recap{font-size:14px;line-height:1.5;margin:10px 0}.is-it{display:flex;gap:10px;align-items:flex-start;padding:7px 0;border-bottom:1px solid var(--line);font-size:13.5px;cursor:pointer}.is-it span{flex:1}.is-it em{font-style:normal;font-size:12px;color:var(--accent);white-space:nowrap}
+      css('is-css', `.is-in{display:flex;flex-direction:column;gap:8px;margin-bottom:14px}.is-res{border:1px solid var(--line);border-radius:var(--r-l);padding:14px;background:var(--panel);margin-bottom:16px}
+        .is-h{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.is-h b{font-size:15px}.is-h em{font-style:normal;color:var(--muted);font-size:13px}
+        .is-cat{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;background:color-mix(in srgb,#2563eb 14%,transparent);color:#2563eb;border-radius:999px;padding:2px 8px}
+        .is-recap{font-size:14px;line-height:1.5;margin:10px 0}.is-it{display:flex;gap:10px;align-items:flex-start;padding:7px 0;border-bottom:1px solid var(--line);font-size:13px;cursor:pointer}.is-it span{flex:1}.is-it em{font-style:normal;font-size:12px;color:var(--accent);white-space:nowrap}
         .is-go{display:flex;align-items:center;gap:10px;margin-top:12px}.is-hist{display:flex;gap:8px;align-items:center;font-size:13px;padding:6px 0;border-bottom:1px solid var(--line)}.is-hist em{margin-left:auto;font-style:normal;color:var(--muted);font-size:12px}`);
     },
   });

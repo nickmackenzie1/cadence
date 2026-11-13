@@ -7,7 +7,7 @@
     G.style.textContent = `
       .st-boot{position:fixed;right:18px;bottom:18px;z-index:90;cursor:pointer;transition:opacity .4s, transform .4s}
       .st-boot.out{opacity:0;transform:translateY(8px);pointer-events:none}
-      .st-term{width:300px;border-radius:14px;background:rgba(18,17,25,.92);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);color:#d9d6e8;box-shadow:0 18px 50px rgba(0,0,0,.28),inset 0 0 0 1px rgba(255,255,255,.07);padding:12px 14px 11px;font:11.5px/1.7 "JetBrains Mono",ui-monospace,monospace;animation:stin .45s cubic-bezier(.2,1.3,.4,1);overflow:hidden;transition:width .45s cubic-bezier(.2,.9,.2,1), padding .45s, border-radius .45s}
+      .st-term{width:300px;border-radius:var(--r-l);background:rgba(18,17,25,.92);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);color:#d9d6e8;box-shadow:0 18px 50px rgba(0,0,0,.28),inset 0 0 0 1px rgba(255,255,255,.07);padding:12px 14px 11px;font:11.5px/1.7 "JetBrains Mono",ui-monospace,monospace;animation:stin .45s cubic-bezier(.2,1.3,.4,1);overflow:hidden;transition:width .45s cubic-bezier(.2,.9,.2,1), padding .45s, border-radius .45s}
       @keyframes stin{from{opacity:0;transform:translateX(24px) scale(.96)}}
       .st-term .st-lines{max-height:160px;transition:max-height .45s, opacity .3s}
       .st-boot.mini .st-term{width:118px;padding:8px 12px;border-radius:999px}
@@ -15,7 +15,7 @@
       .st-boot.mini .hd{margin:0}
       .st-boot.mini .hd b{color:#4cc38a}
       .st-term .hd{display:flex;align-items:center;gap:9px;margin-bottom:7px;font:700 12px/1 ui-sans-serif,system-ui;color:#fff;letter-spacing:.02em;white-space:nowrap;transition:margin .4s}
-      .st-term .hd i{flex:none;width:18px;height:18px;border-radius:7px;background:conic-gradient(from 210deg,#5b5bd6,#b06bd6,#ff7a8a,#5b5bd6);position:relative}
+      .st-term .hd i{flex:none;width:18px;height:18px;border-radius:var(--r-s);background:conic-gradient(from 210deg,#5b5bd6,#b06bd6,#ff7a8a,#5b5bd6);position:relative}
       .st-term .hd i:after{content:"";position:absolute;inset:5px;border-radius:50%;background:#121119}
       .st-term .hd span{margin-left:auto;font:500 11px/1 "JetBrains Mono",monospace;color:#7d7a90}
       .st-line{display:flex;gap:10px;opacity:0;transform:translateX(-6px);transition:opacity .2s,transform .2s}
@@ -25,9 +25,9 @@
       .st-line .v.ok{color:#4cc38a}.st-line .v.warn{color:#e5a24a}.st-line .v.off{color:#7d7a90}
       .st-spin{display:inline-block;width:10px;height:10px;border:1.5px solid #7d7a90;border-top-color:#b28cff;border-radius:50%;animation:stsp .7s linear infinite;vertical-align:-1px}
       @keyframes stsp{to{transform:rotate(360deg)}}
-      .st-prog{height:2px;border-radius:9px;background:rgba(255,255,255,.07);margin-top:8px;overflow:hidden;transition:opacity .3s}
+      .st-prog{height:2px;border-radius:var(--r-m);background:rgba(255,255,255,.07);margin-top:8px;overflow:hidden;transition:opacity .3s}
       .st-prog i{display:block;height:100%;width:0;background:linear-gradient(90deg,#5b5bd6,#b06bd6,#ff7a8a);transition:width .3s}
-      .st-card{border-radius:12px;border:1px solid var(--line);background:var(--panel);padding:8px 10px;font-size:12px;cursor:pointer;transition:box-shadow .2s}
+      .st-card{border-radius:var(--r-l);border:1px solid var(--line);background:var(--panel);padding:8px 10px;font-size:12px;cursor:pointer;transition:box-shadow .2s}
       .st-card:hover{box-shadow:0 4px 14px rgba(0,0,0,.06)}
       .st-row{display:flex;align-items:center;gap:8px;height:22px}
       .st-row .lbl{color:var(--muted);width:34px;font-weight:600;font-size:11px;letter-spacing:.04em}
@@ -38,10 +38,10 @@
       @keyframes stping{from{transform:scale(.4);opacity:1}to{transform:scale(1.6);opacity:0}}
       .st-spark{width:56px;height:16px;flex:none}
       .st-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
-      .st-tile{background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:10px 12px}
+      .st-tile{background:var(--bg);border:1px solid var(--line);border-radius:var(--r-l);padding:10px 12px}
       .st-tile .v{font:700 17px/1.2 ui-sans-serif,system-ui;font-variant-numeric:tabular-nums}
       .st-tile .l{font-size:11px;color:var(--muted);margin-top:2px}
-      .st-log{font:11.5px/1.7 "JetBrains Mono",ui-monospace,monospace;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:8px 10px;max-height:220px;overflow:auto}
+      .st-log{font:11.5px/1.7 "JetBrains Mono",ui-monospace,monospace;background:var(--bg);border:1px solid var(--line);border-radius:var(--r);padding:8px 10px;max-height:220px;overflow:auto}
       .st-log div{display:flex;gap:10px}.st-log span{color:var(--muted)}
     `;
     document.head.appendChild(G.style);

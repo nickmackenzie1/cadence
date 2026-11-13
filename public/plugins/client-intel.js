@@ -110,20 +110,20 @@ Return JSON: {"what": "2 sentences on what they do and for whom", "glance": {"si
     if (!document.getElementById('ci-css')) { const st = document.createElement('style'); st.id = 'ci-css'; st.textContent = `
       .ci{display:grid;grid-template-columns:1.25fr 1fr;gap:14px;margin:22px 0}
       @media (max-width:1000px){.ci{grid-template-columns:1fr}}
-      .ci-card{border:1px solid var(--line);border-radius:16px;background:var(--panel);padding:14px 16px;min-width:0}
+      .ci-card{border:1px solid var(--line);border-radius:var(--r-xl);background:var(--panel);padding:14px 16px;min-width:0}
       .ci-top{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px}.ci-top b{font-size:14px}.ci-top span{display:flex;gap:2px}
-      .ci-ban{height:28px;max-width:120px;object-fit:cover;border-radius:6px;opacity:.9}
+      .ci-ban{height:28px;max-width:120px;object-fit:cover;border-radius:var(--r-s);opacity:.9}
       .ci-what{font-size:14px;line-height:1.55;margin-bottom:10px}
       .ci-glance{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}.ci-glance span{font-size:12px;padding:3px 9px;border-radius:999px;background:var(--hover)}.ci-glance em{font-style:normal;color:var(--muted);margin-right:5px}.ci-glance .pr{background:var(--accent-soft);color:var(--accent);font-weight:600}
-      .ci-h{display:flex;align-items:center;gap:6px;font-size:11.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);margin:10px 0 4px}
-      .ci ul{margin:0;padding-left:18px;font-size:13.5px;line-height:1.55}.ci-talk li::marker{color:var(--accent)}.ci-watch li::marker{color:var(--danger)}
+      .ci-h{display:flex;align-items:center;gap:6px;font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);margin:10px 0 4px}
+      .ci ul{margin:0;padding-left:18px;font-size:13px;line-height:1.55}.ci-talk li::marker{color:var(--accent)}.ci-watch li::marker{color:var(--danger)}
       .ci-people{display:flex;flex-wrap:wrap;gap:6px 12px;font-size:13px}.ci-people span{color:var(--muted)}.ci-people b{color:var(--text);font-weight:600}
       .ci-foot{display:flex;align-items:center;gap:10px;margin-top:12px;font-size:12px;color:var(--faint)}.ci-pal{display:flex;gap:3px}.ci-pal i{width:12px;height:12px;border-radius:3px}
-      .ci-link{font-size:12px;color:var(--muted);padding:3px 6px;border-radius:6px}.ci-link:hover{background:var(--hover);color:var(--text)}.ci-foot .ci-link{margin-left:auto}
-      .ci-empty p{margin:0 0 10px;color:var(--muted);font-size:13.5px;line-height:1.5}
+      .ci-link{font-size:12px;color:var(--muted);padding:3px 6px;border-radius:var(--r-s)}.ci-link:hover{background:var(--hover);color:var(--text)}.ci-foot .ci-link{margin-left:auto}
+      .ci-empty p{margin:0 0 10px;color:var(--muted);font-size:13px;line-height:1.5}
       .ci-list{display:flex;flex-direction:column}
-      .ci-item{display:flex;flex-direction:column;gap:2px;padding:7px 4px;border-radius:8px;text-decoration:none;color:var(--text)}.ci-item+.ci-item{border-top:1px solid var(--line)}.ci-item:hover{background:var(--hover)}
-      .ci-item span{font-size:13.5px;line-height:1.4}.ci-item em{font-style:normal;font-size:11.5px;color:var(--faint)}
+      .ci-item{display:flex;flex-direction:column;gap:2px;padding:7px 4px;border-radius:var(--r-m);text-decoration:none;color:var(--text)}.ci-item+.ci-item{border-top:1px solid var(--line)}.ci-item:hover{background:var(--hover)}
+      .ci-item span{font-size:13px;line-height:1.4}.ci-item em{font-style:normal;font-size:12px;color:var(--faint)}
     `; document.head.appendChild(st); }
   }
 });

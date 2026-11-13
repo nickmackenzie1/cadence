@@ -9,10 +9,10 @@
     G.style.textContent = `
       .cal-strip{margin:0 0 22px}
       .cal-h{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:600;color:var(--muted);padding:0 4px 9px}
-      .cal-h button{margin-left:auto;font-size:12px;color:var(--muted);font-weight:500;padding:2px 6px;border-radius:6px}
+      .cal-h button{margin-left:auto;font-size:12px;color:var(--muted);font-weight:500;padding:2px 6px;border-radius:var(--r-s)}
       .cal-h button:hover{background:var(--hover);color:var(--text)}
       .cal-row{display:flex;gap:8px;overflow-x:auto;padding:2px 2px 6px;scrollbar-width:thin}
-      .cal-ev{flex:none;display:flex;align-items:center;gap:10px;min-width:210px;max-width:290px;padding:9px 12px 9px 10px;border-radius:12px;background:var(--panel);border:1px solid var(--line);cursor:pointer;position:relative;overflow:hidden;transition:transform .15s,box-shadow .2s}
+      .cal-ev{flex:none;display:flex;align-items:center;gap:10px;min-width:210px;max-width:290px;padding:9px 12px 9px 10px;border-radius:var(--r-l);background:var(--panel);border:1px solid var(--line);cursor:pointer;position:relative;overflow:hidden;transition:transform .15s,box-shadow .2s}
       .cal-ev:hover{transform:translateY(-1px);box-shadow:0 6px 16px rgba(0,0,0,.06)}
       .cal-ev:before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--cc,#5b5bd6)}
       .cal-ev.past{opacity:.5}
@@ -22,8 +22,8 @@
       .cal-ev .tm b{display:block;color:var(--text);font-size:13px}
       .cal-ev .tx{min-width:0;flex:1}
       .cal-ev .tx b{display:block;font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-      .cal-ev .tx span{display:block;font-size:11.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-      .cal-empty{font-size:12.5px;color:var(--muted);padding:6px 4px}
+      .cal-ev .tx span{display:block;font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+      .cal-empty{font-size:13px;color:var(--muted);padding:6px 4px}
       .cal-empty a{color:var(--accent);cursor:pointer}
       .cal-pop{min-width:300px;max-width:340px;padding:12px 14px}
       .cal-pop h4{margin:0 0 4px;font-size:14px}
@@ -31,7 +31,7 @@
       .cal-pop .att{display:flex;flex-wrap:wrap;gap:4px;margin:6px 0 10px}
       .cal-pop .att span{font-size:11px;padding:2px 7px;border-radius:999px;background:var(--hover);color:var(--muted)}
       .cal-pop .acts{display:flex;gap:6px;flex-wrap:wrap}
-      .cal-next{font-size:12.5px;color:var(--muted);margin-top:8px}
+      .cal-next{font-size:13px;color:var(--muted);margin-top:8px}
       .cal-next b{color:var(--text);font-weight:600}
       .cal-cfg{display:grid;grid-template-columns:14px 1fr auto auto;gap:10px;align-items:center;padding:8px 0;border-bottom:1px solid var(--line)}
       .cal-cfg i{width:12px;height:12px;border-radius:50%}
@@ -177,7 +177,7 @@
             <p class="muted" style="margin:0;font-size:13px">Paste a private iCal link. It’s stored only on your NAS — never synced, never sent to GitHub.<br>
             <b>Google:</b> Calendar settings → your calendar → Integrate calendar → “Secret address in iCal format”. <b>Outlook:</b> Settings → Calendar → Shared calendars → Publish → ICS link.</p>
             <div>${cals.map((c, i) => `<div class="cal-cfg"><i style="background:${E(c.color)}"></i><div><b style="font-size:13px">${E(c.name)}</b><div class="muted" style="font-size:11px">${E(c.host || 'new')}</div></div><input type="color" value="${E(c.color)}" data-col="${i}" style="width:28px;height:24px;border:0;background:none"><button class="btn ghost danger" data-del="${i}">✕</button></div>`).join('')}</div>
-            ${api.system().mode === 'nas' ? `<div class="field"><label>Add a calendar</label><div class="row"><input class="inp" id="cal-name" placeholder="Name (e.g. Work)" style="max-width:150px"><input class="inp" id="cal-url" placeholder="https://calendar.google.com/calendar/ical/…/basic.ics"></div></div>` : '<div class="muted" style="font-size:12.5px">Calendar links are read by your NAS — open Cadence there to connect one.</div>'}
+            ${api.system().mode === 'nas' ? `<div class="field"><label>Add a calendar</label><div class="row"><input class="inp" id="cal-name" placeholder="Name (e.g. Work)" style="max-width:150px"><input class="inp" id="cal-url" placeholder="https://calendar.google.com/calendar/ical/…/basic.ics"></div></div>` : '<div class="muted" style="font-size:13px">Calendar links are read by your NAS — open Cadence there to connect one.</div>'}
             <div class="row" style="gap:16px;align-items:center;flex-wrap:wrap">
               <label class="row" style="align-items:center;gap:6px;font-size:13px"><input type="checkbox" id="cal-sample" ${o.sample ? 'checked' : ''}> Use a sample calendar (preview)</label>
               <label class="row" style="align-items:center;gap:6px;font-size:13px">Heads-up <select class="inp" id="cal-lead" style="width:auto;padding:4px 8px">${[5, 10, 15].map(n => `<option ${o.lead === n ? 'selected' : ''}>${n}</option>`).join('')}</select> min before</label>

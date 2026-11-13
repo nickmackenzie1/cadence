@@ -240,10 +240,10 @@
         @keyframes tfxP{0%{transform:scale(1.5)}}
         #tfx-nib{position:fixed;right:22px;bottom:22px;z-index:94;display:flex;align-items:flex-end;gap:8px;transform:translateY(140%);transition:transform .5s cubic-bezier(.3,1.5,.5,1);pointer-events:none}
         #tfx-nib.on{transform:none;pointer-events:auto}#tfx-nib.out{transform:translateY(140%);transition-duration:.35s}
-        #tfx-nib .nb-b{position:relative;max-width:260px;background:#fffbe6;color:#3b3000;border:1px solid #e9d98a;border-radius:12px 12px 4px 12px;padding:10px 12px;font:13px/1.4 Inter,ui-sans-serif,system-ui;box-shadow:0 10px 30px -10px rgba(0,0,0,.35)}
+        #tfx-nib .nb-b{position:relative;max-width:260px;background:#fffbe6;color:#3b3000;border:1px solid #e9d98a;border-radius:var(--r-l) var(--r-l) 4px var(--r-l);padding:10px 12px;font:13px/1.4 Inter,ui-sans-serif,system-ui;box-shadow:0 10px 30px -10px rgba(0,0,0,.35)}
         #tfx-nib .nb-b code{background:rgba(0,0,0,.07);padding:1px 4px;border-radius:4px;font:600 12px ui-monospace,monospace}
         #tfx-nib .nb-a{display:flex;gap:6px;margin-top:8px}
-        #tfx-nib .nb-a button{font:600 11.5px Inter,system-ui;border:1px solid #e0cd73;background:#fff5bf;color:#4a3c00;border-radius:7px;padding:4px 8px;cursor:pointer}
+        #tfx-nib .nb-a button{font:600 11.5px Inter,system-ui;border:1px solid #e0cd73;background:#fff5bf;color:#4a3c00;border-radius:var(--r-s);padding:4px 8px;cursor:pointer}
         #tfx-nib .nb-a button:hover{background:#ffef99}
         #tfx-nib .nb-c{animation:nbBob 2.8s ease-in-out infinite;filter:drop-shadow(0 6px 8px rgba(0,0,0,.25))}
         #tfx-nib .nb-note{fill:#ffe066;stroke:#e0b800;stroke-width:1.5}#tfx-nib .nb-fold{fill:#f2c700}

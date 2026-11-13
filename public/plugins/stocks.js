@@ -28,7 +28,7 @@ Cadence.registerPlugin({
         .stk{padding:2px 4px 4px}
         .stk-h{display:flex;align-items:baseline;justify-content:space-between;padding:6px 6px 4px;font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--faint);cursor:pointer}
         .stk-h b{font:600 11px var(--mono);letter-spacing:0;text-transform:none}
-        .stk-r{display:grid;grid-template-columns:44px 1fr auto;align-items:center;gap:8px;padding:4px 6px;border-radius:8px;cursor:pointer;font-family:var(--mono);font-size:11.5px}
+        .stk-r{display:grid;grid-template-columns:44px 1fr auto;align-items:center;gap:8px;padding:4px 6px;border-radius:var(--r-m);cursor:pointer;font-family:var(--mono);font-size:12px}
         .stk-r:hover{background:var(--hover)}
         .stk-r .sym{font-weight:600;color:var(--text)}
         .stk-r svg{width:100%;height:16px;display:block}
@@ -42,7 +42,7 @@ Cadence.registerPlugin({
         @keyframes stktape{to{transform:translateX(-100%)}}
         @media (prefers-reduced-motion:reduce){.stk-tape span{animation:none;padding-left:0}}
         .stk-rep{display:grid;gap:10px}
-        .stk-card{display:grid;grid-template-columns:1fr 220px;gap:12px;align-items:center;padding:10px 12px;border:1px solid var(--line);border-radius:12px;cursor:pointer}
+        .stk-card{display:grid;grid-template-columns:1fr 220px;gap:12px;align-items:center;padding:10px 12px;border:1px solid var(--line);border-radius:var(--r-l);cursor:pointer}
         .stk-card:hover{background:var(--hover)}
         .stk-card b{font-size:14px}.stk-card .m{font:12px var(--mono);color:var(--muted);margin-top:2px}
         .stk-card .why{font-size:12px;color:var(--muted);margin-top:4px}

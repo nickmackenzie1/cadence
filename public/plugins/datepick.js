@@ -6,36 +6,36 @@
   if (!G.style) {
     G.style = document.createElement('style');
     G.style.textContent = `
-      .dp{position:fixed;z-index:65;width:268px;padding:10px;border-radius:14px;background:var(--panel);border:1px solid var(--line);box-shadow:0 18px 50px rgba(0,0,0,.16),0 2px 6px rgba(0,0,0,.06);font-size:12.5px;transform-origin:var(--ox,30px) top;animation:dpin .28s cubic-bezier(.2,1.4,.4,1)}
+      .dp{position:fixed;z-index:65;width:268px;padding:10px;border-radius:var(--r-l);background:var(--panel);border:1px solid var(--line);box-shadow:0 18px 50px rgba(0,0,0,.16),0 2px 6px rgba(0,0,0,.06);font-size:13px;transform-origin:var(--ox,30px) top;animation:dpin .28s cubic-bezier(.2,1.4,.4,1)}
       .dp.up{transform-origin:var(--ox,30px) bottom}
       .dp.out{transition:opacity .16s,transform .16s;opacity:0;transform:scale(.96) translateY(-4px)}
       @keyframes dpin{from{opacity:0;transform:scale(.9) translateY(-6px)}}
       .dp:before{content:"";position:absolute;top:-6px;left:calc(var(--ox,30px) - 6px);width:11px;height:11px;background:var(--panel);border-left:1px solid var(--line);border-top:1px solid var(--line);transform:rotate(45deg)}
       .dp.up:before{top:auto;bottom:-6px;transform:rotate(225deg)}
-      .dp-hd{display:flex;align-items:center;gap:6px;margin-bottom:8px;color:var(--muted);font-size:11.5px}
+      .dp-hd{display:flex;align-items:center;gap:6px;margin-bottom:8px;color:var(--muted);font-size:12px}
       .dp-hd b{color:var(--text);font-weight:600;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-      .dp-hd button{width:22px;height:22px;border-radius:6px;display:grid;place-items:center;color:var(--muted)}
+      .dp-hd button{width:22px;height:22px;border-radius:var(--r-s);display:grid;place-items:center;color:var(--muted)}
       .dp-hd button:hover{background:var(--hover);color:var(--text)}
       .dp-quick{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;margin-bottom:10px}
-      .dp-quick button{padding:6px 2px;border-radius:8px;background:var(--bg);border:1px solid var(--line);font-size:11.5px;font-weight:550;line-height:1.15}
+      .dp-quick button{padding:6px 2px;border-radius:var(--r-m);background:var(--bg);border:1px solid var(--line);font-size:12px;font-weight:500;line-height:1.15}
       .dp-quick button small{display:block;color:var(--muted);font-weight:500;font-size:10px;margin-top:1px}
       .dp-quick button:hover{border-color:var(--accent);color:var(--accent)}
       .dp-month{display:flex;align-items:center;margin-bottom:4px}
-      .dp-month b{flex:1;font-weight:650;font-size:13px}
-      .dp-month button{width:24px;height:24px;border-radius:6px;color:var(--muted);font-size:14px}
+      .dp-month b{flex:1;font-weight:600;font-size:13px}
+      .dp-month button{width:24px;height:24px;border-radius:var(--r-s);color:var(--muted);font-size:14px}
       .dp-month button:hover{background:var(--hover);color:var(--text)}
       .dp-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px;text-align:center}
       .dp-grid .w{font-size:10px;color:var(--faint);font-weight:600;padding:3px 0}
-      .dp-grid button{height:30px;border-radius:8px;font-size:12px;font-variant-numeric:tabular-nums;position:relative}
+      .dp-grid button{height:30px;border-radius:var(--r-m);font-size:12px;font-variant-numeric:tabular-nums;position:relative}
       .dp-grid button:hover{background:var(--hover)}
       .dp-grid button.o{color:var(--faint)}
       .dp-grid button.past{color:var(--faint)}
       .dp-grid button.t{color:var(--accent);font-weight:700}
       .dp-grid button.t:after{content:"";position:absolute;left:50%;bottom:4px;width:3px;height:3px;margin-left:-1.5px;border-radius:50%;background:var(--accent)}
-      .dp-grid button.sel{background:var(--accent);color:#fff;font-weight:650}
+      .dp-grid button.sel{background:var(--accent);color:#fff;font-weight:600}
       .dp-grid button.busy:before{content:"";position:absolute;top:4px;right:5px;width:4px;height:4px;border-radius:50%;background:var(--client);opacity:.7}
-      .dp-ft{display:flex;justify-content:space-between;align-items:center;margin-top:8px;color:var(--faint);font-size:10.5px}
-      .dp-ft button{color:var(--muted);font-size:11.5px;font-weight:550;padding:4px 6px;border-radius:6px}
+      .dp-ft{display:flex;justify-content:space-between;align-items:center;margin-top:8px;color:var(--faint);font-size:11px}
+      .dp-ft button{color:var(--muted);font-size:12px;font-weight:500;padding:4px 6px;border-radius:var(--r-s)}
       .dp-ft button:hover{background:var(--hover);color:var(--text)}
     `;
     document.head.appendChild(G.style);

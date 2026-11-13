@@ -17,7 +17,7 @@ Cadence.registerPlugin({
     if (!document.getElementById('zs-css')) {
       const st = document.createElement('style'); st.id = 'zs-css';
       st.textContent = `
-        .zs-row{display:flex;align-items:center;gap:9px;padding:6px 10px;border-radius:9px;cursor:pointer;font-size:13px}
+        .zs-row{display:flex;align-items:center;gap:9px;padding:6px 10px;border-radius:var(--r-m);cursor:pointer;font-size:13px}
         .zs-row:hover{background:var(--hover)}
         .zs-dot{width:9px;height:9px;border-radius:50%;flex:none;background:var(--ok);box-shadow:0 0 0 3px color-mix(in srgb,var(--ok) 22%,transparent)}
         .zs-dot.warn{background:#f5a524;box-shadow:0 0 0 3px rgba(245,165,36,.25);animation:zsp 1.6s infinite}
@@ -26,14 +26,14 @@ Cadence.registerPlugin({
         @keyframes zsp{50%{opacity:.45}}
         .zs-row b{font-weight:600}.zs-row span{color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
         .zs-board{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:6px}
-        .zs-svc{display:flex;align-items:center;gap:8px;padding:7px 10px;border:1px solid var(--line);border-radius:10px;font-size:12.5px}
+        .zs-svc{display:flex;align-items:center;gap:8px;padding:7px 10px;border:1px solid var(--line);border-radius:var(--r);font-size:13px}
         .zs-svc.w{border-color:color-mix(in srgb,var(--accent) 35%,var(--line))}
         .zs-svc .n{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
         .zs-svc .s{font-size:11px;color:var(--muted)}
         .zs-svc.bad .s{color:var(--danger);font-weight:600}
         .zs-head{display:flex;gap:10px;align-items:center;margin-bottom:12px}
-        .zs-pick{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:2px 12px;max-height:280px;overflow:auto;border:1px solid var(--line);border-radius:10px;padding:8px 10px}
-        .zs-pick label{display:flex;gap:7px;align-items:center;font-size:12.5px;padding:3px 0}
+        .zs-pick{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:2px 12px;max-height:280px;overflow:auto;border:1px solid var(--line);border-radius:var(--r);padding:8px 10px}
+        .zs-pick label{display:flex;gap:7px;align-items:center;font-size:13px;padding:3px 0}
         .zs-w{padding:12px}.zs-w h4{margin:0 0 8px;font-size:13px;display:flex;align-items:center;gap:8px}
       `;
       document.head.appendChild(st);

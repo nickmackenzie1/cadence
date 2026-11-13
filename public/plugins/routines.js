@@ -44,7 +44,7 @@
       });
       window.__energy = { setLevel, level, effort };
       for (const [k, l] of [['low', 'Low'], ['okay', 'Okay'], ['great', 'Great']]) api.commands.add({ title: `Energy today: ${l}`, run: () => setLevel(k) });
-      css('en-css', `.en-ban{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin:-8px 0 22px;font-size:12.5px;color:var(--muted)}
+      css('en-css', `.en-ban{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin:-8px 0 22px;font-size:13px;color:var(--muted)}
         .en-ban span{margin-right:4px}.en-ban svg{width:16px;height:16px}.en-ban button{display:inline-flex;align-items:center;gap:5px;border:1px solid var(--line);background:var(--bg);color:var(--text);border-radius:999px;padding:4px 11px;font:600 12px Inter,system-ui;cursor:pointer}
         .en-ban button:hover{border-color:var(--accent)}.en-ban button{padding:3px 10px;font-weight:500;color:var(--muted)}.en-ban button:hover{color:var(--text)}
         .en-tucked{display:none!important}.en-hard,.chip.en-hard{color:#b45309}.en-easy,.chip.en-easy{color:#15803d}.chip.en-hard svg,.chip.en-easy svg{width:13px;height:13px;margin-right:3px}
@@ -67,10 +67,10 @@
       api.views.add({ id: 'places', title: 'Places', icon: '📍', subtitle: 'Your errands, by where you can do them', render: el => {
         const open = api.tasks.list(t => !t.done && t.place), by = {}; open.forEach(t => (by[t.place] = by[t.place] || []).push(t));
         el.innerHTML = Object.keys(by).length ? Object.entries(by).sort((a, b) => b[1].length - a[1].length).map(([p, ts]) => `<div class="sect">${api.ui.icon('map-pin')} ${esc(p)} <span class="muted">${ts.length}</span></div>${ts.map(t => api.ui.taskRow(t)).join('')}`).join('')
-          : `<div class="muted" style="padding:20px 0;font-size:13.5px">No places yet. Add one to a task (open it and fill in “Where can this be done?”), or type it in quick add: <code>buy lightbulbs at the hardware store</code>.</div>`;
+          : `<div class="empty sm"><b>No places yet</b>Add one to a task (open it and fill in “Where can this be done?”), or type it in quick add: <code>buy lightbulbs at the hardware store</code>.</div>`;
         el.insertAdjacentHTML('beforeend', '<p class="muted" style="font-size:12px;margin-top:20px">Nudges when you’re near a place need the Cadence phone app (coming later).</p>');
       } });
-      css('pl-css', `.pl-chip{color:#ef4444}.pl-chip svg{width:12px;height:12px;margin-right:3px}.pl-card{display:flex;align-items:center;gap:8px;margin-top:8px}.pl-card svg{width:15px;height:15px;color:var(--muted)}.pl-card .inp{padding:5px 9px;font-size:12.5px}`);
+      css('pl-css', `.pl-chip{color:#ef4444}.pl-chip svg{width:12px;height:12px;margin-right:3px}.pl-card{display:flex;align-items:center;gap:8px;margin-top:8px}.pl-card svg{width:15px;height:15px;color:var(--muted)}.pl-card .inp{padding:5px 9px;font-size:13px}`);
     },
   });
 
@@ -79,7 +79,7 @@
   const LIB = [
     { id: 'sunday-reset', name: 'Sunday reset', space: 'life', area: ['Home', '🏠'], desc: 'Start the week calm: meals planned, laundry done, calendar checked.', tasks: [['Plan the week’s meals', W(0)], ['Laundry and change the sheets', W(0)], ['Tidy for 20 minutes', W(0)], ['Look at the calendar for the week', W(0)], ['Prep lunches', W(0)]] },
     { id: 'weekly-review', name: 'Weekly review', space: 'any', desc: 'The classic: inbox to zero, look at every project, check what you’re waiting on.', tasks: [['Get every inbox to zero', W(5)], ['Review each project’s next step', W(5)], ['Review what I’m waiting on', W(5)], ['Look at next week’s calendar', W(5)]] },
-    { id: 'monday-plan', name: 'Monday planning', space: 'work', desc: 'Set the week up before the week sets you up.', tasks: [['Pick my top 3 for the week', W(1)], ['Clear overdue items or reschedule them honestly', W(1)], ['Chase anything waiting more than a week', W(1)]] },
+    { id: 'monday-plan', name: 'Monday planning', space: 'work', desc: 'Set the week up before the week sets you up.', tasks: [['Pick my top 3 for the week', W(1)], ['Look at earlier items: do, move or let go', W(1)], ['Chase anything waiting more than a week', W(1)]] },
     { id: 'month-end', name: 'Month-end close', space: 'work', desc: 'Bill, reconcile, tidy. First of every month.', tasks: [['Send invoices for last month', M()], ['Reconcile expenses', M()], ['Review subscriptions and licences', M()], ['Update each client’s status', M()]] },
     { id: 'new-parent', name: 'New parent survival', space: 'life', area: ['Family', '👶'], desc: 'The bare minimum that keeps the house running with a newborn.', tasks: [['Restock diapers and wipes', W(6)], ['Check formula / food supply', W(3)], ['Write down questions for the paediatrician', M()], ['Take 20 minutes for yourself', D], ['Say yes to someone’s offer of help', W(2)]] },
     { id: 'rebuild', name: 'Post-breakup rebuild', space: 'life', area: ['Me', '❤️'], desc: 'Small, steady things that add up. Be kind to yourself.', tasks: [['Call or text a friend', { unit: 'day', n: 3 }], ['Move your body for 20 minutes', D], ['Try one new thing', W(6)], ['Journal for 10 minutes', D], ['Plan a solo outing', W(5)]] },
@@ -138,9 +138,9 @@
       window.__rituals = { install, uninstall, LIB };
       api.commands.add({ title: 'Rituals', hint: 'Install a routine', run: () => api.ui.navigate('view-rituals') });
       css('rt-css', `.rt-bar{display:flex;gap:8px;margin-bottom:14px}.rt-bar .btn{display:inline-flex;align-items:center;gap:6px}.rt-bar svg{width:15px;height:15px}
-        .rt-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px}.rt-card{border:1px solid var(--line);border-radius:14px;padding:14px;background:var(--panel);display:flex;flex-direction:column;gap:6px}
-        .rt-card.on{border-color:color-mix(in srgb,#7c3aed 45%,var(--line));background:color-mix(in srgb,#7c3aed 5%,var(--panel))}.rt-card p{margin:0;font-size:12.5px;color:var(--muted)}
-        .rt-card ul{margin:4px 0 8px;padding:0;list-style:none;font-size:12.5px}.rt-card li{display:flex;justify-content:space-between;gap:8px;padding:3px 0;border-bottom:1px dashed var(--line)}.rt-card li em{font-style:normal;color:var(--muted);white-space:nowrap}.rt-card .btn{align-self:flex-start;margin-top:auto}`);
+        .rt-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px}.rt-card{border:1px solid var(--line);border-radius:var(--r-l);padding:14px;background:var(--panel);display:flex;flex-direction:column;gap:6px}
+        .rt-card.on{border-color:color-mix(in srgb,#7c3aed 45%,var(--line));background:color-mix(in srgb,#7c3aed 5%,var(--panel))}.rt-card p{margin:0;font-size:13px;color:var(--muted)}
+        .rt-card ul{margin:4px 0 8px;padding:0;list-style:none;font-size:13px}.rt-card li{display:flex;justify-content:space-between;gap:8px;padding:3px 0;border-bottom:1px dashed var(--line)}.rt-card li em{font-style:normal;color:var(--muted);white-space:nowrap}.rt-card .btn{align-self:flex-start;margin-top:auto}`);
     },
   });
 })();

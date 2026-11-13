@@ -85,7 +85,7 @@ registerPlugin({
         api.ui.modal('Edit templates', `
           <div class="row" style="gap:8px;flex-wrap:wrap">${tpls.map((t,i) => `<button class="btn ${i===cur?'primary':''}" data-tpi="${i}">${E(t.name)}</button>`).join('')}<button class="btn ghost" id="te-new">+ New</button></div>
           ${tpls[cur] ? `<div class="field"><label>Name</label><input class="inp" id="te-name" value="${E(tpls[cur].name)}"></div>
-          <div class="field"><label>Tasks — one per line</label><textarea class="inp" id="te-body" style="min-height:260px;font-family:var(--mono);font-size:12.5px">${E(tpls[cur].body)}</textarea>
+          <div class="field"><label>Tasks — one per line</label><textarea class="inp" id="te-body" style="min-height:260px;font-family:var(--mono);font-size:13px">${E(tpls[cur].body)}</textarea>
           <div class="muted" style="font-size:12px;margin-top:6px"><code>+5</code> = 5 days after start (<code>+2w</code> for weeks) · <code>^</code> = client’s item, <code>^Sarah</code> to name someone · <code>#tag</code> works too</div></div>` : '<div class="muted">No templates. Add one.</div>'}`,
           `${tpls[cur] ? '<button class="btn ghost danger" id="te-del" style="margin-right:auto">Delete template</button>' : ''}<button class="btn" id="te-reset" ${tpls[cur]?'':'style="margin-right:auto"'}>Restore defaults</button><button class="btn" id="te-cancel">Cancel</button><button class="btn primary" id="te-save">Save</button>`, 'wide');
         const $ = s => document.querySelector(s);

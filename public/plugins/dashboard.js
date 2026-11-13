@@ -16,12 +16,12 @@ Cadence.registerPlugin({
     /* ---------------- built-in widgets ---------------- */
     const W = (id, def) => api.widgets.add({ id, ...def });
     const ymd = api.util.ymd, today = () => api.util.todayKey();
-    W('focus', { title: "Today's focus", icon: '☀', size: 'l', description: 'Overdue and due today. Tick them off right here.',
+    W('focus', { title: "Today's focus", icon: '☀', size: 'l', description: 'From earlier and due today. Tick them off right here.',
       fields: [{ key: 'max', label: 'How many', type: 'number' }, { key: 'clients', label: 'Show client names', type: 'checkbox' }],
       render(el, api, ctx) {
         const t = today(), max = +ctx.cfg.max || 8;
         const list = api.tasks.list(x => !x.done && x.owner !== 'client' && x.dueDate && x.dueDate <= t).sort((a, b) => (a.dueDate || '').localeCompare(b.dueDate || '') || (b.priority || 0) - (a.priority || 0));
-        el.innerHTML = `<div class="dw-list">${list.slice(0, max).map(x => { const c = x.clientId && ctx.cfg.clients !== false ? api.clients.get(x.clientId) : null; return `<div class="dw-task ${x.priority >= 3 ? 'p3' : ''}" data-id="${E(x.id)}"><button class="check" aria-label="Complete"></button><span class="tt">${E(x.title)}${c ? `<small>${E(c.name)}</small>` : ''}</span>${x.dueDate < t ? `<em>${api.space() === 'life' ? 'earlier' : 'overdue'}</em>` : x.dueTime ? `<em class="t">${E(x.dueTime)}</em>` : ''}</div>`; }).join('') || '<div class="dw-empty">Nothing due. Enjoy it.</div>'}${list.length > max ? `<div class="dw-more">+${list.length - max} more</div>` : ''}</div>`;
+        el.innerHTML = `<div class="dw-list">${list.slice(0, max).map(x => { const c = x.clientId && ctx.cfg.clients !== false ? api.clients.get(x.clientId) : null; return `<div class="dw-task ${x.priority >= 3 ? 'p3' : ''}" data-id="${E(x.id)}"><button class="check" aria-label="Complete"></button><span class="tt">${E(x.title)}${c ? `<small>${E(c.name)}</small>` : ''}</span>${x.dueDate < t ? `<em>earlier</em>` : x.dueTime ? `<em class="t">${E(x.dueTime)}</em>` : ''}</div>`; }).join('') || '<div class="dw-empty">Nothing due. Enjoy it.</div>'}${list.length > max ? `<div class="dw-more">+${list.length - max} more</div>` : ''}</div>`;
         el.querySelectorAll('.dw-task .check').forEach(b => b.onclick = () => { const row = b.closest('.dw-task'); row.classList.add('done'); setTimeout(() => api.tasks.complete(row.dataset.id), 320); });
         el.querySelectorAll('.dw-task .tt').forEach(t => t.onclick = () => { const x = api.tasks.get(t.closest('.dw-task').dataset.id); api.ui.navigate(x && x.clientId ? 'client-' + x.clientId : 'today'); });
       } });
@@ -37,12 +37,12 @@ Cadence.registerPlugin({
           const h = new Date().getHours(); el.innerHTML = `<div class="dw-clock"><b>${E(now)}</b><span>${E(ctx.cfg.label || (h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening'))}</span><small>${new Date().toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric', ...o })}</small></div>`; };
         draw(); const t = setInterval(draw, 15000);
       } });
-    W('stats', { title: 'At a glance', icon: '▦', size: 'row', minH: 1, description: 'Done today, due today, overdue, waiting on clients.',
+    W('stats', { title: 'At a glance', icon: '▦', size: 'row', minH: 1, description: 'Done today, due today, from earlier, waiting on clients.',
       render(el, api) {
         const t = today(), all = api.tasks.list(), open = all.filter(x => !x.done);
         const life = api.space() === 'life', wk = api.util.ymd(api.util.addDays(new Date(), 7));
         const n = { done: all.filter(x => x.done && x.doneAt && ymd(new Date(x.doneAt)) === t).length, due: open.filter(x => x.owner !== 'client' && x.dueDate === t).length, over: open.filter(x => x.owner !== 'client' && x.dueDate && x.dueDate < t).length, wait: life ? open.filter(x => x.dueDate && x.dueDate > t && x.dueDate <= wk).length : open.filter(x => x.owner === 'client').length };
-        el.innerHTML = `<div class="dw-stats">${[['done', 'done today', 'ok', 'today'], ['due', 'due today', '', 'today'], ['over', life ? (n.over ? 'still on the list' : 'all caught up') : n.over ? 'overdue — clear them' : 'nothing overdue', life ? '' : 'bad', 'today'], ['wait', life ? 'coming up this week' : 'waiting on clients', life ? '' : 'cl', life ? 'upcoming' : 'waiting']].map(([k, l, c, go]) => `<div class="gl ${c}" data-nav="${go}"><div class="tx"><div class="v">${n[k]}</div><div class="l">${l}</div></div></div>`).join('')}</div>`;
+        el.innerHTML = `<div class="dw-stats">${[['done', 'done today', 'ok', 'today'], ['due', 'due today', '', 'today'], ['over', life ? (n.over ? 'still on the list' : 'all caught up') : n.over ? 'from earlier' : 'nothing from earlier', '', 'today'], ['wait', life ? 'coming up this week' : 'waiting on clients', life ? '' : 'cl', life ? 'upcoming' : 'waiting']].map(([k, l, c, go]) => `<div class="gl ${c}" data-nav="${go}"><div class="tx"><div class="v">${n[k]}</div><div class="l">${l}</div></div></div>`).join('')}</div>`;
         el.querySelectorAll('[data-nav]').forEach(g => g.onclick = () => api.ui.navigate(g.dataset.nav));
       } });
     W('waiting', { title: 'Waiting on clients', icon: '⧗', size: 'm', spaces: ['work'], description: 'Who owes you what, oldest first.',
@@ -82,7 +82,7 @@ Cadence.registerPlugin({
         it('dashboard:focus', 0, 3, 7, 5, { title: 'Today' }), it('dashboard:note', 7, 3, 5, 3, { color: 'green', text: 'This week:\n- ' }), it('weblinks:links', 7, 6, 5, 2)] }];
       return [{ id: 'home', name: 'Home', icon: '⌂', items: [
         it('dashboard:clock', 0, 0, 4, 2), it('dashboard:quickadd', 4, 0, 8, 2), it('dashboard:stats', 0, 2, 12, 1),
-        it('dashboard:focus', 0, 3, 7, 5), it('dashboard:waiting', 7, 3, 5, 3), it('dashboard:note', 7, 6, 5, 2, { color: 'yellow', text: 'Drag me around in Edit mode ✨' }),
+        it('dashboard:focus', 0, 3, 7, 5), it('dashboard:waiting', 7, 3, 5, 3), it('dashboard:note', 7, 6, 5, 2, { color: 'yellow', text: 'Drag me around in Edit mode' }),
         it('zoho-status:board', 0, 8, 7, 3), it('stocks:market', 7, 8, 5, 3)] }];
     }
     // the starter page is saved the first time it's needed, so its widget ids stay stable
@@ -111,7 +111,7 @@ Cadence.registerPlugin({
       st.textContent = `
         .db-top{display:flex;align-items:center;gap:8px;margin:-8px 0 18px;flex-wrap:wrap}
         .db-tabs{display:flex;gap:2px;flex-wrap:wrap;border-bottom:1px solid var(--line);flex:1;min-width:0}
-        .db-tabs button{padding:8px 12px;font-weight:600;font-size:13.5px;color:var(--muted);border-bottom:2px solid transparent;margin-bottom:-1px;transition:color .15s,border-color .15s}
+        .db-tabs button{padding:8px 12px;font-weight:600;font-size:13px;color:var(--muted);border-bottom:2px solid transparent;margin-bottom:-1px;transition:color .15s,border-color .15s}
         .db-tabs button:hover{color:var(--text)}
         .db-tabs button.on{color:var(--text);border-color:var(--accent)}
         .db-tabs .add{font-weight:500;color:var(--faint)}
@@ -119,50 +119,50 @@ Cadence.registerPlugin({
         .wrap.db-wide{max-width:1180px}
         .db-wrap{position:relative}
         .db-grid{position:relative;display:grid;grid-template-columns:repeat(${COLS},1fr);grid-auto-rows:${ROW}px;gap:${GAP}px;min-height:300px;transition:background .3s}
-        .db-grid.edit{background-image:linear-gradient(color-mix(in srgb,var(--accent) 9%,transparent) 1px,transparent 1px),linear-gradient(90deg,color-mix(in srgb,var(--accent) 9%,transparent) 1px,transparent 1px);background-size:calc((100% + ${GAP}px)/${COLS}) ${ROW + GAP}px;border-radius:14px;outline:1px dashed color-mix(in srgb,var(--accent) 35%,transparent);outline-offset:6px;padding-bottom:${ROW * 2}px}
+        .db-grid.edit{background-image:linear-gradient(color-mix(in srgb,var(--accent) 9%,transparent) 1px,transparent 1px),linear-gradient(90deg,color-mix(in srgb,var(--accent) 9%,transparent) 1px,transparent 1px);background-size:calc((100% + ${GAP}px)/${COLS}) ${ROW + GAP}px;border-radius:var(--r-l);outline:1px dashed color-mix(in srgb,var(--accent) 35%,transparent);outline-offset:6px;padding-bottom:${ROW * 2}px}
         /* a widget is a card like everything else in the app (themes style .db-item alongside .gl / .pl-card) */
-        .db-item{position:relative;background:var(--panel);border:1px solid var(--line);border-radius:14px;box-shadow:0 1px 2px rgba(0,0,0,.03);display:flex;flex-direction:column;min-width:0;min-height:0;overflow:hidden;transition:box-shadow .2s,transform .25s cubic-bezier(.2,1.2,.4,1),opacity .2s}
+        .db-item{position:relative;background:var(--panel);border:1px solid var(--line);border-radius:var(--r-l);box-shadow:0 1px 2px rgba(0,0,0,.03);display:flex;flex-direction:column;min-width:0;min-height:0;overflow:hidden;transition:box-shadow .2s,transform .25s cubic-bezier(.2,1.2,.4,1),opacity .2s}
         .db-item.bare{background:none;border-color:transparent;box-shadow:none;overflow:visible}
         .db-grid.edit .db-item{cursor:grab;user-select:none}
         .db-grid.edit .db-item.bare{border:1px dashed var(--line)}
         .db-item.drag{z-index:5;box-shadow:var(--shadow),0 24px 60px -16px rgba(0,0,0,.3);transition:none;cursor:grabbing;opacity:.95}
         .db-item.pop{animation:dbpop .45s cubic-bezier(.2,1.4,.4,1)}
         @keyframes dbpop{from{transform:scale(.85);opacity:0}}
-        .db-ph{border-radius:14px;background:color-mix(in srgb,var(--accent) 12%,transparent);border:2px dashed color-mix(in srgb,var(--accent) 50%,transparent);pointer-events:none;transition:all .12s}
+        .db-ph{border-radius:var(--r-l);background:color-mix(in srgb,var(--accent) 12%,transparent);border:2px dashed color-mix(in srgb,var(--accent) 50%,transparent);pointer-events:none;transition:all .12s}
         .db-h{display:flex;align-items:center;gap:7px;padding:11px 14px 2px;font-size:12px;font-weight:600;color:var(--muted);flex:none;min-height:14px}
         .db-h .ic{font-size:12px;opacity:.8}
         .db-h .tools{margin-left:auto;display:none;gap:2px}
         .db-grid.edit .db-h .tools{display:flex}
         .db-item.bare .db-h{position:absolute;right:4px;top:4px;padding:0;z-index:2}
-        .db-h .tools button{width:24px;height:24px;border-radius:7px;color:var(--muted);font-size:13px;display:grid;place-items:center;background:var(--panel)}
+        .db-h .tools button{width:24px;height:24px;border-radius:var(--r-s);color:var(--muted);font-size:13px;display:grid;place-items:center;background:var(--panel)}
         .db-h .tools button:hover{background:var(--hover);color:var(--text)}
         .db-b{flex:1;min-height:0;overflow:auto;position:relative;container-type:inline-size}
         .db-item.bare .db-b{overflow:visible}
         .db-grid.edit .db-b{pointer-events:none}
-        .db-rs{position:absolute;right:3px;bottom:3px;width:16px;height:16px;cursor:nwse-resize;display:none;border-right:2px solid var(--accent);border-bottom:2px solid var(--accent);border-radius:0 0 7px 0;opacity:.75;z-index:3}
+        .db-rs{position:absolute;right:3px;bottom:3px;width:16px;height:16px;cursor:nwse-resize;display:none;border-right:2px solid var(--accent);border-bottom:2px solid var(--accent);border-radius:0 0 var(--r-s) 0;opacity:.75;z-index:3}
         .db-grid.edit .db-rs{display:block}
-        .db-lib{position:fixed;top:12px;right:12px;bottom:12px;width:300px;background:var(--panel);border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow),0 30px 80px -20px rgba(0,0,0,.3);z-index:27;display:flex;flex-direction:column;animation:dbin .3s cubic-bezier(.2,1.1,.3,1)}
+        .db-lib{position:fixed;top:12px;right:12px;bottom:12px;width:300px;background:var(--panel);border:1px solid var(--line);border-radius:var(--r-xl);box-shadow:var(--shadow),0 30px 80px -20px rgba(0,0,0,.3);z-index:27;display:flex;flex-direction:column;animation:dbin .3s cubic-bezier(.2,1.1,.3,1)}
         @keyframes dbin{from{transform:translateX(24px);opacity:0}}
         .db-lib h3{margin:0;padding:18px 18px 4px;font-size:16px}
         .db-lib p{margin:0;padding:0 18px 10px;font-size:12px;color:var(--muted)}
         .db-lib input{margin:0 14px 10px;width:calc(100% - 28px)}
         .db-libl{overflow:auto;padding:0 10px 14px;display:flex;flex-direction:column;gap:6px}
-        .db-w{display:flex;gap:10px;align-items:flex-start;padding:10px;border:1px solid var(--line);border-radius:12px;cursor:grab;background:var(--panel);transition:transform .15s,border-color .15s,box-shadow .15s}
+        .db-w{display:flex;gap:10px;align-items:flex-start;padding:10px;border:1px solid var(--line);border-radius:var(--r-l);cursor:grab;background:var(--panel);transition:transform .15s,border-color .15s,box-shadow .15s}
         .db-w:hover{border-color:color-mix(in srgb,var(--wc,var(--accent)) 50%,var(--line));transform:translateX(-2px);box-shadow:0 6px 18px -10px rgba(0,0,0,.25)}
-        .db-w i{width:30px;height:30px;border-radius:9px;flex:none;display:grid;place-items:center;font-style:normal;color:#fff;background:linear-gradient(160deg,color-mix(in srgb,var(--wc,var(--accent)) 78%,#fff),var(--wc,var(--accent)));font-size:14px}
-        .db-w b{display:block;font-size:13px}.db-w span{display:block;font-size:11.5px;color:var(--muted);line-height:1.35}
-        .db-w small{display:block;font-size:10.5px;color:var(--faint);margin-top:2px}
+        .db-w i{width:30px;height:30px;border-radius:var(--r-m);flex:none;display:grid;place-items:center;font-style:normal;color:#fff;background:linear-gradient(160deg,color-mix(in srgb,var(--wc,var(--accent)) 78%,#fff),var(--wc,var(--accent)));font-size:14px}
+        .db-w b{display:block;font-size:13px}.db-w span{display:block;font-size:12px;color:var(--muted);line-height:1.35}
+        .db-w small{display:block;font-size:11px;color:var(--faint);margin-top:2px}
         .db-empty{padding:60px 20px;text-align:center;color:var(--muted)}
         body.dash-side .app{margin-right:360px}
         body.dash-lib .main{padding-right:320px;transition:padding .3s}
         .db-side{position:fixed;top:0;right:0;bottom:0;width:360px;background:var(--side);border-left:1px solid var(--line);z-index:9;overflow:auto;padding:14px 12px 30px;animation:dbin .3s}
         .db-side .db-sh{display:flex;align-items:center;gap:8px;margin:0 2px 12px;font-weight:700}
-        .db-side .db-sh button{margin-left:auto;color:var(--muted);width:28px;height:28px;border-radius:8px}.db-side .db-sh button:hover{background:var(--hover)}
+        .db-side .db-sh button{margin-left:auto;color:var(--muted);width:28px;height:28px;border-radius:var(--r-m)}.db-side .db-sh button:hover{background:var(--hover)}
         .db-side .db-item{margin-bottom:10px}
         @media (max-width:900px){.db-grid{grid-template-columns:repeat(4,1fr)}.db-grid .db-item{grid-column:auto/span 4!important;grid-row:auto/span var(--h)!important}body.dash-side .app{margin-right:0}.db-side{display:none}}
         /* built-in widgets: made of the app's own parts (.check, .gl, quick-add look) so every theme reaches them */
         .dw-list{padding:4px 8px 10px;display:flex;flex-direction:column}
-        .dw-task{display:flex;align-items:center;gap:11px;padding:7px 6px;border-radius:9px;font-size:14px;transition:opacity .3s}
+        .dw-task{display:flex;align-items:center;gap:11px;padding:7px 6px;border-radius:var(--r-m);font-size:14px;transition:opacity .3s}
         .dw-task:hover{background:var(--hover)}
         .dw-task .check{margin-top:0;cursor:pointer}
         .dw-task .check:hover{border-color:var(--accent)}
@@ -170,23 +170,23 @@ Cadence.registerPlugin({
         .dw-task.done{opacity:.4}.dw-task.done .tt{text-decoration:line-through}
         .dw-task.done .check{background:var(--ok);border-color:var(--ok)}
         .dw-task .tt{flex:1;min-width:0;cursor:pointer}.dw-task small{display:block;color:var(--muted);font-size:12px}
-        .dw-task em,.dw-row em{font-style:normal;font-size:11.5px;color:var(--danger);font-weight:600;white-space:nowrap}.dw-task em.t{color:var(--muted);font-weight:500}
-        .dw-row{display:flex;align-items:center;gap:9px;padding:7px 6px;border-radius:9px;cursor:pointer;font-size:14px}.dw-row:hover{background:var(--hover)}.dw-row span{flex:1}.dw-row em{color:var(--client)}
+        .dw-task em,.dw-row em{font-style:normal;font-size:12px;color:var(--muted);font-weight:500;white-space:nowrap}.dw-task em.t{color:var(--muted);font-weight:500}
+        .dw-row{display:flex;align-items:center;gap:9px;padding:7px 6px;border-radius:var(--r-m);cursor:pointer;font-size:14px}.dw-row:hover{background:var(--hover)}.dw-row span{flex:1}.dw-row em{color:var(--client)}
         .dw-more{font-size:12px;color:var(--muted);padding:4px 6px}
         .dw-empty{padding:18px;color:var(--muted);font-size:13px;text-align:center}
-        .dw-qa{display:flex;align-items:center;gap:10px;margin:6px 12px 12px;padding:0 14px;height:44px;border:1px solid var(--line);border-radius:12px;background:var(--panel);transition:border-color .15s,box-shadow .15s}
-        .dw-qa span{color:var(--accent);font-size:19px}.dw-qa input{flex:1;border:0;outline:0;background:none;font-size:14.5px;color:var(--text);min-width:0}
+        .dw-qa{display:flex;align-items:center;gap:10px;margin:6px 12px 12px;padding:0 14px;height:44px;border:1px solid var(--line);border-radius:var(--r-l);background:var(--panel);transition:border-color .15s,box-shadow .15s}
+        .dw-qa span{color:var(--accent);font-size:20px}.dw-qa input{flex:1;border:0;outline:0;background:none;font-size:15px;color:var(--text);min-width:0}
         .dw-qa:focus-within{border-color:var(--accent);box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 16%,transparent)}
         .dw-clock{height:100%;display:flex;flex-direction:column;justify-content:center;padding:0 16px 12px;container-type:inline-size}
         .dw-clock b{font-size:clamp(24px,18cqw,58px);font-weight:700;letter-spacing:-.035em;line-height:1;font-variant-numeric:tabular-nums;white-space:nowrap}
-        .dw-clock span{font-weight:600;margin-top:8px}.dw-clock small{color:var(--muted);font-size:12.5px}
+        .dw-clock span{font-weight:600;margin-top:8px}.dw-clock small{color:var(--muted);font-size:13px}
         .dw-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:${GAP}px;height:100%}
         .dw-stats .gl{height:100%}
         .dw-stats .ok .v{color:var(--ok)}.dw-stats .bad .v{color:var(--danger)}.dw-stats .cl .v{color:var(--client)}
-        .dw-note{width:100%;height:100%;border:0;outline:0;resize:none;padding:14px 16px;font:inherit;font-size:14px;line-height:1.55;border-radius:14px;color:var(--text);background:color-mix(in srgb,var(--nc) 26%,var(--panel));box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--nc) 40%,var(--line))}
+        .dw-note{width:100%;height:100%;border:0;outline:0;resize:none;padding:14px 16px;font:inherit;font-size:14px;line-height:1.55;border-radius:var(--r-l);color:var(--text);background:color-mix(in srgb,var(--nc) 26%,var(--panel));box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--nc) 40%,var(--line))}
         .dw-note.yellow{--nc:#f5c400}.dw-note.pink{--nc:#ff5c9a}.dw-note.blue{--nc:#3b8bff}.dw-note.green{--nc:#20b26b}.dw-note.plain{--nc:var(--line);background:var(--panel)}
-        .dw-text{padding:2px 4px}.dw-text h2{margin:4px 0 6px;font-size:26px;letter-spacing:-.025em}.dw-text p{margin:0 0 6px;color:var(--muted)}.dw-text ul{margin:0;padding-left:18px}
-        .dw-img{position:absolute;inset:8px;border-radius:10px;background-position:center;background-repeat:no-repeat}
+        .dw-text{padding:2px 4px}.dw-text h2{margin:4px 0 6px;font-size:28px;letter-spacing:-.025em}.dw-text p{margin:0 0 6px;color:var(--muted)}.dw-text ul{margin:0;padding-left:18px}
+        .dw-img{position:absolute;inset:8px;border-radius:var(--r);background-position:center;background-repeat:no-repeat}
         .dw-frame{position:absolute;inset:0;width:100%;height:100%;border:0}
         .dw-hr{border:0;border-top:1px solid var(--line);margin:18px 6px}
       `;

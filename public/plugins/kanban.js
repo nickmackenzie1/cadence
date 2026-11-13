@@ -24,7 +24,7 @@
           { id: 'done', title: 'Done this week', test: t => t.done && (t.doneAt || 0) > weekAgo(), patch: 'done' },
         ];
         if (mode === 'due') return [
-          { id: 'over', title: 'Overdue', test: t => !t.done && t.dueDate && t.dueDate < t0, patch: null },
+          { id: 'over', title: 'From earlier', test: t => !t.done && t.dueDate && t.dueDate < t0, patch: null },
           { id: 'today', title: 'Today', test: t => !t.done && t.dueDate === t0, patch: () => ({ dueDate: t0 }) },
           { id: 'week', title: 'This week', test: t => !t.done && t.dueDate > t0 && t.dueDate <= endOfWeek(), patch: () => ({ dueDate: endOfWeek() > t0 ? plus(1) : t0 }) },
           { id: 'later', title: 'Later', test: t => !t.done && t.dueDate > endOfWeek(), patch: () => ({ dueDate: U.ymd(U.addDays(U.fromYmd(endOfWeek()), 7)) }) },
@@ -49,7 +49,7 @@
           ${mode !== 'client' ? `<select class="inp kb-f" id="kb-client"><option value="">${life() ? 'All areas' : 'All clients'}</option>${api.clients.list().map(c => `<option value="${esc(c.id)}" ${c.id === only ? 'selected' : ''}>${esc(c.name)}</option>`).join('')}</select>` : ''}
           <span class="muted kb-hint">Drag a card to another column to change it</span></div>
           <div class="kb-board">${cols.map(col => { const list = all.filter(col.test).sort(sortT); return `<section class="kb-col ${col.patch ? '' : 'nodrop'}" data-col="${esc(col.id)}">
-            <header>${col.c ? api.ui.avatar(col.c, 16) : ''}<b>${esc(col.title)}</b><span class="n">${list.length}</span>${col.id === 'over' && list.length ? '<i class="kb-red"></i>' : ''}</header>
+            <header>${col.c ? api.ui.avatar(col.c, 16) : ''}<b>${esc(col.title)}</b><span class="n">${list.length}</span></header>
             <div class="kb-list">${list.map(t => card(t, mode)).join('') || '<div class="kb-empty">Nothing here</div>'}</div></section>`; }).join('')}</div>`;
         // editing happens in a panel on the right, not squeezed into the card
         const sel = api.ui.selected(), selT = sel && api.tasks.get(sel);
@@ -97,22 +97,22 @@
         .kb-bar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:14px}
         .kb-f{width:auto;min-width:160px;padding:6px 10px}.kb-hint{font-size:12px;margin-left:auto}
         .kb-board{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(260px,1fr);gap:12px;overflow-x:auto;padding-bottom:10px;align-items:start}
-        .kb-col{background:color-mix(in srgb,var(--text) 3.5%,transparent);border:1px solid var(--line);border-radius:14px;padding:8px;min-height:120px;transition:background .15s,border-color .15s}
+        .kb-col{background:color-mix(in srgb,var(--text) 3.5%,transparent);border:1px solid var(--line);border-radius:var(--r-l);padding:8px;min-height:120px;transition:background .15s,border-color .15s}
         .kb-col.over{background:color-mix(in srgb,var(--accent) 10%,transparent);border-color:var(--accent);border-style:dashed}
         .kb-col header{display:flex;align-items:center;gap:7px;padding:4px 6px 8px;font-size:13px}
-        .kb-col header .n{margin-left:auto;font-size:11.5px;color:var(--muted);background:var(--hover);border-radius:999px;padding:1px 8px}
+        .kb-col header .n{margin-left:auto;font-size:12px;color:var(--muted);background:var(--hover);border-radius:999px;padding:1px 8px}
         .kb-red{width:7px;height:7px;border-radius:50%;background:#e5484d}
         .kb-list{display:flex;flex-direction:column;gap:6px}
-        .kb-card{border-radius:10px;background:var(--panel,var(--bg));border:1px solid var(--line);box-shadow:0 1px 2px rgba(0,0,0,.04);cursor:grab}
+        .kb-card{border-radius:var(--r);background:var(--panel,var(--bg));border:1px solid var(--line);box-shadow:0 1px 2px rgba(0,0,0,.04);cursor:grab}
         .kb-card{padding:9px 11px}.kb-card.sel{border-color:var(--accent);box-shadow:0 0 0 2px color-mix(in srgb,var(--accent) 25%,transparent)}.kb-card.done .kb-t{text-decoration:line-through;color:var(--muted)}
-        .kb-t{font-size:13.5px;line-height:1.35;display:flex;gap:6px;align-items:flex-start}.kb-p{flex:none;width:7px;height:7px;border-radius:50%;margin-top:6px;background:#f59e0b}.kb-p.p3{background:#e5484d}
-        .kb-m{display:flex;gap:6px;flex-wrap:wrap;margin-top:5px;font-size:11.5px;color:var(--muted)}.kb-cl{display:inline-flex;align-items:center;gap:4px}.kb-due.over{color:#e5484d;font-weight:600}.kb-due.today{color:var(--accent);font-weight:600}.kb-ow{border:1px solid var(--line);border-radius:999px;padding:0 6px}
+        .kb-t{font-size:13px;line-height:1.35;display:flex;gap:6px;align-items:flex-start}.kb-p{flex:none;width:7px;height:7px;border-radius:50%;margin-top:6px;background:#f59e0b}.kb-p.p3{background:var(--client)}
+        .kb-m{display:flex;gap:6px;flex-wrap:wrap;margin-top:5px;font-size:12px;color:var(--muted)}.kb-cl{display:inline-flex;align-items:center;gap:4px}.kb-due.over{color:var(--muted)}.kb-due.today{color:var(--accent);font-weight:600}.kb-ow{border:1px solid var(--line);border-radius:999px;padding:0 6px}
         .kb-has-side{display:grid;grid-template-columns:minmax(0,1fr) 360px;column-gap:14px;align-items:start}.kb-has-side .kb-bar{grid-column:1/-1}.kb-side{position:sticky;top:16px}.kb-side .task{margin:0}
         @media (max-width:1100px){.kb-has-side{display:block}}
         .kb-card.dragging{opacity:.35}
         .kb-card:hover{border-color:color-mix(in srgb,var(--accent) 40%,var(--line))}
         @media (max-width:640px){.kb-board{grid-auto-columns:85vw;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch}.kb-col{scroll-snap-align:start}.kb-hint{display:none}}
-        .kb-empty{font-size:12px;color:var(--muted);text-align:center;padding:16px 0;border:1px dashed var(--line);border-radius:10px}`;
+        .kb-empty{font-size:12px;color:var(--muted);text-align:center;padding:16px 0;border:1px dashed var(--line);border-radius:var(--r)}`;
         document.head.appendChild(st);
       }
     },

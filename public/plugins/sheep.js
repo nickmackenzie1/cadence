@@ -135,7 +135,7 @@
         .shp{position:fixed;left:0;top:0;z-index:84;cursor:grab;touch-action:none;user-select:none;will-change:transform}
         .shp.held{cursor:grabbing}
         .shp svg{display:block;filter:drop-shadow(0 1px 0 rgba(0,0,0,.35)) drop-shadow(0 3px 3px rgba(0,0,0,.15));transform-origin:50% 50%}
-        .shp-b{position:absolute;left:50%;bottom:calc(100% + 6px);transform:translateX(-50%) scale(.6);opacity:0;white-space:nowrap;background:#fff;color:#2b2b2b;border:1px solid rgba(0,0,0,.12);border-radius:10px;padding:4px 8px;font:600 11.5px/1.2 Inter,system-ui;box-shadow:0 4px 12px rgba(0,0,0,.15);transition:opacity .2s,transform .25s cubic-bezier(.3,1.6,.5,1);pointer-events:none}
+        .shp-b{position:absolute;left:50%;bottom:calc(100% + 6px);transform:translateX(-50%) scale(.6);opacity:0;white-space:nowrap;background:#fff;color:#2b2b2b;border:1px solid rgba(0,0,0,.12);border-radius:var(--r);padding:4px 8px;font:600 11.5px/1.2 Inter,system-ui;box-shadow:0 4px 12px rgba(0,0,0,.15);transition:opacity .2s,transform .25s cubic-bezier(.3,1.6,.5,1);pointer-events:none}
         .shp-b.on{opacity:1;transform:translateX(-50%) scale(1)}
         .shp.zz:after{content:'z';position:absolute;right:-2px;top:-10px;font:800 12px ui-rounded,system-ui;color:var(--muted,#888);animation:shpZ 2.2s ease-in-out infinite}
         @keyframes shpZ{0%{opacity:0;transform:translate(0,4px) scale(.7)}40%{opacity:1}100%{opacity:0;transform:translate(8px,-14px) scale(1.2)}}

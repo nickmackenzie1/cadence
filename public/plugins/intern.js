@@ -18,7 +18,7 @@ Cadence.registerPlugin({
     if (!document.getElementById('in-css')) {
       const st = document.createElement('style'); st.id = 'in-css';
       st.textContent = `
-        .in-w{padding:4px 6px 6px;cursor:pointer;border-radius:10px}
+        .in-w{padding:4px 6px 6px;cursor:pointer;border-radius:var(--r)}
         .in-w:hover{background:var(--hover)}
         .in-stage{position:relative;height:66px;border-bottom:2px solid var(--line);overflow:hidden}
         .in-guy{position:absolute;bottom:0;left:0;width:36px;transition:none}
@@ -38,7 +38,7 @@ Cadence.registerPlugin({
         .in-tx b{color:var(--text);font-weight:600}
         .in-tx .zz{color:var(--client)}
         .in-list{display:grid;gap:12px}
-        .in-cl{border:1px solid var(--line);border-radius:12px;padding:10px 12px}
+        .in-cl{border:1px solid var(--line);border-radius:var(--r-l);padding:10px 12px}
         .in-cl h4{margin:0 0 6px;display:flex;align-items:center;justify-content:space-between;font-size:14px}
         .in-cl li{font-size:13px;color:var(--text);margin:3px 0}
         .in-cl li small{color:var(--muted);margin-left:6px}

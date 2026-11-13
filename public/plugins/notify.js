@@ -109,11 +109,11 @@
             <div class="nt-grid"><span></span><b>In the centre</b><b>Desktop</b>${pids.map(p => `<span>${esc(nameOf(p))}</span><input type="checkbox" data-mute="${esc(p)}" ${c.muted[p] ? '' : 'checked'}><input type="checkbox" data-desk="${esc(p)}" ${c.desktop[p] ? 'checked' : ''}>`).join('')}</div></div>
           <div class="field"><label>Quiet hours</label><div class="row" style="gap:8px;align-items:center"><label class="xm-row" style="margin:0"><input type="checkbox" id="nt-qon" ${c.quiet ? 'checked' : ''}> From</label><input class="inp" type="time" id="nt-qf" value="${esc((c.quiet && c.quiet.from) || '21:00')}" style="width:auto"> to <input class="inp" type="time" id="nt-qt" value="${esc((c.quiet && c.quiet.to) || '07:30')}" style="width:auto"></div>
             <div class="muted" style="font-size:12px;margin-top:6px">Nothing pops up or pings during quiet hours. It all still lands in the centre.</div></div>
-          <div class="field"><label>Desktop notifications in this browser</label><div class="muted" style="font-size:12.5px">${perm === 'granted' ? 'Allowed.' : perm === 'denied' ? 'Blocked in this browser’s site settings.' : perm === 'unsupported' ? 'Not supported here.' : 'Not allowed yet.'}</div>${perm === 'default' ? '<button class="btn" id="nt-perm" style="margin-top:6px">Allow desktop notifications</button>' : ''}</div>
+          <div class="field"><label>Desktop notifications in this browser</label><div class="muted" style="font-size:13px">${perm === 'granted' ? 'Allowed.' : perm === 'denied' ? 'Blocked in this browser’s site settings.' : perm === 'unsupported' ? 'Not supported here.' : 'Not allowed yet.'}</div>${perm === 'default' ? '<button class="btn" id="nt-perm" style="margin-top:6px">Allow desktop notifications</button>' : ''}</div>
           <div class="field"><label>Push to this device (works when Cadence is closed)</label>
             ${pushOK() ? `<div class="row" style="gap:8px;flex-wrap:wrap"><button class="btn ${subd ? '' : 'primary'}" id="nt-push">${subd ? 'Turn off push on this device' : 'Turn on push on this device'}</button>${subd ? '<button class="btn" id="nt-test">Send a test</button>' : ''}</div>
               ${srv ? `<div class="muted" style="font-size:12px;margin-top:6px">${srv.devices.length ? srv.devices.length + ' device' + (srv.devices.length === 1 ? '' : 's') + ' get pushes: ' + srv.devices.map(d => esc(d.device || d.host)).join(', ') : 'No devices yet.'} Reminders are sent by the NAS at the reminder time.</div>` : ''}`
-              : `<div class="muted" style="font-size:12.5px">${!window.isSecureContext ? 'Open Cadence at its HTTPS address on your network to use push.' : api.system().mode !== 'nas' ? 'Push needs the Cadence server on your NAS.' : 'This browser has no push support.'}</div>`}</div>`,
+              : `<div class="muted" style="font-size:13px">${!window.isSecureContext ? 'Open Cadence at its HTTPS address on your network to use push.' : api.system().mode !== 'nas' ? 'Push needs the Cadence server on your NAS.' : 'This browser has no push support.'}</div>`}</div>`,
           `<button class="btn primary" id="nt-done">Done</button>`);
         const $ = id => document.getElementById(id);
         const save = () => {
@@ -133,17 +133,17 @@
         st.textContent = `
         #nt-panel{position:fixed;z-index:85;max-height:min(70vh,560px);display:flex;flex-direction:column;color:var(--text);border-radius:22px;overflow:hidden;background:color-mix(in srgb,var(--panel,#fff) 86%,transparent);-webkit-backdrop-filter:blur(18px) saturate(1.4);backdrop-filter:blur(18px) saturate(1.4);box-shadow:0 0 0 1px var(--line) inset,0 24px 60px -18px rgba(0,0,0,.4);transform-origin:50% 0;animation:ntIn .28s cubic-bezier(.3,1.3,.5,1)}
         @keyframes ntIn{from{opacity:0;transform:scale(.6,.2)}}
-        #nt-panel header{display:flex;align-items:center;gap:6px;padding:10px 12px;border-bottom:1px solid var(--line);font-size:13.5px}
-        #nt-panel header .sp{flex:1}#nt-panel header button{background:none;border:0;color:var(--muted);font:600 11.5px Inter,system-ui;cursor:pointer;padding:4px 6px;border-radius:6px;display:inline-flex;align-items:center}
+        #nt-panel header{display:flex;align-items:center;gap:6px;padding:10px 12px;border-bottom:1px solid var(--line);font-size:13px}
+        #nt-panel header .sp{flex:1}#nt-panel header button{background:none;border:0;color:var(--muted);font:600 11.5px Inter,system-ui;cursor:pointer;padding:4px 6px;border-radius:var(--r-s);display:inline-flex;align-items:center}
         #nt-panel header button:hover{background:var(--hover);color:var(--text)}#nt-panel header svg{width:15px;height:15px}
-        .nt-q{font-size:10.5px;background:color-mix(in srgb,#6366f1 15%,transparent);color:#6366f1;border-radius:999px;padding:2px 7px;font-weight:700}
+        .nt-q{font-size:11px;background:color-mix(in srgb,#6366f1 15%,transparent);color:#6366f1;border-radius:999px;padding:2px 7px;font-weight:700}
         .nt-list{overflow:auto;padding:4px 0}
-        .nt-sec{font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);padding:8px 14px 4px}
+        .nt-sec{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);padding:8px 14px 4px}
         .nt-it{display:grid;grid-template-columns:1fr auto;gap:1px 8px;width:100%;text-align:left;background:none;border:0;padding:8px 14px 8px 22px;cursor:pointer;color:var(--text);position:relative;font:13px/1.35 Inter,system-ui}
         .nt-it:hover{background:var(--hover)}.nt-it.new:before{content:'';position:absolute;left:9px;top:14px;width:7px;height:7px;border-radius:50%;background:var(--accent)}
-        .nt-it .nt-src{grid-column:1;font-size:10.5px;color:var(--muted);font-weight:600}.nt-it b{grid-column:1;font-weight:600}.nt-it .nt-b{grid-column:1;color:var(--muted);font-size:12px}
+        .nt-it .nt-src{grid-column:1;font-size:11px;color:var(--muted);font-weight:600}.nt-it b{grid-column:1;font-weight:600}.nt-it .nt-b{grid-column:1;color:var(--muted);font-size:12px}
         .nt-it .nt-t{grid-column:2;grid-row:1;font-size:11px;color:var(--muted)}
-        .nt-acts{grid-column:1/-1;display:flex;gap:6px;margin-top:5px}.nt-acts i{font-style:normal;font:600 11.5px Inter,system-ui;border:1px solid var(--line);border-radius:7px;padding:2px 9px;background:var(--bg)}.nt-acts i:hover{border-color:var(--accent);color:var(--accent)}
+        .nt-acts{grid-column:1/-1;display:flex;gap:6px;margin-top:5px}.nt-acts i{font-style:normal;font:600 11.5px Inter,system-ui;border:1px solid var(--line);border-radius:var(--r-s);padding:2px 9px;background:var(--bg)}.nt-acts i:hover{border-color:var(--accent);color:var(--accent)}
         .nt-empty{padding:34px 14px;text-align:center;color:var(--muted);font-size:13px}
         .nt-grid{display:grid;grid-template-columns:1fr auto auto;gap:6px 18px;align-items:center;font-size:13px}.nt-grid b{font-size:11px;color:var(--muted);font-weight:600}.nt-grid input{justify-self:center}`;
         document.head.appendChild(st);

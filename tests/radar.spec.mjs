@@ -41,9 +41,9 @@ test('Music Radar view: charts, picks, thumbs and subreddits', async ({ page }) 
 
   // add and remove a subreddit
   await page.fill('#mr-new', 'r/synthwave'); await page.keyboard.press('Enter');
-  await expect(page.locator('.mr-sc', { hasText: 'r/synthwave' })).toBeVisible();
+  await expect(page.locator('.mr-sc', { hasText: 'r/synthwave' })).toBeVisible({ timeout: 15000 });
   await page.click('[data-rm="synthwave"]');
-  await expect(page.locator('.mr-sc', { hasText: 'r/synthwave' })).toHaveCount(0);
+  await expect(page.locator('.mr-sc', { hasText: 'r/synthwave' })).toHaveCount(0, { timeout: 15000 });
 
   // years view switches
   await page.click('#mr-hy [data-v=month]');

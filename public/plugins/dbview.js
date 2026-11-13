@@ -9,23 +9,23 @@
     G.style.textContent = `
       .dbv{--mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;display:grid;grid-template-columns:210px 1fr;gap:18px;min-height:60vh}
       .dbv-side{display:flex;flex-direction:column;gap:2px;font-size:13px}
-      .dbv-side .h{font-size:11px;font-weight:650;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);padding:12px 8px 6px}
-      .dbv-side button{display:flex;align-items:center;gap:8px;text-align:left;padding:6px 8px;border-radius:8px;color:var(--text);font-family:var(--mono);font-size:12.5px}
+      .dbv-side .h{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);padding:12px 8px 6px}
+      .dbv-side button{display:flex;align-items:center;gap:8px;text-align:left;padding:6px 8px;border-radius:var(--r-m);color:var(--text);font-family:var(--mono);font-size:13px}
       .dbv-side button:hover{background:var(--hover)}
       .dbv-side button.on{background:var(--panel);box-shadow:0 0 0 1px var(--line),0 1px 2px rgba(0,0,0,.06)}
       .dbv-side button span{margin-left:auto;color:var(--muted);font-size:11px}
       .dbv-stats{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:8px;margin-bottom:16px}
-      .dbv-stat{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px 12px}
+      .dbv-stat{background:var(--panel);border:1px solid var(--line);border-radius:var(--r-l);padding:10px 12px}
       .dbv-stat b{display:block;font:600 17px/1.2 var(--mono);font-variant-numeric:tabular-nums}
-      .dbv-stat span{font-size:11.5px;color:var(--muted)}
+      .dbv-stat span{font-size:12px;color:var(--muted)}
       .dbv-bar{display:flex;gap:8px;align-items:center;margin-bottom:10px;flex-wrap:wrap}
-      .dbv-bar .inp{font-family:var(--mono);font-size:12.5px;flex:1;min-width:220px}
+      .dbv-bar .inp{font-family:var(--mono);font-size:13px;flex:1;min-width:220px}
       .dbv-bar .cnt{font:12px var(--mono);color:var(--muted)}
       .dbv-main{min-width:0;container-type:inline-size}
       @container (max-width:820px){.dbv-split.insp{grid-template-columns:1fr}.dbv-insp{max-height:50vh}}
       .dbv-split{display:grid;grid-template-columns:1fr;gap:14px}
       .dbv-split.insp{grid-template-columns:minmax(0,1fr) minmax(280px,38%)}
-      .dbv-tw{overflow:auto;border:1px solid var(--line);border-radius:12px;background:var(--panel);max-height:68vh}
+      .dbv-tw{overflow:auto;border:1px solid var(--line);border-radius:var(--r-l);background:var(--panel);max-height:68vh}
       .dbv table{border-collapse:collapse;width:100%;font:12px/1.4 var(--mono)}
       .dbv th{position:sticky;top:0;background:var(--panel);text-align:left;font-weight:600;color:var(--muted);padding:8px 10px;border-bottom:1px solid var(--line);white-space:nowrap;cursor:pointer;user-select:none}
       .dbv th:hover{color:var(--text)}
@@ -34,9 +34,9 @@
       .dbv tr.on td{background:color-mix(in srgb,var(--accent) 10%,transparent)}
       .dbv td.n{color:#0090ff}.dbv td.b{color:#d6409f}.dbv td.nl{color:var(--muted);opacity:.6}.dbv td.o{color:var(--muted)}
       .dbv td a{color:var(--accent);cursor:pointer;text-decoration:none}
-      .dbv-insp{border:1px solid var(--line);border-radius:12px;background:#151513;color:#e9e6dd;overflow:auto;max-height:68vh;position:relative}
+      .dbv-insp{border:1px solid var(--line);border-radius:var(--r-l);background:#151513;color:#e9e6dd;overflow:auto;max-height:68vh;position:relative}
       .dbv-insp .ih{position:sticky;top:0;display:flex;gap:6px;align-items:center;padding:8px 10px;background:#1d1d1a;border-bottom:1px solid #2c2b27;font:12px var(--mono);color:#a7a397}
-      .dbv-insp .ih button{color:#e9e6dd;background:#2c2b27;border-radius:6px;padding:2px 8px;font-size:11.5px}
+      .dbv-insp .ih button{color:#e9e6dd;background:#2c2b27;border-radius:var(--r-s);padding:2px 8px;font-size:12px}
       .dbv-insp .ih button:first-of-type{margin-left:auto}
       .dbv-insp pre{margin:0;padding:12px 14px;font:12px/1.55 var(--mono);white-space:pre-wrap;word-break:break-word}
       .dbv-insp .k{color:#9cdcfe}.dbv-insp .s{color:#ce9178}.dbv-insp .n{color:#b5cea8}.dbv-insp .bo{color:#c586c0}.dbv-insp .nu{color:#808080}
@@ -44,7 +44,7 @@
       .dbv-bk:last-child{border-bottom:0}
       .dbv-bk span{color:var(--muted)}
       .dbv-bk button{margin-left:auto}
-      .dbv-banner{font-size:12.5px;padding:8px 12px;border-radius:10px;background:color-mix(in srgb,#f5a524 16%,transparent);margin-bottom:12px;display:flex;gap:10px;align-items:center}
+      .dbv-banner{font-size:13px;padding:8px 12px;border-radius:var(--r);background:color-mix(in srgb,#f5a524 16%,transparent);margin-bottom:12px;display:flex;gap:10px;align-items:center}
       .dbv-banner button{margin-left:auto}
       .dbv-diff b{font-family:var(--mono)}.dbv-diff .p{color:#30a46c}.dbv-diff .m{color:#e5484d}
       @media (max-width:900px){.dbv{grid-template-columns:1fr}.dbv-split.insp{grid-template-columns:1fr}}
@@ -124,7 +124,7 @@
             <div class="dbv-split ${selRow ? 'insp' : ''}">
               <div class="dbv-tw"><table><thead><tr>${keys.map(k => `<th data-sort="${E(k)}">${E(k)}${st.sort === k ? (st.dir > 0 ? ' ↑' : ' ↓') : ''}</th>`).join('')}</tr></thead>
                 <tbody>${list.slice(0, 500).map((r, i) => { const id = r.id || r.key || rows.indexOf(r); return `<tr data-row="${E(id)}" class="${id === st.sel ? 'on' : ''}">${keys.map(k => cell(r[k], k, S)).join('')}</tr>`; }).join('')}</tbody></table>
-                ${list.length > 500 ? `<div class="muted" style="padding:8px 10px;font-size:12px">Showing 500 of ${list.length} — narrow the filter.</div>` : ''}${!list.length ? '<div class="muted" style="padding:14px;font-size:12.5px">No rows match.</div>' : ''}</div>
+                ${list.length > 500 ? `<div class="muted" style="padding:8px 10px;font-size:12px">Showing 500 of ${list.length} — narrow the filter.</div>` : ''}${!list.length ? '<div class="muted" style="padding:14px;font-size:13px">No rows match.</div>' : ''}</div>
               ${selRow ? `<div class="dbv-insp"><div class="ih">${E(st.col)} / ${E(String(st.sel))}<button data-icopy>Copy</button><button data-iclose>✕</button></div><pre>${highlight(selRow)}</pre></div>` : ''}
             </div>
           </div></div>`;
@@ -148,17 +148,17 @@
             const box = el.querySelector('#dbv-nas'); if (!box) return;
             const d = info.db || {};
             const dbCard = d.storage === 'sqlite'
-              ? `<div style="border:1px solid var(--line);border-radius:10px;background:var(--panel);padding:10px 12px;margin-bottom:10px;font-size:12.5px"><div style="display:flex;align-items:center;gap:4px 8px;margin-bottom:6px;flex-wrap:wrap"><b>SQLite</b><span style="color:var(--ok);font-size:11px;font-weight:600">● ${E(d.file)}</span><span style="margin-left:auto;color:var(--muted);font-family:var(--mono);font-size:11px">${bytes(d.bytes)} · v${E(d.sqlite)}</span></div><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(64px,1fr));gap:6px;font-family:var(--mono);font-size:11.5px">${Object.entries(d.rows || {}).map(([k, n]) => `<div><b style="font-size:15px">${n}</b><br><span style="color:var(--muted)">${E(k)}</span></div>`).join('')}</div>${d.migratedAt ? `<div style="color:var(--muted);font-size:11px;margin-top:6px">Moved from state.json on ${new Date(d.migratedAt).toLocaleDateString()}. state.json is still kept up to date as a safety copy.</div>` : ''}</div>`
-              : `<div style="border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-bottom:10px;font-size:12.5px"><b>JSON file storage</b><div style="color:var(--muted);font-size:11.5px">${E(d.note || '')}</div></div>`;
-            box.innerHTML = dbCard + `<div style="font-family:var(--mono);font-size:11.5px;line-height:1.7;margin-bottom:8px">${info.entries.sort((a, b) => (b.bytes || 0) - (a.bytes || 0)).map(f => `<div style="display:flex;gap:6px"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${f.secret ? '🔒 ' : ''}${E(f.name)}</span><span style="margin-left:auto;color:var(--muted)">${bytes(f.bytes || 0)}${f.dir ? ' · ' + f.files : ''}</span></div>`).join('')}</div>
-              <div style="font-size:11px;font-weight:650;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);padding:4px 0">Backups · keeps ${info.keep}</div>
-              <div style="border:1px solid var(--line);border-radius:10px;background:var(--panel);max-height:260px;overflow:auto">${info.backups.map(b => `<div class="dbv-bk">${E(b.name.slice(6, 16))}<span>${bytes(b.bytes)}</span><button class="btn ghost" data-bk="${E(b.name)}" style="padding:2px 8px;font-size:11.5px">${st.src && st.src.name === b.name ? 'viewing' : 'open'}</button></div>`).join('') || '<div class="dbv-bk"><span>none yet</span></div>'}</div>`;
+              ? `<div style="border:1px solid var(--line);border-radius:var(--r);background:var(--panel);padding:10px 12px;margin-bottom:10px;font-size:13px"><div style="display:flex;align-items:center;gap:4px 8px;margin-bottom:6px;flex-wrap:wrap"><b>SQLite</b><span style="color:var(--ok);font-size:11px;font-weight:600">● ${E(d.file)}</span><span style="margin-left:auto;color:var(--muted);font-family:var(--mono);font-size:11px">${bytes(d.bytes)} · v${E(d.sqlite)}</span></div><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(64px,1fr));gap:6px;font-family:var(--mono);font-size:12px">${Object.entries(d.rows || {}).map(([k, n]) => `<div><b style="font-size:15px">${n}</b><br><span style="color:var(--muted)">${E(k)}</span></div>`).join('')}</div>${d.migratedAt ? `<div style="color:var(--muted);font-size:11px;margin-top:6px">Moved from state.json on ${new Date(d.migratedAt).toLocaleDateString()}. state.json is still kept up to date as a safety copy.</div>` : ''}</div>`
+              : `<div style="border:1px solid var(--line);border-radius:var(--r);padding:10px 12px;margin-bottom:10px;font-size:13px"><b>JSON file storage</b><div style="color:var(--muted);font-size:12px">${E(d.note || '')}</div></div>`;
+            box.innerHTML = dbCard + `<div style="font-family:var(--mono);font-size:12px;line-height:1.7;margin-bottom:8px">${info.entries.sort((a, b) => (b.bytes || 0) - (a.bytes || 0)).map(f => `<div style="display:flex;gap:6px"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${f.secret ? '🔒 ' : ''}${E(f.name)}</span><span style="margin-left:auto;color:var(--muted)">${bytes(f.bytes || 0)}${f.dir ? ' · ' + f.files : ''}</span></div>`).join('')}</div>
+              <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);padding:4px 0">Backups · keeps ${info.keep}</div>
+              <div style="border:1px solid var(--line);border-radius:var(--r);background:var(--panel);max-height:260px;overflow:auto">${info.backups.map(b => `<div class="dbv-bk">${E(b.name.slice(6, 16))}<span>${bytes(b.bytes)}</span><button class="btn ghost" data-bk="${E(b.name)}" style="padding:2px 8px;font-size:12px">${st.src && st.src.name === b.name ? 'viewing' : 'open'}</button></div>`).join('') || '<div class="dbv-bk"><span>none yet</span></div>'}</div>`;
             box.querySelectorAll('[data-bk]').forEach(b => b.onclick = async () => { try { const d = await (await fetch('api/db/backup?name=' + encodeURIComponent(b.dataset.bk), { cache: 'no-store' })).json(); st.src = { name: b.dataset.bk, data: Object.assign({ clients: [], tasks: [], meetings: [], pluginData: {}, settings: {} }, JSON.parse(d.json || '{}')) }; st.sel = null; render(el); } catch (e) { api.ui.toast('Could not open backup: ' + e.message); } });
           } catch (e) { const box = el.querySelector('#dbv-nas'); if (box) box.textContent = 'Could not read the data folder.'; }
         }
       }
 
-      api.views.add({ id: 'db', group: 'insights', title: 'Database', icon: '⛁', subtitle: 'Read-only: every record Cadence keeps, and your NAS backups', render: el => render(el) });
+      api.views.add({ id: 'db', group: 'insights', title: 'Database', icon: '⛁', subtitle: 'Every record Cadence keeps, and your NAS backups', render: el => render(el) });
       api.commands.add({ title: 'Open database viewer', run: () => api.ui.navigate('view-db') });
     }
   });

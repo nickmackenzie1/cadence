@@ -40,8 +40,8 @@
         .ks-grid{display:grid;grid-template-columns:1.3fr 1fr 1fr;gap:2.5vw;flex:1}.ks-grid section{background:var(--panel);border:1px solid var(--line);border-radius:22px;padding:20px 24px}
         .ks-grid h3{margin:0 0 12px;font-size:15px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted)}
         .ks-it{display:flex;gap:16px;padding:12px 0;border-bottom:1px solid var(--line);font-size:22px}.ks-it b{min-width:96px;color:var(--accent)}.ks-it em{display:block;font-style:normal;font-size:15px;color:var(--muted)}
-        .ks-din{height:160px;border-radius:14px;background:center/cover;margin-bottom:10px}.ks-big{font:700 28px/1.2 ui-rounded,system-ui;margin:0}.ks-sub,.ks-none{color:var(--muted);font-size:18px}
-        .ks-td{display:flex;gap:14px;align-items:center;font-size:21px;padding:10px 0;border-bottom:1px solid var(--line)}.ks-td input{width:26px;height:26px}
+        .ks-din{height:160px;border-radius:var(--r-l);background:center/cover;margin-bottom:10px}.ks-big{font:700 28px/1.2 ui-rounded,system-ui;margin:0}.ks-sub,.ks-none{color:var(--muted);font-size:18px}
+        .ks-td{display:flex;gap:14px;align-items:center;font-size:20px;padding:10px 0;border-bottom:1px solid var(--line)}.ks-td input{width:26px;height:26px}
         @media (max-width:900px){.ks-grid{grid-template-columns:1fr}}`);
     },
   });
@@ -64,7 +64,7 @@
             K.ownTask(api, 'pack:' + x.id, { title: `Pack for ${x.name}`, dueDate: addDays(x.start, -1) < today() ? today() : addDays(x.start, -1) }); });
           el.querySelectorAll('[data-open]').forEach(b => b.onclick = () => { api.storage.set('sel', b.dataset.open); api.ui.refresh(); }); return; }
         const base = g('base'), d = daysUntil(t.start);
-        el.innerHTML = `<div class="lk-top"><button class="lk-btn" id="vc-back">‹ All trips</button><b style="font-size:17px">${esc(t.name)}</b><span class="sp"></span><span class="vc-count">${d > 0 ? `<b>${d}</b> days to go` : 'Have fun!'}</span></div>
+        el.innerHTML = `<div class="lk-top"><button class="lk-btn" id="vc-back">‹ All trips</button><b style="font-size:18px">${esc(t.name)}</b><span class="sp"></span><span class="vc-count">${d > 0 ? `<b>${d}</b> days to go` : 'Have fun!'}</span></div>
           ${K.card('Bookings and deadlines', (t.bookings || []).map((b, i) => `<div class="lk-row"><span class="grow">${esc(b.what)}</span><em class="${b.done ? '' : daysUntil(b.by) < 7 ? 'hot' : ''}">${b.done ? 'Booked' : 'by ' + esc(api.util.fmtDate(b.by))}</em>${b.done ? '' : `<button class="lk-btn" data-bk="${i}">Booked</button>`}</div>`).join('') || K.empty('Flights, the hotel, the kennel, rental car…'), '<button class="lk-btn" id="vc-badd">Add</button>')}
           ${t.people.map(p => { const items = [...new Set([...(base[p] || []), ...((t.extra || {})[p] || [])])], packed = (t.packed || {})[p] || [];
             return K.card(`${esc(p)}’s packing list <span class="muted" style="font-weight:400;font-size:12px">${packed.length}/${items.length}</span>`, `${items.map(it => `<label class="lk-row"><input type="checkbox" data-pk="${esc(p)}" value="${esc(it)}" ${packed.includes(it) ? 'checked' : ''}><span class="grow">${esc(it)}</span></label>`).join('')}<input class="inp" data-padd="${esc(p)}" placeholder="Add an item (remembered for next time)" style="margin-top:6px">`); }).join('')}
@@ -79,7 +79,7 @@
         $('#vc-sprint') && ($('#vc-sprint').onclick = () => K.printable(`Pet sitter notes · ${t.name}`, `<p class="m">${esc(api.util.fmtDate(t.start))} to ${esc(api.util.fmtDate(t.end))}</p>` + t.sitter.map(x => `<h2>${esc(x.q)}</h2><p>${esc(x.a || '—')}</p>`).join('')));
       }
       api.views.add({ id: 'vacation', title: 'Trips', icon: '✈️', subtitle: 'Countdowns, bookings, packing lists that remember', render: view });
-      K.css('vc-css', `.vc-trip{display:grid;grid-template-columns:1fr auto;gap:2px 12px;width:100%;text-align:left;border:1px solid var(--line);border-radius:14px;background:var(--panel);padding:12px 14px;margin-bottom:8px;cursor:pointer;color:var(--text)}.vc-trip b{font-size:15px}.vc-trip span{grid-column:1;color:var(--muted);font-size:12.5px}.vc-trip em{grid-column:2;grid-row:1/3;align-self:center;font-style:normal;font-weight:700;color:#0891b2}
+      K.css('vc-css', `.vc-trip{display:grid;grid-template-columns:1fr auto;gap:2px 12px;width:100%;text-align:left;border:1px solid var(--line);border-radius:var(--r-l);background:var(--panel);padding:12px 14px;margin-bottom:8px;cursor:pointer;color:var(--text)}.vc-trip b{font-size:15px}.vc-trip span{grid-column:1;color:var(--muted);font-size:13px}.vc-trip em{grid-column:2;grid-row:1/3;align-self:center;font-style:normal;font-weight:700;color:#0891b2}
         .vc-count{font-size:13px;color:var(--muted)}.vc-count b{font:900 26px/1 ui-rounded,system-ui;color:#0891b2}`);
     },
   });

@@ -45,7 +45,7 @@ const dueMs = t => { if(!t.dueDate) return null; const d = fromYmd(t.dueDate); i
 const DEMO = (() => { try { const q = new URLSearchParams(location.search); if(q.has('demo')){ if(q.get('demo') === '0') sessionStorage.removeItem('cadence.demo'); else sessionStorage.setItem('cadence.demo', '1'); history.replaceState(null, '', location.pathname + location.hash); } return sessionStorage.getItem('cadence.demo') === '1'; } catch(e){ return false; } })();
 if(DEMO) document.documentElement.classList.add('demo');
 const LS_KEY = DEMO ? 'cadence.demo.v1' : 'cadence.v1';
-const blank = () => ({ v:1, clients:[], tasks:[], meetings:[], settings:{ myName:'', theme:'light', remindLead:10 }, disabled:[], userPlugins:[], pluginData:{}, activeMeeting:null, updatedAt:0 });
+const blank = () => ({ v:1, clients:[], tasks:[], meetings:[], settings:{ myName:'', theme:'light', remindLead:10 }, disabled:['haunted'], userPlugins:[], pluginData:{}, activeMeeting:null, updatedAt:0 });
 /* ---------- spaces: Work and Life are two complete Cadences (own tasks, areas/clients, plugins, theme, dashboards).
    The space you're in is per device; both sync through the same per-record sync. ---------- */
 let SPACE = (() => { try { return localStorage.getItem('cadence.space') === 'life' ? 'life' : 'work'; } catch(e){ return 'work'; } })();
@@ -772,7 +772,7 @@ function makeApi(pid){
     plugins: { enabled: id => enabled(id), list: () => Reg.defs.map(d => ({ id: d.id, name: d.name, enabled: enabled(d.id) })) },
     space: () => SPACE,
     system: () => ({ demo: DEMO, space: SPACE, mode: Store.server ? 'nas' : Store.ref ? 'claude' : 'local', status: Store.status, lastSyncAt: Store.lastSyncAt || null, latency: Store.latency ?? null, ai: !!AI, health: Store.health || null, version: window.Cadence.version, plugins: Reg.defs.filter(d => enabled(d.id)).length, counts: { tasks: S.tasks.length, open: S.tasks.filter(t => !t.done).length, clients: S.clients.filter(c => !c.archived).length, meetings: S.meetings.length } }),
-    ui: { icon, reducedMotion, toast, ask, refreshSide: () => renderSide(), taskRow: (t, o) => { const x = S.tasks.find(y => y.id === (t && t.id || t)); return x ? taskRow(x, o || {}) : ''; }, openTask: id => openTask(id), selected: () => selTask, closeTask: () => closeDrawer(), colorMode: () => S.settings.theme === 'dark' ? 'dark' : 'light', setColorMode: m => { S.settings.theme = m === 'dark' ? 'dark' : 'light'; save(); render(); }, refreshWidgets: () => renderWidgets(), pointer: () => ({ ...lastPointer }), faviconUrl: (d, v) => faviconUrl(d, v), avatar: (c, size) => avatar(c, size), navigate: r => go(r), refresh: () => render(), copy: copyText, esc, modal: openModalHTML, close: closeModal, currentRoute: () => route() },
+    ui: { icon, reducedMotion, toast, ask, refreshSide: () => renderSide(), taskRow: (t, o) => { const x = S.tasks.find(y => y.id === (t && t.id || t)); return x ? taskRow(x, o || {}) : ''; }, openTask: id => openTask(id), selected: () => selTask, closeTask: () => closeDrawer(), colorMode: () => S.settings.theme === 'dark' ? 'dark' : 'light', setColorMode: m => { S.settings.theme = m === 'dark' ? 'dark' : 'light'; save(); render(); }, refreshWidgets: () => renderWidgets(), pointer: () => ({ ...lastPointer }), faviconUrl: (d, v) => faviconUrl(d, v), avatar: (c, size) => avatar(c, size), navigate: r => go(r), refresh: () => render(), copy: copyText, esc, modal: openModalHTML, close: closeModal, currentRoute: () => route(), empty: (title, sub, ic, sm) => `<div class="empty${sm ? ' sm' : ''}">${ic ? `<div class="big">${ic}</div>` : ''}<b>${esc(title)}</b>${sub ? esc(sub) : ''}</div>` },
     storage: { get: k => (S.pluginData[pid] || {})[k], set: (k,v) => { (S.pluginData[pid] = S.pluginData[pid] || {})[k] = v; save(); } },
     get ai(){ return AI; },
     settings: () => clone(S.settings),
@@ -878,9 +878,9 @@ function projectPage(c, o){
       <div class="sub"><span class="chip">Internal project</span>${tgt}</div>${c.description ? `<div class="c-desc">${esc(c.description)}</div>` : ''}
       <div class="pj-bar" title="${done.length} of ${all.length} done"><i style="width:${pct}%;background:${c.color}"></i></div><div class="pj-pct"><b>${pct}%</b> done · ${done.length} of ${all.length} tasks${weekDone ? ` · ${weekDone} this week` : ''}</div></div>
     <div class="actions">${Reg.clientActions.filter(x => x.primary && x.projects).map(x => `<button class="btn" data-act="client-action" data-i="${Reg.clientActions.indexOf(x)}" data-cid="${c.id}">${esc(x.label)}</button>`).join('')}<button class="btn" data-act="edit-project" data-cid="${c.id}">Edit project</button></div></div></div>
-    <div class="stats"><div class="stat"><div class="v">${mine.length}</div><div class="l">To do</div></div><div class="stat"><div class="v" style="color:var(--client)">${theirs.length}</div><div class="l">Waiting on others</div></div><div class="stat"><div class="v" style="color:${overdue ? 'var(--danger)' : 'inherit'}">${overdue}</div><div class="l">Overdue</div></div><div class="stat"><div class="v">${weekDone}</div><div class="l">Done this week</div></div></div>
+    <div class="stats"><div class="stat"><div class="v">${mine.length}</div><div class="l">To do</div></div><div class="stat"><div class="v" style="color:var(--client)">${theirs.length}</div><div class="l">Waiting on others</div></div><div class="stat"><div class="v">${overdue}</div><div class="l">From earlier</div></div><div class="stat"><div class="v">${weekDone}</div><div class="l">Done this week</div></div></div>
     ${quickAdd(`Add a task to ${c.name}…  ^ if waiting on someone`, { clientId: c.id })}
-    <div class="cols"><div>${group('Now', now, { hideClient: true, drop: 'owner:me' }) || ''}${group('Next', next, { hideClient: true, drop: 'owner:me' }) || (now.length ? '' : `<div class="group" data-drop="owner:me"><div class="group-h">To do</div><div class="muted drop-hint" style="padding:10px 6px">${all.length ? 'All done. 🎉' : 'Break it down: add the first task above.'}</div></div>`)}</div>
+    <div class="cols"><div>${group('Now', now, { hideClient: true, drop: 'owner:me' }) || ''}${group('Next', next, { hideClient: true, drop: 'owner:me' }) || (now.length ? '' : `<div class="group" data-drop="owner:me"><div class="group-h">To do</div><div class="muted drop-hint" style="padding:10px 6px">${all.length ? 'All done.' : 'Break it down: add the first task above.'}</div></div>`)}</div>
     <div>${group('Waiting on others', theirs, { hideClient: true, cls: 'client', drop: 'owner:client' }) || `<div class="group" data-drop="owner:client"><div class="group-h client">Waiting on others</div><div class="muted drop-hint" style="padding:10px 6px">Nothing blocked.</div></div>`}
       ${group('With dev', open.filter(x => x.owner === 'dev'), { hideClient: true, cls: 'dev' })}
       ${recent.length ? `<div class="group"><div class="group-h soft">Recently done</div>${recent.map(x => `<div class="pj-done">✓ <span>${esc(x.title)}</span><em>${esc(fmtDate(ymd(new Date(x.doneAt))))}</em></div>`).join('')}</div>` : ''}</div></div>`;
@@ -889,8 +889,8 @@ function devPage(o){
   const all = o.filter(x => x.owner === 'dev'), late = all.filter(x => dueState(x) === 'over').length, oldest = Math.max(0, ...all.map(x => daysSince(x.assignedAt)));
   const doneWk = S.tasks.filter(x => x.owner === 'dev' && x.done && x.doneAt && Date.now() - x.doneAt < 7 * 864e5).length, by = {};
   all.forEach(x => (by[x.clientId || '_'] = by[x.clientId || '_'] || []).push(x));
-  return `<div class="head"><div><h1>Dev</h1><div class="sub">Work handed to development. Type <kbd>&gt;dev</kbd> in any quick add, or set the owner chip to Dev.</div></div></div>
-    <div class="stats"><div class="stat"><div class="v">${all.length}</div><div class="l">With dev</div></div><div class="stat"><div class="v" style="color:${late ? 'var(--danger)' : 'inherit'}">${late}</div><div class="l">Overdue</div></div><div class="stat"><div class="v" style="color:${oldest >= 7 ? 'var(--danger)' : 'inherit'}">${oldest ? oldest + 'd' : '–'}</div><div class="l">Oldest</div></div><div class="stat"><div class="v" style="color:var(--ok)">${doneWk}</div><div class="l">Done this week</div></div></div>
+  return `<div class="head"><div><h1>Dev</h1><div class="sub">Work handed to development</div></div></div>
+    <div class="stats"><div class="stat"><div class="v">${all.length}</div><div class="l">With dev</div></div><div class="stat"><div class="v">${late}</div><div class="l">From earlier</div></div><div class="stat"><div class="v">${oldest ? oldest + 'd' : '–'}</div><div class="l">Oldest</div></div><div class="stat"><div class="v" style="color:var(--ok)">${doneWk}</div><div class="l">Done this week</div></div></div>
     ${quickAdd('Hand something to dev…  e.g. “Fix the blueprint transition @acme fri”', { owner: 'dev' })}
     ${Object.keys(by).map(k => { const c = client(k); return group(c ? `${avatar(c, 16)} ${esc(c.name)}` : 'No client', by[k], { hideClient: true, hideOwner: true }); }).join('') || emptyState('⚙', 'Nothing with dev', 'Hand a task over from its owner chip, or type >dev in quick add.')}`;
 }
@@ -922,7 +922,7 @@ function renderSide(){
     ${LIFE() ? `<div class="sect">Areas <button data-act="add-client" title="Add an area">+</button></div>
     <nav class="nav">${clients.map(cl => clientLink(cl, r, o)).join('') || (paused.length ? '' : `<a data-act="add-client"><span class="ic">+</span><span class="t muted">Add an area</span></a>`)}
       ${paused.length ? `<div class="more" data-act="toggle-paused">${showPaused ? '▾' : '▸'} Paused <span class="muted">${paused.length}</span></div>${showPaused ? paused.map(cl => clientLink(cl, r, o, true)).join('') : ''}` : ''}</nav>` : (() => {
-      // Work: the clients and projects you've opened lately, plus anyone with overdue work; everything else is one click away
+      // Work: the clients and projects you've opened lately, plus anyone with work from earlier; everything else is one click away
       const live = all.filter(x => x.status !== 'done'), rec = recents().map(id => live.find(x => x.id === id)).filter(Boolean);
       const hot = live.filter(x => !rec.includes(x) && o.some(t => t.clientId === x.id && onMe(t) && dueState(t) === 'over')).slice(0, 3);
       let list = rec.slice(0, 4).concat(hot);
@@ -1082,7 +1082,7 @@ function renderView(){
   } else if(r === 'waiting'){
     const w = o.filter(x => x.owner==='client'), by = {};
     w.forEach(x => (by[x.clientId||'_'] = by[x.clientId||'_'] || []).push(x));
-    html = `<div class="head"><div><h1>Waiting on clients</h1><div class="sub">Action items you’re owed — chase these</div></div></div>${quickAdd('Log a client action item…', { owner:'client' })}
+    html = `<div class="head"><div><h1>Waiting on clients</h1><div class="sub">What others owe you</div></div></div>${quickAdd('Log a client action item…', { owner:'client' })}
       ${Object.keys(by).map(k => { const c = client(k); return group(c ? `${avatar(c,16)} ${esc(c.name)}${Reg.clientActions.filter(x => (x.where||[]).includes('waiting')).map(x => `<button class="btn" style="margin-left:auto;padding:3px 10px;font-size:12px;text-transform:none;letter-spacing:0" data-act="client-action" data-i="${Reg.clientActions.indexOf(x)}" data-cid="${c.id}">${esc(x.short || x.label)}</button>`).join('')}` : 'No client', by[k], {hideClient:true, hideOwner:false}); }).join('') || emptyState('↗','No one owes you anything','Prefix with <kbd>^</kbd> to mark an item as the client’s.')}`;
   } else if(r === 'inbox'){
     html = `<div class="head"><div><h1>Inbox</h1><div class="sub">Tasks not tied to a client</div></div></div>${quickAdd('Capture anything…')}${group('Unsorted', o.filter(x => !x.clientId)) || emptyState('▢','Inbox zero','Nice.')}`;
@@ -1114,7 +1114,7 @@ function renderView(){
       html = `<div class="c-hero">${heroBg}<div class="head"><div><h1>${avatar(c, 44)}<span class="nm" contenteditable="true" spellcheck="false" data-rename="${c.id}" title="Click to rename">${esc(c.name)}</span>${c.status==='paused' ? ' <span class="badge">Paused</span>' : ''}</h1><div class="sub">${ind ? `<span class="chip ind" data-act="edit-client" data-cid="${c.id}">${ind.icon} ${esc(ind.label)}</span> ` : ''}${c.domain ? `<a class="site-link" href="https://${esc(c.domain)}" target="_blank" rel="noopener">${esc(c.domain)}</a> · ` : `<a class="site-link" data-act="edit-client" data-cid="${c.id}" style="cursor:pointer">+ add website</a> · `}${mtgs[0] ? 'Last meeting ' + fmtDate(ymd(new Date(mtgs[0].start))).toLowerCase() : 'No meetings logged yet'}</div>${c.description ? `<div class="c-desc" title="Click to expand" onclick="this.classList.toggle('full')">${esc(decodeEntities(c.description))}</div>` : ''}</div>
         <div class="actions">${Reg.clientActions.filter(x => x.primary).map((x,i) => `<button class="btn" data-act="client-action" data-i="${Reg.clientActions.indexOf(x)}" data-cid="${c.id}">${esc(x.label)}</button>`).join('')}<button class="btn primary" data-act="meeting" data-cid="${c.id}">◉ Start meeting</button><button class="btn ghost" data-act="client-menu" data-cid="${c.id}" title="More">•••</button></div></div></div>
         ${ind && ind.apps.length ? `<div class="playbook"><span class="pb-t">${ind.icon} Usually fits ${esc(ind.label.toLowerCase())}:</span>${ind.apps.map(a => `<span class="chip">${esc(a)}</span>`).join('')}${ind.tpl && enabled('templates') && window.CadenceTemplates ? `<button class="btn" data-act="pb-template" data-cid="${c.id}" data-tpl="${ind.tpl}" style="margin-left:auto;padding:4px 10px;font-size:12px">▤ ${esc(window.CadenceTemplates.name(ind.tpl) || 'Apply template')}</button>` : ''}</div>` : ''}
-        <div class="stats"><div class="stat"><div class="v">${mine.length}</div><div class="l">On me</div></div><div class="stat"><div class="v" style="color:var(--client)">${theirs.length}</div><div class="l">Waiting on ${esc(c.name)}</div></div><div class="stat"><div class="v" style="color:${overdue?'var(--danger)':'inherit'}">${overdue}</div><div class="l">Overdue</div></div><div class="stat"><div class="v">${mtgs.length}</div><div class="l">Meetings</div></div></div>
+        <div class="stats"><div class="stat"><div class="v">${mine.length}</div><div class="l">On me</div></div><div class="stat"><div class="v" style="color:var(--client)">${theirs.length}</div><div class="l">Waiting on ${esc(c.name)}</div></div><div class="stat"><div class="v">${overdue}</div><div class="l">From earlier</div></div><div class="stat"><div class="v">${mtgs.length}</div><div class="l">Meetings</div></div></div>
         ${quickAdd(`Add a task for ${c.name}…  prefix ^ for their action item`, { clientId: c.id })}
         <div class="cols"><div>${group('On me', mine, {hideClient:true, drop:'owner:me'}) || `<div class="group" data-drop="owner:me"><div class="group-h">On me</div><div class="muted drop-hint" style="padding:10px 6px">All clear.</div></div>`}${group('With dev', o.filter(x => x.clientId===c.id && x.owner==='dev'), {hideClient:true, hideOwner:true, cls:'dev'})}</div>
         <div>${group('On client', theirs, {hideClient:true, cls:'client', drop:'owner:client'}) || `<div class="group" data-drop="owner:client"><div class="group-h client">On client</div><div class="muted drop-hint" style="padding:10px 6px">Nothing outstanding.</div></div>`}</div></div>
@@ -1335,7 +1335,7 @@ function editChip(t, key, el){
   }
   if(key === 'stage'){
     const ck = on => on ? '<span class="ck">✓</span>' : '';
-    return popover(el, `<div class="pop-list"><button class="pop-i" data-s="">Not started${ck(!t.stage)}</button><button class="pop-i" data-s="doing">▶ In progress${ck(t.stage === 'doing')}</button><button class="pop-i" data-s="waiting">⏳ Did my part, follow up…${ck(t.stage === 'waiting')}</button></div><div class="pop-sect">History</div><div class="pop-list"><button class="pop-i" data-s="log">✎ Log a step${(t.log || []).length ? `<span class="muted" style="margin-left:auto;font-size:11.5px">${t.log.length} so far</span>` : ''}</button></div>`, (p, close) => {
+    return popover(el, `<div class="pop-list"><button class="pop-i" data-s="">Not started${ck(!t.stage)}</button><button class="pop-i" data-s="doing">▶ In progress${ck(t.stage === 'doing')}</button><button class="pop-i" data-s="waiting">⏳ Did my part, follow up…${ck(t.stage === 'waiting')}</button></div><div class="pop-sect">History</div><div class="pop-list"><button class="pop-i" data-s="log">✎ Log a step${(t.log || []).length ? `<span class="muted" style="margin-left:auto;font-size:12px">${t.log.length} so far</span>` : ''}</button></div>`, (p, close) => {
       p.querySelectorAll('[data-s]').forEach(b => b.onclick = () => { close(); const v = b.dataset.s; if(v === 'waiting' || v === 'log') stepDialog(t.id, v === 'log'); else up({ stage: v || null }); });
     }, { w: 250 });
   }
@@ -1358,7 +1358,7 @@ function stepDialog(id, logOnly){
   openModalHTML(logOnly ? 'Log a step' : 'Did your part?', `<div class="muted" style="margin:-4px 0 12px;font-size:13px">${esc(t.title)}</div>
     <div class="field"><label>What did you do?</label><input class="inp" id="st-text" placeholder="${t.stage === 'waiting' && last ? 'Followed up again' : 'Opened a ticket with Zoho support (#123)'}"></div>
     ${logOnly ? '' : `<div class="field"><label>Follow up</label><div class="seg wrap" id="st-when">${opts.map(([v, l]) => `<button data-v="${v}" class="${v === pick ? 'on' : ''}">${l}</button>`).join('')}</div>
-      <div class="row" style="gap:8px;margin-top:8px;align-items:center"><span class="muted" style="font-size:12.5px">or on</span><input class="inp" type="date" id="st-date" style="width:auto"></div></div>`}
+      <div class="row" style="gap:8px;margin-top:8px;align-items:center"><span class="muted" style="font-size:13px">or on</span><input class="inp" type="date" id="st-date" style="width:auto"></div></div>`}
     ${(t.log || []).length ? `<div class="field"><label>So far</label><div class="te-log">${t.log.map(l => `<div class="te-step"><i></i><span>${esc(l.text)}</span><em>${esc(fmtDate(ymd(new Date(l.at))))}</em></div>`).join('')}</div></div>` : ''}`,
     `<button class="btn" data-act="close-modal">Cancel</button><button class="btn primary" id="st-save">${logOnly ? 'Add to history' : 'Save, follow up later'}</button>`);
   $$('#st-when button').forEach(b => b.onclick = () => { pick = b.dataset.v; $('#st-date').value = ''; $$('#st-when button').forEach(x => x.classList.toggle('on', x === b)); });
@@ -1502,7 +1502,7 @@ function allViews(){
   const loose = Reg.views.filter(v => !v.group && !v.hidden), pins = viewPins(loose), groups = {};
   loose.forEach(v => { const d = Reg.defs.find(x => x.id === v.pid) || {}; (groups[d.category || 'Other'] = groups[d.category || 'Other'] || []).push(v); });
   const body = () => Object.entries(groups).sort((a, b) => a[0].localeCompare(b[0])).map(([g, vs]) => `<div class="av-g"><div class="av-h">${esc(g)}</div><div class="av-l">${vs.map(v => { const on = viewPins(loose).includes(v.id); return `<div class="av-it"><a href="#view-${esc(v.id)}" data-av-go><span class="ic">${esc(v.icon || '◇')}</span><span><b>${esc(v.title)}</b>${v.subtitle ? `<small>${esc(v.subtitle)}</small>` : ''}</span></a><button class="av-pin ${on ? 'on' : ''}" data-av-pin="${esc(v.id)}" aria-pressed="${on}" aria-label="${on ? 'Unpin' : 'Pin'} ${esc(v.title)} in the sidebar" title="${on ? 'Unpin from' : 'Pin to'} the sidebar">${icon('pin')}</button></div>`; }).join('')}</div></div>`).join('');
-  openModalHTML('All views', `<p class="muted" style="margin:0 0 10px;font-size:12.5px">Pin the ones you use to keep them in the sidebar.</p><div id="av-body">${body()}</div>`, '', 'wide');
+  openModalHTML('All views', `<p class="muted" style="margin:0 0 10px;font-size:13px">Pin the ones you use to keep them in the sidebar.</p><div id="av-body">${body()}</div>`, '', 'wide');
   const wire = () => { $$('[data-av-pin]').forEach(b => b.onclick = () => { const cur = viewPins(loose), id = b.dataset.avPin; localStorage.setItem(pinKey(), JSON.stringify(cur.includes(id) ? cur.filter(x => x !== id) : [...cur, id])); $('#av-body').innerHTML = body(); wire(); renderSide(); });
     $$('[data-av-go]').forEach(a => a.addEventListener('click', () => setTimeout(closeModal, 0))); }; wire();
 }
@@ -1519,7 +1519,7 @@ function coreCommands(){
     ...(LIFE() ? [] : [{ title: S.activeMeeting ? 'Resume meeting' : 'Start meeting', k:'M', run: () => { closeModal(); startMeeting(); } }]),
     { title: LIFE() ? 'Add an area' : 'Add client', run: () => promptClient() },
     ...(LIFE() ? [] : [{ title:'New project', run: () => promptProject() }, { title:'Open Dev', run: () => { closeModal(); go('dev'); } }]),
-    { title:'Copy error log', run: () => { closeModal(); ErrLog.list().length ? ErrLog.copy() : toast('No errors logged this session 👍'); } },
+    { title:'Copy error log', run: () => { closeModal(); ErrLog.list().length ? ErrLog.copy() : toast('No errors logged this session'); } },
     { title:'Toggle dark mode', run: () => { closeModal(); S.settings.theme = S.settings.theme==='dark'?'light':'dark'; save(); render(); } },
     { title:'Settings & plugins', run: () => openSettings() },
     { title:'Review sync clashes', run: () => openConflicts() },
@@ -1916,7 +1916,7 @@ async function aiWording(M){
 function clientAgendaCard(c){
   const ag = c.agenda || [];
   return `<div class="group ag-card"><div class="group-h">Agenda for the next meeting<span class="c">${ag.length}</span></div>
-    ${ag.map(a => `<div class="ag-row"><span class="ag-b">•</span><span class="grow">${esc(a.text)}</span><span class="muted" style="font-size:11.5px">${esc(fmtDate(ymd(new Date(a.at))))}</span><button class="lk-x" data-agdel="${esc(a.id)}" data-cid="${esc(c.id)}" title="Remove">×</button></div>`).join('')}
+    ${ag.map(a => `<div class="ag-row"><span class="ag-b">•</span><span class="grow">${esc(a.text)}</span><span class="muted" style="font-size:12px">${esc(fmtDate(ymd(new Date(a.at))))}</span><button class="lk-x" data-agdel="${esc(a.id)}" data-cid="${esc(c.id)}" title="Remove">×</button></div>`).join('')}
     <input class="inp ag-in" data-agadd="${esc(c.id)}" placeholder="Add something to talk about next time…"></div>`;
 }
 function addAgenda(cid, text){ const c = client(cid); if(!c || !String(text || '').trim()) return; c.agenda = [...(c.agenda || []), { id: uid('ag'), text: capFirst(String(text).trim().slice(0, 200)), at: Date.now() }]; save(); }
@@ -1924,7 +1924,7 @@ function agendaPanel(M, c){
   if(!c) return '';
   const ag = c.agenda || [], done = M.agendaDone || {};
   return `<div class="m-ag"><div class="m-ag-h">Agenda <span class="muted">${ag.filter(a => done[a.id]).length}/${ag.length} covered</span></div>
-    ${ag.map(a => { const n = M.items.filter(i => i.agendaId === a.id).length; return `<div class="m-ag-it ${done[a.id] ? 'done' : ''}" data-agid="${esc(a.id)}"><input type="checkbox" ${done[a.id] ? 'checked' : ''} title="Talked about it"><span class="grow">${esc(a.text)}</span>${n ? `<em>${n} task${n === 1 ? '' : 's'}</em>` : ''}<button class="m-ag-f" title="Add a follow-up task for this">+ task</button></div>`; }).join('') || '<div class="muted" style="font-size:12.5px">Nothing on the agenda yet.</div>'}
+    ${ag.map(a => { const n = M.items.filter(i => i.agendaId === a.id).length; return `<div class="m-ag-it ${done[a.id] ? 'done' : ''}" data-agid="${esc(a.id)}"><input type="checkbox" ${done[a.id] ? 'checked' : ''} title="Talked about it"><span class="grow">${esc(a.text)}</span>${n ? `<em>${n} task${n === 1 ? '' : 's'}</em>` : ''}<button class="m-ag-f" title="Add a follow-up task for this">+ task</button></div>`; }).join('') || '<div class="muted" style="font-size:13px">Nothing on the agenda yet.</div>'}
     <input class="inp m-ag-in" placeholder="Add to the agenda…"></div>`;
 }
 function wireAgenda(el, M, c){
@@ -2110,7 +2110,7 @@ document.addEventListener('click', e => {
     case 'add-client': promptClient(); break;
     case 'add-project': promptProject(); break;
     case 'all-clients': { const o = open(), items = S.clients.filter(c => !c.archived).sort((x, y) => (isProject(x) - isProject(y)) || x.name.localeCompare(y.name)).map(c => { const n = o.filter(t => t.clientId === c.id && onMe(t)).length, late = o.some(t => t.clientId === c.id && onMe(t) && dueState(t) === 'over');
-        return { id: c.id, html: `${avatar(c, 18)} ${esc(c.name)}${isProject(c) ? '<span class="muted" style="font-size:11px;margin-left:6px">project</span>' : ''}${c.status === 'paused' ? '<span class="muted" style="font-size:11px;margin-left:6px">paused</span>' : ''}${n ? `<span style="margin-left:auto;font-size:12px;${late ? 'color:var(--danger);font-weight:650' : 'color:var(--muted)'}">${n}</span>` : ''}` }; });
+        return { id: c.id, html: `${avatar(c, 18)} ${esc(c.name)}${isProject(c) ? '<span class="muted" style="font-size:11px;margin-left:6px">project</span>' : ''}${c.status === 'paused' ? '<span class="muted" style="font-size:11px;margin-left:6px">paused</span>' : ''}${n ? `<span style="margin-left:auto;font-size:12px;${late ? 'color:var(--danger);font-weight:600' : 'color:var(--muted)'}">${n}</span>` : ''}` }; });
       popList(a, items, it => go('client-' + it.id), { search: true, w: 280 }); break; }
     case 'm-tidy': { const r = tidyMeeting(S.activeMeeting); renderMeeting(); toast(r.changed || r.dupes ? `Tidied ${r.changed} item${r.changed === 1 ? '' : 's'}${r.dupes ? ` · removed ${r.dupes} duplicate${r.dupes === 1 ? '' : 's'}` : ''}` : 'Already tidy'); break; }
     case 'm-ai': aiWording(S.activeMeeting); break;

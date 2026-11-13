@@ -6,16 +6,16 @@
   if (!G.style) {
     G.style = document.createElement('style');
     G.style.textContent = `
-      .mu-wrap{position:relative;border-radius:16px;overflow:hidden;background:#f3efe6;box-shadow:0 1px 2px rgba(0,0,0,.05),0 18px 50px rgba(0,0,0,.10);border:1px solid var(--line)}
+      .mu-wrap{position:relative;border-radius:var(--r-xl);overflow:hidden;background:#f3efe6;box-shadow:0 1px 2px rgba(0,0,0,.05),0 18px 50px rgba(0,0,0,.10);border:1px solid var(--line)}
       .mu-wrap canvas{display:block;width:100%;height:auto}
       .mu-bar{display:flex;align-items:center;gap:8px;margin:0 0 14px;flex-wrap:wrap}
       .mu-bar .sp{flex:1}
       .mu-date{position:absolute;left:16px;bottom:14px;font:600 12px/1 ui-sans-serif,system-ui;color:rgba(40,30,20,.65);background:rgba(255,255,255,.6);backdrop-filter:blur(6px);padding:6px 10px;border-radius:999px;opacity:0;transition:opacity .3s}
       .mu-date.on{opacity:1}
-      .mu-legend{display:flex;flex-wrap:wrap;gap:8px 14px;margin-top:14px;font-size:12.5px;color:var(--muted)}
+      .mu-legend{display:flex;flex-wrap:wrap;gap:8px 14px;margin-top:14px;font-size:13px;color:var(--muted)}
       .mu-legend span{display:inline-flex;align-items:center;gap:6px}
       .mu-legend i{width:10px;height:10px;border-radius:50%}
-      .mu-stat{font-size:12.5px;color:var(--muted)}
+      .mu-stat{font-size:13px;color:var(--muted)}
       .mu-empty{position:absolute;inset:0;display:grid;place-items:center;text-align:center;color:rgba(40,30,20,.55);font-size:14px;padding:20px}
     `;
     document.head.appendChild(G.style);
@@ -207,7 +207,7 @@
             <label class="row" style="gap:6px;align-items:center">Size <select class="inp" id="mo-cols" style="width:auto;padding:4px 8px"><option value="36">Small · ~1k tiles</option><option value="48" selected>Medium · ~2k tiles</option><option value="64">Large · ~3.5k tiles</option></select></label>
             <label class="row" style="gap:6px;align-items:center">Tiles per task <select class="inp" id="mo-per" style="width:auto;padding:4px 8px"><option>2</option><option selected>4</option><option>8</option></select></label>
             <label class="row" style="gap:6px;align-items:center"><input type="checkbox" id="mo-bf" checked> Count the ${done} tasks you’ve already finished</label>
-          </div><div class="muted" id="mo-msg" style="font-size:12.5px;min-height:18px"></div>`, `<button class="btn" data-act="close-modal">Cancel</button>`, 'wide');
+          </div><div class="muted" id="mo-msg" style="font-size:13px;min-height:18px"></div>`, `<button class="btn" data-act="close-modal">Cancel</button>`, 'wide');
         const msg = document.querySelector('#mo-msg');
         const start = async (img, meta) => {
           try {
@@ -228,7 +228,7 @@
 
       function renderMosaic(el) {
         const m = mos(), E = api.ui.esc;
-        if (!m) { el.innerHTML = `<div class="mu-wrap" style="aspect-ratio:16/9;display:grid;place-items:center;background:#efe9dd"><div style="text-align:center;max-width:420px;padding:20px;color:rgba(40,30,20,.7)"><div style="font-size:34px">🧩</div><b style="font-size:16px;color:rgba(40,30,20,.85)">Rebuild a masterpiece out of your clients’ logos</b><p style="font-size:13.5px;line-height:1.5">Pick a public-domain painting. Every task you finish lays a few tiles, each one a client’s logo placed where its colours fit, until the whole picture appears.</p><button class="btn primary" id="mo-new">Choose a painting</button></div></div>`; el.querySelector('#mo-new').onclick = picker; return; }
+        if (!m) { el.innerHTML = `<div class="mu-wrap" style="aspect-ratio:16/9;display:grid;place-items:center;background:#efe9dd"><div style="text-align:center;max-width:420px;padding:20px;color:rgba(40,30,20,.7)"><div style="font-size:34px">🧩</div><b style="font-size:16px;color:rgba(40,30,20,.85)">Rebuild a masterpiece out of your clients’ logos</b><p style="font-size:13px;line-height:1.5">Pick a public-domain painting. Every task you finish lays a few tiles, each one a client’s logo placed where its colours fit, until the whole picture appears.</p><button class="btn primary" id="mo-new">Choose a painting</button></div></div>`; el.querySelector('#mo-new').onclick = picker; return; }
         const t = m.target, total = t.cols * t.rows, pct = m.tiles.length / total, left = Math.ceil((total - m.tiles.length) / m.per);
         const counts = {}; m.tiles.forEach(([, ci]) => { counts[ci] = (counts[ci] || 0) + 1; });
         el.innerHTML = `<div class="mu-bar"><span class="mu-stat"><b style="color:var(--text)">${E(t.name)}</b> · ${E(t.by || '')} · ${m.tiles.length.toLocaleString()} / ${total.toLocaleString()} tiles · ${pct >= 1 ? 'finished' : `about ${left.toLocaleString()} more tasks`}</span><span class="sp"></span>
@@ -254,18 +254,18 @@
         };
       }
       if (!G.mosStyle) { G.mosStyle = document.createElement('style'); G.mosStyle.textContent = `
-        .mu-tabs{display:inline-flex;background:var(--hover);border-radius:9px;padding:2px;margin:-6px 0 16px}
-        .mu-tabs button{font-size:12.5px;padding:5px 12px;border-radius:7px;color:var(--muted)}
+        .mu-tabs{display:inline-flex;background:var(--hover);border-radius:var(--r-m);padding:2px;margin:-6px 0 16px}
+        .mu-tabs button{font-size:13px;padding:5px 12px;border-radius:var(--r-s);color:var(--muted)}
         .mu-tabs button.on{background:var(--panel);color:var(--text);box-shadow:0 1px 2px rgba(0,0,0,.08)}
         .mo-wrap{background:#efe9dd}
-        #mu-body .mu-bar .btn{padding:5px 10px;font-size:12.5px}.mo-wrap canvas{image-rendering:auto}
-        .mo-prog{height:4px;border-radius:9px;background:var(--line);overflow:hidden;margin:-4px 0 12px}.mo-prog i{display:block;height:100%;background:linear-gradient(90deg,#ff4fa3,#ffb020)}
+        #mu-body .mu-bar .btn{padding:5px 10px;font-size:13px}.mo-wrap canvas{image-rendering:auto}
+        .mo-prog{height:4px;border-radius:var(--r-m);background:var(--line);overflow:hidden;margin:-4px 0 12px}.mo-prog i{display:block;height:100%;background:linear-gradient(90deg,#ff4fa3,#ffb020)}
         .mo-pick{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:10px;margin:12px 0 14px}
-        .mo-pc{display:flex;flex-direction:column;text-align:left;gap:2px;padding:6px 6px 9px;border-radius:12px;border:1px solid var(--line);background:var(--panel);cursor:pointer;transition:transform .15s,box-shadow .2s}
+        .mo-pc{display:flex;flex-direction:column;text-align:left;gap:2px;padding:6px 6px 9px;border-radius:var(--r-l);border:1px solid var(--line);background:var(--panel);cursor:pointer;transition:transform .15s,box-shadow .2s}
         .mo-pc:hover{transform:translateY(-2px);box-shadow:0 8px 20px -10px rgba(0,0,0,.3)}
-        .mo-pc .th{display:grid;place-items:center;aspect-ratio:4/3;border-radius:8px;overflow:hidden;background:var(--hover);margin-bottom:5px;font-size:22px;color:var(--muted)}
+        .mo-pc .th{display:grid;place-items:center;aspect-ratio:4/3;border-radius:var(--r-m);overflow:hidden;background:var(--hover);margin-bottom:5px;font-size:22px;color:var(--muted)}
         .mo-pc .th img{width:100%;height:100%;object-fit:cover}
-        .mo-pc b{font-size:12.5px;line-height:1.25}.mo-pc small{font-size:11px;color:var(--muted)}
+        .mo-pc b{font-size:13px;line-height:1.25}.mo-pc small{font-size:11px;color:var(--muted)}
         .mo-pc.up{border-style:dashed}`; document.head.appendChild(G.mosStyle); }
 
       api.views.add({ id: 'mural', title: 'Mural', icon: '🎨', subtitle: 'Your work, made into art', render: (el, api) => {

@@ -34,7 +34,7 @@
       .isl-row{display:flex;align-items:center;gap:10px;min-width:0}
       .isl-ico{width:20px;height:20px;border-radius:50%;display:grid;place-items:center;flex:none;font-size:13px;background:var(--ic,#2a2833);color:#fff}
       .isl-t{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;max-width:300px}
-      .isl-t b{font-weight:650;color:var(--isl-fg)}
+      .isl-t b{font-weight:600;color:var(--isl-fg)}
       .isl-t small{display:block;color:var(--isl-sub);font-size:11px;margin-top:1px;overflow:hidden;text-overflow:ellipsis}
       .isl-right{color:var(--isl-sub);font-variant-numeric:tabular-nums;font-size:12px;flex:none}
       .isl-acts{display:flex;gap:2px;justify-content:flex-end;margin-right:-6px}
@@ -56,17 +56,17 @@
       @keyframes islck{to{stroke-dashoffset:0}}
       .isl-spin{width:14px;height:14px;border:2px solid var(--isl-line);border-top-color:var(--accent,#5b5bd6);border-radius:50%;animation:islsp .7s linear infinite;flex:none}
       @keyframes islsp{to{transform:rotate(360deg)}}
-      .isl-bar{height:3px;border-radius:9px;background:var(--isl-line);overflow:hidden}
+      .isl-bar{height:3px;border-radius:var(--r-m);background:var(--isl-line);overflow:hidden}
       .isl-bar i{display:block;height:100%;background:linear-gradient(90deg,#5b5bd6,#b06bd6,#ff7a8a);transition:width .35s}
       .isl-img{width:20px;height:20px;flex:none;display:grid;place-items:center}
-      .isl-img img{width:20px;height:20px;border-radius:5px;object-fit:cover;display:block}
+      .isl-img img{width:20px;height:20px;border-radius:var(--r-s);object-fit:cover;display:block}
       .isl-img .av{width:20px!important;height:20px!important}
       .isl-row+.isl-bar{margin-top:-1px}
       /* celebrate */
       .isl-pill.cel.up{box-shadow:0 0 0 1px color-mix(in srgb,var(--glow) 45%,transparent) inset,0 18px 50px -8px rgba(0,0,0,.28),0 0 0 6px color-mix(in srgb,var(--glow) 16%,transparent),0 0 56px -4px color-mix(in srgb,var(--glow) 65%,transparent)}
       .isl-cel{position:relative;display:flex;align-items:center;gap:12px;padding:2px 2px 2px 0;min-width:260px}
-      .isl-badge{width:40px;height:40px;border-radius:13px;flex:none;display:grid;place-items:center;font-size:22px;background:radial-gradient(circle at 30% 25%,color-mix(in srgb,var(--ic) 70%,#fff),var(--ic) 60%,color-mix(in srgb,var(--ic) 70%,#000));box-shadow:0 0 0 1px rgba(255,255,255,.18) inset,0 6px 18px -4px var(--ic);animation:islpop .7s cubic-bezier(.3,1.6,.5,1) both}
-      .isl-badge .av{width:40px!important;height:40px!important;border-radius:13px!important}
+      .isl-badge{width:40px;height:40px;border-radius:var(--r-l);flex:none;display:grid;place-items:center;font-size:22px;background:radial-gradient(circle at 30% 25%,color-mix(in srgb,var(--ic) 70%,#fff),var(--ic) 60%,color-mix(in srgb,var(--ic) 70%,#000));box-shadow:0 0 0 1px rgba(255,255,255,.18) inset,0 6px 18px -4px var(--ic);animation:islpop .7s cubic-bezier(.3,1.6,.5,1) both}
+      .isl-badge .av{width:40px!important;height:40px!important;border-radius:var(--r-l)!important}
       .isl-eye{display:block;font-size:10px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--ic);margin-bottom:1px}
       .isl-cel .isl-t b{font-size:14px}
       .isl-xp{font:800 13px/1 Inter,ui-sans-serif,system-ui;color:#16151a;background:var(--ic);padding:5px 8px;border-radius:999px;flex:none;animation:islpop .6s .25s cubic-bezier(.3,1.6,.5,1) both}
@@ -254,7 +254,7 @@
           const t = day, open = api.tasks.list(x => !x.done && x.owner === 'me'), over = open.filter(x => x.dueDate && x.dueDate < t).length, due = open.filter(x => x.dueDate === t).length;
           const cal = (window.__cal && window.__cal.events || []).filter(ev => !ev.allDay && new Date(ev.start).toDateString() === new Date().toDateString() && ev.end > Date.now()).length;
           const h = new Date().getHours(), hi = h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening';
-          const parts = [due ? `${due} due today` : 'nothing due today', over ? `${over} overdue` : '', cal ? `${cal} meeting${cal === 1 ? '' : 's'} left` : ''].filter(Boolean);
+          const parts = [due ? `${due} due today` : 'nothing due today', over ? `${over} from earlier` : '', cal ? `${cal} meeting${cal === 1 ? '' : 's'} left` : ''].filter(Boolean);
           show({ icon: h < 12 ? '☀️' : h < 17 ? '◐' : '☾', color: '#2a2833', title: hi + (api.settings().myName ? ', ' + api.settings().myName.split(' ')[0] : ''), sub: parts.join(' · '), ms: 6000, onClick: () => api.ui.navigate('today') });
           api.storage.set('brief', day);
         }, 7000);
