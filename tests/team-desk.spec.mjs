@@ -191,13 +191,13 @@ test('a ticket opened with Zoho support on a client\'s behalf is tracked as a fo
 });
 
 test('client news: only headlines that mention the client, no duplicates, excludes respected', async ({ page }) => {
-  const errs = await open(page);
   const now = new Date().toUTCString();
   await page.route('**/api/feed?*', r => r.fulfill({ json: { title: 'News', items: [
     { title: 'Initrode wins regional award - Daily', link: 'https://x/1', date: now },
     { title: 'Initrode wins regional award - Other Paper', link: 'https://x/2', date: now },
     { title: 'Weather turns cold - Daily', link: 'https://x/3', date: now },
     { title: 'Initrode recipe contest - Food', link: 'https://x/4', date: now } ] } }));
+  const errs = await open(page);
   const id = await page.evaluate(() => window.T.clients.add('Initrode').id);
   await page.evaluate(id => location.hash = 'client-' + id, id);
   await expect(page.locator('.ci-news .ci-item')).toHaveCount(2);
@@ -208,11 +208,12 @@ test('client news: only headlines that mention the client, no duplicates, exclud
 });
 
 test('record feed: a release date in the title becomes a "Releases" badge on the cover', async ({ page }) => {
-  const errs = await open(page);
+  // fake the feed before the page loads: the plugin fetches feeds at startup, and in CI the real ones are reachable
   const soon = new Date(Date.now() + 20 * 864e5), iso = soon.toISOString().slice(0, 10), now = new Date().toUTCString();
   await page.route('**/api/feed?*', r => r.fulfill({ json: { title: 'Shop', items: [
     { title: `Band - Future Album (Releases ${iso}) (Red Vinyl)`, link: 'https://x/1', date: now, image: '' },
     { title: 'Band - Old Album (VG+/NM)', link: 'https://x/2', date: now, image: '' } ] } }));
+  const errs = await open(page);
   await page.evaluate(() => location.hash = 'view-feeds');
   await expect(page.locator('#view')).toContainText('Future Album', { timeout: 15000 }).catch(async e => { console.log('FEEDS VIEW:', (await page.locator('#view').innerText()).slice(0, 800)); throw e; });
   await expect(page.locator('.rs-rel').first()).toContainText('Releases');
