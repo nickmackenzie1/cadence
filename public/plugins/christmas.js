@@ -302,6 +302,7 @@
         const focus = document.activeElement && document.activeElement.matches && document.activeElement.matches('input,textarea,[contenteditable="true"]') ? document.activeElement : null;
         const light = !(window.CadenceThemes && window.CadenceThemes.isDark && window.CadenceThemes.isDark());
         const mspd = Math.hypot(mouse.vx, mouse.vy);
+        meltAt(rects); flow(rects, dt);
         for (let i = flakes.length - 1; i >= 0; i--) {
           const f = flakes[i];
           f.ph += .02 * f.sp * dt; f.rot += f.vr * dt;
@@ -384,9 +385,64 @@
       G.preview = o => { lights(o); snow(o, true); };
       G.reset = (x = {}) => setOpts({ ...opts(), on: false, ...x });
       // handlers are swapped on every setup (spaces rebuild plugins); the listeners themselves are bound once
+      /* ---- fire melts snow: typing in Fire mode sends heat ("cadence:heat"). Snow under it melts into water that runs
+         off the edges and streams down, and water too close to the flame turns to steam. A small falling-sand grid:
+         every cell is empty, water or steam; water falls, slides diagonally, then spreads sideways; card tops are floors. */
+      const CELL = 4, WATER = 1, STEAM = 2;
+      let gw = 0, gh = 0, grid = null, solid = null, wcv = null, wcx = null, img = null, live = [], heats = [];
+      const gi = (x, y) => y * gw + x;
+      const wsprite = (r, stops) => { const c = document.createElement('canvas'); c.width = c.height = r * 2; const x = c.getContext('2d'), g = x.createRadialGradient(r * .8, r * .7, 0, r, r, r); stops.forEach(([o, col]) => g.addColorStop(o, col)); x.fillStyle = g; x.fillRect(0, 0, r * 2, r * 2); return c; };
+      const DROP = wsprite(14, [[0, 'rgba(235,246,255,.95)'], [.25, 'rgba(120,185,255,.8)'], [.7, 'rgba(70,140,235,.35)'], [1, 'rgba(70,140,235,0)']]);
+      const PUFF = wsprite(20, [[0, 'rgba(255,255,255,.55)'], [1, 'rgba(255,255,255,0)']]);
+      function ensureGrid() { const w = Math.ceil(innerWidth / CELL), h = Math.ceil(innerHeight / CELL); if (grid && w === gw && h === gh) return; gw = w; gh = h; grid = new Uint8Array(gw * gh); solid = new Uint8Array(gw * gh); live = []; }
+      const addCell = (x, y, k) => { const cx2 = Math.floor(x / CELL), cy2 = Math.floor(y / CELL); if (cx2 < 0 || cy2 < 0 || cx2 >= gw || cy2 >= gh) return; const i = gi(cx2, cy2); if (grid[i] || solid[i]) return; grid[i] = k; live.push(i); };
+      function meltAt(rects) {
+        if (!heats.length) return; ensureGrid();
+        for (const h of heats.splice(0)) {
+          for (const [, p, r] of rects) { if (h.y < r.top - 70 || h.y > r.bottom + 10 || h.x < r.left - h.r || h.x > r.right + h.r) continue;
+            for (let j = 0; j < p.h.length; j++) { const x = r.left + j * BUCKET, d = Math.abs(x - h.x); if (d > h.r || p.h[j] < .3) continue;
+              const m = Math.min(p.h[j], h.power * (1 - d / h.r)); p.h[j] -= m; dirty = true;
+              for (let k = 0; k < m * 1.6; k++) addCell(x + Math.random() * BUCKET, r.top - p.h[j] - 2 - Math.random() * 3, Math.random() < .12 ? STEAM : WATER); } }
+          for (const f of flakes) { if (Math.hypot(f.x - h.x, f.y - h.y) < h.r * .8 && Math.random() < .5) { f.y = -20; } }   // flakes in the flame vanish
+          for (let k = 0; k < 3; k++) addCell(h.x + (Math.random() - .5) * 20, h.y - 10, STEAM); }
+      }
+      function flow(rects, dt) {
+        if (!live.length || !grid) return;
+        solid.fill(0);   // floors: the tops of the cards and boxes (water runs along them and pours off the ends)
+        for (const [, , r] of rects) { const y = Math.floor(r.top / CELL); if (y < 1 || y >= gh) continue; const a = Math.max(0, Math.floor(r.left / CELL)), b = Math.min(gw - 1, Math.floor(r.right / CELL)); for (let x = a; x <= b; x++) solid[gi(x, y)] = 1; }
+        const steps = Math.min(3, Math.max(1, Math.round(dt * 1.5))), next = [];
+        live.sort((a, b) => b - a);   // bottom rows first, so a falling column doesn't block itself
+        for (const i of live) {
+          let k = grid[i]; if (!k) continue; let x = i % gw, y = (i / gw) | 0, at = i;
+          for (let s2 = 0; s2 < steps; s2++) {
+            const free = (xx, yy) => xx >= 0 && xx < gw && yy >= 0 && yy < gh && !grid[gi(xx, yy)] && !solid[gi(xx, yy)];
+            if (k === WATER) {
+              if (y >= gh - 1) { if (Math.random() < .02) { grid[at] = 0; k = 0; } break; }   // the bottom of the window: a puddle that dries up
+              const dl = Math.random() < .5 ? -1 : 1;
+              let nx = x, ny = y;
+              if (free(x, y + 1)) ny = y + 1; else if (free(x + dl, y + 1)) { nx = x + dl; ny = y + 1; } else if (free(x - dl, y + 1)) { nx = x - dl; ny = y + 1; }
+              else if (free(x + dl, y)) nx = x + dl; else if (free(x - dl, y)) nx = x - dl;
+              else { if (Math.random() < .004) { grid[at] = 0; k = 0; } break; }   // resting water slowly evaporates
+              grid[at] = 0; x = nx; y = ny; at = gi(x, y); grid[at] = k;
+            } else {   // steam drifts up and fades
+              if (Math.random() < .03 || y <= 0) { grid[at] = 0; k = 0; break; }
+              const nx = x + (Math.random() < .5 ? -1 : 1) * (Math.random() < .4 ? 1 : 0), ny = y - 1;
+              if (free(nx, ny)) { grid[at] = 0; x = nx; y = ny; at = gi(x, y); grid[at] = k; } else break;
+            }
+          }
+          if (k) next.push(at);
+        }
+        live = next.length > 6000 ? next.slice(-6000) : next;
+        // draw: each cell is a soft round drop; neighbours overlap and read as one body of water
+        cx.save(); cx.setTransform(DPR, 0, 0, DPR, 0, 0); cx.globalAlpha = 1; cx.globalCompositeOperation = 'source-over'; cx.filter = 'none';
+        for (const i of live) { const k = grid[i], x = (i % gw) * CELL, y = ((i / gw) | 0) * CELL; if (k === WATER) cx.drawImage(DROP, x - 5, y - 5, 14, 14); else { cx.globalAlpha = .5; cx.drawImage(PUFF, x - 8, y - 8, 20, 20); cx.globalAlpha = 1; } }
+        cx.restore();
+      }
+      G.water = () => live.length;
       const H = G.h = {};
       {
-        H.resize = () => { size(); G.o && lights(G.o); };
+        H.resize = () => { size(); G.o && lights(G.o); grid = null; };
+        H['cadence:heat'] = e => { const d = e.detail || {}; if (!G.o || !G.o.on || !G.o.snow) return; heats.push({ x: d.x, y: d.y, r: d.r || 60, power: d.power || 2.5 }); if (heats.length > 30) heats.shift(); };
         H.theme = () => { piles.forEach(p => p.rad = -1); setTimeout(() => G.o && lights(G.o), 60); };
         H.pointermove = e => { const t = performance.now(), k = Math.max(1, t - mouse.t); mouse.vx = (e.clientX - mouse.x) / k * 16; mouse.vy = (e.clientY - mouse.y) / k * 16; if (Math.abs(mouse.vx) > 60) mouse.vx = 0; if (Math.abs(mouse.vy) > 60) mouse.vy = 0; mouse.x = e.clientX; mouse.y = e.clientY; mouse.t = t; };
         // a click: a shockwave through the air, and whatever you clicked shrugs its snow off
@@ -405,7 +461,7 @@
           for (const [s, p] of piles) if (s === el || s.contains(el)) { const r = s.getBoundingClientRect(); let shook = 0; for (let j = 0; j < p.h.length; j++) if (p.h[j] > 1 && Math.random() < .18) { p.h[j] *= .55; if (shook++ < 6) powder(r.left + j * BUCKET, r.top - 2, 1, 1.5, 3); } } };
       }
       if (!G.bound) { G.bound = true; const on = (t, o, tgt = window) => tgt.addEventListener(t === 'theme' ? 'cadence:theme' : t, e => G.h[t] && G.h[t](e), o);
-        on('resize'); on('theme', undefined, document); on('pointermove', { passive: true }); on('pointerdown', { capture: true, passive: true }); on('wheel', { passive: true }); on('keydown', true); }
+        on('resize'); on('theme', undefined, document); on('pointermove', { passive: true }); on('pointerdown', { capture: true, passive: true }); on('wheel', { passive: true }); on('keydown', true); on('cadence:heat'); }
 
       function apply(user) {
         const o = G.o = opts();

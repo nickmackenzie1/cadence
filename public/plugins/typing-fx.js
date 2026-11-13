@@ -51,11 +51,11 @@
       const run = () => { if (!raf) { last = performance.now(); raf = requestAnimationFrame(tick); } };
       const CONF = ['#ff595e', '#ffca3a', '#8ac926', '#1982c4', '#6a4c93', '#ff8fab', '#00c2a8'];
       function tick(t) {
-        const dt = Math.min(3, (t - last) / 16.67); last = t;
+        const dt = Math.min(3, Math.max(0, (t - last) / 16.67)) || 1; last = t;
         cx.setTransform(DPR, 0, 0, DPR, 0, 0); cx.clearRect(0, 0, innerWidth, innerHeight);
         for (let i = parts.length - 1; i >= 0; i--) {
           const p = parts[i]; p.life -= dt / p.max;
-          if (p.life <= 0) { parts.splice(i, 1); continue; }
+          if (p.life <= 0 || !isFinite(p.x + p.y + p.life)) { parts.splice(i, 1); continue; }
           p.vx *= p.drag; p.vy = p.vy * p.drag + p.g * dt; p.x += p.vx * dt; p.y += p.vy * dt; p.rot += p.vr * dt;
           const a = Math.min(1, p.life * 1.6);
           if (p.k === 'fire') {
@@ -81,7 +81,7 @@
         }
         if (parts.length) raf = requestAnimationFrame(tick); else { raf = 0; cx.clearRect(0, 0, innerWidth, innerHeight); }
       }
-      const add = p => { if (parts.length > 900) parts.shift(); parts.push(Object.assign({ vx: 0, vy: 0, g: 0, drag: .98, rot: 0, vr: 0, life: 1, max: 40, r: 3, c: '#fff' }, p)); };
+      const add = p => { if (!isFinite(p.x) || !isFinite(p.y)) return; if (parts.length > 900) parts.shift(); parts.push(Object.assign({ vx: 0, vy: 0, g: 0, drag: .98, rot: 0, vr: 0, life: 1, max: 40, r: 3, c: '#fff' }, p)); };
 
       /* ---------- sound (typewriter) ---------- */
       let ac = null;
@@ -124,6 +124,8 @@
             const n = Math.round((enter ? 26 : back ? 3 : 7) * A);
             for (let i = 0; i < n; i++) add({ k: 'fire', x: c.x + (Math.random() - .5) * (enter ? 60 : 6), y: c.y + c.h * .3, vx: (Math.random() - .5) * .8, vy: -1 - Math.random() * 1.6, g: -.03, drag: .97, r: 5 + Math.random() * 6, max: 34 + Math.random() * 26 });
             if (fast || enter) warm(el, 'fire');
+            // the flame melts any snow around it (Christmas mode turns it into running water)
+            dispatchEvent(new CustomEvent('cadence:heat', { detail: { x: c.x, y: c.y, r: enter ? 110 : 55, power: enter ? 6 : 2.5 } }));
           } else if (o.mode === 'ice') {
             const n = Math.round((enter ? 14 : back ? 1 : 3) * A);
             for (let i = 0; i < n; i++) add({ k: 'ice', x: c.x + (Math.random() - .5) * 6, y: c.y, vx: (Math.random() - .5) * 1.8, vy: -1.2 - Math.random() * 1.5, g: .07, drag: .985, r: 3 + Math.random() * 4.5, vr: (Math.random() - .5) * .12, c: Math.random() < .5 ? '#e8f6ff' : '#a9d8ff', max: 55 + Math.random() * 30 });
