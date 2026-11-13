@@ -805,3 +805,19 @@ data, or peer-to-peer on the same LAN). Personal data and secrets stay on each p
   palettes, textures, type and mood (e.g. Steam = the client's dark slate blues; Borderlands = cel-shaded ink
   outlines; Half-Life = orange-on-black HEV-style HUD; CS:GO = tactical HUD greys/orange; GTA = sunset gradients and
   pastel 80s), no logos, characters or game art.
+
+## Shipped 2026-11-13 ~16:30: 13 themes + Harper preload
+- themes-screen.js: Movie & TV (Jurassic Park w/ occasional ripple, Star Wars starfield + hyperspace on complete,
+  The Shining hexagon carpet + typewriter, Kill Bill slash on complete, Titan A.E. crystals, The Simpsons, Family Guy,
+  South Park paper + snow, Over the Garden Wall leaves) and Studio Ghibli (Spirited Away lanterns, My Neighbor Totoro
+  passing showers). Shared particles() helper. Homage rules as before; fonts vendored (CREDITS.md).
+- themes-fx.js: 3D ("depth": grid floor, layered cards, pointer tilt as an effect, still while typing), Halloween
+  (Seasonal: original SVG jack-o'-lanterns with glowing carved faces + real FIRE/EMBER from CadenceFX at their tops,
+  fog, bats, moon), Mirror (webcam, Crazy: opt-in card → getUserMedia; 64×48 posterised big-pixel backdrop; your
+  outline (per column, first row unlike the wall above) becomes extra ledges so snow lands on you; frame-to-frame
+  motion clears snow (wave); "Camera on" badge with Off; stops on theme change, Off, or hidden tab; never stored/sent).
+- Engine: world.ledgesExtra([[x0,x1,y],…]) in px — extra ground from plugins; DOM ledges are cached and re-sent
+  with the extras (sendLedges) without re-reading the page.
+- themes.js CATS order: Useful, Editor, daisyUI, Fun, Movie & TV, Studio Ghibli, Games, Seasonal, Crazy.
+- Harper: engine starts loading in the background on idle after the app opens (user: slowdown on first typo).
+- Tests: smoke "3D, Halloween and Movie & TV…", tests/mirror.spec.mjs (fake camera; needs its own file for launch args).

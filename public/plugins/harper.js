@@ -206,6 +206,8 @@
       document.addEventListener('focusin', onFocus); document.addEventListener('mousedown', onDown, true); addEventListener('keydown', onEsc, true);
       G.cleanup = () => { document.removeEventListener('focusin', onFocus); document.removeEventListener('mousedown', onDown, true); removeEventListener('keydown', onEsc, true); detach(); };
       if (want(document.activeElement)) attach(document.activeElement);
+      // load the engine in the background soon after the app opens, so the first typo doesn't wait for it
+      if (cfg().on && !G.linter && !G.loading) { const go = () => linter(); 'requestIdleCallback' in window ? requestIdleCallback(go, { timeout: 6000 }) : setTimeout(go, 2500); }
       window.__harper.check = () => check(); window.__harper.state = () => (cur ? { count: cur.lints.length, ready: !!G.linter } : null);
 
       function settings() {

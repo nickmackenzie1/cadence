@@ -400,16 +400,17 @@
     // ambient: the page is invisible ground, like Havoc's: the top of every line of text and of everything solid-looking
     // (cards, buttons, fields, pictures, chips) is a ledge snow and rain rest on; sent to the engine as [x0, x1, y, …].
     // Read when the page changes (scroll, typing, a new view, resize), not on a timer.
-    let ledgesDirty = true, ledgeMO = null;
+    let ledgesDirty = true, ledgeMO = null, domLedges = [], extraLedges = [], extraDirty = false;
     const SOLIDISH = /^(IMG|SVG|INPUT|BUTTON|TEXTAREA|SELECT|CANVAS|VIDEO|HR)$/;
+    function sendLedges() { extraDirty = false; inputQ.push(['surf', ...domLedges, ...extraLedges]); }
     function ledges() {
       ledgesDirty = false;
-      const out = ['surf'], seen = new Set(), add = (l, rt, t) => {
+      const out = [], seen = new Set(), add = (l, rt, t) => {
         if (rt - l < 6 || t < 2 * CELL || t >= innerHeight) return;
         const x0 = Math.max(0, Math.floor(l / CELL)), x1 = Math.min(W, Math.ceil(rt / CELL)), y = Math.round(t / CELL), k = y * 4096 + x0;   // round: the snow's underside lands on the edge, not a cell above it
         if (y < 2 || y >= H || seen.has(k)) return; seen.add(k); out.push(x0, x1, y);
       };
-      if (cfg.ledges) { for (const el of document.querySelectorAll(cfg.ledges)) { const r = el.getBoundingClientRect(); add(r.left, r.right, r.top); } inputQ.push(out); return; }
+      if (cfg.ledges) { for (const el of document.querySelectorAll(cfg.ledges)) { const r = el.getBoundingClientRect(); add(r.left, r.right, r.top); } domLedges = out; sendLedges(); return; }
       // things that look solid
       let n = 0;
       const walk = document.createTreeWalker(document.body, NodeFilter.SHOW_ELEMENT, { acceptNode: el => (ours(el) || el.closest('#xm-string,#xm-glow,#xm-ring,.hp-mirror,.nav-scrim') ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT) });
@@ -430,7 +431,7 @@
         // on the tops of the lowercase letters: the line's middle, less a fifth of the font size (x-height)
         for (const rc of range.getClientRects()) { m++; if (rc.width > 4 && rc.height > 6) add(rc.left + 1, rc.right - 1, rc.top + rc.height / 2 - fs * 0.2); }
       }
-      inputQ.push(out);
+      domLedges = out; sendLedges();
     }
     function watchLedges(on) {
       const dirty = () => { ledgesDirty = true; };
@@ -549,7 +550,7 @@
         const hide = (cfg.hidden && cfg.hidden()) || document.hidden;
         if (hide !== wasHidden) { wasHidden = hide; host.style.setProperty('display', hide ? 'none' : 'block', 'important'); }
         if (hide) return;
-        if ((ledgesDirty && now - ledgeT > 250) || now - ledgeT > 4000) { ledgeT = now; ledges(); }
+        if ((ledgesDirty && now - ledgeT > 250) || now - ledgeT > 4000) { ledgeT = now; ledges(); } else if (extraDirty) sendLedges();
       }
       // nothing happening: ask the engine for a frame only now and then
       const idle = AMBIENT && lastFrame && lastFrame.quiet && !flakes.length && !S.snowing && !S.rain && !inputQ.length;
@@ -806,6 +807,8 @@
       firework(x, y) { const [cx, cy] = cell(x, y); inputQ.push(['launch', cx, cy]); },
       jar(rc) { inputQ.push(['jar', Math.floor(rc.left / CELL), Math.floor(rc.top / CELL), Math.floor(rc.right / CELL) - 1, Math.floor(rc.bottom / CELL) - 1]); },
       clear(m) { inputQ.push(['clear', m === undefined ? -1 : m]); },
+      // more ground from outside the page, in px: [[x0, x1, y], …] (e.g. the outline of you, from the webcam); [] to remove
+      ledgesExtra(list) { extraLedges = []; for (const [a, b, y] of list || []) { const yy = Math.round(y / CELL); if (yy > 1 && yy < H) extraLedges.push(Math.max(0, Math.floor(a / CELL)), Math.min(W, Math.ceil(b / CELL)), yy); } extraDirty = true; },
       clearAt(x, y, r) { const [cx, cy] = cell(x, y); inputQ.push(['clearAt', cx, cy, Math.ceil(r / CELL)]); },
       // how many cells of a material are inside a screen rect (async: the engine has the grid)
       count(rc, m) { return new Promise(res => { if (!port) return res(0); const id = ++countId; countWaiters.set(id, res); port.post({ t: 'count', id, m, rect: [Math.floor(rc.left / CELL), Math.floor(rc.top / CELL), Math.ceil(rc.right / CELL), Math.ceil(rc.bottom / CELL)] }); }); },
