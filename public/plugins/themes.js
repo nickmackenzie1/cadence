@@ -159,6 +159,11 @@
           .thg-idx button{display:flex;justify-content:space-between;align-items:center;padding:6px 10px;border-radius:var(--r-m);font-size:13px;color:var(--muted);text-align:left}
           .thg-idx button span{font-size:11px;color:var(--faint);font-variant-numeric:tabular-nums}
           .thg-idx button:hover{background:var(--hover);color:var(--text)} .thg-idx button.on{background:var(--accent-soft);color:var(--accent);font-weight:600}
+          .thg-fam{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0 10px;max-height:168px;overflow:auto;padding:2px}
+          .thg-fam button{display:flex;align-items:center;gap:6px;padding:4px 8px 4px 4px;border:1px solid var(--line);border-radius:999px;background:var(--panel);color:var(--text);font:inherit;font-size:12px;cursor:pointer}
+          .thg-fam button.on{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+          .thg-fam i{position:relative;width:22px;height:22px;border-radius:50%;overflow:hidden;border:1px solid rgba(0,0,0,.15);flex:none}
+          .thg-fam i b{position:absolute;right:0;top:0;width:50%;height:100%}.thg-fam i s{position:absolute;left:0;bottom:0;width:50%;height:45%}
           .thg-rand{display:inline-flex;align-items:center;justify-content:center;gap:6px}.thg-rand svg{width:15px;height:15px}
           .thg-now{display:grid;grid-template-columns:minmax(0,260px) 1fr;gap:20px;align-items:center;padding:16px;border:1px solid var(--line);border-radius:var(--r-l);background:var(--panel);scroll-margin-top:12px}
           .thg-big .th-mini{height:150px;border-radius:var(--r-m);border:1px solid var(--line);grid-template-columns:70px 1fr}
@@ -232,22 +237,31 @@
       function gallery(el) {
         const E = api.ui.esc, c = api.storage.get('custom') || {}, level = api.storage.get('effects') || 'full';
         const cats = catsNow(), all = [...T.values()], cur = T.get(current) || T.get('cadence');
-        const recent = (api.storage.get('recent') || []).filter(id => T.has(id) && id !== current).slice(0, 6).map(id => T.get(id));
-        const card = t => `<button class="th-card ${t.id === current ? 'on' : ''}" data-th="${E(t.id)}" data-tone="${toneOf(t)}" data-q="${E((t.name + ' ' + (t.tagline || '') + ' ' + (t.category || '')).toLowerCase())}">${preview(t)}<div class="th-meta"><b>${E(t.name)}</b><span>${E(t.tagline || '')}</span></div></button>`;
+        const recent = (api.storage.get('recent') || []).filter(id => T.has(id) && id !== current && !(T.get(id).family && T.get(id).family === (T.get(current) || {}).family)).slice(0, 6).map(id => T.get(id));
+        // a theme family (all 30 daisyUI palettes) is one card; its palettes are chosen inside it, under Current theme.
+        // The card shows the palette you're on, or the last one you picked from it.
+        const famPick = api.storage.get('famPick') || {};
+        const membersOf = f => all.filter(x => x.family === f);
+        const repOf = f => { const m = membersOf(f); return m.find(x => x.id === current) || m.find(x => x.id === famPick[f]) || m[0]; };
+        const shown = list => { const out = [], seen = new Set(); for (const t of list) { if (!t.family) { out.push(t); continue; } if (seen.has(t.family)) continue; seen.add(t.family); out.push(repOf(t.family)); } return out; };
+        const inCat = k => shown(all.filter(t => (t.category || 'Fun') === k));
+        const card = t => { const f = t.family, m = f ? membersOf(f) : null;
+          const q = (f ? f + ' ' + m.map(x => x.name).join(' ') + ' palettes' : t.name + ' ' + (t.tagline || '')) + ' ' + (t.category || '');
+          return `<button class="th-card ${t.id === current ? 'on' : ''}" data-th="${E(t.id)}" ${f ? `data-fam="${E(f)}"` : ''} data-tone="${f ? 'both' : toneOf(t)}" data-q="${E(q.toLowerCase())}">${preview(t)}<div class="th-meta"><b>${E(f || t.name)}</b><span>${E(f ? `${m.length} palettes · now ${t.name}` : t.tagline || '')}</span></div></button>`; };
         el.innerHTML = `<div class="thg">
           <aside class="thg-nav">
-            <input class="inp thg-q" id="thg-q" type="search" placeholder="Search ${all.length} themes" value="${E(G.q)}" aria-label="Search themes" data-no-grammar>
+            <input class="inp thg-q" id="thg-q" type="search" placeholder="Search ${shown(all).length} themes" value="${E(G.q)}" aria-label="Search themes" data-no-grammar>
             <div class="seg thg-tone">${[['all', 'Any'], ['light', 'Light'], ['dark', 'Dark']].map(([k, l]) => `<button class="${G.tone === k ? 'on' : ''}" data-tht="${k}">${l}</button>`).join('')}</div>
             <nav class="thg-idx" aria-label="Theme categories">
               <button data-go="thg-now">Current</button>${recent.length ? '<button data-go="thg-recent">Recently used</button>' : ''}
-              ${cats.map(k => `<button data-go="${slug(k)}">${E(k)}<span>${all.filter(t => (t.category || 'Fun') === k).length}</span></button>`).join('')}
+              ${cats.map(k => `<button data-go="${slug(k)}">${E(k)}<span>${inCat(k).length}</span></button>`).join('')}
             </nav>
             <button class="btn thg-rand" id="thg-rand">${api.ui.icon('shuffle')}Surprise me</button>
           </aside>
           <div class="thg-main">
             <section class="thg-now" id="thg-now"></section>
             ${recent.length ? `<h3 class="th-cat" id="thg-recent">Recently used</h3><div class="th-grid">${recent.map(card).join('')}</div>` : ''}
-            ${cats.map(k => `<section class="thg-sec" data-cat="${E(k)}"><h3 class="th-cat" id="${slug(k)}">${E(k)} <span>${all.filter(t => (t.category || 'Fun') === k).length}</span></h3><div class="th-grid">${all.filter(t => (t.category || 'Fun') === k).map(card).join('')}</div></section>`).join('')}
+            ${cats.map(k => `<section class="thg-sec" data-cat="${E(k)}"><h3 class="th-cat" id="${slug(k)}">${E(k)} <span>${inCat(k).length}</span></h3><div class="th-grid">${inCat(k).map(card).join('')}</div></section>`).join('')}
             <div class="thg-none" hidden>No theme matches. Try another word, or set Light / Dark back to Any.</div>
             <div class="th-dev">Make your own: call <code>CadenceThemes.register({ id, name, vars, css, effects })</code> from any plugin (Settings → Developer), see docs/PLUGINS.md. Credits for the open-source projects behind these themes are in <code>vendor/themes/CREDITS.md</code>.</div>
           </div></div>`;
@@ -256,7 +270,8 @@
         function now() {
           const t = T.get(current) || cur, box = el.querySelector('#thg-now'), cc = api.storage.get('custom') || {};
           box.innerHTML = `<div class="thg-big">${preview(t)}</div>
-            <div class="thg-info"><div class="thg-k">Current theme · ${E(t.category || 'Fun')}</div><h2>${E(t.name)}</h2><p>${E(t.tagline || '')}</p>
+            <div class="thg-info"><div class="thg-k">Current theme · ${E(t.family || t.category || 'Fun')}</div><h2>${E(t.name)}</h2><p>${E(t.tagline || '')}</p>
+              ${t.family ? `<div class="thg-fam" role="listbox" aria-label="${E(t.family)} palettes">${membersOf(t.family).map(m => { const v = m.vars || {}; return `<button role="option" aria-selected="${m.id === current}" class="${m.id === current ? 'on' : ''}" data-fpick="${E(m.id)}" title="${E(m.name)}"><i style="background:${E(v['--bg'] || '#fff')}"><b style="background:${E(v['--accent'] || '#888')}"></b><s style="background:${E(v['--panel'] || v['--bg'] || '#fff')}"></s></i><span>${E(m.name)}</span></button>`; }).join('')}</div>` : ''}
               <div class="thg-row"><div class="seg">${[['light', 'Light'], ['dark', 'Dark']].map(([k, l]) => `<button class="${(api.ui.colorMode() === k) ? 'on' : ''}" data-mode="${k}">${l}</button>`).join('')}</div>
                 <button class="btn" id="thg-tw" aria-expanded="${G.open}">${api.ui.icon('sliders-horizontal')}Adjust</button></div></div>
             <div class="th-cust" ${G.open ? '' : 'hidden'}>
@@ -269,6 +284,7 @@
           const save = patch => { api.storage.set('custom', Object.assign({}, api.storage.get('custom') || {}, patch)); custom(); };
           box.querySelectorAll('[data-mode]').forEach(b => b.onclick = () => { keepPlace(b, () => api.ui.setColorMode(b.dataset.mode)); });
           box.querySelector('#thg-tw').onclick = () => { G.open = !G.open; now(); };
+          box.querySelectorAll('[data-fpick]').forEach(b => b.onclick = () => pick(b.dataset.fpick, b));
           box.querySelector('#th-accent').oninput = e => save({ accent: e.target.value });
           box.querySelector('#th-font').onchange = e => save({ font: e.target.value || null });
           box.querySelector('#th-radius').oninput = e => { save({ radius: +e.target.value }); box.querySelector('#th-rv').textContent = e.target.value + 'px'; };
@@ -292,6 +308,11 @@
           keepPlace(anchor, () => {
             window.CadenceThemes.apply(id);
             el.querySelectorAll('.th-card.on').forEach(x => x.classList.remove('on'));
+            const ct = T.get(current);
+            if (ct && ct.family) {   // a palette from a family: remember it, and redraw that family's card to show it
+              famPick[ct.family] = ct.id; api.storage.set('famPick', famPick);
+              el.querySelectorAll(`.th-card[data-fam="${CSS.escape(ct.family)}"]`).forEach(x => { const n = document.createElement('div'); n.innerHTML = card(ct); const nb = n.firstElementChild; nb.hidden = x.hidden; nb.onclick = () => pick(nb.dataset.th, nb); x.replaceWith(nb); });
+            }
             el.querySelectorAll(`.th-card[data-th="${CSS.escape(current)}"]`).forEach(x => x.classList.add('on'));
             now();
           });

@@ -362,26 +362,104 @@
       return () => removeEventListener('pointermove', move);
     } });
 
-  // augmented-ui: clipped corners + neon inlays on cards (tagged as Cadence re-renders)
-  R({ id: 'cyberpunk', name: 'Cyberpunk', category: 'Crazy', tagline: 'Neon yellow, clipped corners (augmented-ui), glitching headlines.',
-    stylesheets: [V + 'augmented-ui/augmented-ui.min.css'],
-    vars: { '--bg': '#0b0b12', '--panel': '#12121c', '--side': '#08080d', '--text': '#e8f9ff', '--muted': '#7fd6e6', '--faint': '#3c6d78', '--line': '#2b2b3d', '--hover': 'rgba(252,238,10,.07)', '--accent': '#fcee0a', '--accent-soft': 'rgba(252,238,10,.12)', '--danger': '#ff2a6d', '--danger-soft': 'rgba(255,42,109,.14)', '--ok': '#05d9e8', '--client': '#ff2a6d', '--client-soft': 'rgba(255,42,109,.12)', '--shadow': 'none', '--on-accent': '#0b0b12' },
-    font: '"JetBrains Mono", ui-monospace, monospace',
-    css: `${flat} :skin .head h1{text-transform:uppercase;letter-spacing:.08em;color:#fcee0a;position:relative;text-shadow:2px 0 #ff2a6d,-2px 0 #05d9e8;animation:cyglitch 4s steps(1) infinite}
-      @keyframes cyglitch{0%,93%{clip-path:none;transform:none}94%{clip-path:inset(20% 0 50% 0);transform:translateX(-4px)}96%{clip-path:inset(60% 0 10% 0);transform:translateX(4px)}98%{clip-path:none;transform:translateX(-1px)}}
-      @media (prefers-reduced-motion:reduce){:skin .head h1{animation:none}}
-      :skin [data-augmented-ui]{--aug-border-bg:#fcee0a;--aug-border-all:1px;--aug-tl:12px;--aug-br:12px;--aug-inlay-bg:transparent;border:0!important;box-shadow:none!important;border-radius:0!important}
-      :skin .btn.primary[data-augmented-ui]{--aug-border-bg:#fcee0a;background:#fcee0a}
-      :skin .nav a.on{background:#fcee0a;color:#0b0b12} :skin .nav a.on .ic,:skin .nav a.on .n{color:#0b0b12}
-      :skin .side{border-right:1px solid #fcee0a33}
-      :skin .main{background:linear-gradient(rgba(252,238,10,.03) 1px,transparent 1px) 0 0/100% 4px}`,
+  /* Cyberpunk (2077 HUD, after gwannon/Cyberpunk-2077-theme-css, rewritten for Cadence): the world is warning yellow,
+     panels are black slabs with cut corners and a green edge, buttons are red with tiny part-number tags, headings
+     sit on an angled rule with a blinking cursor, and the quick-add box is swept by a scanner line.
+     Panels are cut with background gradients, not clip-path, so menus and pickers inside them aren't clipped. */
+  const CUT = c => `linear-gradient(135deg,transparent 14px,${c} 0) top left/100% 51% no-repeat,linear-gradient(45deg,transparent 14px,${c} 0) bottom left/100% 51% no-repeat`;
+  R({ id: 'cyberpunk', name: 'Cyberpunk', category: 'Crazy', tagline: 'The 2077 HUD: warning-yellow world, black slabs with cut corners, red part-numbered buttons, a scanner sweeping the input.',
+    fonts: [{ family: 'Rajdhani', src: V + 'fonts/rajdhani-latin-500-normal.woff2', weight: 500 }, { family: 'Rajdhani', src: V + 'fonts/rajdhani-latin-700-normal.woff2', weight: 700 }],
+    font: 'Rajdhani,"Arial Narrow",sans-serif',
+    vars: { '--ambient': 'off', '--bg': '#f9f002', '--panel': '#0a0a0a', '--side': '#000', '--text': '#f9f002', '--muted': '#d8d070', '--faint': '#8f8a3a', '--line': '#2a2a14', '--hover': 'rgba(249,240,2,.08)',
+      '--accent': '#ff003c', '--on-accent': '#fff', '--accent-soft': 'rgba(255,0,60,.18)', '--client': '#00e5ff', '--client-soft': 'rgba(0,229,255,.14)', '--ok': '#8ae66e', '--danger': '#ff003c', '--danger-soft': 'rgba(255,0,60,.16)', '--r': '0px', '--shadow': 'none' },
+    preview: { bg: '#f9f002', panel: '#0a0a0a', side: '#000', text: '#f9f002', accent: '#ff003c', line: '#000', r: '0' },
+    css: `${flat} :skin body{background:radial-gradient(rgba(0,0,0,.09) 1px,transparent 0) 0 0/5px 5px,#f9f002;font-size:17px;font-weight:500}
+      :skin .app,:skin .main{background:transparent}
+      :skin .side{background:#000;color:#f9f002;border-right:4px solid #000;box-shadow:4px 0 0 #8ae66e}
+      :skin .side .nav a,:skin .side .ntile,:skin .side .sect,:skin #side-head .brand,:skin .side .muted{color:#f9f002;text-transform:uppercase;letter-spacing:.06em}
+      :skin .side .ntile.on,:skin .side .nav a.on{background:#f9f002;color:#000;clip-path:polygon(0 0,100% 0,100% 70%,88% 100%,0 100%)}
+      :skin .side .ntile.on *,:skin .side .nav a.on *{color:#000}
+      :skin #view{color:#000;--text:#000;--muted:#2b2900;--faint:#4d4a00;--line:#000}
+      :skin #view .group,:skin #view .gl,:skin #view .stat,:skin #view .qa,:skin .modal{--text:#f9f002;--muted:#d8d070;--faint:#a39d4a;--line:#2a2a14}
+      :skin .ftoast{background:#000;color:#f9f002;border-radius:0;border-right:3px solid #8ae66e}
+      :skin #view .chip{background:#000;color:#f9f002;border-color:#000}
+      :skin .head h1,:skin .c-hero h1{color:#000;text-transform:uppercase;font-weight:700;font-size:44px;letter-spacing:.04em;position:relative;padding-bottom:14px}
+      :skin .head h1::before{content:"";position:absolute;left:2px;bottom:0;width:100%;height:10px;background:#000;clip-path:polygon(0 0,85px 0,90px 5px,100% 5px,100% 6px,85px 6px,80px 10px,0 10px)}
+      :skin .head h1::after,:skin .group-h::after{content:"_";animation:cp-blink .9s steps(1) infinite}
+      @keyframes cp-blink{50%{opacity:0}}
+      :skin .head .sub,:skin .head .sub *{color:#000}
+      :skin .group,:skin .gl,:skin .stat,:skin .qa,:skin .modal{background:${CUT('#0a0a0a')};border:0;border-right:3px solid #8ae66e;color:#f9f002;box-shadow:none}
+      :skin #view .group,:skin #view .gl,:skin #view .stat,:skin #view .task:not(.td-b){color:#f9f002}
+      :skin .group{padding:14px 16px 12px 18px;position:relative}
+      :skin .group::after{content:"T-71";position:absolute;right:22px;bottom:-7px;font-size:10px;line-height:10px;padding:2px 3px 0;color:#000;background:#f9f002;border-left:2px solid #8ae66e;letter-spacing:.05em}
+      :skin .group-h{color:#f9f002;text-transform:uppercase;letter-spacing:.12em;font-weight:700;border-bottom:1px solid #f9f00244}
+      :skin .task:not(.td-b){border-bottom:1px solid #f9f0021f}
+      :skin .task:not(.td-b):hover{background:linear-gradient(90deg,rgba(249,240,2,.14),transparent 70%);box-shadow:inset 3px 0 0 #f9f002}
+      :skin .check{border:2px solid #f9f002;border-radius:0;background:#000}
+      :skin .task.done .check{background:#8ae66e;border-color:#8ae66e;box-shadow:0 0 8px #8ae66e}
+      :skin .qa{position:relative;overflow:hidden;font-size:20px}
+      :skin .qa::after{content:"";position:absolute;left:0;right:0;top:0;height:2px;background:#8ae66e;box-shadow:0 0 10px 3px #8ae66e;animation:cp-scan 3s linear infinite alternate;pointer-events:none}
+      @keyframes cp-scan{to{top:calc(100% - 2px)}}
+      :skin .btn{border-radius:0;border:2px solid #000;text-transform:uppercase;letter-spacing:.08em;font-weight:700}
+      :skin .btn.primary,:skin .meet-btn{position:relative;background:#ff003c;border:0;border-right:3px solid #8ae66e;color:#fff;clip-path:polygon(-15px 0,calc(100% + 15px) 0,calc(100% + 15px) 100%,14px 100%,-15px calc(100% - 22px));padding-right:18px}
+      :skin .btn.primary::after,:skin .meet-btn::after{content:"R-25";position:absolute;right:10px;bottom:0;font-size:9px;line-height:9px;padding:2px 2px 0;color:#000;background:#f9f002;border-left:2px solid #8ae66e}
+      :skin .btn.primary:hover,:skin .meet-btn:hover{animation:cp-skew .9s linear infinite}
+      @keyframes cp-skew{0%,60%,71%,to{transform:skew(0)}61%,70%{transform:skew(10deg)}}
+      :skin .chip{border-radius:0;background:#000;color:#f9f002;border:1px solid #f9f002}
+      :skin ::-webkit-scrollbar{background:#f9f002;width:10px} :skin ::-webkit-scrollbar-thumb{background:#ff003c;border-right:2px solid #8ae66e;border-bottom:2px solid #8ae66e}
+      :skin .cp-done{position:fixed;z-index:3000;pointer-events:none;font:700 15px Rajdhani,sans-serif;letter-spacing:.12em;color:#000;background:#8ae66e;padding:3px 10px;clip-path:polygon(0 0,100% 0,100% 70%,92% 100%,0 100%);animation:cp-pop 1.4s steps(8) forwards}
+      @keyframes cp-pop{0%{opacity:0;transform:translateX(-12px) skew(-20deg)}15%{opacity:1;transform:none}80%{opacity:1}to{opacity:0;transform:translateX(6px)}}
+      @media (prefers-reduced-motion:reduce){:skin .head h1::after,:skin .group-h::after,:skin .qa::after,:skin .btn.primary:hover{animation:none}}`,
+    effects: ({ layer }) => {
+      const h = e => { const t = (e && e.detail) || {}, row = t.id && document.querySelector(`.task[data-id="${CSS.escape(t.id)}"]:not(.td-b)`), r = row ? row.getBoundingClientRect() : { right: innerWidth / 2, top: innerHeight / 2, height: 0 };
+        const d = document.createElement('div'); d.className = 'cp-done'; d.textContent = '// TASK COMPLETE'; d.style.left = Math.max(10, r.right - 190) + 'px'; d.style.top = (r.top + r.height / 2 - 12) + 'px'; layer.appendChild(d); setTimeout(() => d.remove(), 1500); };
+      document.addEventListener('cadence:task-complete', h); return () => document.removeEventListener('cadence:task-complete', h);
+    } });
+
+  /* Cybercore (after sebyx07/cybercore-css, MIT): Night City at 3 a.m. Void-black glass, chrome text, cyan and magenta
+     neon, corner brackets on every card, a flowing neon edge around the quick-add box, a glitching headline, and a
+     datastream that sweeps a card when you point at it. */
+  R({ id: 'cybercore', name: 'Cybercore', category: 'Crazy', tagline: 'Void-black glass, chrome text, cyan and magenta neon, corner brackets, a glitching headline and a flowing neon edge.',
+    fonts: [{ family: 'Rajdhani', src: V + 'fonts/rajdhani-latin-500-normal.woff2', weight: 500 }, { family: 'Rajdhani', src: V + 'fonts/rajdhani-latin-700-normal.woff2', weight: 700 }, { family: 'Exo 2', src: V + 'fonts/exo-2-latin-600-normal.woff2', weight: 600 }],
+    font: '"Exo 2",system-ui,sans-serif',
+    vars: { '--ambient': 'off', '--bg': '#0d0e14', '--panel': '#12141d', '--side': '#07080c', '--text': '#f0f1f5', '--muted': '#b2b7c7', '--faint': '#747d99', '--line': '#2a2d3a', '--hover': 'rgba(0,240,255,.06)',
+      '--accent': '#00f0ff', '--on-accent': '#010204', '--accent-soft': 'rgba(0,240,255,.12)', '--client': '#ff2a6d', '--client-soft': 'rgba(255,42,109,.14)', '--ok': '#05ffa1', '--danger': '#ff2a6d', '--danger-soft': 'rgba(255,42,109,.14)', '--r': '2px', '--shadow': '0 0 0 1px #2a2d3a' },
+    preview: { bg: '#0d0e14', panel: '#12141d', side: '#07080c', text: '#f0f1f5', accent: '#00f0ff', line: '#2a2d3a', r: '2px' },
+    css: `${flat} :skin body{background:radial-gradient(900px 500px at 85% -10%,rgba(255,42,109,.16),transparent 60%),radial-gradient(800px 500px at 0% 110%,rgba(0,240,255,.12),transparent 60%),linear-gradient(rgba(0,240,255,.035) 1px,transparent 1px) 0 0/100% 3px,#0d0e14;background-attachment:fixed}
+      :skin .app,:skin .main{background:transparent}
+      :skin .side{background:rgba(7,8,12,.92);border-right:1px solid #2a2d3a;box-shadow:1px 0 0 rgba(0,240,255,.25)}
+      :skin .side .ntile.on,:skin .side .nav a.on{background:rgba(0,240,255,.08);color:#00f0ff;box-shadow:inset 2px 0 0 #00f0ff;text-shadow:0 0 8px rgba(0,240,255,.7)}
+      :skin .head h1,:skin .c-hero h1,:skin .group-h,:skin .th-cat,:skin .modal-h{font-family:Rajdhani,"Exo 2",sans-serif;text-transform:uppercase;letter-spacing:.1em}
+      :skin .head h1{position:relative;display:inline-block;font-weight:700;font-size:46px;color:#00f0ff;text-shadow:0 0 10px #00f0ff,0 0 22px rgba(0,240,255,.6)}
+      :skin .head h1[data-text]::before,:skin .head h1[data-text]::after{content:attr(data-text);position:absolute;inset:0;opacity:.8;pointer-events:none}
+      :skin .head h1[data-text]::before{color:#ff2a6d;z-index:-1;animation:cc-g1 6s infinite linear alternate-reverse}
+      :skin .head h1[data-text]::after{color:#fcee0a;z-index:-1;animation:cc-g2 7s infinite linear alternate-reverse}
+      @keyframes cc-g1{0%,88%,to{clip-path:inset(0 0 100% 0);transform:none}90%{clip-path:inset(10% 0 55% 0);transform:translate(-3px,1px)}93%{clip-path:inset(60% 0 8% 0);transform:translate(3px,-1px)}}
+      @keyframes cc-g2{0%,91%,to{clip-path:inset(0 0 100% 0);transform:none}93%{clip-path:inset(40% 0 35% 0);transform:translate(2px,0)}96%{clip-path:inset(75% 0 2% 0);transform:translate(-2px,1px)}}
+      :skin .group-h{color:#ff2a6d;font-weight:700;text-shadow:0 0 8px rgba(255,42,109,.5)}
+      :skin .group,:skin .gl,:skin .stat,:skin .qa,:skin .modal{position:relative;background:linear-gradient(180deg,rgba(24,26,37,.92),rgba(18,20,29,.92));border:1px solid #2a2d3a;border-radius:2px;backdrop-filter:blur(4px)}
+      :skin .group::before,:skin .gl::before,:skin .stat::before{content:"";position:absolute;top:-1px;left:-1px;width:26px;height:26px;border:2px solid #00f0ff;border-right:0;border-bottom:0;pointer-events:none}
+      :skin .group::after,:skin .gl::after,:skin .stat::after{content:"";position:absolute;bottom:-1px;right:-1px;width:26px;height:26px;border:2px solid #ff2a6d;border-left:0;border-top:0;pointer-events:none}
+      :skin .group:hover{background:linear-gradient(180deg,transparent 0%,rgba(0,240,255,.07) 50%,transparent 100%) 0 0/100% 200%,linear-gradient(180deg,rgba(24,26,37,.92),rgba(18,20,29,.92));animation:cc-stream 3s linear infinite}
+      @keyframes cc-stream{to{background-position:0 200%,0 0}}
+      :skin .qa{isolation:isolate;border-color:transparent}
+      :skin .qa::before{content:"";position:absolute;inset:-1px;z-index:-1;background:linear-gradient(90deg,#00f0ff,#ff2a6d,#fcee0a,#05ffa1,#00f0ff) 0 0/400% 100%;animation:cc-flow 6s linear infinite;filter:blur(6px);opacity:.7}
+      :skin .qa::after{content:"";position:absolute;inset:0;z-index:-1;background:#12141d}
+      @keyframes cc-flow{to{background-position:400% 0}}
+      :skin .task:not(.td-b):hover{background:rgba(0,240,255,.06);box-shadow:inset 2px 0 0 #00f0ff}
+      :skin .check{border:1.5px solid #00f0ff;border-radius:2px;box-shadow:0 0 6px rgba(0,240,255,.35)}
+      :skin .task.done .check{background:#05ffa1;border-color:#05ffa1;box-shadow:0 0 10px #05ffa1}
+      :skin .btn{border:1px solid #00f0ff;color:#00f0ff;background:transparent;border-radius:2px;font-family:Rajdhani,sans-serif;font-weight:700;letter-spacing:.1em;text-transform:uppercase}
+      :skin .btn:hover{background:rgba(0,240,255,.1);box-shadow:0 0 12px rgba(0,240,255,.45)}
+      :skin .btn.primary,:skin .meet-btn{background:#00f0ff;color:#010204;border-color:#00f0ff;box-shadow:0 0 14px rgba(0,240,255,.5)}
+      :skin .chip{background:rgba(255,42,109,.12);border:1px solid rgba(255,42,109,.5);color:#ffb3c9}
+      @media (prefers-reduced-motion:reduce){:skin .head h1[data-text]::before,:skin .head h1[data-text]::after,:skin .qa::before,:skin .group:hover{animation:none}}`,
+    // the glitch layers repeat the headline's text: keep data-text in step with it as the view re-renders
     enhance() {
-      const SEL = '.gl,.stat,.qa,.modal,.pl-card,.th-card,.btn.primary,.task.open,.pop';
-      const tag = root => root.querySelectorAll && root.querySelectorAll(SEL).forEach(e => { if (!e.hasAttribute('data-augmented-ui')) e.setAttribute('data-augmented-ui', 'tl-clip br-clip border'); });
-      tag(document);
-      let q = 0; const mo = new MutationObserver(() => { cancelAnimationFrame(q); q = requestAnimationFrame(() => tag(document)); });
-      mo.observe(document.body, { childList: true, subtree: true });
-      return () => { mo.disconnect(); document.querySelectorAll('[data-augmented-ui]').forEach(e => e.removeAttribute('data-augmented-ui')); };
+      const sync = () => document.querySelectorAll('.head h1').forEach(h => { const t = h.textContent.trim(); if (h.dataset.text !== t) h.dataset.text = t; });
+      sync(); let q = 0; const mo = new MutationObserver(() => { cancelAnimationFrame(q); q = requestAnimationFrame(sync); });
+      mo.observe(document.querySelector('#view') || document.body, { childList: true, subtree: true, characterData: true });
+      return () => { mo.disconnect(); document.querySelectorAll('.head h1[data-text]').forEach(h => h.removeAttribute('data-text')); };
     } });
 
   // css-doodle: a living generative background

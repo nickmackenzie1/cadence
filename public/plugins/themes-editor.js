@@ -38,7 +38,7 @@
     { bg: '#191724', side: '#1f1d2e', panel: '#211f32', text: '#e0def4', muted: '#908caa', faint: '#6e6a86', line: '#403d52', accent: '#ebbcba', on: '#191724', red: '#eb6f92', green: '#9ccfd8', yellow: '#f6c177' },
     ':skin .head h1{color:#c4a7e7}');
   mk('rose-pine-dawn', 'Rosé Pine Dawn', 'Rosé Pine for the morning.',
-    { light: 1, bg: '#faf4ed', side: '#f2e9e1', panel: '#fffaf3', text: '#575279', muted: '#797593', faint: '#9893a5', line: '#dfdad9', accent: '#d7827e', red: '#b4637a', green: '#286983', yellow: '#ea9d34' });
+    { light: 1, bg: '#faf4ed', side: '#f2e9e1', panel: '#fffaf3', text: '#575279', muted: '#797593', faint: '#9893a5', line: '#dfdad9', accent: '#d7827e', on: '#26233a', red: '#b4637a', green: '#286983', yellow: '#ea9d34' });
   mk('night-owl', 'Night Owl', 'Made for night owls, with care for low light.',
     { bg: '#011627', side: '#010e1a', panel: '#0b2942', text: '#d6deeb', muted: '#8ba3ba', faint: '#5f7e97', line: '#1d3b53', accent: '#82aaff', on: '#011627', red: '#ef5350', green: '#addb67', yellow: '#ecc48d' },
     ':skin .head h1{color:#c792ea}');

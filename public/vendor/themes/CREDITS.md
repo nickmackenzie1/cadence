@@ -6,7 +6,9 @@ Cadence's themes borrow fonts, techniques and code from these open-source projec
 |---|---|---|---|
 | Ninety-Five | [98.css](https://github.com/jdan/98.css) by Jordan Scales | MIT (`98css/LICENSE`) | Pixelated MS Sans Serif webfonts, bevel box-shadow recipe |
 | Chicago | [system.css](https://github.com/sakofchit/system.css) by Sakun Acharige | MIT (`systemcss/LICENSE`) | ChiKareGo2 and ChicagoFLF fonts (recreations by @blogmywiki), 1-bit window style |
-| Cyberpunk | [augmented-ui](https://github.com/propjockey/augmented-ui) by PropJockey | BSD-2-Clause (`augmented-ui/LICENSE`) | the whole library (clipped corners, inlays) |
+| Cyberpunk | [Cyberpunk-2077-theme-css](https://github.com/gwannon/Cyberpunk-2077-theme-css) by gwannon | reference only | techniques re-implemented on Cadence markup (yellow world, cut-corner slabs, part-number tags, scanner line, angled heading rule); no code copied |
+| Cyberpunk, Cybercore | [Rajdhani](https://fonts.google.com/specimen/Rajdhani) by Indian Type Foundry | OFL 1.1 (`fonts/LICENSE-rajdhani.txt`) | the display font |
+| Cybercore | [cybercore-css](https://github.com/sebyx07/cybercore-css) by sebyx07 | MIT (`fonts/LICENSE-cybercore-css.txt`) | palette (void / chrome / cyan / magenta / green), corner-bracket cards, neon-flow border, glitch heading and datastream ideas, re-implemented |
 | Doodle Party | [css-doodle](https://github.com/css-doodle/css-doodle) by Yuan Chuan | MIT (`css-doodle/LICENSE`) | the web component, for the generative background |
 | NES | [NES.css](https://github.com/nostalgic-css/NES.css) | MIT | component looks re-implemented on Cadence markup: pixel borders, titled containers, balloons, checkbox, progress, button colours, cursor |
 | Discord | [discordian](https://github.com/radekkozak/discordian) by Radek Kozak (Obsidian theme) | MIT | Discord palette and channel-list layout ideas (re-implemented; no Discord assets or fonts) |

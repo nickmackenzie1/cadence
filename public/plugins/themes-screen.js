@@ -229,22 +229,53 @@
       step: (p, dt) => { p.ph += .03 * dt; p.y += p.vy * dt; p.x += Math.sin(p.ph) * .3 * dt; return p.y < innerHeight + 10; },
       draw: (cx, p) => { cx.fillStyle = '#fff'; cx.strokeStyle = 'rgba(0,0,0,.35)'; cx.lineWidth = .8; cx.beginPath(); cx.arc(p.x, p.y, p.s, 0, 6.3); cx.fill(); cx.stroke(); } }) });
 
-  /* ---------------- Over the Garden Wall: an old storybook in autumn, lantern glow, falling leaves ---------------- */
-  R({ id: 'garden-wall', name: 'Over the Garden Wall', category: TV, tagline: 'An old storybook in autumn: aged paper, rust and gold, lantern light, leaves falling.',
+  /* ---------------- Over the Garden Wall: a night forest painted like an old storybook plate. Warm near-black, bare
+     trees in silhouette, a low moon, aged cream pages framed like vintage postcards, chapter-heading ornaments, a
+     lantern swaying in the corner, autumn leaves, and a single leaf let go when you finish something.
+     Palette from the show's wiki skin (warm black #1a120b, cream #fffcf2, nav brown #3b322a, old gold #c7ab75);
+     the look from its art direction: heavy blacks that still feel warm, strong light against dark. ---------------- */
+  const GW_TREES = svg(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 420" preserveAspectRatio="none"><g fill="#0d0805">
+    <path d="M0 420V300c40-10 70 8 110-6s70-30 120-12 90 10 140-8 90 4 140 14 80-20 130-16 90 22 140 8 100-26 160-14 90 20 130 10 100-22 130-18v162z"/>
+    <path d="M90 420V150l-4-60-22-30 24 22-2-40 8 44 26-36-22 52 6 60 30-40-28 60 4 220zM300 420V200l-30-70 34 50 4-90 8 96 30-50-26 74 4 210zM520 420V240l-20-40 24 28 6-80 6 84 22-30-18 50v158zM760 420V170l-28-80-30-30 34 22-6-50 16 60 24-60-14 80 34-34-34 60v232zM980 420V210l-24-60 30 40 6-110 8 116 34-56-30 84v196zM1140 420V250l-18-50 24 34 4-70 8 76 20-30-18 50v160z"/></g></svg>`);
+  const GW_LANTERN = svg(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 70"><path d="M20 0v10" stroke="#2c1805" stroke-width="2"/><path d="M12 10h16l-2 6H14z" fill="#2c1805"/><rect x="11" y="16" width="18" height="34" rx="3" fill="#ffcf6b" fill-opacity=".85" stroke="#2c1805" stroke-width="2.5"/><path d="M20 16v34M11 33h18" stroke="#2c1805" stroke-width="1.5" opacity=".7"/><ellipse cx="20" cy="36" rx="4" ry="6" fill="#fff6d6"/><path d="M10 50h20l-3 6H13z" fill="#2c1805"/></svg>`);
+  R({ id: 'garden-wall', name: 'Over the Garden Wall', category: TV, tagline: 'A night forest painted like an old storybook plate: bare trees, a low moon, cream postcard pages, a lantern swaying, autumn leaves.',
     fonts: [font('IM Fell English', 'im-fell-english-latin-400-normal.woff2')],
     font: '"IM Fell English",Georgia,serif',
-    vars: { '--ambient': 'off', '--bg': '#2b2118', '--panel': '#e9dcc0', '--side': '#1e1712', '--text': '#2b2118', '--muted': '#6d5a44', '--faint': '#9a8668', '--line': '#c9b48f', '--hover': '#e1d0ad',
-      '--accent': '#b5522b', '--on-accent': '#fff', '--accent-soft': '#efd2c1', '--client': '#7a5a1e', '--client-soft': '#ead8b0', '--ok': '#5b7a35', '--danger': '#a33224', '--danger-soft': '#efcfc4', '--r': '4px', '--shadow': '0 3px 0 #1e1712,0 12px 30px rgba(0,0,0,.35)' },
-    preview: { bg: '#2b2118', panel: '#e9dcc0', side: '#1e1712', text: '#2b2118', accent: '#b5522b', line: '#c9b48f', r: '4px' },
-    css: `:skin body{background:radial-gradient(900px 600px at 60% 30%,#4a3524,transparent 70%),#2b2118;font-size:15.5px}
+    vars: { '--ambient': 'off', '--bg': '#1a120b', '--panel': '#fffcf2', '--side': '#2a211b', '--text': '#3a3a3a', '--muted': '#6b5a45', '--faint': '#9d9b96', '--line': '#d9ccb2', '--hover': '#f5f2e9',
+      '--accent': '#8c3b1f', '--on-accent': '#fffcf2', '--accent-soft': '#f2e1d3', '--client': '#8c6b3e', '--client-soft': '#efe5d2', '--ok': '#4f6b2d', '--danger': '#9a2f1f', '--danger-soft': '#f1d8cf', '--r': '2px', '--shadow': '0 2px 0 #0d0805,0 14px 30px rgba(0,0,0,.45)' },
+    preview: { bg: '#1a120b', panel: '#fffcf2', side: '#2a211b', text: '#3a3a3a', accent: '#8c3b1f', line: '#d9ccb2', r: '2px' },
+    css: `:skin body{background:${GW_TREES} bottom/100% 46vh no-repeat fixed,radial-gradient(1500px 340px at 55% 88%,rgba(150,96,48,.55),rgba(90,58,30,.25) 45%,transparent 72%),radial-gradient(160px 160px at 82% 16%,rgba(255,236,190,.9),rgba(255,214,140,.25) 45%,transparent 70%),radial-gradient(1000px 520px at 75% 20%,#3b2a1a,transparent 70%),linear-gradient(180deg,#22170e,#1a120b 60%,#0f0a06);background-attachment:fixed;font-size:15.5px}
       :skin .app,:skin .main{background:transparent}
-      :skin .side{color:#e9dcc0} :skin .side .nav a,:skin .side .ntile,:skin .side .sect,:skin #side-head .brand,:skin .side .muted{color:#e2d1ad} :skin .side .ntile.on,:skin .side .nav a.on{background:rgba(201,155,59,.18);color:#f3d27a}
-      :skin #view{color:#ecdcb8} :skin #view .group,:skin #view .gl,:skin #view .stat,:skin #view .qa,:skin #view .task:not(.td-b),:skin .modal{color:#2b2118}
-      :skin .head h1,:skin .c-hero h1{color:#f3d27a;font-size:38px;text-shadow:0 0 24px rgba(243,210,122,.3)}
-      :skin .group,:skin .gl,:skin .stat,:skin .qa{background:radial-gradient(circle at 15% 10%,rgba(255,255,255,.3),transparent 50%),#e9dcc0;border:1px solid #c9b48f}
-      :skin .group{padding:8px 10px}
-      :skin .btn.primary,:skin .meet-btn{background:#b5522b;border-color:#8a3c1e;color:#fff}`,
-    effects: fallingLeaves(['#b5522b', '#c99b3b', '#8a3c1e', '#d4733a', '#6d5a2a']) });
+      :skin .side{background:linear-gradient(180deg,rgba(59,50,42,.96),rgba(42,33,27,.97));border-right:1px solid #4f2e0f;color:#e6e6e6}
+      :skin .side .nav a,:skin .side .ntile,:skin .side .sect,:skin #side-head .brand,:skin .side .muted{color:#e4d7bd}
+      :skin .side .ntile.on,:skin .side .nav a.on{background:rgba(199,171,117,.16);color:#f3e2b8;box-shadow:inset 2px 0 0 #c7ab75}
+      :skin #view{color:#e8dcc2}
+      :skin #view .group,:skin #view .gl,:skin #view .stat,:skin #view .qa,:skin #view .task:not(.td-b),:skin .modal{color:#3a3a3a}
+      :skin .head h1,:skin .c-hero h1{color:#f3e2b8;font-size:40px;font-weight:400;letter-spacing:.01em;text-shadow:0 0 22px rgba(255,214,140,.35),0 2px 0 #0d0805}
+      :skin .head .sub,:skin .head .sub *{color:#cdbb95}
+      :skin .group-h,:skin .th-cat{display:flex;align-items:center;gap:10px;font-variant:small-caps;letter-spacing:.08em;color:#8c6b3e}
+      :skin .group-h::before,:skin .group-h::after{content:"";flex:1;height:1px;background:linear-gradient(90deg,transparent,#b89f84 30%,#b89f84 70%,transparent)}
+      :skin .group,:skin .gl,:skin .stat,:skin .qa,:skin .modal{background:radial-gradient(120% 90% at 20% 0%,#fffcf2,#f2efe6 70%,#e9e1cf);border:1px solid #b89f84;box-shadow:inset 0 0 0 4px #fffcf2,inset 0 0 0 5px rgba(140,107,62,.45),0 2px 0 #0d0805,0 16px 34px rgba(0,0,0,.5)}
+      :skin .group{padding:12px 14px}
+      :skin .task:not(.td-b):hover{background:rgba(184,159,132,.16)}
+      :skin .check{border-color:#8c6b3e;border-radius:50%}
+      :skin .task.done .check{background:radial-gradient(circle at 40% 35%,#e8a25a,#8c3b1f 70%);border-color:#4f2e0f}
+      :skin .btn{border-color:#b89f84} :skin .btn.primary,:skin .meet-btn{background:#8c3b1f;border-color:#4f2e0f;color:#fffcf2}
+      :skin a{color:#8c6b3e}
+      :skin .gw-lantern{position:fixed;top:-6px;right:7vw;width:40px;height:70px;background:${GW_LANTERN} center/contain no-repeat;transform-origin:50% 0;animation:gw-sway 5s ease-in-out infinite alternate;z-index:5;pointer-events:none;filter:drop-shadow(0 0 18px rgba(255,190,90,.75))}
+      :skin .gw-lantern::after{content:"";position:absolute;left:-60px;top:0;width:160px;height:160px;border-radius:50%;background:radial-gradient(circle,rgba(255,200,110,.22),transparent 65%);animation:gw-flicker 2.4s ease-in-out infinite alternate}
+      @keyframes gw-sway{from{transform:rotate(-5deg)}to{transform:rotate(5deg)}}
+      @keyframes gw-flicker{0%{opacity:.7}40%{opacity:1}55%{opacity:.82}to{opacity:.95}}
+      :skin .gw-leaf{position:fixed;width:18px;height:18px;margin:-9px 0 0 -9px;pointer-events:none;z-index:3000;border-radius:0 70% 0 70%;background:linear-gradient(135deg,#e07a2e,#8c3b1f);box-shadow:inset 0 0 0 1px rgba(0,0,0,.2);animation:gw-fall 2.6s cubic-bezier(.3,.1,.5,1) forwards}
+      @keyframes gw-fall{0%{opacity:0;transform:translate(0,0) rotate(0)}12%{opacity:1}35%{transform:translate(26px,40px) rotate(70deg)}65%{transform:translate(-18px,90px) rotate(150deg)}to{opacity:0;transform:translate(14px,150px) rotate(260deg)}}
+      @media (prefers-reduced-motion:reduce){:skin .gw-lantern,:skin .gw-lantern::after{animation:none}}`,
+    enhance: () => { const l = document.createElement('div'); l.className = 'gw-lantern'; document.body.appendChild(l); return () => l.remove(); },
+    effects: ctx => {
+      const offLeaves = fallingLeaves(['#b5522b', '#c99b3b', '#8c3b1f', '#d4733a', '#6d5a2a'])(ctx);
+      const offDone = done(t => { const row = rowOf(t), r = row ? row.getBoundingClientRect() : { left: innerWidth / 2, top: innerHeight / 2 };
+        const d = document.createElement('div'); d.className = 'gw-leaf'; d.style.left = (r.left + 18) + 'px'; d.style.top = r.top + 'px'; ctx.layer.appendChild(d); setTimeout(() => d.remove(), 2700); });
+      return () => { offLeaves(); offDone(); };
+    } });
 
   /* ---------------- Spirited Away: dusk over a bathhouse, red lacquer, gold, paper lanterns rising ---------------- */
   R({ id: 'spirited-away', name: 'Spirited Away', category: GH, tagline: 'Dusk over a bathhouse: red lacquer, gold trim, paper lanterns drifting up.',

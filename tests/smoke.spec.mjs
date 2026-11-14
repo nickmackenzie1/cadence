@@ -178,7 +178,18 @@ test('themes: engine applies, persists, cleans up effects, and plugins can regis
   await page.reload(); await page.waitForTimeout(800);
   expect(await page.evaluate(() => document.documentElement.dataset.skin)).toBe('paper');
   await page.goto(`http://localhost:${PORT}/#view-themes`);
-  await expect(page.locator('.thg-sec .th-card')).toHaveCount(ids.length);
+  // the 30 daisyUI palettes are one card, chosen inside it
+  const daisy = await page.evaluate(() => CadenceThemes.list().filter(t => t.family === 'daisyUI').length);
+  expect(daisy).toBe(30);
+  await expect(page.locator('.thg-sec .th-card')).toHaveCount(ids.length - daisy + 1);
+  await page.locator('.thg-sec .th-card[data-fam="daisyUI"]').click();
+  await expect(page.locator('.thg-fam [data-fpick]')).toHaveCount(30);
+  await page.locator('.thg-fam [data-fpick="daisy-coffee"]').click();
+  expect(await page.evaluate(() => document.documentElement.dataset.skin)).toBe('daisy-coffee');
+  await expect(page.locator('.thg-sec .th-card[data-fam="daisyUI"]')).toHaveAttribute('data-th', 'daisy-coffee');
+  await page.fill('#thg-q', 'coffee');
+  await expect(page.locator('.thg-sec .th-card:not([hidden])')).toHaveCount(1);
+  await page.fill('#thg-q', '');
   await page.evaluate(() => CadenceThemes.apply('cadence'));
   // the sidebar palette button opens the quick switcher, which reaches the gallery
   await page.click('[data-act=theme]');

@@ -40,7 +40,7 @@ const js = `/* daisyUI themes (MIT, https://daisyui.com), mapped onto Cadence's 
 (() => {
   const T = ${JSON.stringify(out)};
   for (const t of T) window.CadenceThemes.register({
-    id: t.id, name: t.name, category: 'daisyUI', tagline: (t.dark ? 'Dark' : 'Light') + ' · from daisyUI',
+    id: t.id, name: t.name, category: 'daisyUI', family: 'daisyUI', tagline: (t.dark ? 'Dark' : 'Light') + ' · from daisyUI',
     vars: { ...t.vars, '--r': t.radius.box, '--shadow': t.depth ? '0 1px 2px rgba(0,0,0,.06),0 8px 24px rgba(0,0,0,.08)' : 'none' },
     preview: { r: t.radius.field },
     css: \`:skin .btn.primary{color:var(--on-accent)} :skin .btn,:skin .inp{border-radius:\${t.radius.field}} :skin .gl,:skin .stat,:skin .qa,:skin .dw-qa,:skin .pl-card,:skin .db-item:not(.bare),:skin .modal,:skin .th-card{border-radius:\${t.radius.box};border-width:\${t.border}}\`,
