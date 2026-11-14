@@ -77,6 +77,8 @@ function assemble(space = 'work') {
 }
 const nextRev = () => { const r = +db.prepare("SELECT value FROM meta WHERE key = 'rev'").get().value + 1; db.prepare("UPDATE meta SET value = ? WHERE key = 'rev'").run(String(r)); return r; };
 const curRev = () => db ? +db.prepare("SELECT value FROM meta WHERE key = 'rev'").get().value : 0;
+const HISTORY_KINDS = new Set(['task', 'client', 'meeting', 'doc']), PLUGIN_HISTORY = 5;
+const HISTORY_DAYS = 60, TOMBSTONE_DAYS = 90, RESOLVED_CONFLICT_DAYS = 90;
 function putRecord(kind, id, data, pos, deleted, at, device, space) {
   const rev = nextRev(), txt = J(data);
   space = space || (/^life:/.test(id) ? 'life' : (data && data.space) || 'work');
@@ -84,6 +86,9 @@ function putRecord(kind, id, data, pos, deleted, at, device, space) {
     ON CONFLICT(kind, id) DO UPDATE SET space = excluded.space, data = excluded.data, pos = excluded.pos, rev = excluded.rev,
       edited_at = excluded.edited_at, device = excluded.device, deleted = excluded.deleted`).run(kind, id, space, txt, pos || 0, rev, at, device || '', deleted ? 1 : 0);
   db.prepare('INSERT OR REPLACE INTO history (kind, id, rev, data, deleted, device, edited_at) VALUES (?, ?, ?, ?, ?, ?, ?)').run(kind, id, rev, txt, deleted ? 1 : 0, device || '', at);
+  // full history is for things you edit (tasks, clients, meetings, settings). Plugin data (feeds, mural, radar…) is
+  // rewritten constantly, so it keeps only its last few versions: enough for a device that's a few saves behind to merge
+  if (!HISTORY_KINDS.has(kind)) db.prepare('DELETE FROM history WHERE kind = ? AND id = ? AND rev NOT IN (SELECT rev FROM history WHERE kind = ? AND id = ? ORDER BY rev DESC LIMIT ?)').run(kind, id, kind, id, PLUGIN_HISTORY);
   return rev;
 }
 const titleOf = (kind, d) => (d && (d.title || d.name)) || (kind === 'doc' ? 'Settings' : kind === 'plugin' ? 'Plugin data' : kind);
@@ -136,14 +141,57 @@ function applyChanges(changes, device) {
   }
   return conflicts;
 }
-// write the assembled document to the state table (for older tabs), plus a readable JSON snapshot once a day
+// The whole assembled document (the state table) is only for /api/state (old clients, the JSON fallback) and the daily
+// readable backup. It used to be rebuilt and rewritten on every push; now a push only stamps the time (devices compare
+// against it) and marks it stale, and it's assembled when something actually reads it, or once a day.
+let docStale = false;   // the stored document is right until the first push after start
+function touchDoc(at) {
+  db.prepare("INSERT INTO state (id, json, updated_at) VALUES (1, '{}', ?) ON CONFLICT(id) DO UPDATE SET updated_at = excluded.updated_at").run(at);
+  docStale = true;
+}
 function refreshDoc() {
-  const S = assemble(), at = Date.now(); S.updatedAt = at;
+  const S = assemble(), at = (db.prepare('SELECT updated_at FROM state WHERE id = 1').get() || {}).updated_at || Date.now(); S.updatedAt = at;
   const doc = { json: JSON.stringify(S), updatedAt: at };
   db.prepare('INSERT INTO state (id, json, updated_at) VALUES (1, ?, ?) ON CONFLICT(id) DO UPDATE SET json = excluded.json, updated_at = excluded.updated_at').run(doc.json, at);
-  dailyJsonBackup(doc);
-  dailyDbBackup();
+  docStale = false;
   return doc;
+}
+// once a day (checked on each push and hourly): readable JSON snapshot, database snapshot, then tidy up
+let lastMaint = '';
+function maintain(force) {
+  if (!db) return;
+  const day = new Date().toISOString().slice(0, 10); if (!force && day === lastMaint) return; lastMaint = day;
+  try { dailyJsonBackup(refreshDoc()); } catch (e) { console.error('backup: json', e.message); }
+  dailyDbBackup();
+  tidy();
+}
+// history older than HISTORY_DAYS (the newest version of every record always stays); deleted records gone for
+// TOMBSTONE_DAYS (every device has synced the delete by then); resolved conflicts after RESOLVED_CONFLICT_DAYS
+function tidy() {
+  const now = Date.now(), d = n => now - n * 864e5;
+  try {
+    db.exec('BEGIN IMMEDIATE');
+    const h = db.prepare('DELETE FROM history WHERE edited_at < ? AND rev NOT IN (SELECT rev FROM records)').run(d(HISTORY_DAYS)).changes;
+    const t = db.prepare('DELETE FROM records WHERE deleted = 1 AND edited_at < ?').run(d(TOMBSTONE_DAYS)).changes;
+    const o = db.prepare('DELETE FROM history WHERE NOT EXISTS (SELECT 1 FROM records r WHERE r.kind = history.kind AND r.id = history.id)').run().changes;
+    const c = db.prepare('DELETE FROM conflicts WHERE resolved = 1 AND at < ?').run(d(RESOLVED_CONFLICT_DAYS)).changes;
+    db.exec('COMMIT');
+    if (h + t + o + c) console.log(`tidy: ${h} old history versions, ${t} deleted records, ${o} orphaned versions, ${c} resolved conflicts`);
+    return { history: h, tombstones: t, orphans: o, conflicts: c };
+  } catch (e) { try { db.exec('ROLLBACK'); } catch {} console.error('tidy failed', e.message); return null; }
+}
+// one-off: trim plugin history that piled up before the per-record cap, then compact the file
+function compact() {
+  const before = fs.statSync(DB_FILE).size;
+  db.exec('BEGIN IMMEDIATE');
+  const n = db.prepare(`DELETE FROM history WHERE kind NOT IN (${[...HISTORY_KINDS].map(() => '?').join(',')}) AND rev NOT IN (
+    SELECT rev FROM (SELECT rev, ROW_NUMBER() OVER (PARTITION BY kind, id ORDER BY rev DESC) AS k FROM history) WHERE k <= ?)`).run(...HISTORY_KINDS, PLUGIN_HISTORY).changes;
+  db.exec('COMMIT');
+  const t = tidy();
+  db.exec('VACUUM');
+  const after = fs.statSync(DB_FILE).size;
+  console.log(`compact: removed ${n} plugin history versions; ${before} → ${after} bytes`);
+  return { pluginHistory: n, ...(t || {}), before, after };
 }
 // a whole document (first import, older tabs, migration): each record that differs is written, newest-wins per record
 function importDoc(doc, device) {
@@ -171,7 +219,7 @@ function syncPush(changes, device, since) {
   db.exec('BEGIN IMMEDIATE');
   let ids;
   try { ids = applyChanges(changes, device); db.exec('COMMIT'); } catch (e) { db.exec('ROLLBACK'); throw e; }
-  if (changes.length) refreshDoc();
+  if (changes.length) { touchDoc(Date.now()); maintain(); }
   const out = syncPull(since);
   out.newConflicts = ids.length ? listConflicts(ids) : [];
   return out;
@@ -186,11 +234,9 @@ function dailyDbBackup() {
   try { db.exec(`VACUUM INTO '${f.replace(/'/g, "''")}'`); } catch (e) { console.error('backup failed', e.message); return; }
   const all = fs.readdirSync(BACKUP_DIR).filter(x => /^cadence-\d{4}-\d{2}-\d{2}\.db$/.test(x)).sort();
   while (all.length > KEEP_BACKUPS) fs.unlinkSync(path.join(BACKUP_DIR, all.shift()));
-  // keep 60 days of record history (the newest version of every record always stays)
-  try { db.prepare('DELETE FROM history WHERE edited_at < ? AND rev NOT IN (SELECT rev FROM records)').run(Date.now() - 60 * 864e5); } catch {}
 }
 function readState() {
-  if (db) { const r = db.prepare('SELECT json, updated_at FROM state WHERE id = 1').get(); return r ? { json: r.json, updatedAt: r.updated_at } : { json: null, updatedAt: 0 }; }
+  if (db) { if (docStale) refreshDoc(); const r = db.prepare('SELECT json, updated_at FROM state WHERE id = 1').get(); return r ? { json: r.json, updatedAt: r.updated_at } : { json: null, updatedAt: 0 }; }
   try { return JSON.parse(fs.readFileSync(STATE_FILE, 'utf8')); } catch { return { json: null, updatedAt: 0 }; }
 }
 function writeJsonMirror(obj) {
@@ -229,6 +275,12 @@ function dbInfo() {
     migratedAt: +((db.prepare("SELECT value FROM meta WHERE key = 'migrated_from_json'").get() || {}).value || 0) || null };
 }
 openDb();
+// daily upkeep also runs on a timer (a quiet day with no pushes still gets its backup), and the one-off compaction of
+// history that piled up before the plugin-history cap runs once, a minute after start
+if (db) {
+  setInterval(() => maintain(), 3600e3).unref();
+  setTimeout(() => { try { if (!(db.prepare("SELECT value FROM meta WHERE key = 'compacted'").get() || {}).value) { compact(); db.prepare("INSERT OR REPLACE INTO meta (key, value) VALUES ('compacted', '1')").run(); } } catch (e) { console.error('compact failed', e.message); } }, 60e3).unref();
+}
 const closeDb = () => { try { if (db) { db.exec('PRAGMA wal_checkpoint(TRUNCATE)'); db.close(); db = null; } } catch {} };
 for (const sig of ['SIGTERM', 'SIGINT']) process.on(sig, () => { closeDb(); process.exit(0); });
 
@@ -239,4 +291,7 @@ const resolveConflicts = (cids) => { if (db) for (const cid of cids) db.prepare(
 const allDocs = () => db ? [assemble('work'), assemble('life')] : [readState()];
 
 // db/storage are set at startup, so other modules read them through hasDb() and storageInfo()
-module.exports = { ARRAYS, DB_FILE, J, SCHEMA, allDocs, applyChanges, assemble, closeDb, curRev, dailyDbBackup, dailyJsonBackup, dbInfo, hasDb, importDoc, listConflicts, nextRev, openDb, putRecord, readState, refreshDoc, resolveConflicts, shred, storageInfo, syncPull, syncPush, titleOf, writeJsonMirror, writeState };
+// small read helpers for tests and the DB viewer
+const historyCount = (kind, id) => db.prepare('SELECT COUNT(*) AS n FROM history WHERE kind = ? AND id = ?').get(kind, id).n;
+const recordRev = (kind, id) => (db.prepare('SELECT rev FROM records WHERE kind = ? AND id = ?').get(kind, id) || {}).rev || 0;
+module.exports = { compact, maintain, tidy, historyCount, recordRev, ARRAYS, DB_FILE, J, SCHEMA, allDocs, applyChanges, assemble, closeDb, curRev, dailyDbBackup, dailyJsonBackup, dbInfo, hasDb, importDoc, listConflicts, nextRev, openDb, putRecord, readState, refreshDoc, resolveConflicts, shred, storageInfo, syncPull, syncPush, titleOf, writeJsonMirror, writeState };

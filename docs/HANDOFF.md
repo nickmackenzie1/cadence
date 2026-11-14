@@ -1096,3 +1096,18 @@ Claims checked against the code 2026-11-13 (all real). Planned in 4 groups; do i
 - Instructions "for everything under the sun": a docs site (docs/install/*.md) with one page per platform and
   per database, each tested in CI where possible (Docker matrix: amd64/arm64 × sqlite/postgres/mysql).
 - Do with the rebrand (name appears in images, app IDs, bundle IDs, data paths).
+
+## Shipped 2026-11-13 22:20: database upkeep (code review #3, #4, #2)
+- History: full history only for task/client/meeting/doc. Plugin records keep their last 5 versions (enough for the
+  3-way merge of a device a few saves behind). One-off `compact()` a minute after first start trims the backlog and
+  VACUUMs (meta 'compacted'=1 marks it done).
+- tidy() daily: history older than 60 days (newest version always kept), deleted records older than 90 days plus their
+  history, orphaned history, resolved conflicts older than 90 days. Risk accepted: a device offline >90 days could
+  bring back something deleted.
+- refreshDoc() no longer runs on every push: a push stamps state.updated_at (devices compare against it) and marks the
+  document stale; it's assembled on GET /api/state or by the daily maintain() (JSON snapshot + DB snapshot + tidy),
+  which also runs hourly on a timer.
+- docs/BACKUP.md: Synology Hyper Backup to USB / second NAS, encrypted, nightly 3:17, Smart Recycle 30; restore steps.
+- tests/storage-tidy.spec.mjs.
+- CI incident 22:06: cancel-in-progress cancelled every run because pushes came faster than a run, so `stable` stopped
+  at d7333e4 and the NAS stopped updating. Now cancel-in-progress: false (+ the no-backwards promote).
