@@ -200,14 +200,19 @@
       }
 
       // ---- watch focus anywhere in the app ----
-      const onFocus = e => { const t = e.target; if (want(t)) attach(t); else if (cur && t !== cur.ta && !(pop && pop.contains(t))) detach(); };
+      const onFocus = e => { const t = e.target; if (want(t)) { if (cfg().on && !G.linter && !G.loading) linter(); attach(t); } else if (cur && t !== cur.ta && !(pop && pop.contains(t))) detach(); };
       const onDown = e => { if (pop && !pop.contains(e.target) && (!cur || e.target !== cur.ta)) closePop(); };
       const onEsc = e => { if (e.key === 'Escape' && pop) { closePop(); e.stopPropagation(); } };
       document.addEventListener('focusin', onFocus); document.addEventListener('mousedown', onDown, true); addEventListener('keydown', onEsc, true);
       G.cleanup = () => { document.removeEventListener('focusin', onFocus); document.removeEventListener('mousedown', onDown, true); removeEventListener('keydown', onEsc, true); detach(); };
       if (want(document.activeElement)) attach(document.activeElement);
       // load the engine in the background soon after the app opens, so the first typo doesn't wait for it
-      if (cfg().on && !G.linter && !G.loading) { const go = () => linter(); 'requestIdleCallback' in window ? requestIdleCallback(go, { timeout: 6000 }) : setTimeout(go, 2500); }
+      // Desktop: warm the engine up while the app is idle, so the first typo is instant (user, 2026-11-13 12:39).
+      // Phones and small or data-saving devices: starting a 20 MB engine on every open costs more than it saves, so it
+      // loads the first time you focus a text box instead (the focus handler above already starts it).
+      const roomy = () => { const c = navigator.connection || {}; return !c.saveData && !/2g/.test(c.effectiveType || '') && (navigator.deviceMemory || 8) >= 4
+        && !matchMedia('(pointer: coarse)').matches && innerWidth >= 900; };
+      if (cfg().on && !G.linter && !G.loading && roomy()) { const go = () => linter(); 'requestIdleCallback' in window ? requestIdleCallback(go, { timeout: 6000 }) : setTimeout(go, 2500); }
       window.__harper.check = () => check(); window.__harper.state = () => (cur ? { count: cur.lints.length, ready: !!G.linter } : null);
 
       function settings() {
