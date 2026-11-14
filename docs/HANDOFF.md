@@ -1002,13 +1002,3 @@ Claims checked against the code 2026-11-13 (all real). Planned in 4 groups; do i
 - Also: the accessibility labeller now labels buttons the moment they're added (was rAF-deferred → the
   "icon-only button has a name" test flaked); dock buttons carry aria-label directly.
 - tests/lazy-plugins.spec.mjs.
-
-## Backlog (user, 2026-11-13 21:14): weird & fun
-- **The NAS dreams.** Overnight job (server, uses the AI key from the NAS .env) writes a short surreal dream built
-  from yesterday's tasks and clients; it's waiting when you open the app in the morning ("Patagonia was a
-  lighthouse. You owed it a SOW."). One per day, dismissible, kept in a small dream journal. Skip if no AI key.
-- **Civilization in your backlog.** Tiny people settle on your oldest tasks, build villages, develop religion around
-  the Start Meeting button. Completing an old task is an extinction event they prophesied. Must stay anxiety-safe:
-  old tasks are their homeland, not a guilt pile — finishing one is a mythic, funny moment, never a scold.
-- **Plugins gossip.** The intern, sheep, ghosts and Chad have a group chat you can read. They talk about you
-  (affectionately), reacting to what you actually did today. AI when a key is set, canned lines otherwise.
