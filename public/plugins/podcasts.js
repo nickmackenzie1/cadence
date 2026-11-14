@@ -7,7 +7,7 @@
    Your place is saved locally every few seconds and sent back to Pocket Casts every 30 s, on pause, and at the end. */
 (() => {
   const E = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-  const fmt = s => { s = Math.max(0, Math.round(s || 0)); const h = Math.floor(s / 3600), m = Math.floor(s / 60) % 60, x = s % 60; return (h ? h + ':' + String(m).padStart(2, '0') : m) + ':' + String(x).padStart(2, '0'); };
+  const fmt = s => { s = Math.max(0, Math.round(isFinite(s) ? s || 0 : 0)); const h = Math.floor(s / 3600), m = Math.floor(s / 60) % 60, x = s % 60; return (h ? h + ':' + String(m).padStart(2, '0') : m) + ':' + String(x).padStart(2, '0'); };
   const left = e => Math.max(0, (e.duration || 0) - (e.position || 0));
   const LS = 'cadence.pc.';
   const lsGet = (k, d) => { try { const v = localStorage.getItem(LS + k); return v == null ? d : JSON.parse(v); } catch { return d; } };
@@ -61,8 +61,10 @@
     if (!bar) { bar = document.createElement('div'); bar.id = 'pc-mini'; bar.setAttribute('role', 'region'); bar.setAttribute('aria-label', 'Podcast player'); document.documentElement.appendChild(bar); }
     const draw = () => {
       const c = P.current; bar.hidden = !c; if (!c) return;
-      const a = P.audio, d = a.duration || c.duration || 0, t = a.currentTime || c.position || 0;
-      bar.innerHTML = `${c.art ? `<img src="${E(c.art)}" alt="">` : `<i class="pc-noart">${api.ui.icon('podcast')}</i>`}
+      if (api.ui.currentRoute() === 'view-podcasts' && bar.dataset.cur !== c.uuid + ':' + P.audio.paused) { bar.dataset.cur = c.uuid + ':' + P.audio.paused; setTimeout(() => api.ui.refresh(), 0); }
+      const a = P.audio, d = isFinite(a.duration) && a.duration ? a.duration : c.duration || 0, t = a.currentTime || c.position || 0;
+      bar.style.fontFamily = getComputedStyle(document.body).fontFamily;
+      bar.innerHTML = `${c.art ? `<img src="${E(c.art)}" alt="" onerror="this.style.visibility='hidden'">` : `<i class="pc-noart">${api.ui.icon('podcast')}</i>`}
         <div class="pc-m-t"><b>${E(c.title)}</b><span>${E(c.podcastTitle)} · ${fmt(t)} / ${fmt(d)}</span><i class="pc-m-bar"><i style="width:${d ? (t / d * 100).toFixed(2) : 0}%"></i></i></div>
         <button class="pc-ib" data-pc="back" aria-label="Back 10 seconds" title="Back 10 s">${api.ui.icon('rotate-ccw')}</button>
         <button class="pc-ib pc-big" data-pc="toggle" aria-label="${a.paused ? 'Play' : 'Pause'}">${api.ui.icon(a.paused ? 'play' : 'pause')}</button>
@@ -94,7 +96,7 @@
       const tick = setInterval(() => load(), 10 * 60e3);
       api.on('refocus', () => load());
 
-      const epRow = (e, acts) => `<div class="pc-ep" data-uuid="${E(e.uuid)}">${e.art ? `<img src="${E(e.art)}" alt="" loading="lazy">` : ''}
+      const epRow = (e, acts) => `<div class="pc-ep" data-uuid="${E(e.uuid)}">${e.art ? `<img src="${E(e.art)}" alt="" loading="lazy" onerror="this.style.visibility='hidden'">` : ''}
         <div class="pc-ep-t"><b>${E(e.title)}</b><span>${E(e.podcastTitle)}${e.duration ? ' · ' + (e.position ? fmt(left(e)) + ' left' : fmt(e.duration)) : ''}</span></div>
         <div class="pc-ep-a">${acts.map(([k, ic, l]) => `<button class="btn sm" data-act-pc="${k}" title="${E(l)}">${api.ui.icon(ic)}<span>${E(l)}</span></button>`).join('')}</div></div>`;
       api.views.add({ id: 'podcasts', title: 'Podcasts', icon: '🎧', subtitle: 'Pocket Casts, on your NAS', wide: true, render: el => {
@@ -110,10 +112,10 @@
         el.innerHTML = `<div class="pc">
           <div class="pc-main">
             ${data.error ? `<p class="pc-note">${api.ui.icon('refresh-cw')}${E(data.error)}</p>` : ''}
-            <div class="pc-card pc-now">${c ? `${c.art ? `<img src="${E(c.art)}" alt="">` : ''}<div class="pc-now-t">
+            <div class="pc-card pc-now">${c ? `${c.art ? `<img src="${E(c.art)}" alt="" onerror="this.style.visibility='hidden'">` : ''}<div class="pc-now-t">
                 <span class="muted">${a.paused ? (c.position ? 'Paused · ' + fmt(left({ duration: a.duration || c.duration, position: a.currentTime || c.position })) + ' left' : 'Ready') : 'Playing'}</span>
                 <b>${E(c.title)}</b><span class="muted">${E(c.podcastTitle)}</span>
-                <input type="range" class="pc-seek" min="0" max="${Math.round(a.duration || c.duration || 0)}" value="${Math.round(a.currentTime || c.position || 0)}" aria-label="Position">
+                <input type="range" class="pc-seek" min="0" max="${Math.round(isFinite(a.duration) && a.duration ? a.duration : c.duration || 0)}" value="${Math.round(a.currentTime || c.position || 0)}" aria-label="Position">
                 <div class="pc-ctl"><button class="pc-ib" data-act-pc="back" aria-label="Back 10 seconds">${api.ui.icon('rotate-ccw')}</button>
                   <button class="pc-ib pc-big" data-act-pc="toggle" aria-label="${a.paused ? 'Play' : 'Pause'}">${api.ui.icon(a.paused ? 'play' : 'pause')}</button>
                   <button class="pc-ib" data-act-pc="fwd" aria-label="Forward 30 seconds">${api.ui.icon('rotate-cw')}</button>
@@ -128,7 +130,7 @@
           </div>
           <aside class="pc-side">
             <div class="pc-card"><b>In progress</b>${(data.inProgress || []).slice(0, 8).map(e => epRow(e, [['play', 'play', 'Resume']])).join('') || '<p class="muted">Nothing half-listened.</p>'}</div>
-            <div class="pc-card"><b>Your shows</b><div class="pc-shows">${(data.shows || []).slice(0, 30).map(s => `<img src="${E(s.art)}" alt="${E(s.title)}" title="${E(s.title)}" loading="lazy">`).join('')}</div></div>
+            <div class="pc-card"><b>Your shows</b><div class="pc-shows">${(data.shows || []).slice(0, 30).map(s => `<img src="${E(s.art)}" alt="${E(s.title)}" title="${E(s.title)}" loading="lazy" onerror="this.style.opacity=0">`).join('')}</div></div>
             <p class="pc-sync muted">${api.ui.icon('refresh-cw')}${data.syncedAt ? 'Synced with Pocket Casts ' + Math.max(0, Math.round((Date.now() - data.syncedAt) / 60000)) + ' min ago' : 'Not synced yet'} · <button class="lnk" data-act-pc="sync">Sync now</button></p>
           </aside></div>`;
         const run = { play: e => P.play(e), queue: e => { P.queue(e); api.ui.toast('Added to Up next here'); }, task: e => { api.tasks.add({ title: 'Listen: ' + e.title }); api.ui.toast('Task added'); },
@@ -142,7 +144,7 @@
         const sl = el.querySelector('#pc-sleep'); if (sl) sl.onchange = () => { P.sleep(+sl.value); api.ui.toast(+sl.value ? `Stopping in ${sl.value} min` : 'Sleep timer off'); };
       } });
       // keep the open view's player card current without re-rendering the whole page
-      const offView = P.on(() => { if (api.ui.currentRoute() !== 'view-podcasts') return; const s = document.querySelector('.pc-seek'); if (s && document.activeElement !== s) { s.max = Math.round(P.audio.duration || 0); s.value = Math.round(P.audio.currentTime || 0); }
+      const offView = P.on(() => { if (api.ui.currentRoute() !== 'view-podcasts') return; const s = document.querySelector('.pc-seek'); if (s && document.activeElement !== s) { s.max = Math.round(isFinite(P.audio.duration) ? P.audio.duration : (P.current && P.current.duration) || 0); s.value = Math.round(P.audio.currentTime || 0); }
         const tb = document.querySelector('.pc-now [data-act-pc="toggle"]'); if (tb && tb.dataset.st !== String(P.audio.paused)) { tb.dataset.st = String(P.audio.paused); tb.innerHTML = api.ui.icon(P.audio.paused ? 'play' : 'pause'); } });
       return () => { clearInterval(tick); offMini(); offView(); };
     },
@@ -155,7 +157,7 @@
     .pc-m-bar{display:block;height:3px;border-radius:2px;background:var(--line);overflow:hidden} .pc-m-bar i{display:block;height:100%;background:var(--accent)}
     .pc-ib{display:inline-grid;place-items:center;width:34px;height:34px;border-radius:50%;border:0;background:transparent;color:var(--text);cursor:pointer;flex:none} .pc-ib:hover{background:var(--hover)} .pc-ib svg{width:18px;height:18px}
     .pc-ib.pc-big{width:40px;height:40px;background:var(--accent);color:var(--on-accent)} .pc-ib.pc-big svg{width:20px;height:20px}
-    @media (min-width:900px){#pc-mini{left:auto;right:16px;transform:none}}
+    @media (min-width:900px){#pc-mini{left:calc(50% + 138px)}}
     .pc{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:16px;padding-bottom:80px} @media (max-width:900px){.pc{grid-template-columns:1fr}}
     .pc-main,.pc-side{display:flex;flex-direction:column;gap:14px;min-width:0}
     .pc-card{background:var(--panel);border:1px solid var(--line);border-radius:var(--r,10px);padding:12px 14px}

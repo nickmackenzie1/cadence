@@ -1111,3 +1111,20 @@ Claims checked against the code 2026-11-13 (all real). Planned in 4 groups; do i
 - tests/storage-tidy.spec.mjs.
 - CI incident 22:06: cancel-in-progress cancelled every run because pushes came faster than a run, so `stable` stopped
   at d7333e4 and the NAS stopped updating. Now cancel-in-progress: false (+ the no-backwards promote).
+
+## Incident 2026-11-13 22:18: couldn't sign in after the safety batch reached the NAS
+- Cause: Dockerfile `USER node`. On the NAS the node user couldn't read certs/key.pem (HTTPS off → "Not encrypted")
+  and likely data/ (sign-in broke). Hotfix 0.6.7 removes USER node (runs as root again). Retry only with an
+  entrypoint that runs as root, checks/chowns data and certs, then drops to node (su-exec), and a deploy-time check.
+
+## Shipped 2026-11-13 22:30: Podcasts (Pocket Casts) 0.6.8
+- server/services/pocketcasts.js + routes/podcasts.js: login with POCKETCASTS_EMAIL/PASSWORD from the NAS .env
+  (token cached in data/pocketcasts.json, 600), /user/podcast/list, /user/new_releases, /user/in_progress,
+  /up_next/list, /sync/update_episode (status 2 in progress / 3 played), /sync/update_episode_star, show notes from
+  cache.pocketcasts.com. Field names normalised. POCKETCASTS_API / POCKETCASTS_CACHE override for tests.
+  UNTESTED against the real API (no internet from the dev sandbox): first real use may need endpoint tweaks.
+- public/plugins/podcasts.js: window.CadencePodcasts owns one <audio> on <html> (survives re-renders, plugin
+  rebuilds, space switches); resumes from max(local, Pocket Casts) position; saves locally each tick, sends to
+  Pocket Casts every 30 s, on pause, at the end and on pagehide (sendBeacon); speed, sleep timer, star, show notes,
+  local queue, Make a task; Media Session (lock-screen controls); pauses for meetings; one Island note for new
+  episodes; mini player bar (#pc-mini). Both spaces. tests/podcasts.spec.mjs uses a fake Pocket Casts.
