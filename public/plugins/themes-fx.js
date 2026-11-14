@@ -177,4 +177,81 @@
       :skin .mi-dot{width:9px;height:9px;border-radius:50%;background:#ff4d4d;box-shadow:0 0 8px #ff4d4d;animation:mi-p 1.6s ease-in-out infinite} @keyframes mi-p{50%{opacity:.4}}`,
     // the camera is part of the look (opt-in), so it lives in enhance: it works even with Effects off
     enhance: ctx => mirror({ ...ctx, level: 'full' }) });
+
+  /* ---------------- Backrooms: a liminal office. Mono-yellow wallpaper, damp carpet, a ceiling of fluorescent panels
+     that buzz and now and then flicker, a faint hum (Effects on, after your first click, very quiet), memos taped to
+     doors for tasks, and an endless empty corridor between views. ---------------- */
+  const BR_PAPER = `url("data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="44" height="44"><g fill="none" stroke="#a8955a" stroke-opacity=".35" stroke-width="1.2"><path d="M0 11l11-11 11 11 11-11 11 11M0 33l11-11 11 11 11-11 11 11"/></g><g fill="#a8955a" fill-opacity=".18"><circle cx="11" cy="22" r="1.4"/><circle cx="33" cy="0" r="1.4"/><circle cx="33" cy="44" r="1.4"/></g></svg>')}")`;
+  R({ id: 'backrooms', name: 'Backrooms', category: 'Crazy', tagline: 'A liminal office: yellow wallpaper, damp carpet, buzzing fluorescent panels, memos taped to doors, and a long empty corridor between views.',
+    fonts: [{ family: 'Courier Prime', src: 'vendor/themes/fonts/courier-prime-latin-400-normal.woff2', weight: 400 }],
+    font: 'Arial,Helvetica,sans-serif',
+    vars: { '--ambient': 'off', '--bg': '#cdbd7e', '--panel': '#b9a76a', '--side': '#bfae70', '--text': '#2e2a1c', '--muted': '#5a5236', '--faint': '#7c7350', '--line': '#a6955c', '--hover': 'rgba(255,250,220,.25)',
+      '--accent': '#6b5d34', '--on-accent': '#f6f0d6', '--accent-soft': 'rgba(107,93,52,.18)', '--client': '#6b5d34', '--client-soft': 'rgba(107,93,52,.14)', '--ok': '#5d6b34', '--danger': '#8a4a2a', '--danger-soft': 'rgba(138,74,42,.15)', '--r': '0px', '--shadow': '0 1px 0 rgba(0,0,0,.08)' },
+    preview: { bg: '#cdbd7e', panel: '#b9a76a', side: '#bfae70', text: '#2e2a1c', accent: '#6b5d34', line: '#a6955c', r: '0' },
+    css: `:skin body{background:linear-gradient(180deg,rgba(255,255,230,.18),transparent 30%),${BR_PAPER},linear-gradient(180deg,#d6c789,#c8b776 70%,#b3a263);background-attachment:fixed}
+      :skin body::before{content:"";position:fixed;left:0;right:0;top:0;height:30px;z-index:1;pointer-events:none;
+        background:linear-gradient(90deg,transparent 0 3%,#fffdf0 3% 17%,transparent 17% 23%,#fffdf0 23% 37%,transparent 37% 43%,#fffdf0 43% 57%,transparent 57% 63%,#fffdf0 63% 77%,transparent 77% 83%,#fffdf0 83% 97%,transparent 97%) 0 8px/100% 9px no-repeat,
+          repeating-linear-gradient(90deg,#e6dcc0 0 119px,#bfb38f 119px 120px),#ebe2c8;box-shadow:0 2px 0 #a89d77,0 30px 60px rgba(255,255,220,.35);animation:br-flick 9s steps(1) infinite}
+      @keyframes br-flick{0%,62%,64%,66%,to{opacity:1}63%,65%{opacity:.55}}
+      :skin body::after{content:"";position:fixed;left:0;right:0;bottom:0;height:18px;z-index:1;pointer-events:none;background:radial-gradient(rgba(0,0,0,.12) 1px,transparent 1.5px) 0 0/5px 5px,linear-gradient(#9a8a52,#857643);box-shadow:0 -1px 0 #6f6238}
+      :skin .app,:skin .main{background:transparent}
+      :skin .side{position:relative;z-index:2;background:${BR_PAPER},#c4b475;border-right:6px solid #a6955c;box-shadow:inset -1px 0 0 #8c7d48}
+      :skin .side .ntile.on,:skin .side .nav a.on{background:rgba(255,253,235,.55);box-shadow:inset 0 0 0 1px #8c7d48}
+      :skin .head h1,:skin .c-hero h1{font-family:Arial,Helvetica,sans-serif;font-weight:700;letter-spacing:.02em;color:#3a3422;text-transform:uppercase;font-size:30px}
+      :skin .head h1::before{content:"LEVEL 0 · ";color:#7c7350;font-weight:400}
+      :skin .group,:skin .gl,:skin .stat,:skin .qa{background:linear-gradient(90deg,rgba(0,0,0,.05),transparent 8%,transparent 92%,rgba(0,0,0,.06)),#bba96d;border:1px solid #8c7d48;box-shadow:inset 0 0 0 6px #c9b97a,inset 0 0 0 7px #8c7d48;position:relative}
+      :skin .group{padding:16px 22px 14px}
+      :skin .group::after{content:"";position:absolute;right:10px;top:50%;width:8px;height:22px;margin-top:-11px;border-radius:4px;background:linear-gradient(90deg,#8b8576,#d8d2c2,#8b8576);box-shadow:0 1px 1px rgba(0,0,0,.3)}
+      :skin .group-h{font-family:Arial,sans-serif;letter-spacing:.14em;text-transform:uppercase;font-size:11px;color:#5a5236}
+      :skin .task:not(.td-b){font-family:"Courier Prime","Courier New",monospace;background:#fbf8ec;margin:9px 26px 9px 4px;padding:8px 10px;border:0;box-shadow:0 1px 2px rgba(0,0,0,.18),0 6px 10px -6px rgba(0,0,0,.3);transform:rotate(-.5deg);position:relative}
+      :skin .task:not(.td-b):nth-child(even){transform:rotate(.6deg)}
+      :skin .task:not(.td-b)::before{content:"";position:absolute;left:50%;top:-6px;width:46px;height:13px;margin-left:-23px;background:rgba(240,235,200,.75);box-shadow:0 0 0 1px rgba(0,0,0,.05);transform:rotate(-2deg)}
+      :skin .task:not(.td-b):hover{background:#fffdf3}
+      :skin .check{border:1.5px solid #5a5236;border-radius:0}
+      :skin .task.done .check{background:#5a5236}
+      :skin .btn{border-radius:0;background:#e9e1c4;border:1px solid #8c7d48;color:#2e2a1c}
+      :skin .btn.primary,:skin .meet-btn{background:#6b5d34;border-color:#4c4224;color:#f6f0d6}
+      :skin .br-hall{position:fixed;inset:0;z-index:2500;pointer-events:none;opacity:0;background:
+        radial-gradient(closest-side,#fffbe0 0 4%,transparent 30%) 50% 46%/100% 100% no-repeat,
+        conic-gradient(from 135deg at 50% 46%,#bfae70 0 90deg,#a69458 90deg 180deg,#d9cc95 180deg 270deg,#b5a465 270deg 360deg);animation:br-hall .5s ease-out forwards}
+      :skin .br-hall::after{content:"";position:absolute;inset:0;background:repeating-radial-gradient(circle at 50% 46%,transparent 0 46px,rgba(80,70,40,.35) 46px 48px)}
+      @keyframes br-hall{0%{opacity:0;transform:scale(1.4)}35%{opacity:1}to{opacity:0;transform:scale(1)}}
+      @media (prefers-reduced-motion:reduce){:skin body::before{animation:none}}`,
+    effects: ({ layer }) => {
+      // the corridor between views
+      const hall = () => { const d = document.createElement('div'); d.className = 'br-hall'; layer.appendChild(d); setTimeout(() => d.remove(), 520); };
+      addEventListener('hashchange', hall);
+      // the hum: two quiet tones (mains buzz + its harmonic), only after you've clicked something, never loud
+      let ctx = null, nodes = [];
+      const start = () => { if (ctx) return; try { ctx = new (window.AudioContext || window.webkitAudioContext)(); const g = ctx.createGain(); g.gain.value = 0.006; g.connect(ctx.destination);
+        for (const [f, v] of [[120, 1], [240, .35], [360, .12]]) { const o = ctx.createOscillator(), gg = ctx.createGain(); o.type = 'sine'; o.frequency.value = f; gg.gain.value = v; o.connect(gg); gg.connect(g); o.start(); nodes.push(o); } } catch (e) {} };
+      const stop = () => { nodes.forEach(o => { try { o.stop(); } catch (e) {} }); nodes = []; if (ctx) { ctx.close().catch(() => {}); ctx = null; } };
+      document.addEventListener('pointerdown', start, { once: true });
+      const vis = () => { if (document.hidden) stop(); };
+      document.addEventListener('visibilitychange', vis);
+      return () => { removeEventListener('hashchange', hall); document.removeEventListener('pointerdown', start); document.removeEventListener('visibilitychange', vis); stop(); };
+    } });
+
+  /* ---------------- Nothing: no styling. The same layout, but the page looks like plain HTML: white, Times, blue
+     underlined links, the browser's own buttons and fields, no colours, shadows, rounding or effects. ---------------- */
+  R({ id: 'nothing', name: 'Nothing', category: 'Useful', tagline: 'No styling: the same layout as plain HTML. White page, Times, the browser’s own buttons and fields, blue links.',
+    font: '"Times New Roman",Times,serif',
+    vars: { '--ambient': 'off', '--bg': '#ffffff', '--panel': '#ffffff', '--side': '#ffffff', '--text': '#000000', '--muted': '#000000', '--faint': '#555555', '--line': '#000000', '--hover': 'transparent',
+      '--accent': '#0000ee', '--on-accent': '#ffffff', '--accent-soft': 'transparent', '--client': '#000000', '--client-soft': 'transparent', '--ok': '#000000', '--danger': '#000000', '--danger-soft': 'transparent', '--r': '0px', '--shadow': 'none' },
+    preview: { bg: '#fff', panel: '#fff', side: '#fff', text: '#000', accent: '#0000ee', line: '#000', r: '0' },
+    css: `:skin body,:skin .app,:skin .main,:skin .side{background:#fff!important;color:#000;font-size:16px}
+      :skin *{box-shadow:none!important;text-shadow:none!important;border-radius:0!important;transition:none!important;animation:none!important;backdrop-filter:none!important}
+      :skin .side{border-right:1px solid #000}
+      :skin .group,:skin .gl,:skin .stat,:skin .qa,:skin .modal,:skin .task,:skin .chip,:skin .ntile,:skin .nav a{background:transparent!important;border-color:transparent}
+      :skin .head h1,:skin .c-hero h1{font:bold 32px "Times New Roman",Times,serif;color:#000;letter-spacing:0;text-transform:none}
+      :skin .group-h,:skin .th-cat{font:bold 18.7px "Times New Roman",Times,serif;color:#000;text-transform:none;letter-spacing:0}
+      :skin a,:skin .link,:skin [data-act].lnk{color:#0000ee;text-decoration:underline}
+      :skin a:visited{color:#551a8b}
+      :skin .btn,:skin .btn.primary,:skin .meet-btn,:skin button.btn{appearance:auto;-webkit-appearance:button;background:ButtonFace;color:ButtonText;border:2px outset ButtonBorder;font:13.33px Arial,sans-serif;padding:1px 6px}
+      :skin input,:skin select,:skin textarea,:skin .inp{appearance:auto;background:Field;color:FieldText;border:2px inset ButtonBorder;font:13.33px Arial,sans-serif}
+      :skin .check{appearance:auto;border:1px solid #000;background:#fff}
+      :skin .task.done .check{background:#000}
+      :skin .ntile.on,:skin .nav a.on,:skin .side .ntile.on{font-weight:bold;text-decoration:underline;color:#000}
+      :skin .ftoast{background:#fff;color:#000;border:1px solid #000}
+      :skin hr{border:0;border-top:1px solid #000}` });
 })();
