@@ -1035,3 +1035,25 @@ Claims checked against the code 2026-11-13 (all real). Planned in 4 groups; do i
   old task, long idle, meeting start. Off by default, a Fun plugin; rate-limited (one line every few minutes at most),
   muted during meetings and quiet hours, gentle not judgmental (anxiety-safe). Lines canned, optionally AI-written
   when a key is set. Pick the deepest/slowest available voice; captions in the Island for when sound is off.
+
+## Backlog (user, 2026-11-13 21:40): free APIs to use (check each one's current terms/rate limits before building;
+## all fetches server-side through safeFetch, cached, no keys unless noted)
+- Open-Meteo Air Quality + pollen: UV, pollen, smoke in the greeting (same provider as weather).
+- NOAA SWPC space weather: aurora / solar storm → "Northern lights possible tonight" on the Island.
+- ISS: live position + pass times over home (pass times may need a TLE + local calc).
+- Wikipedia "On this day" + featured article: daily fact on Today; raw material for the NAS dreams.
+- Met Museum + Art Institute of Chicago: public-domain artworks with images for the mural mosaic (beside the
+  Wikimedia presets). Only public-domain/CC0 items.
+- MusicBrainz + Cover Art Archive: album art and release data for Music Radar (MusicBrainz needs a UA + 1 req/s).
+- Radio Browser: internet radio stations for the ambient plugin.
+- TheMealDB: recipes with photos for dinner roulette (free test key "1").
+- Bank of Canada Valet + Frankfurter: daily exchange rates (USD invoicing).
+- Hacker News (Firebase API): top stories as a feed skin.
+- xkcd JSON: the daily comic.
+- Lichess: daily chess puzzle for the games plugin.
+- NHL stats API: Leafs scores on the Island; on a Leafs goal the Island flashes red goal-light style with a horn
+  (our own sound, off by default; no team logos). Quiet hours / meetings mute it.
+- Also suggested earlier: TVmaze ("your shows air tonight"), Open Food Facts (barcode → groceries), the city's
+  open-data waste calendar ("garbage night" reminders; ask which city).
+- Pocket Casts (unofficial) capabilities for the sync item above: subscriptions, new releases, in progress, starred,
+  star / played status / played position write-back, subscribe/unsubscribe, episode notes, search, charts.
