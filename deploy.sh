@@ -122,7 +122,7 @@ if [ "$OLD" = none ]; then CHANGED="all"; else CHANGED="$(g diff --name-only "$O
 [ "$ENV_CHANGED" = yes ] && CHANGED="$CHANGED
 docker-compose.yml"
 REBUILD=no
-echo "$CHANGED" | grep -qE '^(all|server\.js|server/.*|Dockerfile|docker-compose\.yml|deploy\.sh|tls\.sh)$' && REBUILD=yes
+echo "$CHANGED" | grep -qE '^(all|server\.js|server/.*|Dockerfile|entrypoint\.sh|docker-compose\.yml|deploy\.sh|tls\.sh)$' && REBUILD=yes
 
 # build the new image from a clean copy BEFORE touching the live files, so a broken build changes nothing
 if [ "$REBUILD" = yes ] && [ "$OLD" != none ]; then
@@ -147,6 +147,7 @@ if [ "$REBUILD" = yes ]; then
   log "deploy $(echo "$NEW" | cut -c1-7): rebuilding container"
   if dc up -d --build --remove-orphans >> "$LOG" 2>&1 && healthy; then
     log "rebuild ok"; rm -f .deploy-bad; mark_env
+    log "app runs as: $(docker exec cadence stat -c %U /proc/1 2>/dev/null || echo unknown)$(docker logs cadence 2>&1 | grep -m1 'staying root' | sed 's/^cadence: / — /')"
   elif [ "$OLD" != none ]; then
     # the new version didn't come up: put the previous one back (files and container) and don't retry this commit
     echo "$NEW" > .deploy-bad

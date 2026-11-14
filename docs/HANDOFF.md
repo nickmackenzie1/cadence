@@ -1135,3 +1135,8 @@ Claims checked against the code 2026-11-13 (all real). Planned in 4 groups; do i
 - **Bigger local storage.** Docs over 150 KB are stored lz-string compressed (`lz1:` prefix, `vendor/lz-string`). The plugin on/off list lives in `cadence.off.<space>` so the bundle chooser never has to parse the doc.
 - **deploy.sh:** hand edits to `.env` (e.g. adding ANTHROPIC_API_KEY) now recreate the container: a checksum in `.env.applied`. The throwaway git container is named `cadence-git-*` instead of a random Docker name.
 - Flaky (pass on retry): radar view, smoke "themes set 3", smoke "full browser storage". To fix in housekeeping.
+
+## Non-root container (0.7.1)
+- `entrypoint.sh` (installed as `cadence-entrypoint`, needs `su-exec` from apk) starts as root. It copies `/certs/*.pem` to `/run/cadence-certs`, owned by node with mode 600 (tls.sh makes the key root-only, which is what broke 0.6.6). It chowns `/data` if needed and proves node can write every file there. Then it runs `su-exec node`. If any check fails it **stays root and logs `cadence: staying root — <reason>`**, so it can't lock the user out again. Set `RUN_AS_ROOT=1` in .env to skip it.
+- deploy.sh logs `app runs as: <user>` after each rebuild, and rebuilds when entrypoint.sh changes.
+- Not testable with real Docker in the agent workspace (Docker Hub blocked). The script was tested with runuser standing in for su-exec: NAS-like root-only certs and data, an unfixable file, no certs, and the opt-out. The NAS precheck build guards against apk/build failures.
