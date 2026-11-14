@@ -29,3 +29,6 @@ Cadence's themes borrow fonts, techniques and code from these open-source projec
 | The Shining | Special Elite via Fontsource | Apache 2.0 (`fonts/LICENSE-special-elite.txt`) | webfont |
 | Backrooms | user-supplied CodePens ("Backrooms UI", camcorder ScreenEffect) | reference | box bevel/screw/switch looks, palette, VHS static/tracking/OSD ideas, re-implemented; their photos not used |
 | Backrooms | [Sometype Mono](https://github.com/googlefonts/sometype-mono) | OFL 1.1 (`fonts/LICENSE-sometype-mono.txt`) | the UI font |
+| Bootstrap 6 | [Bootstrap](https://github.com/twbs/bootstrap) 6.0.0-alpha.1 | MIT | colours, radius and focus ring read from its CSS by `scripts/build-framework-themes.mjs` |
+| Bootswatch (26 palettes) | [Bootswatch](https://github.com/thomaspark/bootswatch) by Thomas Park | MIT | palettes read from each theme's CSS |
+| Bulma | [Bulma](https://github.com/jgthms/bulma) by Jeremy Thomas | MIT | colours, radius, box shadow read from its CSS |

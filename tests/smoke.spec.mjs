@@ -181,7 +181,9 @@ test('themes: engine applies, persists, cleans up effects, and plugins can regis
   // the 30 daisyUI palettes are one card, chosen inside it
   const daisy = await page.evaluate(() => CadenceThemes.list().filter(t => t.family === 'daisyUI').length);
   expect(daisy).toBe(30);
-  await expect(page.locator('.thg-sec .th-card')).toHaveCount(ids.length - daisy + 1);
+  const fams = await page.evaluate(() => { const f = {}; CadenceThemes.list().forEach(t => { if (t.family) f[t.family] = (f[t.family] || 0) + 1; }); return f; });
+  expect(Object.keys(fams).sort()).toEqual(['Bootswatch', 'daisyUI']);
+  await expect(page.locator('.thg-sec .th-card')).toHaveCount(ids.length - Object.values(fams).reduce((a, b) => a + b - 1, 0));
   await page.locator('.thg-sec .th-card[data-fam="daisyUI"]').click();
   await expect(page.locator('.thg-fam [data-fpick]')).toHaveCount(30);
   await page.locator('.thg-fam [data-fpick="daisy-coffee"]').click();
