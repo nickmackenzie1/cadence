@@ -1057,3 +1057,16 @@ Claims checked against the code 2026-11-13 (all real). Planned in 4 groups; do i
   open-data waste calendar ("garbage night" reminders; ask which city).
 - Pocket Casts (unofficial) capabilities for the sync item above: subscriptions, new releases, in progress, starred,
   star / played status / played position write-back, subscribe/unsubscribe, episode notes, search, charts.
+
+## Pocket Casts / Podcasts design (user, 2026-11-13 21:41–21:42; mockup shown in chat)
+- One plugin for BOTH spaces (no `spaces` limit): the same shows, queue and player in Work and Life.
+- Playback never stops when you switch space, view or browser tab: one <audio> element owned by a window-level
+  singleton (window.CadencePodcasts), created once and kept outside #view and outside rebuildPlugins/render (a
+  rebuild re-attaches UI to the existing player instead of making a new one). Lazy plugin loading: keep the file in
+  ALWAYS once it's playing, or just never skip it while audio is active.
+- Layout: now-playing card (resume point from the phone, progress, -10/+30, speed, sleep timer, star), Up next
+  (drag to reorder), New from your shows (Up next / Make a task / Archive), sidebar: your shows grid + find a show,
+  In progress, This week stats (only if the stats endpoint exists), "Synced with Pocket Casts 2m ago".
+- Mini player in the bottom bar everywhere; media keys + Media Session API (lock-screen controls on the phone).
+- Pauses for meetings, quiet during quiet hours, gentle Island note for new episodes, "keep listening" Today card.
+- Credentials only in the NAS .env; if the unofficial API breaks: "Pocket Casts sync paused", player keeps working.
