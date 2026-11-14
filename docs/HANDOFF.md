@@ -1028,3 +1028,10 @@ Claims checked against the code 2026-11-13 (all real). Planned in 4 groups; do i
 - Create a "script" app (redirect uri http://localhost:8080, unused; we use client_credentials), then request access
   via their ticket form describing personal, non-commercial, read-only use. Don't work around the block (policy).
 - Until approved, Radar runs on the other sources; refusals are one calm line.
+
+## Backlog (user, 2026-11-13 21:36): Narrator
+- A nature-documentary voice (browser speechSynthesis) comments on what you do: "The consultant approaches the SOW.
+  He hesitates. He opens Themes instead." Hooks: opening a task then switching away, opening Themes, finishing an
+  old task, long idle, meeting start. Off by default, a Fun plugin; rate-limited (one line every few minutes at most),
+  muted during meetings and quiet hours, gentle not judgmental (anxiety-safe). Lines canned, optionally AI-written
+  when a key is set. Pick the deepest/slowest available voice; captions in the Island for when sound is off.
