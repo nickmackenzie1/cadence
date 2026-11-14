@@ -5,10 +5,12 @@ on:
   workflow_dispatch:
 permissions:
   contents: write
-# one run at a time; a newer push cancels an older run still in progress, so an old build can't finish last
+# one run at a time. A run in progress always finishes (cancelling it starved `stable` when pushes came faster than
+# a test run); pushes that arrive meanwhile wait, and only the newest waiting one runs. The promote step below
+# refuses to move `stable` backwards, so order can't go wrong either.
 concurrency:
   group: test-main
-  cancel-in-progress: true
+  cancel-in-progress: false
 jobs:
   test:
     runs-on: ubuntu-latest
