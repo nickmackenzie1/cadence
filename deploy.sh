@@ -87,15 +87,17 @@ NEW="$(g rev-parse "origin/$BRANCH")"
 if [ "$NEW" = "$(cat .deploy-bad 2>/dev/null || true)" ]; then NEW="$OLD"; fi
 
 # settings passed from Task Scheduler -> .env (restart container if they changed)
-# lines you add to .env by hand (REDDIT_CLIENT_ID, LASTFM_API_KEY, …) are kept; only these five are managed here
+# Settings from the Task Scheduler command go into .env. A setting the command doesn't pass keeps whatever .env already
+# has (so a key you only keep in .env, like ANTHROPIC_API_KEY, is never blanked), and lines you add by hand are kept.
 write_env(){
   {
     [ -f .env ] && grep -vE '^(TZ|APP_USERNAME|APP_PASSWORD|ANTHROPIC_API_KEY|HTTPS_PORT)=' .env || true
-    echo "TZ=${TZ:-America/Toronto}"
-    echo "APP_USERNAME=${APP_USERNAME:-cadence}"
-    echo "APP_PASSWORD=${APP_PASSWORD:-}"
-    echo "ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}"
-    echo "HTTPS_PORT=${HTTPS_PORT:-8443}"
+    keep(){ v="$(grep -E "^$1=" .env 2>/dev/null | tail -n 1 | cut -d= -f2-)"; echo "$1=${2:-${v:-$3}}"; }
+    keep TZ "${TZ:-}" America/Toronto
+    keep APP_USERNAME "${APP_USERNAME:-}" cadence
+    keep APP_PASSWORD "${APP_PASSWORD:-}" ""
+    keep ANTHROPIC_API_KEY "${ANTHROPIC_API_KEY:-}" ""
+    keep HTTPS_PORT "${HTTPS_PORT:-}" 8443
   } > .env.new
   if ! cmp -s .env.new .env 2>/dev/null; then mv .env.new .env; chmod 600 .env; return 0; fi
   rm -f .env.new; return 1

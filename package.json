@@ -1,6 +1,6 @@
 {
   "name": "cadence",
-  "version": "0.6.8",
+  "version": "0.6.9",
   "private": true,
   "description": "Modular to-do app for consultants. The app itself has no dependencies; these are only for tests.",
   "scripts": {
