@@ -24,6 +24,7 @@ if (TLS) {
   http.createServer((req, res) => {
     const u = new URL(req.url, 'http://x');
     if (u.pathname.replace(/^.*\//, '/') === '/ca.crt') return sendCA(res);
+    if (req.url === '/healthz') { res.writeHead(200, { 'Content-Type': 'text/plain', 'Cache-Control': 'no-store' }); return res.end('ok'); }   // container healthcheck
     const host = String(req.headers.host || 'localhost').replace(/:\d+$/, '').replace(/[^\w.\-\[\]:]/g, '');
     res.writeHead(307, { Location: `https://${host}:${HTTPS_PUBLIC_PORT}${u.pathname}${u.search}`, 'Cache-Control': 'no-store' });
     res.end();

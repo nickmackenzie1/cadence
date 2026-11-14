@@ -10,3 +10,4 @@ certs/
 .mkcert-ca/
 .tools/
 .scratch/
+.deploy-bad

@@ -308,3 +308,12 @@ test('3D, Halloween and Movie & TV themes apply cleanly; Halloween has lanterns'
   expect(errs).toEqual([]);
 });
 
+
+test('a full browser storage is reported once, calmly, and the NAS still gets the change', async ({ page }) => {
+  await boot(page);
+  await page.evaluate(() => { const set = Storage.prototype.setItem; Storage.prototype.setItem = function (k, v) { if (/^cadence\.(v1|life)/.test(k)) throw new DOMException('full', 'QuotaExceededError'); return set.call(this, k, v); }; });
+  for (const t of ['Storage test one', 'Storage test two']) { await page.fill('#qa', t); await page.keyboard.press('Escape'); await page.focus('#qa'); await page.press('#qa', 'Enter'); }
+
+  await expect(page.getByText(/browser storage is full/)).toHaveCount(1);
+  await expect.poll(() => page.evaluate(async () => /Storage test two/.test(await (await fetch('api/sync?since=0')).text())), { timeout: 8000 }).toBe(true);
+});

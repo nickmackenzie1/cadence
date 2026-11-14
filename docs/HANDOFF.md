@@ -1002,3 +1002,29 @@ Claims checked against the code 2026-11-13 (all real). Planned in 4 groups; do i
 - Also: the accessibility labeller now labels buttons the moment they're added (was rAF-deferred → the
   "icon-only button has a name" test flaked); dock buttons carry aria-label directly.
 - tests/lazy-plugins.spec.mjs.
+
+## Shipped 2026-11-13 21:30: safety batch (code review group 1)
+- #9 Basic auth goes through the login lockout (a repeated identical bad header counts once; each new guess counts;
+  while locked even the right password is refused). tests/basic-lockout.spec.mjs.
+- #10 feedparse abs(): only http(s) links/images survive. #12 safeFetch now uses node:http(s) with a guarded DNS lookup
+  inside the connection itself (no rebinding window); handles gzip/deflate/br, redirects hop by hop, size cap.
+  tests/net-safety.spec.mjs. Couldn't reach the internet from the sandbox: verified against a local server.
+- #13 Dockerfile: USER node + HEALTHCHECK on /healthz (open, says only "ok", answers on the plain-http port in both
+  modes). deploy.sh chowns data/ and certs/ to uid 1000 when needed (tls.sh writes certs as root, key 600).
+- #14 test.yml: concurrency group (newer push cancels older run) + promote only fast-forwards stable.
+- #15 deploy.sh: builds the new image from a `git archive` copy first (broken build → nothing touched); after
+  `up --build` waits for /healthz; if the new version doesn't start, resets files to the old commit and rebuilds.
+  A failed commit is remembered in .deploy-bad and not retried every 5 min (next push is).
+- #16 deploy.sh re-execs from a /tmp copy so `git reset --hard` can't rewrite it mid-run.
+- deploy.sh write_env now KEEPS lines you add to .env by hand (it used to rewrite .env with only its 5 keys, which
+  wiped REDDIT_*/LASTFM_* etc. every 5 minutes).
+- #17 package-lock.json committed, `npm ci`, npm + Playwright browser cache in CI.
+- #1 local save failures (browser storage full) show one sticky, calm notice; says whether the NAS still has it.
+- #7 app files (core.css, login, index, icons) get ETag + no-cache + gzip (core.css 67 KB → 15 KB, 304 on repeat).
+- FIRST DEPLOY OF THIS ON THE NAS: watch deploy.log for "gave data/ to the app user" and "rebuild ok". If it rolls
+  back, `docker logs cadence` will say why (most likely a file the node user can't read).
+
+## Reddit (user asked 21:20): Reddit's Responsible Builder Policy says API access needs explicit approval first.
+- Create a "script" app (redirect uri http://localhost:8080, unused; we use client_credentials), then request access
+  via their ticket form describing personal, non-commercial, read-only use. Don't work around the block (policy).
+- Until approved, Radar runs on the other sources; refusals are one calm line.

@@ -74,7 +74,16 @@ let OTHER;   // the other space's document, loaded when first needed (undefined 
 function otherDoc(){ if(OTHER === undefined) OTHER = loadDoc(SPACE === 'work' ? 'life' : 'work'); return OTHER; }
 function docOf(space){ return space === SPACE ? S : otherDoc(); }
 function setDoc(space, d){ if(space === SPACE) S = d; else OTHER = d; }
-function persistDoc(space){ const d = docOf(space); if(d) try { localStorage.setItem(LS_KEYS[space], JSON.stringify(d)); } catch(e){} }
+function persistDoc(space){ const d = docOf(space); if(d) try { localStorage.setItem(LS_KEYS[space], JSON.stringify(d)); } catch(e){ localSaveFailed(e); } }
+// The browser's own storage has a limit (about 5 MB). If a save here fails, say so once, calmly: with the NAS
+// connected everything is still safe there; without it, this device has stopped keeping changes.
+function localSaveFailed(e){
+  if(localSaveFailed.told) return; localSaveFailed.told = true;
+  console.warn('Cadence: local save failed', e);
+  setTimeout(() => { let nas = false; try { nas = !!(Sync.st && Sync.st.init) && navigator.onLine; } catch(_){}
+    toast(nas ? 'This device’s browser storage is full, so it can’t keep its own copy. Your changes are still saved on the NAS.'
+              : 'This device’s browser storage is full, so new changes aren’t being kept here. Connect to the NAS, or export a backup from Settings.', [], { sticky: true }); }, 400);
+}
 document.documentElement.dataset.space = SPACE;
 const reducedMotion = () => S.settings.motion === 'reduce' || (S.settings.motion !== 'full' && window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 function resetDemo(){ try { localStorage.removeItem('cadence.demo.v1'); } catch(e){} location.reload(); }
@@ -257,7 +266,7 @@ const Store = {
 const Sync = {
   KEY: LS_KEY + '.sync', ARR: { task:'tasks', client:'clients', meeting:'meetings' }, told: false,
   st: (() => { try { return Object.assign({ init:false, cursor:0, recs:{}, dirty:{} }, JSON.parse(localStorage.getItem(LS_KEY + '.sync') || '{}')); } catch(e){ return { init:false, cursor:0, recs:{}, dirty:{} }; } })(),
-  save(){ try { localStorage.setItem(this.KEY, JSON.stringify(this.st)); } catch(e){} },
+  save(){ try { localStorage.setItem(this.KEY, JSON.stringify(this.st)); } catch(e){ localSaveFailed(e); } },
   k: (kind, id) => kind + '\u0000' + id,
   device(){
     let d = ''; try { d = localStorage.getItem('cadence.device') || ''; } catch(e){}
@@ -413,7 +422,7 @@ function useConflictValue(c){
   else if(c.kind === 'doc'){ S[c.field] = c.other; }
   save(); rebuildPlugins(); render();
 }
-function persistLocal(){ try { localStorage.setItem(LS_KEYS[SPACE], JSON.stringify(S)); } catch(e){} }
+function persistLocal(){ try { localStorage.setItem(LS_KEYS[SPACE], JSON.stringify(S)); } catch(e){ localSaveFailed(e); } }
 function save(){ S.updatedAt = Date.now(); persistLocal(); Store.schedule(); }
 
 /* ---------- model ops ---------- */

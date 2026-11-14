@@ -33,6 +33,8 @@ const API = [routes.system, routes.sync, routes.lookup, routes.feeds, routes.pus
 async function handle(req, res) {
   try {
     if (TLS && new URL(req.url, 'http://x').pathname.replace(/^.*\//, '/') === '/ca.crt') return sendCA(res);
+    // for the container healthcheck and deploy.sh: says only that the server answers, nothing else
+    if (req.url === '/healthz') { res.writeHead(200, { 'Content-Type': 'text/plain', 'Cache-Control': 'no-store' }); return res.end('ok'); }
     const url = new URL(req.url, 'http://x');
     const p = url.pathname.replace(/^.*?\/api\//, '/api/'); // works behind a sub-path reverse proxy
     const leaf = p.startsWith('/api/') ? p : '/' + url.pathname.split('/').slice(-1)[0];
@@ -71,13 +73,28 @@ async function handle(req, res) {
     // the app's own scripts go out as one gzipped bundle.js (server/lib/bundle.js); index.html points at it
     if (rel === '/bundle.js') return bundle.serve(req, res, url);
     fs.readFile(file, (err, buf) => {
-      if (err) return fs.readFile(path.join(PUBLIC_DIR, 'index.html'), (e2, idx) => e2 ? send(res, 404, 'Not found', 'text/plain') : send(res, 200, bundle.page(idx, url), MIME['.html']));
-      send(res, 200, rel === '/index.html' ? bundle.page(buf, url) : buf, MIME[path.extname(file)] || 'application/octet-stream');
+      if (err) return fs.readFile(path.join(PUBLIC_DIR, 'index.html'), (e2, idx) => e2 ? send(res, 404, 'Not found', 'text/plain') : sendApp(req, res, bundle.page(idx, url), MIME['.html']));
+      sendApp(req, res, rel === '/index.html' ? bundle.page(buf, url) : buf, MIME[path.extname(file)] || 'application/octet-stream');
     });
   } catch (e) {
     console.error(e);
     send(res, 500, { error: e.message });
   }
+}
+
+// the app's own files (core.css, the login page, icons, index.html): the browser keeps them and asks "still the
+// same?" each time (ETag from the content, 304 when unchanged); text over 1 KB goes out gzipped
+const appCache = new Map();
+function sendApp(req, res, body, type) {
+  const buf = Buffer.isBuffer(body) ? body : Buffer.from(String(body));
+  const etag = '"' + require('crypto').createHash('sha1').update(buf).digest('base64url').slice(0, 20) + '"';
+  const head = { 'Content-Type': type, 'Cache-Control': 'no-cache', ETag: etag, 'X-Content-Type-Options': 'nosniff', Vary: 'Accept-Encoding' };
+  if (req.headers['if-none-match'] === etag) { res.writeHead(304, head); return res.end(); }
+  if (buf.length > 1024 && /^(text\/|application\/(json|javascript|manifest)|image\/svg)/.test(type) && /\bgzip\b/.test(req.headers['accept-encoding'] || '')) {
+    let gz = appCache.get(etag); if (!gz) { gz = zlib.gzipSync(buf, { level: 6 }); if (appCache.size > 200) appCache.clear(); appCache.set(etag, gz); }
+    res.writeHead(200, { ...head, 'Content-Encoding': 'gzip' }); return res.end(gz);
+  }
+  res.writeHead(200, head); res.end(buf);
 }
 
 const gzCache = new Map();

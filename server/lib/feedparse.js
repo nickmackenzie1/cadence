@@ -7,7 +7,8 @@ const decode = s => String(s || '').replace(/&#x([0-9a-f]+);/gi, (m, h) => Strin
 function parseFeed(xml, base) {
   const tag = (src, name) => { const m = src.match(new RegExp(`<${name}(?:\\s[^>]*)?>([\\s\\S]*?)</${name}>`, 'i')); return m ? m[1].replace(/^\s*<!\[CDATA\[([\s\S]*?)\]\]>\s*$/, '$1').trim() : ''; };
   const attr = (src, name, a) => { const m = src.match(new RegExp(`<${name}\\b[^>]*\\b${a}=["']([^"']+)["']`, 'i')); return m ? m[1] : ''; };
-  const abs = u => { try { return u ? new URL(decode(u), base).href : ''; } catch { return ''; } };
+  // links and images from a feed must be web addresses: a javascript: or data: link in a feed item would be a clickable script
+  const abs = u => { try { const h = u ? new URL(decode(u), base).href : ''; return /^https?:\/\//i.test(h) ? h : ''; } catch { return ''; } };
   const strip = h => decode(String(h).replace(/<[^>]+>/g, ' ')).slice(0, 280);
   const bigger = u => u.replace(/\/(\d{2,3})x(\d{2,3})x(\d)\//, '/400x400x$3/');   // Lightspeed-style thumbnail sizes
   const atom = /<feed[\s>]/i.test(xml) && !/<rss[\s>]/i.test(xml);

@@ -5,6 +5,10 @@ on:
   workflow_dispatch:
 permissions:
   contents: write
+# one run at a time; a newer push cancels an older run still in progress, so an old build can't finish last
+concurrency:
+  group: test-main
+  cancel-in-progress: true
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -12,10 +16,27 @@ jobs:
       - uses: actions/checkout@v4
         with: { fetch-depth: 0 }
       - uses: actions/setup-node@v4
-        with: { node-version: 22 }
-      - run: npm install
-      - run: npx playwright install --with-deps chromium
+        with: { node-version: 22, cache: npm }
+      - run: npm ci
+      # the browser is ~150 MB: keep it between runs, keyed on the Playwright version in the lockfile
+      - id: pw
+        run: echo "version=$(node -p "require('./package-lock.json').packages['node_modules/playwright'].version")" >> "$GITHUB_OUTPUT"
+      - uses: actions/cache@v4
+        id: pw-cache
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ steps.pw.outputs.version }}
+      - if: steps.pw-cache.outputs.cache-hit != 'true'
+        run: npx playwright install --with-deps chromium
+      - if: steps.pw-cache.outputs.cache-hit == 'true'
+        run: npx playwright install-deps chromium
       - run: npm test
-      # only green builds reach the NAS: deploy.sh follows the `stable` branch when it exists
+      # only green builds reach the NAS: deploy.sh follows the `stable` branch when it exists.
+      # Never move stable backwards: only promote if this commit is newer than (descends from) what's there now.
       - name: Promote to stable
-        run: git push origin HEAD:refs/heads/stable --force
+        run: |
+          if git fetch -q origin stable 2>/dev/null; then
+            if git merge-base --is-ancestor HEAD origin/stable; then echo "stable already has this or newer: leaving it"; exit 0; fi
+            if ! git merge-base --is-ancestor origin/stable HEAD; then echo "stable isn't behind this commit: leaving it"; exit 0; fi
+          fi
+          git push origin HEAD:refs/heads/stable

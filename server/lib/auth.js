@@ -28,11 +28,18 @@ function session(req) {
   return { id, ...s };
 }
 function safeEq(a, b) { const x = Buffer.from(sha(String(a))), y = Buffer.from(sha(String(b))); return crypto.timingSafeEqual(x, y); }
+// Basic auth (scripts, curl) goes through the same lockout as the sign-in page: while an address is locked out,
+// even a correct password is refused, and every wrong one counts toward the lock
 function basicOK(req) {
   const h = req.headers.authorization || '';
   if (!h.startsWith('Basic ')) return false;
+  const ip = req.socket.remoteAddress || '?';
+  if (lockedFor(ip)) return false;
   const [u, ...p] = Buffer.from(h.slice(6), 'base64').toString().split(':');
-  return safeEq(u, USERNAME) & safeEq(p.join(':'), PASSWORD) ? true : false;
+  const ok = !!(safeEq(u, USERNAME) & safeEq(p.join(':'), PASSWORD));
+  // a wrong password repeated (one bad saved login, many requests) counts once; each new guess counts
+  if (ok) fails.delete(ip); else { const f = fails.get(ip), tag = sha(h); if (!f || f.last !== tag) { noteFail(ip); fails.get(ip).last = tag; } }
+  return ok;
 }
 function authorized(req) { return !PASSWORD || !!session(req) || basicOK(req); }
 // brute-force guard: per address, doubling lockout after 5 misses (max 15 min)
