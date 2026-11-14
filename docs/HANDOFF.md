@@ -1075,3 +1075,24 @@ Claims checked against the code 2026-11-13 (all real). Planned in 4 groups; do i
 - Mini player in the bottom bar everywhere; media keys + Media Session API (lock-screen controls on the phone).
 - Pauses for meetings, quiet during quiet hours, gentle Island note for new episodes, "keep listening" Today card.
 - Credentials only in the NAS .env; if the unofficial API breaks: "Pocket Casts sync paused", player keeps working.
+
+## Backlog (user, 2026-11-13 22:03): flexible, hostable anywhere, any database, apps for every platform
+- Hosting: keep zero-dependency Node; document + test installs for Synology (current), plain Docker/Compose, Unraid,
+  TrueNAS, Proxmox LXC, Raspberry Pi (arm64 image), bare Linux (systemd unit), Windows (service/WSL), macOS (launchd),
+  and cloud VMs/PaaS (Fly, Railway, Render, a $5 VPS). Multi-arch image on GHCR. Config only via env vars.
+  NOTE: the user's OWN instance keeps the standing rules (no Tailscale, NAS not exposed, secrets on the NAS).
+  Docs for other people's installs must still default to private/LAN, with internet exposure as an explicit,
+  documented opt-in (HTTPS, strong password, reverse proxy guide).
+- Database: storage.js already abstracts SQLite + legacy JSON. Add a storage adapter interface (records, history,
+  sync cursor, blobs) with drivers: SQLite (default), Postgres, MySQL/MariaDB, plus "files" (JSON, for tiny
+  installs). Pick by DATABASE_URL. Keep node:sqlite as the no-dependency default; other drivers are optional
+  installs. Migration tool between drivers (export → import).
+- Apps: the web app is already a PWA. Then:
+  - Phone (iOS/Android): PWA install guide first; later a Capacitor wrapper (push, share sheet, widgets).
+  - Desktop (Windows/macOS/Linux): a Tauri shell (small, uses the system webview) pointing at your server,
+    with tray icon, global quick-add shortcut, notifications, launch at login. Builds in GitHub Actions per
+    release (the new per-push releases attach the installers).
+  - Server-in-the-app option for desktop: run the Node server bundled for single-machine use, no NAS needed.
+- Instructions "for everything under the sun": a docs site (docs/install/*.md) with one page per platform and
+  per database, each tested in CI where possible (Docker matrix: amd64/arm64 × sqlite/postgres/mysql).
+- Do with the rebrand (name appears in images, app IDs, bundle IDs, data paths).
