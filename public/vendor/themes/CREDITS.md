@@ -27,3 +27,5 @@ Cadence's themes borrow fonts, techniques and code from these open-source projec
 | Movie & TV, Studio Ghibli (11) | homages (original) | — | palettes, textures, type and mood only; no characters, logos, title lettering, stills or quotes. Carpet, clouds, lanterns, leaves, crystals and paper are drawn here |
 | Movie & TV, Studio Ghibli | Oswald, Courier Prime, Anton, Exo 2, Fredoka, Patrick Hand, IM Fell English, Cormorant Garamond, Nunito via [Fontsource](https://fontsource.org) | SIL OFL 1.1 (`fonts/LICENSE-*.txt`) | webfonts |
 | The Shining | Special Elite via Fontsource | Apache 2.0 (`fonts/LICENSE-special-elite.txt`) | webfont |
+| Backrooms | user-supplied CodePens ("Backrooms UI", camcorder ScreenEffect) | reference | box bevel/screw/switch looks, palette, VHS static/tracking/OSD ideas, re-implemented; their photos not used |
+| Backrooms | [Sometype Mono](https://github.com/googlefonts/sometype-mono) | OFL 1.1 (`fonts/LICENSE-sometype-mono.txt`) | the UI font |

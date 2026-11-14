@@ -178,15 +178,55 @@
     // the camera is part of the look (opt-in), so it lives in enhance: it works even with Effects off
     enhance: ctx => mirror({ ...ctx, level: 'full' }) });
 
+
+  /* Backrooms "found footage" (the user's camcorder pen, trimmed and reworked): TV static and VHS tracking bands on small
+     canvases scaled up (cheap: ~15 fps, a few hundred pixels wide), scanlines, a rounded vignette, a 0.5px wobble on the
+     overlay only (your text stays still and sharp), and the OSD: blinking REC, elapsed time, clock. Gentle effects: no
+     static or bands. Reduced motion: still layers only. Everything is pointer-events:none. */
+  function brFootage(layer, level) {
+    const still = matchMedia('(prefers-reduced-motion: reduce)').matches, busy = level !== 'low' && !still;
+    const box = document.createElement('div'); box.className = 'br-cam' + (busy ? ' wob' : '');
+    box.innerHTML = '<canvas class="br-snow" width="240" height="150"></canvas><canvas class="br-vcr" width="480" height="300"></canvas><i class="br-lines"></i><i class="br-vig"></i>'
+      + '<div class="br-osd"><span class="br-rec"><b></b>REC</span><span class="br-ctr">0:00:00</span><span class="br-clk"></span></div>';
+    layer.appendChild(box);
+    const snow = box.querySelector('.br-snow'), vcr = box.querySelector('.br-vcr'), sx = snow.getContext('2d'), vx = vcr.getContext('2d');
+    const osd = box.querySelector('.br-osd'), ctr = box.querySelector('.br-ctr'), clk = box.querySelector('.br-clk'), t0 = Date.now();
+    // keep the OSD inside the main area, clear of the sidebar
+    const place = () => { const m = document.querySelector('.main') || document.body, r = m.getBoundingClientRect(); Object.assign(osd.style, { left: r.left + 'px', top: r.top + 'px', width: r.width + 'px', height: Math.min(innerHeight, r.height || innerHeight) + 'px' }); };
+    const tick = () => { const s = Math.floor((Date.now() - t0) / 1000); ctr.textContent = `${Math.floor(s / 3600)}:${String(Math.floor(s / 60) % 60).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
+      clk.textContent = new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', second: '2-digit' }).toUpperCase(); };
+    place(); tick(); const clock = setInterval(tick, 1000); addEventListener('resize', place);
+    let timer = 0;
+    if (busy) {
+      const img = sx.createImageData(240, 150), px = new Uint32Array(img.data.buffer);
+      const ri = (a, b) => Math.floor(Math.random() * (b - a + 1)) + a;
+      const frame = () => {
+        if (document.hidden) return;
+        for (let i = 0; i < px.length; i++) px[i] = ((255 * Math.random()) | 0) << 24;
+        sx.putImageData(img, 0, 0);
+        // tracking noise: specks with smeared tails in a band low on the screen and another near the top
+        const W = vcr.width, H = vcr.height; vx.clearRect(0, 0, W, H); vx.fillStyle = '#fff';
+        let y1 = H * 0.58, y3 = H * 0.42;
+        for (let i = 0; i <= 40; i++) {
+          const x = Math.random() * W, a = ri(y1 += 2, H), b = ri(0, Math.max(0, y3 -= 2));
+          for (const y of [a, b]) { let xx = x, r = 2; const dir = Math.random() < .5 ? 1 : -1; vx.fillRect(xx, y, 2, 2); for (let k = ri(1, 30); k > 0; k--) { xx += ri(1, 4) * dir; r = Math.max(.3, r - .06); vx.fillRect(xx, y, r, r); } }
+        }
+      };
+      timer = setInterval(frame, 66); frame();
+    }
+    return () => { clearInterval(clock); clearInterval(timer); removeEventListener('resize', place); box.remove(); };
+  }
+
   /* ---------------- Backrooms: a liminal office. Mono-yellow wallpaper, damp carpet, a ceiling of fluorescent panels
      that buzz and now and then flicker, a faint hum (Effects on, after your first click, very quiet), memos taped to
      doors for tasks, and an endless empty corridor between views. ---------------- */
   const BR_PAPER = `url("data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="44" height="44"><g fill="none" stroke="#a8955a" stroke-opacity=".35" stroke-width="1.2"><path d="M0 11l11-11 11 11 11-11 11 11M0 33l11-11 11 11 11-11 11 11"/></g><g fill="#a8955a" fill-opacity=".18"><circle cx="11" cy="22" r="1.4"/><circle cx="33" cy="0" r="1.4"/><circle cx="33" cy="44" r="1.4"/></g></svg>')}")`;
   R({ id: 'backrooms', name: 'Backrooms', category: 'Crazy', tagline: 'A liminal office: yellow wallpaper, damp carpet, buzzing fluorescent panels, memos taped to doors, and a long empty corridor between views.',
-    fonts: [{ family: 'Courier Prime', src: 'vendor/themes/fonts/courier-prime-latin-400-normal.woff2', weight: 400 }],
-    font: 'Arial,Helvetica,sans-serif',
-    vars: { '--ambient': 'off', '--bg': '#cdbd7e', '--panel': '#b9a76a', '--side': '#bfae70', '--text': '#2e2a1c', '--muted': '#5a5236', '--faint': '#7c7350', '--line': '#a6955c', '--hover': 'rgba(255,250,220,.25)',
-      '--accent': '#6b5d34', '--on-accent': '#f6f0d6', '--accent-soft': 'rgba(107,93,52,.18)', '--client': '#6b5d34', '--client-soft': 'rgba(107,93,52,.14)', '--ok': '#5d6b34', '--danger': '#8a4a2a', '--danger-soft': 'rgba(138,74,42,.15)', '--r': '0px', '--shadow': '0 1px 0 rgba(0,0,0,.08)' },
+    fonts: [{ family: 'Courier Prime', src: 'vendor/themes/fonts/courier-prime-latin-400-normal.woff2', weight: 400 }, { family: 'Press Start 2P', src: 'vendor/themes/fonts/press-start-2p-latin-400-normal.woff2', weight: 400 },
+      { family: 'Sometype Mono', src: 'vendor/themes/fonts/sometype-mono-latin-400-normal.woff2', weight: 400 }, { family: 'Sometype Mono', src: 'vendor/themes/fonts/sometype-mono-latin-700-normal.woff2', weight: 700 }],
+    font: '"Sometype Mono",ui-monospace,monospace',
+    vars: { '--ambient': 'off', '--bg': '#e9da8c', '--panel': '#fced97', '--side': '#f3e28f', '--text': '#251418', '--muted': '#5e4a3a', '--faint': '#8a7a58', '--line': '#251418', '--hover': 'rgba(255,251,175,.6)',
+      '--accent': '#251418', '--on-accent': '#fffbaf', '--accent-soft': 'rgba(107,93,52,.18)', '--client': '#6b5d34', '--client-soft': 'rgba(107,93,52,.14)', '--ok': '#5d6b34', '--danger': '#8a4a2a', '--danger-soft': 'rgba(138,74,42,.15)', '--r': '0px', '--shadow': '0 1px 0 rgba(0,0,0,.08)' },
     preview: { bg: '#cdbd7e', panel: '#b9a76a', side: '#bfae70', text: '#2e2a1c', accent: '#6b5d34', line: '#a6955c', r: '0' },
     css: `:skin body{background:linear-gradient(180deg,rgba(255,255,230,.18),transparent 30%),${BR_PAPER},linear-gradient(180deg,#d6c789,#c8b776 70%,#b3a263);background-attachment:fixed}
       :skin body::before{content:"";position:fixed;left:0;right:0;top:0;height:30px;z-index:1;pointer-events:none;
@@ -195,29 +235,68 @@
       @keyframes br-flick{0%,62%,64%,66%,to{opacity:1}63%,65%{opacity:.55}}
       :skin body::after{content:"";position:fixed;left:0;right:0;bottom:0;height:18px;z-index:1;pointer-events:none;background:radial-gradient(rgba(0,0,0,.12) 1px,transparent 1.5px) 0 0/5px 5px,linear-gradient(#9a8a52,#857643);box-shadow:0 -1px 0 #6f6238}
       :skin .app,:skin .main{background:transparent}
-      :skin .side{position:relative;z-index:2;background:${BR_PAPER},#c4b475;border-right:6px solid #a6955c;box-shadow:inset -1px 0 0 #8c7d48}
-      :skin .side .ntile.on,:skin .side .nav a.on{background:rgba(255,253,235,.55);box-shadow:inset 0 0 0 1px #8c7d48}
-      :skin .head h1,:skin .c-hero h1{font-family:Arial,Helvetica,sans-serif;font-weight:700;letter-spacing:.02em;color:#3a3422;text-transform:uppercase;font-size:30px}
-      :skin .head h1::before{content:"LEVEL 0 · ";color:#7c7350;font-weight:400}
-      :skin .group,:skin .gl,:skin .stat,:skin .qa{background:linear-gradient(90deg,rgba(0,0,0,.05),transparent 8%,transparent 92%,rgba(0,0,0,.06)),#bba96d;border:1px solid #8c7d48;box-shadow:inset 0 0 0 6px #c9b97a,inset 0 0 0 7px #8c7d48;position:relative}
-      :skin .group{padding:16px 22px 14px}
-      :skin .group::after{content:"";position:absolute;right:10px;top:50%;width:8px;height:22px;margin-top:-11px;border-radius:4px;background:linear-gradient(90deg,#8b8576,#d8d2c2,#8b8576);box-shadow:0 1px 1px rgba(0,0,0,.3)}
-      :skin .group-h{font-family:Arial,sans-serif;letter-spacing:.14em;text-transform:uppercase;font-size:11px;color:#5a5236}
+      :skin .side{position:relative;z-index:2;background:${BR_PAPER},#f3e28f;border-right:2px solid #251418;box-shadow:5px 0 0 rgba(0,0,0,.08)}
+      :skin .side .ntile,:skin .side .nav a{border-radius:3px;transition:all .15s steps(2)}
+      :skin .side .ntile:hover,:skin .side .nav a:hover,:skin .side .ntile.on,:skin .side .nav a.on{background:#fffbaf;box-shadow:-2px -2px 2px 2px inset rgba(255,255,255,.5),2px 2px 1px 2px inset #825a48}
+      :skin .side .ntile.on>*,:skin .side .ntile:hover>*{transform:translateY(2px)}
+      :skin .head h1,:skin .c-hero h1{font-family:"Sometype Mono",monospace;font-weight:700;letter-spacing:.02em;color:#251418;text-transform:uppercase;font-size:30px}
+      :skin .head h1::before{content:"LEVEL 0 · ";color:#825a48;font-weight:400}
+      :skin .group,:skin .gl,:skin .stat,:skin .qa,:skin .modal{position:relative;background:#fced97;border:2px solid #251418;border-radius:10px;
+        box-shadow:5px 5px 3px inset rgba(255,255,255,.65),5px 10px 10px 5px inset #fffbaf,-6px -6px 1px inset #825a48,3px 3px 0 rgba(0,0,0,.1),5px 5px 0 rgba(0,0,0,.1),7px 7px 0 rgba(0,0,0,.1),9px 9px 0 rgba(0,0,0,.1)}
+      :skin .group{padding:22px 40px 18px 22px}
+      :skin .group::before{content:"";position:absolute;inset:9px;border:2px solid #251418;border-radius:5px;pointer-events:none}
+      :skin .group::after{content:"";position:absolute;right:13px;top:22px;width:16px;height:16px;border:2px solid #251418;border-radius:50%;pointer-events:none;
+        background:linear-gradient(160deg,#d4d4d4 0%,#825a48 35%,#825a48 40%,#251418 40%,#251418 60%,#825a48 60%,#825a48 65%,#d4d4d4 100%);box-shadow:3px 3px 3px rgba(0,0,0,.3)}
+      :skin .qa{padding-left:14px}
+      :skin .group-h{letter-spacing:.12em;text-transform:uppercase;font-size:12px;font-weight:700;color:#251418;border-bottom:2px solid #251418;padding-bottom:6px}
       :skin .task:not(.td-b){font-family:"Courier Prime","Courier New",monospace;background:#fbf8ec;margin:9px 26px 9px 4px;padding:8px 10px;border:0;box-shadow:0 1px 2px rgba(0,0,0,.18),0 6px 10px -6px rgba(0,0,0,.3);transform:rotate(-.5deg);position:relative}
       :skin .task:not(.td-b):nth-child(even){transform:rotate(.6deg)}
       :skin .task:not(.td-b)::before{content:"";position:absolute;left:50%;top:-6px;width:46px;height:13px;margin-left:-23px;background:rgba(240,235,200,.75);box-shadow:0 0 0 1px rgba(0,0,0,.05);transform:rotate(-2deg)}
       :skin .task:not(.td-b):hover{background:#fffdf3}
-      :skin .check{border:1.5px solid #5a5236;border-radius:0}
-      :skin .task.done .check{background:#5a5236}
-      :skin .btn{border-radius:0;background:#e9e1c4;border:1px solid #8c7d48;color:#2e2a1c}
-      :skin .btn.primary,:skin .meet-btn{background:#6b5d34;border-color:#4c4224;color:#f6f0d6}
+      :skin .check{border:2px solid #251418;border-radius:3px}
+      :skin .task.done .check{background:#251418}
+      :skin .btn{border-radius:3px;background:#fef5b9;border:1px solid #251418;color:#251418;font-weight:700;text-transform:uppercase;letter-spacing:.05em;box-shadow:.2em .2em .2em rgba(0,0,0,.25);transition:all .2s steps(2)}
+      :skin .btn:hover{background:#fffbaf}
+      :skin .btn.primary,:skin .meet-btn{background:#251418;border-color:transparent;color:#fffbaf;box-shadow:.2em .2em .2em .1em inset #825a48,.2em .2em .2em rgba(0,0,0,.25)}
+      :skin .btn.primary:hover,:skin .meet-btn:hover{background:#825a48;color:#fef5b9;box-shadow:-.2em -.2em .2em .1em inset #251418,.2em .2em .2em rgba(0,0,0,.25)}
+      :skin .ftoast{background:#251418;color:#fffbaf;border-radius:3px}
+      :skin ::selection{background:#251418;color:#fef5b9}
+      /* the light switch (the pen's toggler) and lights-off */
+      :skin .br-switch{position:fixed;right:22px;top:92px;z-index:30;width:44px;height:70px;border:2px solid #251418;border-radius:6px;background:#fced97;cursor:pointer;padding:0;
+        box-shadow:5px 5px 3px inset rgba(255,255,255,.65),-4px -4px 1px inset #825a48,3px 3px 0 rgba(0,0,0,.1),5px 5px 0 rgba(0,0,0,.1)}
+      :skin .br-switch i{position:absolute;left:12px;top:14px;width:16px;height:38px;border:2px solid #251418;border-radius:3px;background:linear-gradient(to bottom,#fced97 0%,#fced97 20%,#fef5b9 30%,#fffbaf 60%,#825a48 95%);transform:perspective(200px) rotateX(30deg);transition:transform .2s steps(2)}
+      :skin .br-switch[aria-pressed="false"] i{transform:perspective(200px) rotateX(-30deg)}
+      :skin.br-dark body::before{opacity:.25;animation:none}
+      :skin.br-dark .app::after{content:"";position:fixed;inset:0;z-index:20;pointer-events:none;background:#000;opacity:.5;mix-blend-mode:color-burn}
       :skin .br-hall{position:fixed;inset:0;z-index:2500;pointer-events:none;opacity:0;background:
         radial-gradient(closest-side,#fffbe0 0 4%,transparent 30%) 50% 46%/100% 100% no-repeat,
         conic-gradient(from 135deg at 50% 46%,#bfae70 0 90deg,#a69458 90deg 180deg,#d9cc95 180deg 270deg,#b5a465 270deg 360deg);animation:br-hall .5s ease-out forwards}
       :skin .br-hall::after{content:"";position:absolute;inset:0;background:repeating-radial-gradient(circle at 50% 46%,transparent 0 46px,rgba(80,70,40,.35) 46px 48px)}
       @keyframes br-hall{0%{opacity:0;transform:scale(1.4)}35%{opacity:1}to{opacity:0;transform:scale(1)}}
-      @media (prefers-reduced-motion:reduce){:skin body::before{animation:none}}`,
-    effects: ({ layer }) => {
+      :skin .br-cam{position:absolute;inset:0;pointer-events:none}
+      :skin .br-cam.wob{animation:br-wob 120ms infinite}
+      @keyframes br-wob{0%{transform:translateY(.5px)}to{transform:none}}
+      :skin .br-cam canvas{position:absolute;inset:0;width:100%;height:100%;image-rendering:pixelated}
+      :skin .br-snow{opacity:.07;mix-blend-mode:multiply} :skin .br-vcr{opacity:.35;filter:blur(1px)}
+      :skin .br-lines{position:absolute;inset:0;background:linear-gradient(transparent 50%,rgba(0,0,0,.09) 50%) 0 0/100% 2px}
+      :skin .br-vig{position:absolute;inset:0;border-radius:22px;background:radial-gradient(ellipse at center,transparent 55%,rgba(40,30,0,.38) 100%);box-shadow:inset 0 0 14px 6px rgba(0,0,0,.28),inset 0 0 160px rgba(30,24,0,.3)}
+      :skin .br-osd{position:absolute;font:12px "Press Start 2P",monospace;color:#fff;--p:clamp(16px,2.4vw,40px)}
+      :skin .br-osd span{position:absolute;filter:blur(.8px);text-shadow:0 0 4px rgba(0,0,0,.6),0 0 2px rgba(255,255,255,.35)}
+      :skin .br-rec{left:var(--p);top:calc(var(--p) + 14px);display:flex;align-items:center;gap:.6em}
+      :skin .br-rec b{width:.9em;height:.9em;border-radius:50%;background:#ff2b2b;box-shadow:0 0 .4em rgba(255,40,40,.85);animation:br-rec 1.4s steps(1,end) infinite}
+      @keyframes br-rec{0%,50%{opacity:1}50.01%,to{opacity:.15}}
+      :skin .br-ctr{right:var(--p);top:calc(var(--p) + 14px)} :skin .br-clk{left:var(--p);bottom:var(--p)}
+      @media (prefers-reduced-motion:reduce){:skin body::before,:skin .br-rec b{animation:none}}`,
+    enhance: () => {
+      const b = document.createElement('button'); b.className = 'br-switch'; b.innerHTML = '<i></i>'; b.title = 'Lights';
+      const set = on => { b.setAttribute('aria-pressed', String(on)); b.setAttribute('aria-label', on ? 'Turn the lights off' : 'Turn the lights on'); document.documentElement.classList.toggle('br-dark', !on); try { localStorage.setItem('cadence.br.lights', on ? '1' : '0'); } catch (e) {} };
+      let on = true; try { on = localStorage.getItem('cadence.br.lights') !== '0'; } catch (e) {}
+      set(on); b.onclick = () => set(b.getAttribute('aria-pressed') !== 'true');
+      document.body.appendChild(b);
+      return () => { b.remove(); document.documentElement.classList.remove('br-dark'); };
+    },
+    effects: ({ layer, level }) => {
+      const footage = brFootage(layer, level);
       // the corridor between views
       const hall = () => { const d = document.createElement('div'); d.className = 'br-hall'; layer.appendChild(d); setTimeout(() => d.remove(), 520); };
       addEventListener('hashchange', hall);
@@ -229,7 +308,7 @@
       document.addEventListener('pointerdown', start, { once: true });
       const vis = () => { if (document.hidden) stop(); };
       document.addEventListener('visibilitychange', vis);
-      return () => { removeEventListener('hashchange', hall); document.removeEventListener('pointerdown', start); document.removeEventListener('visibilitychange', vis); stop(); };
+      return () => { footage(); removeEventListener('hashchange', hall); document.removeEventListener('pointerdown', start); document.removeEventListener('visibilitychange', vis); stop(); };
     } });
 
   /* ---------------- Nothing: no styling. The same layout, but the page looks like plain HTML: white, Times, blue
