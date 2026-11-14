@@ -29,7 +29,7 @@ if command -v git >/dev/null 2>&1; then
   g(){ git -c safe.directory='*' "$@"; }
 else
   # no Git package installed: use a throwaway git container
-  g(){ docker run --rm -v "$DIR:/repo" -w /repo alpine/git -c safe.directory='*' "$@"; }
+  g(){ docker run --rm --name "cadence-git-$$-$RANDOM" -v "$DIR:/repo" -w /repo alpine/git -c safe.directory='*' "$@"; }
 fi
 if docker compose version >/dev/null 2>&1; then dc(){ docker compose -p cadence "$@"; }
 else dc(){ docker-compose -p cadence "$@"; }; fi
@@ -104,10 +104,14 @@ write_env(){
 }
 ENV_CHANGED=no
 if [ -n "${APP_PASSWORD:-}" ] && write_env; then ENV_CHANGED=yes; fi
+# .env edited by hand (e.g. a new API key)? Docker only reads it when the container is created, so recreate it
+env_sum(){ cksum < .env 2>/dev/null | cut -d' ' -f1; }
+if [ -f .env ] && [ "$(env_sum)" != "$(cat .env.applied 2>/dev/null)" ]; then ENV_CHANGED=yes; fi
+mark_env(){ env_sum > .env.applied; }
 
 if [ "$OLD" = "$NEW" ]; then
   ensure_tls
-  if [ "$ENV_CHANGED" = yes ] && [ "$OLD" != none ]; then log "settings changed: restarting"; dc up -d >> "$LOG" 2>&1 || log "restart failed"
+  if [ "$ENV_CHANGED" = yes ] && [ "$OLD" != none ]; then log "settings changed: recreating container"; dc up -d --force-recreate >> "$LOG" 2>&1 && mark_env || log "restart failed"
   elif [ "$TLS_NEW" = yes ]; then log "new certificate: restarting"; docker restart cadence >> "$LOG" 2>&1 || log "restart failed"; fi
   fix_owner
   ensure_running
@@ -142,7 +146,7 @@ fix_owner
 if [ "$REBUILD" = yes ]; then
   log "deploy $(echo "$NEW" | cut -c1-7): rebuilding container"
   if dc up -d --build --remove-orphans >> "$LOG" 2>&1 && healthy; then
-    log "rebuild ok"; rm -f .deploy-bad
+    log "rebuild ok"; rm -f .deploy-bad; mark_env
   elif [ "$OLD" != none ]; then
     # the new version didn't come up: put the previous one back (files and container) and don't retry this commit
     echo "$NEW" > .deploy-bad

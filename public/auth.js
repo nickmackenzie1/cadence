@@ -18,6 +18,8 @@
     return r;
   };
   window.CadenceAuth = {
-    async signOut() { try { await real('api/logout', { method: 'POST' }); } catch (e) {} location.replace('login'); },
+    async signOut() { try { await real('api/logout', { method: 'POST' }); } catch (e) {}
+      try { const r = navigator.serviceWorker && await navigator.serviceWorker.getRegistration(); r && r.active && r.active.postMessage('cadence-clear-shell'); } catch (e) {}   // drop the offline copy too
+      location.replace('login'); },
   };
 })();

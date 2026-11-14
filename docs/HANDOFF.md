@@ -1128,3 +1128,10 @@ Claims checked against the code 2026-11-13 (all real). Planned in 4 groups; do i
   Pocket Casts every 30 s, on pause, at the end and on pagehide (sendBeacon); speed, sleep timer, star, show notes,
   local queue, Make a task; Media Session (lock-screen controls); pauses for meetings; one Island note for new
   episodes; mini player bar (#pc-mini). Both spaces. tests/podcasts.spec.mjs uses a fake Pocket Casts.
+
+## Offline + deploy fixes (0.7.0)
+- **Opens offline.** `public/sw.js` keeps the app shell (page network-first, bundle per version, other files stale-while-revalidate). Never caches `/api/*`, login, or audio/video/range requests (they broke podcast seeking). Sign out clears the shell cache.
+- **Session started offline reconnects.** `Store.retryServer()` retries the NAS every 30 s and on `online`, then pushes pending changes.
+- **Bigger local storage.** Docs over 150 KB are stored lz-string compressed (`lz1:` prefix, `vendor/lz-string`). The plugin on/off list lives in `cadence.off.<space>` so the bundle chooser never has to parse the doc.
+- **deploy.sh:** hand edits to `.env` (e.g. adding ANTHROPIC_API_KEY) now recreate the container: a checksum in `.env.applied`. The throwaway git container is named `cadence-git-*` instead of a random Docker name.
+- Flaky (pass on retry): radar view, smoke "themes set 3", smoke "full browser storage". To fix in housekeeping.

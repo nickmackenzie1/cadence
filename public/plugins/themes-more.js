@@ -133,7 +133,7 @@
   /* ======================= Discord: server rail + channel list ======================= */
   const svgHome = '<svg viewBox="0 0 24 24"><path d="M12 3.5l8.5 7.2V20a.5.5 0 0 1-.5.5h-5.2v-6h-5.6v6H4a.5.5 0 0 1-.5-.5v-9.3z" fill="currentColor"/></svg>';
   const svgCompass = '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><path d="M15.5 8.5l-2 5-5 2 2-5z" fill="currentColor"/></svg>';
-  const myName = () => { try { return (JSON.parse(localStorage.getItem('cadence.v1') || '{}').settings || {}).myName || 'You'; } catch (e) { return 'You'; } };
+  const myName = () => { try { const r = localStorage.getItem('cadence.v1') || '{}'; return (JSON.parse(r.startsWith('lz1:') && window.LZString ? LZString.decompressFromUTF16(r.slice(4)) : r).settings || {}).myName || 'You'; } catch (e) { return 'You'; } };
   const discordEnhance = ({ api }) => {
     const side = document.getElementById('side'); if (!side || !api) return;
     const rail = document.createElement('nav'); rail.className = 'dc-rail'; rail.setAttribute('aria-label', 'Clients');

@@ -57,14 +57,21 @@ function lifeSeed(){
   d.clients = LIFE_AREAS.map(([name, icon, color], i) => ({ id: uid('a'), name, icon, color, domain: '', status: 'active', archived: false, createdAt: Date.now() + i }));
   d.pluginData = { themes: { theme: 'calm' } };
   d.disabled = ['haunted', 'havoc'];   // Life starts calm; switch them on in Plugins if you like
-  try { const w = JSON.parse(localStorage.getItem(LS_KEY) || '{}'); if(w.settings && w.settings.myName) d.settings.myName = w.settings.myName; } catch(e){}
+  try { const w = lsRead(LS_KEY) || {}; if(w.settings && w.settings.myName) d.settings.myName = w.settings.myName; } catch(e){}
   if(DEMO){ const a = n => d.clients.find(c => c.name === n).id, day = n => ymd(addDays(new Date(), n));
     d.tasks = [['Change the furnace filter', 'Home', 0], ['Book dentist cleaning', 'Health', 2], ['Pay the hydro bill', 'Money', -1], ['Clean the eavestroughs', 'Home', 6], ['Sand and paint the deck', 'Projects', 12], ['Renew car insurance', 'Money', 9]]
       .map(([title, area, n], i) => ({ id: uid('t'), title, clientId: a(area), owner: 'me', assignee: '', dueDate: day(n), dueTime: null, priority: 0, tags: [], notes: '', repeat: null, order: i, done: false, doneAt: null, createdAt: Date.now() - i * 1000 })); }
   return d;
 }
+/* Local copies are plain JSON while small; past ~150 KB they're stored compressed (lz-string, about 4-6x smaller), so
+   the browser's ~5 MB storage holds far more before it fills. Reading accepts both. The plugin switches are also kept
+   in their own small key, which the page reads before anything else loads (server/lib/bundle.js). */
+const LZ_MIN = 150000;
+function lsRead(k){ const r = localStorage.getItem(k); if(!r) return null; return JSON.parse(r.startsWith('lz1:') && window.LZString ? LZString.decompressFromUTF16(r.slice(4)) : r); }
+function lsWrite(k, obj){ const j = JSON.stringify(obj); localStorage.setItem(k, j.length > LZ_MIN && window.LZString ? 'lz1:' + LZString.compressToUTF16(j) : j); }
+function noteOff(space, d){ try { localStorage.setItem('cadence.off.' + space, JSON.stringify(d.disabled || [])); } catch(e){} }
 function loadDoc(space){
-  try { const raw = localStorage.getItem(LS_KEYS[space]); if(raw){ const d = Object.assign(blank(), JSON.parse(raw)); migrateOwners(d); return d; } } catch(e){}
+  try { const raw = lsRead(LS_KEYS[space]); if(raw){ const d = Object.assign(blank(), raw); migrateOwners(d); return d; } } catch(e){}
   if(space === 'life') return null;
   if(DEMO && window.CadenceDemo){ const d = Object.assign(blank(), window.CadenceDemo.build()); try { localStorage.setItem(LS_KEY, JSON.stringify(d)); } catch(e){} return d; }
   return blank();
@@ -74,7 +81,7 @@ let OTHER;   // the other space's document, loaded when first needed (undefined 
 function otherDoc(){ if(OTHER === undefined) OTHER = loadDoc(SPACE === 'work' ? 'life' : 'work'); return OTHER; }
 function docOf(space){ return space === SPACE ? S : otherDoc(); }
 function setDoc(space, d){ if(space === SPACE) S = d; else OTHER = d; }
-function persistDoc(space){ const d = docOf(space); if(d) try { localStorage.setItem(LS_KEYS[space], JSON.stringify(d)); } catch(e){ localSaveFailed(e); } }
+function persistDoc(space){ const d = docOf(space); if(d) try { lsWrite(LS_KEYS[space], d); noteOff(space, d); } catch(e){ localSaveFailed(e); } }
 // The browser's own storage has a limit (about 5 MB). If a save here fails, say so once, calmly: with the NAS
 // connected everything is still safe there; without it, this device has stopped keeping changes.
 function localSaveFailed(e){
@@ -168,11 +175,18 @@ const Store = {
   },
   /* self-hosted mode (Synology / Docker): server.js exposes api/sync (per-record) + api/state (whole document, fallback) + api/ai */
   server:false, mode:'records',
+  // opened offline (or the NAS was down): keep looking for it, every 30 s and whenever the device comes back online
+  retryServer(){
+    if(this.server || this.retrying) return; this.retrying = true;
+    const again = () => { if(this.server){ removeEventListener('online', again); clearInterval(t); return; } this.initServer(); };
+    const t = setInterval(again, 30000); addEventListener('online', again);
+  },
   async initServer(){
-    if(location.protocol === 'file:') return;
+    if(location.protocol === 'file:' || this.server || this.connecting) return;
+    this.connecting = true;
     try {
-      const h = await fetch('api/health', { cache:'no-store' }); if(!h.ok) return;
-      const info = await h.json(); if(!info.ok) return;
+      const h = await fetch('api/health', { cache:'no-store' }); if(!h.ok) return this.retryServer();
+      const info = await h.json(); if(!info.ok) return this.retryServer();
       this.server = true; this.health = info; render(); emit('sync', { phase:'connected', health: info });
       if(!DEMO) Prefs.start();
       if(DEMO){ this.status = 'demo'; this.setStatus('demo'); }
@@ -187,7 +201,8 @@ const Store = {
       setInterval(() => this.pull(false), 20000);
       document.addEventListener('visibilitychange', () => { if(!document.hidden) this.pull(false); });
       addEventListener('online', () => this.push());
-    } catch(e){ console.warn('No Cadence server found, using browser storage', e); }
+    } catch(e){ console.warn('No Cadence server found, using browser storage', e); this.retryServer(); }
+    finally { this.connecting = false; }
   },
   async pull(first){
     if(this.mode === 'doc') return this.pullDoc(first);
@@ -265,8 +280,8 @@ const Store = {
 /* ---------- per-record sync state (survives reloads, so offline edits are sent later) ---------- */
 const Sync = {
   KEY: LS_KEY + '.sync', ARR: { task:'tasks', client:'clients', meeting:'meetings' }, told: false,
-  st: (() => { try { return Object.assign({ init:false, cursor:0, recs:{}, dirty:{} }, JSON.parse(localStorage.getItem(LS_KEY + '.sync') || '{}')); } catch(e){ return { init:false, cursor:0, recs:{}, dirty:{} }; } })(),
-  save(){ try { localStorage.setItem(this.KEY, JSON.stringify(this.st)); } catch(e){ localSaveFailed(e); } },
+  st: (() => { try { return Object.assign({ init:false, cursor:0, recs:{}, dirty:{} }, lsRead(LS_KEY + '.sync') || {}); } catch(e){ return { init:false, cursor:0, recs:{}, dirty:{} }; } })(),
+  save(){ try { lsWrite(this.KEY, this.st); } catch(e){ localSaveFailed(e); } },
   k: (kind, id) => kind + '\u0000' + id,
   device(){
     let d = ''; try { d = localStorage.getItem('cadence.device') || ''; } catch(e){}
@@ -422,7 +437,7 @@ function useConflictValue(c){
   else if(c.kind === 'doc'){ S[c.field] = c.other; }
   save(); rebuildPlugins(); render();
 }
-function persistLocal(){ try { localStorage.setItem(LS_KEYS[SPACE], JSON.stringify(S)); } catch(e){ localSaveFailed(e); } }
+function persistLocal(){ try { lsWrite(LS_KEYS[SPACE], S); noteOff(SPACE, S); } catch(e){ localSaveFailed(e); } }
 function save(){ S.updatedAt = Date.now(); persistLocal(); Store.schedule(); }
 
 /* ---------- model ops ---------- */
@@ -2087,7 +2102,11 @@ if(!S.fixPrep){
   S.fixPrep = 1; if(n) save();
 }
 booted = true;
+noteOff(SPACE, S);
 render(); renderWidgets();
+// the service worker keeps an offline copy of the app (sw.js), so Cadence opens away from the NAS from this
+// browser's own data. HTTPS (or localhost) only, as browsers require; not in the demo.
+if('serviceWorker' in navigator && window.isSecureContext && !DEMO) addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}), { once:true });
 /* a new version on the NAS: old tabs running old code against new data cause odd bugs. Background tabs with nothing
    half-typed reload themselves; otherwise a banner asks. */
 const Build = { id: null, pending: false };

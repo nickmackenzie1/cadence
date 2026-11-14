@@ -21,7 +21,7 @@ const { PUBLIC_DIR } = require('../config');
 
 const BLOCK = /<!-- bundle -->([\s\S]*?)<!-- \/bundle -->/;
 // provide globals other code uses (island toasts, the date picker, templates, chase/recap/prep, weather, the Life kit)
-const ALWAYS = new Set(['plugins/island.js', 'plugins/datepick.js', 'plugins/templates.js', 'plugins/chase.js', 'plugins/recap.js', 'plugins/prep.js', 'plugins/weather.js', 'plugins/life-kit.js']);
+const ALWAYS = new Set(['plugins/podcasts.js', 'plugins/island.js', 'plugins/datepick.js', 'plugins/templates.js', 'plugins/chase.js', 'plugins/recap.js', 'plugins/prep.js', 'plugins/weather.js', 'plugins/life-kit.js']);
 const META = ['id', 'name', 'version', 'icon', 'color', 'category', 'tagline', 'description', 'spaces', 'builtin'];
 let cache = null; // { sig, hash, files: [[src, code]], manifest, out: Map(key → { js, gz, etag }) }
 
@@ -77,9 +77,9 @@ function jsFor(b, { skip = [], only = null } = {}) {
 
 // runs in the page before anything else: which plugin files can stay on the server for now?
 // A file is left out only if every plugin in it is off (or not offered) in BOTH spaces, per this browser's saved copy.
-const CHOOSER = `(function(B){var off=function(k){try{var d=JSON.parse(localStorage.getItem(k)||'null');return d&&Array.isArray(d.disabled)?d.disabled:null;}catch(e){return null;}};
+const CHOOSER = `(function(B){var off=function(k,sp){try{var o=localStorage.getItem('cadence.off.'+sp);if(o)return JSON.parse(o);var r=localStorage.getItem(k);if(!r||r.slice(0,4)==='lz1:')return null;var d=JSON.parse(r);return d&&Array.isArray(d.disabled)?d.disabled:null;}catch(e){return null;}};
 var demo=/[?&]demo(?!=0)/.test(location.search)||(function(){try{return !!sessionStorage.getItem('cadence.demo');}catch(e){return false;}})();
-var W=demo?null:off('cadence.v1'),L=demo?null:off('cadence.life.v1'),skip=[];
+var W=demo?null:off('cadence.v1','work'),L=demo?null:off('cadence.life.v1','life'),skip=[];
 // a space this browser has never opened counts as all off: moving to it fetches what it needs
 var isOff=function(p,sp,list){return (p.spaces&&p.spaces.indexOf(sp)<0)||!list||list.indexOf(p.id)>=0;};
 if(W||L)for(var f in B.plugins){if(B.plugins[f].every(function(p){return isOff(p,'work',W)&&isOff(p,'life',L);}))skip.push(f);}
