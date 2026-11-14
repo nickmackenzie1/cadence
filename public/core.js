@@ -845,7 +845,7 @@ window.CadenceKit = Object.freeze({
   css: (id, text) => { if(document.getElementById(id)) return; const st = document.createElement('style'); st.id = id; st.textContent = text; document.head.appendChild(st); },
   uid: () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
 });
-window.Cadence = Object.freeze({ version:'0.5.0', registerPlugin,
+window.Cadence = Object.freeze({ version: (window.__cadenceBundle && window.__cadenceBundle.version) || 'dev', registerPlugin,
   /* send a notification from anywhere: Cadence.notify({ title, body?, icon?, route?, taskId?, source? }) */
   notify: n => notify({ ...(n || {}), pid: (n && n.source) || 'external' }) });
 

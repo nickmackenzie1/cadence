@@ -40,3 +40,12 @@ jobs:
             if ! git merge-base --is-ancestor origin/stable HEAD; then echo "stable isn't behind this commit: leaving it"; exit 0; fi
           fi
           git push origin HEAD:refs/heads/stable
+      # every green push is a release: tag v<version from public/version.json> and publish a GitHub release
+      # (skipped if that version was already released, e.g. a push that forgot to bump)
+      - name: Release
+        env: { GH_TOKEN: "${{ github.token }}" }
+        run: |
+          V="$(node -p "require('./public/version.json').version")"
+          if git ls-remote --exit-code --tags origin "refs/tags/v$V" >/dev/null 2>&1; then echo "v$V already released"; exit 0; fi
+          git log -1 --format='%B' | sed '/^Co-Authored-By:/d;/^Claude-Session:/d' > notes.md
+          gh release create "v$V" --target "$GITHUB_SHA" --title "Cadence $V" --notes-file notes.md

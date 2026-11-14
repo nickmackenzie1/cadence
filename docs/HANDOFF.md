@@ -27,6 +27,11 @@ Next: (superseded, see below)
 - Secrets live on the NAS only (.env, certs/, .mkcert-ca/, data/). Never commit them, never put them in the browser.
 - Deploy = push main -> CI tests -> promoted to `stable` -> NAS deploy.sh (every 5 min). Repo clone is /home/claude/cadence.
 
+- Release numbers (user, 2026-11-13 22:01): EVERY push gets a new version, even small ones. Run `npm run bump`
+  (patch; `npm run bump minor` for big batches) before committing; it writes public/version.json + package.json.
+  The app (window.Cadence.version, startup notice) and /api/health read version.json; CI tags v<version> and
+  publishes a GitHub release after every green run (skips if the tag already exists, i.e. someone forgot to bump).
+
 ## Session 2026-11-08
 - HTTPS (mkcert): tls.sh (called by deploy.sh) downloads pinned mkcert v1.4.4 (sha256 per arch), CA in .mkcert-ca/
   (never mounted), leaf cert in certs/ -> mounted /certs:ro. Hosts = hostname, hostname.local, localhost, LAN IPv4s

@@ -91,7 +91,8 @@ function page(html, url) {
   const text = html.toString('utf8'), srcs = enabled(url) && srcsOf(text);
   if (!srcs || !srcs.length) return html;
   const b = build(srcs);
-  const boot = JSON.stringify({ v: b.hash, plugins: b.manifest }).replace(/</g, '\\u003c');
+  let version = '?'; try { version = JSON.parse(fs.readFileSync(path.join(PUBLIC_DIR, 'version.json'), 'utf8')).version; } catch (e) {}
+  const boot = JSON.stringify({ v: b.hash, version, plugins: b.manifest }).replace(/</g, '\\u003c');
   return text.replace(BLOCK, () => `<script>window.__cadenceBundle=${boot};\n${CHOOSER}</script>`);
 }
 

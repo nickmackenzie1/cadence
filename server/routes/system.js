@@ -2,18 +2,21 @@
 /* Routes: Health, the read-only data folder viewer and backups. Each handler answers or leaves the request for the next. */
 const fs = require('fs');
 const path = require('path');
-const { API_KEY, BACKUP_DIR, COMPANY_DIR, DATA_DIR, ICON_DIR, KEEP_BACKUPS, MODEL, PASSWORD, STARTED, STATE_FILE } = require('../config');
+const { API_KEY, BACKUP_DIR, COMPANY_DIR, DATA_DIR, ICON_DIR, KEEP_BACKUPS, MODEL, PASSWORD, PUBLIC_DIR, STARTED, STATE_FILE } = require('../config');
 const { buildId } = require('../lib/build');
 const { NEXT, send } = require('../lib/http');
 const { DB_FILE, dbInfo, hasDb, storageInfo } = require('../lib/storage');
 const { TLS } = require('../lib/tls');
 
 // (req, res, { url, p, leaf }) → answers the request, or returns NEXT
+// the release number lives in public/version.json (bumped on every push by scripts/bump.mjs)
+function appVersion() { try { return JSON.parse(fs.readFileSync(path.join(PUBLIC_DIR, 'version.json'), 'utf8')).version; } catch { return '?'; } }
+
 module.exports = async function systemRoutes(req, res, { url, p }) {
   if (p === '/api/health') {
     const size = f => { try { return fs.statSync(f).size; } catch { return 0; } };
     const count = d => { try { return fs.readdirSync(d).length; } catch { return 0; } };
-    return send(res, 200, { ok: true, https: !!TLS && !!req.socket.encrypted, build: buildId(), ai: !!API_KEY, model: API_KEY ? MODEL : null, version: '0.5.0', uptime: Math.round((Date.now() - STARTED) / 1000), node: process.version,
+    return send(res, 200, { ok: true, https: !!TLS && !!req.socket.encrypted, build: buildId(), ai: !!API_KEY, model: API_KEY ? MODEL : null, version: appVersion(), uptime: Math.round((Date.now() - STARTED) / 1000), node: process.version,
       dataBytes: hasDb() ? size(DB_FILE) + size(DB_FILE + '-wal') : size(STATE_FILE), ...storageInfo(), backups: count(BACKUP_DIR), logos: fs.readdirSync(ICON_DIR).filter(f => f.endsWith('.img')).length, companies: count(COMPANY_DIR), auth: !!PASSWORD, time: Date.now() });
   }
 
