@@ -112,19 +112,40 @@
 
   /* ---------------- The Shining: a hexagon carpet, typewriter type, warm hotel lamps ---------------- */
   const HEX = svg(`<svg xmlns='http://www.w3.org/2000/svg' width='56' height='97' viewBox='0 0 56 97'><rect width='56' height='97' fill='#6b2716'/><g fill='none' stroke-linejoin='miter'><path d='M28 6 L50 18.5 L50 43.5 L28 56 L6 43.5 L6 18.5 Z' stroke='#d5512a' stroke-width='7'/><path d='M28 18 L39 24.3 L39 37.7 L28 44 L17 37.7 L17 24.3 Z' fill='#a92b1f' stroke='#d5512a' stroke-width='3'/><path d='M0 56 L0 97 M56 56 L56 97 M28 56 L28 97' stroke='#d5512a' stroke-width='7'/></g></svg>`);
-  R({ id: 'shining', name: 'The Shining', category: TV, tagline: 'A hexagon hotel carpet down the side, typewriter pages, warm lamplight.',
+  R({ id: 'shining', name: 'The Shining', category: TV, tagline: 'The hotel: hexagon carpet underfoot, lamplit wallpaper, typewriter pages on the platen, a brass room plaque, a hedge maze at the edge.',
     fonts: [font('Special Elite', 'special-elite-latin-400-normal.woff2'), font('Courier Prime', 'courier-prime-latin-400-normal.woff2')],
     font: '"Courier Prime","Courier New",monospace',
-    vars: { '--ambient': 'off', '--bg': '#efe6d2', '--panel': '#fbf6ea', '--side': '#6b2716', '--text': '#2a1a12', '--muted': '#6e5a4b', '--faint': '#a08d7a', '--line': '#d9cbb0', '--hover': '#f1e5cc',
-      '--accent': '#b3261e', '--on-accent': '#fff', '--accent-soft': '#f3d6cf', '--client': '#8a5a17', '--client-soft': '#efe0bf', '--ok': '#4c7a3b', '--danger': '#b3261e', '--danger-soft': '#f3d6cf', '--r': '2px', '--shadow': '0 1px 0 #d9cbb0,0 6px 14px rgba(42,26,18,.08)' },
-    preview: { bg: '#efe6d2', panel: '#fbf6ea', side: '#6b2716', text: '#2a1a12', accent: '#b3261e', line: '#d9cbb0', r: '2px' },
-    css: `:skin .side{background:${HEX};background-size:56px 97px;color:#f5e6cf;border-right:4px solid #3e140b}
+    vars: { '--ambient': 'off', '--bg': '#e9dcc0', '--panel': '#fbf7ec', '--side': '#6b2716', '--text': '#2a1a12', '--muted': '#6e5a4b', '--faint': '#a08d7a', '--line': '#d9cbb0', '--hover': '#f1e5cc',
+      '--accent': '#a3201a', '--on-accent': '#fff', '--accent-soft': '#f3d6cf', '--client': '#8a5a17', '--client-soft': '#efe0bf', '--ok': '#4c7a3b', '--danger': '#a3201a', '--danger-soft': '#f3d6cf', '--r': '1px', '--shadow': '0 2px 0 rgba(60,30,10,.1),0 14px 26px rgba(60,30,10,.18)' },
+    preview: { bg: '#e9dcc0', panel: '#fbf7ec', side: '#6b2716', text: '#2a1a12', accent: '#a3201a', line: '#d9cbb0', r: '1px' },
+    css: `:skin body{background:linear-gradient(#2a0e08,#2a0e08) left 0 bottom 64px/100% 5px no-repeat,${HEX} left bottom/40px 69px repeat-x,radial-gradient(700px 420px at 72% 6%,rgba(255,196,120,.45),transparent 70%),radial-gradient(500px 300px at 20% 0%,rgba(255,206,140,.25),transparent 70%),
+        repeating-linear-gradient(90deg,rgba(120,70,30,.06) 0 2px,transparent 2px 26px,rgba(120,70,30,.04) 26px 27px,transparent 27px 54px),linear-gradient(180deg,#efe3c7,#e2d3b2);background-attachment:fixed}
+      :skin .app,:skin .main{background:transparent}
+      :skin #view{padding-bottom:70px}
+      :skin .side{position:relative;z-index:2;background:${HEX};background-size:56px 97px;color:#f5e6cf;border-right:4px solid #3e140b}
       :skin .side .nav a,:skin .side .ntile,:skin .side .sect,:skin .side .brand,:skin #side-head .brand,:skin .side .muted{color:#f5e6cf}
       :skin .side .ntile,:skin .side .nav a{background:rgba(42,14,8,.55)} :skin .side .ntile.on,:skin .side .nav a.on{background:#2a0e08;color:#ffd9a8}
       :skin .head h1,:skin .c-hero h1,:skin .group-h,:skin .th-cat,:skin .modal-h{font-family:"Special Elite","Courier New",monospace;letter-spacing:.02em}
-      :skin .head h1{font-size:32px}
-      :skin .task:not(.td-b),:skin .gl,:skin .qa{background:#fbf6ea;border:1px solid #d9cbb0}
-      :skin body{background:radial-gradient(700px 400px at 70% 10%,rgba(255,196,120,.35),transparent 70%),#efe6d2}` });
+      :skin .head h1{font-size:36px;color:#2a1a12}
+      :skin .group,:skin .gl,:skin .stat,:skin .qa,:skin .modal{position:relative;background:linear-gradient(180deg,rgba(0,0,0,.06),transparent 14px),repeating-linear-gradient(180deg,transparent 0 27px,rgba(120,90,60,.07) 27px 28px),#fbf7ec;border:1px solid #d9cbb0;border-radius:1px;box-shadow:var(--shadow)}
+      :skin .group{padding:26px 18px 14px;margin-top:22px}
+      :skin .group::before{content:"";position:absolute;left:-14px;right:-14px;top:-16px;height:22px;border-radius:11px;background:linear-gradient(180deg,#3a3634,#121010 55%,#2b2826);box-shadow:0 4px 8px rgba(0,0,0,.35),inset 0 2px 1px rgba(255,255,255,.15)}
+      :skin .group::after{content:"237";position:absolute;right:16px;top:14px;font:700 12px/1 "Special Elite",monospace;letter-spacing:.12em;color:#4a3108;padding:5px 9px 4px;border-radius:2px;background:linear-gradient(160deg,#f0d58a,#c49a3a 55%,#e6c46e);box-shadow:0 1px 2px rgba(0,0,0,.35),inset 0 0 0 1px rgba(90,60,10,.4)}
+      :skin .group-h{font-size:17px;color:#2a1a12}
+      :skin .task:not(.td-b){font-family:"Courier Prime",monospace}
+      :skin .task:not(.td-b):hover{background:rgba(255,220,170,.35)}
+      :skin .check{border-radius:50%;border:2px solid #2a1a12;background:radial-gradient(circle at 40% 35%,#fff,#e6dccb);box-shadow:0 2px 0 #2a1a12}
+      :skin .task.done .check{background:#a3201a;border-color:#5a0f0b}
+      :skin .btn{border-radius:1px;font-family:"Courier Prime",monospace} :skin .btn.primary,:skin .meet-btn{background:#a3201a;border-color:#5a0f0b;color:#fff}
+      :skin .sh-ding{position:fixed;z-index:3000;pointer-events:none;font:700 14px "Special Elite",monospace;color:#a3201a;letter-spacing:.2em;animation:sh-ding .9s steps(6) forwards}
+      @keyframes sh-ding{0%{opacity:0;transform:translateX(30px)}30%{opacity:1;transform:none}80%{opacity:1}to{opacity:0;transform:translateX(-40px)}}`,
+    effects: ({ layer }) => {
+      // the carriage return: the finished line slides left like a typewriter carriage, with a little bell
+      const off = done(t => { const row = rowOf(t), r = row ? row.getBoundingClientRect() : { right: innerWidth / 2, top: innerHeight / 2, height: 0 };
+        if (row && row.animate) row.animate([{ transform: 'translateX(0)' }, { transform: 'translateX(-22px)' }, { transform: 'translateX(0)' }], { duration: 420, easing: 'steps(5)' });
+        const d = document.createElement('div'); d.className = 'sh-ding'; d.textContent = 'ding'; d.style.left = Math.min(innerWidth - 80, r.right - 70) + 'px'; d.style.top = (r.top + 6) + 'px'; layer.appendChild(d); setTimeout(() => d.remove(), 950); });
+      return off;
+    } });
 
   /* ---------------- Kill Bill: yellow and black, a red accent, and a clean slash when you finish ---------------- */
   R({ id: 'kill-bill', name: 'Kill Bill', category: TV, tagline: 'Track-suit yellow and black, condensed caps, and a sword-clean slash through finished tasks.',
@@ -210,24 +231,50 @@
 
   /* ---------------- South Park: construction paper, cut-out cards, a snowy mountain town ---------------- */
   const PAPER = 'repeating-linear-gradient(0deg,rgba(0,0,0,.018) 0 1px,transparent 1px 3px),repeating-linear-gradient(90deg,rgba(0,0,0,.012) 0 1px,transparent 1px 4px)';
-  R({ id: 'south-park', name: 'South Park', category: TV, tagline: 'Construction-paper cut-outs on a snowy mountain town, wobbly hand lettering.',
+  // the mountain town: big snow-capped peaks, cut-out pine trees, snowy ground, all with a felt-marker outline
+  const SP_PEAKS = svg(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 360" preserveAspectRatio="none"><g stroke="#1b1b1b" stroke-width="3" stroke-linejoin="round">
+    <path d="M-10 360L170 90l90 110 120-160 150 190 110-120 170 170 130-150 140 120 140-110 100 90V360z" fill="#7d8fb3"/>
+    <path d="M170 90l42 52-18 8-24-20-22 24-18-12zM380 40l58 74-26 6-30-26-20 30-30-18zM640 120l46 50-22 10-24-18-20 16-24-14zM940 130l48 46-26 8-22-16-18 18-24-12z" fill="#fff"/>
+    <path d="M-10 360v-90c120-30 250-10 380-26s300 10 450-6 260 16 390 0v122z" fill="#f7fbff"/></g></svg>`);
+  const SP_PINES = svg(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 220 200"><g stroke="#1b1b1b" stroke-width="3" stroke-linejoin="round" fill="#2f7a3a">
+    <path d="M50 20L10 110h22L4 170h92L68 110h22z"/><path d="M160 50l-34 70h18l-24 50h80l-24-50h18z"/></g><g fill="#5a3b22" stroke="#1b1b1b" stroke-width="3"><rect x="42" y="170" width="16" height="24"/><rect x="152" y="170" width="14" height="22"/></g></svg>`);
+  R({ id: 'south-park', name: 'South Park', category: TV, tagline: 'Construction-paper cut-outs in a snowy mountain town: felt-marker outlines, jerky stop-motion wobble, falling snow.',
     fonts: [font('Patrick Hand', 'patrick-hand-latin-400-normal.woff2')],
     font: '"Patrick Hand","Comic Sans MS",cursive',
-    vars: { '--ambient': 'off', '--bg': '#dfeefa', '--panel': '#fffdf6', '--side': '#3f8f3c', '--text': '#1b1b1b', '--muted': '#4c4c4c', '--faint': '#7c7c7c', '--line': '#1b1b1b', '--hover': '#fff3cf',
-      '--accent': '#e5332a', '--on-accent': '#fff', '--accent-soft': '#ffd9d6', '--client': '#2a6fd6', '--client-soft': '#d9e7fb', '--ok': '#3f8f3c', '--danger': '#e5332a', '--danger-soft': '#ffd9d6', '--r': '3px', '--shadow': '2px 3px 0 rgba(0,0,0,.25)' },
-    preview: { bg: '#dfeefa', panel: '#fffdf6', side: '#3f8f3c', text: '#1b1b1b', accent: '#e5332a', line: '#1b1b1b', r: '3px' },
-    css: `:skin body{font-size:16px;background:linear-gradient(180deg,#bfe1f7,#dfeefa 55%);background-attachment:fixed}
-      :skin .main::after{content:'';position:fixed;left:0;right:0;bottom:0;height:120px;pointer-events:none;z-index:0;background:radial-gradient(60% 120px at 20% 100%,#f7fbff 98%,transparent),radial-gradient(55% 140px at 75% 100%,#eef6fd 98%,transparent)}
+    vars: { '--ambient': 'off', '--bg': '#bfe1f7', '--panel': '#fffdf6', '--side': '#3f8f3c', '--text': '#1b1b1b', '--muted': '#4c4c4c', '--faint': '#7c7c7c', '--line': '#1b1b1b', '--hover': '#fff3cf',
+      '--accent': '#e5332a', '--on-accent': '#fff', '--accent-soft': '#ffd9d6', '--client': '#2a6fd6', '--client-soft': '#d9e7fb', '--ok': '#3f8f3c', '--danger': '#e5332a', '--danger-soft': '#ffd9d6', '--r': '3px', '--shadow': '3px 4px 0 rgba(0,0,0,.28)' },
+    preview: { bg: 'linear-gradient(180deg,#9ccff0,#bfe1f7 50%,#f7fbff 51%)', panel: '#fffdf6', side: '#3f8f3c', text: '#1b1b1b', accent: '#e5332a', line: '#1b1b1b', r: '3px' },
+    css: `:skin body{font-size:17px;background:${SP_PINES} left -20px bottom 2vh/220px auto no-repeat,${SP_PINES} right -30px bottom 1vh/260px auto no-repeat,${SP_PEAKS} bottom/100% 44vh no-repeat,linear-gradient(180deg,#8ec8ef,#bfe1f7 60%);background-attachment:fixed}
+      :skin .app,:skin .main{background:transparent}
       :skin #view{position:relative;z-index:1}
-      :skin .side{background:${PAPER},#3f8f3c;color:#fff} :skin .side .nav a,:skin .side .ntile,:skin .side .sect,:skin #side-head .brand,:skin .side .muted{color:#f2fbe9}
-      :skin .task:not(.td-b),:skin .gl,:skin .stat,:skin .qa{background:${PAPER},#fffdf6;border:2px solid #1b1b1b;box-shadow:2px 3px 0 rgba(0,0,0,.25)}
-      :skin .group .task:not(.td-b):nth-of-type(3n){transform:rotate(-.4deg)} :skin .group .task:not(.td-b):nth-of-type(3n+1){transform:rotate(.35deg)}
-      :skin .head h1,:skin .c-hero h1{font-size:40px;transform:rotate(-1deg)}
-      :skin .btn{border:2px solid #1b1b1b;border-radius:3px} :skin .btn.primary,:skin .meet-btn{background:#e5332a;color:#fff}`,
-    effects: ({ layer, level }) => particles(layer, level, { n: 60,
+      :skin .side{background:${PAPER},#3f8f3c;color:#fff;border-right:3px solid #1b1b1b} :skin .side .nav a,:skin .side .ntile,:skin .side .sect,:skin #side-head .brand,:skin .side .muted{color:#f2fbe9}
+      :skin .side .ntile.on,:skin .side .nav a.on{background:#fffdf6;color:#1b1b1b;border:2px solid #1b1b1b;transform:rotate(-1.5deg);box-shadow:2px 3px 0 rgba(0,0,0,.3)}
+      :skin .side .ntile.on *,:skin .side .nav a.on *{color:#1b1b1b}
+      :skin .group,:skin .gl,:skin .stat,:skin .qa,:skin .modal{background:${PAPER},#fffdf6;border:3px solid #1b1b1b;border-radius:4px 10px 3px 8px/9px 3px 10px 4px;box-shadow:3px 4px 0 rgba(0,0,0,.28)}
+      :skin .group{transform:rotate(-.35deg);padding:10px 12px}
+      :skin .task:not(.td-b){background:${PAPER},#fff;border:2.5px solid #1b1b1b;border-radius:6px 3px 7px 2px/3px 7px 2px 6px;margin:6px 0;box-shadow:2px 3px 0 rgba(0,0,0,.22)}
+      :skin .group .task:not(.td-b):nth-of-type(3n){transform:rotate(-.6deg);background-color:#fff8d6} :skin .group .task:not(.td-b):nth-of-type(3n+1){transform:rotate(.5deg);background-color:#e6f3ff}
+      :skin .task:not(.td-b):hover{animation:sp-jerk .36s steps(1) infinite}
+      @keyframes sp-jerk{0%{transform:translate(0,0) rotate(-.6deg)}33%{transform:translate(1px,-2px) rotate(.4deg)}66%{transform:translate(-1px,-1px) rotate(-.2deg)}}
+      :skin .head h1,:skin .c-hero h1{font-size:46px;transform:rotate(-1.5deg);display:inline-block;background:#fffdf6;border:3px solid #1b1b1b;padding:2px 16px;box-shadow:3px 4px 0 rgba(0,0,0,.28)}
+      :skin .group-h{font-size:21px;color:#1b1b1b}
+      :skin .check{border:2.5px solid #1b1b1b;border-radius:3px}
+      :skin .task.done .check{background:#e5332a}
+      :skin .btn{border:2.5px solid #1b1b1b;border-radius:3px;box-shadow:2px 2px 0 rgba(0,0,0,.25)} :skin .btn.primary,:skin .meet-btn{background:#e5332a;color:#fff}
+      :skin .chip{border:2px solid #1b1b1b;border-radius:3px;background:#fff8d6}
+      :skin .sp-pop{position:fixed;z-index:3000;pointer-events:none;font:28px "Patrick Hand",cursive;color:#fff;background:#e5332a;border:3px solid #1b1b1b;padding:0 12px;box-shadow:3px 4px 0 rgba(0,0,0,.3);animation:sp-pop 1.2s steps(6) forwards}
+      @keyframes sp-pop{0%{opacity:0;transform:scale(.3) rotate(-14deg)}20%{opacity:1;transform:scale(1.1) rotate(4deg)}35%{transform:scale(1) rotate(-3deg)}80%{opacity:1}to{opacity:0;transform:translateY(-30px) rotate(6deg)}}
+      @media (prefers-reduced-motion:reduce){:skin .task:not(.td-b):hover{animation:none}}`,
+    effects: ({ layer, level }) => {
+      const words = ['Done!', 'Sweet!', 'Nice!', 'Boom!', 'Yes!'];
+      const offDone = done(t => { const row = rowOf(t), r = row ? row.getBoundingClientRect() : { right: innerWidth / 2, top: innerHeight / 2, height: 0 };
+        const d = document.createElement('div'); d.className = 'sp-pop'; d.textContent = words[Math.floor(Math.random() * words.length)]; d.style.left = Math.min(innerWidth - 120, r.right - 110) + 'px'; d.style.top = (r.top + r.height / 2 - 22) + 'px'; layer.appendChild(d); setTimeout(() => d.remove(), 1300); });
+      const offSnow = particles(layer, level, { n: 60,
       make: any => ({ x: rnd(0, innerWidth), y: any ? rnd(0, innerHeight) : -8, s: rnd(2, 4.5), vy: rnd(.5, 1.2), ph: rnd(0, 6.3) }),
       step: (p, dt) => { p.ph += .03 * dt; p.y += p.vy * dt; p.x += Math.sin(p.ph) * .3 * dt; return p.y < innerHeight + 10; },
-      draw: (cx, p) => { cx.fillStyle = '#fff'; cx.strokeStyle = 'rgba(0,0,0,.35)'; cx.lineWidth = .8; cx.beginPath(); cx.arc(p.x, p.y, p.s, 0, 6.3); cx.fill(); cx.stroke(); } }) });
+      draw: (cx, p) => { cx.fillStyle = '#fff'; cx.strokeStyle = 'rgba(0,0,0,.35)'; cx.lineWidth = .8; cx.beginPath(); cx.arc(p.x, p.y, p.s, 0, 6.3); cx.fill(); cx.stroke(); } });
+      return () => { offDone(); offSnow(); };
+    } });
 
   /* ---------------- Over the Garden Wall: a night forest painted like an old storybook plate. Warm near-black, bare
      trees in silhouette, a low moon, aged cream pages framed like vintage postcards, chapter-heading ornaments, a
@@ -296,20 +343,49 @@
         cx.fillStyle = `rgba(255,${Math.round(150 + 40 * g)},90,${.8 * g})`; cx.beginPath(); cx.ellipse(0, 0, p.s * .7, p.s, 0, 0, 6.3); cx.fill();
         cx.shadowBlur = 0; cx.fillStyle = 'rgba(80,20,10,.6)'; cx.fillRect(-p.s * .45, -p.s - 2, p.s * .9, 3); cx.fillRect(-p.s * .45, p.s - 1, p.s * .9, 3); cx.restore(); } }) });
 
-  /* ---------------- My Neighbor Totoro: a green countryside after rain, soft painted sky, gentle showers ---------------- */
-  R({ id: 'totoro', name: 'My Neighbor Totoro', category: GH, tagline: 'Green countryside under a soft painted sky, rounded friendly type, the odd gentle shower.',
-    fonts: [font('Nunito', 'nunito-latin-700-normal.woff2', 700)],
+  /* ---------------- My Neighbor Totoro: a painted countryside in early summer. Big soft clouds, green hills and rice
+     paddies, a huge old camphor tree on the right, watercolour-paper pages, a passing shower now and then, and an acorn
+     that drops and bounces when you finish something. Scenery only: none of the film's characters. ---------------- */
+  const TT_LAND = svg(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 400" preserveAspectRatio="none">
+    <path d="M0 230C160 170 300 200 430 185S700 140 860 175 1080 150 1200 165V400H0z" fill="#8fbf74"/>
+    <path d="M0 265C200 240 340 262 520 248S860 230 1020 245 1150 236 1200 240V400H0z" fill="#6ea85a"/>
+    <g fill="#9ccde0" opacity=".55"><path d="M80 320h300l-30 26H50zM430 334h260l-24 22H404zM740 318h330l-28 26H712z"/></g>
+    <g stroke="#5b9149" stroke-width="2" opacity=".5"><path d="M50 346h300M404 356h260M712 344h330M0 372h1200"/></g>
+    <path d="M0 300C300 288 520 300 760 292S1060 286 1200 290V400H0z" fill="#5c9a4b" opacity=".55"/></svg>`);
+  const TT_TREE = svg(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 420 520"><path d="M196 520c8-80 6-150-6-220h46c-14 70-18 140-8 220z" fill="#5b4632"/>
+    <g fill="#2f6a3a"><circle cx="210" cy="190" r="140"/><circle cx="96" cy="230" r="96"/><circle cx="330" cy="236" r="92"/><circle cx="150" cy="110" r="96"/><circle cx="280" cy="104" r="100"/><circle cx="210" cy="60" r="70"/></g>
+    <g fill="#3f8248"><circle cx="170" cy="150" r="70"/><circle cx="270" cy="170" r="66"/><circle cx="120" cy="220" r="52"/><circle cx="320" cy="230" r="48"/><circle cx="220" cy="90" r="50"/></g>
+    <g fill="#5aa25c" opacity=".7"><circle cx="150" cy="120" r="30"/><circle cx="250" cy="130" r="26"/><circle cx="300" cy="200" r="22"/><circle cx="110" cy="200" r="20"/></g></svg>`);
+  const TT_CLOUD = svg(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 140"><g fill="#fff"><circle cx="70" cy="95" r="40"/><circle cx="125" cy="70" r="58"/><circle cx="190" cy="80" r="48"/><circle cx="240" cy="100" r="34"/><rect x="40" y="95" width="230" height="40" rx="20"/></g><g fill="#dce9f2"><rect x="44" y="118" width="226" height="18" rx="9"/></g></svg>`);
+  R({ id: 'totoro', name: 'My Neighbor Totoro', category: GH, tagline: 'A painted countryside in early summer: big soft clouds, rice paddies, an old camphor tree, a passing shower, acorns.',
+    fonts: [font('Nunito', 'nunito-latin-700-normal.woff2', 700), font('Patrick Hand', 'patrick-hand-latin-400-normal.woff2')],
     font: 'Nunito,"Trebuchet MS",sans-serif',
-    vars: { '--ambient': 'off', '--bg': '#dfeee4', '--panel': '#fbfaf2', '--side': '#2f5d3a', '--text': '#203226', '--muted': '#55705c', '--faint': '#8aa391', '--line': '#cfe0cf', '--hover': '#eef5e8',
-      '--accent': '#3e7a4e', '--on-accent': '#fff', '--accent-soft': '#d6ead9', '--client': '#4a7fb5', '--client-soft': '#dbe8f5', '--ok': '#3e7a4e', '--danger': '#c4553f', '--danger-soft': '#f6dcd5', '--r': '16px', '--shadow': '0 2px 0 #cfe0cf,0 10px 24px rgba(32,50,38,.08)' },
-    preview: { bg: 'linear-gradient(180deg,#cfe6f2,#dfeee4 60%,#a9cf9f)', panel: '#fbfaf2', side: '#2f5d3a', text: '#203226', accent: '#3e7a4e', line: '#cfe0cf', r: '16px' },
-    css: `:skin body{background:linear-gradient(180deg,#cfe6f2 0%,#dfeee4 55%,#bcdcae 100%);background-attachment:fixed}
+    vars: { '--ambient': 'off', '--bg': '#cfe6f2', '--panel': '#fffcf2', '--side': '#2f5d3a', '--text': '#233227', '--muted': '#55705c', '--faint': '#8aa391', '--line': '#e3dcc6', '--hover': '#f4f1e2',
+      '--accent': '#3e7a4e', '--on-accent': '#fff', '--accent-soft': '#d6ead9', '--client': '#4a7fb5', '--client-soft': '#dbe8f5', '--ok': '#3e7a4e', '--danger': '#c4553f', '--danger-soft': '#f6dcd5', '--r': '18px', '--shadow': '0 2px 0 rgba(90,80,50,.08),0 12px 28px rgba(40,70,50,.12)' },
+    preview: { bg: 'linear-gradient(180deg,#bcdcef,#cfe6f2 55%,#8fbf74 56%)', panel: '#fffcf2', side: '#2f5d3a', text: '#233227', accent: '#3e7a4e', line: '#e3dcc6', r: '18px' },
+    css: `:skin body{background:${TT_TREE} right -30px bottom 12vh/min(24vw,300px) auto no-repeat,${TT_LAND} bottom/100% 38vh no-repeat,
+        ${TT_CLOUD} 12% 9%/300px auto no-repeat,${TT_CLOUD} 58% 4%/220px auto no-repeat,${TT_CLOUD} 84% 20%/260px auto no-repeat,${TT_CLOUD} 34% 26%/170px auto no-repeat,
+        linear-gradient(180deg,#9fcbe6 0%,#bfe0f0 40%,#d8ecf1 62%,#cfe6d8 100%);background-attachment:fixed}
       :skin .app,:skin .main{background:transparent}
-      :skin .side{color:#eaf5ea} :skin .side .nav a,:skin .side .ntile,:skin .side .sect,:skin #side-head .brand,:skin .side .muted{color:#e2f0e2} :skin .side .ntile.on,:skin .side .nav a.on{background:rgba(255,255,255,.16);color:#fff}
-      :skin .head h1,:skin .c-hero h1{color:#2f5d3a;font-size:36px}
-      :skin .task:not(.td-b),:skin .gl,:skin .stat,:skin .qa{border-radius:16px}
-      :skin .btn{border-radius:999px} :skin .btn.primary,:skin .meet-btn{background:#3e7a4e;border-color:#3e7a4e;color:#fff}`,
+      :skin .side{background:radial-gradient(ellipse 7px 4px at 12px 10px,rgba(150,200,130,.22) 98%,transparent),radial-gradient(ellipse 5px 3px at 32px 30px,rgba(150,200,130,.16) 98%,transparent) 0 0/44px 40px,linear-gradient(180deg,#356842,#2b5535);color:#eaf5ea}
+      :skin .side .nav a,:skin .side .ntile,:skin .side .sect,:skin #side-head .brand,:skin .side .muted{color:#e2f0e2} :skin .side .ntile.on,:skin .side .nav a.on{background:rgba(255,255,255,.18);color:#fff;border-radius:14px}
+      :skin .head h1,:skin .c-hero h1{color:#24472c;font-size:40px;text-shadow:0 2px 0 rgba(255,255,255,.6)}
+      :skin .head .sub,:skin .head .sub *{color:#2f4c36}
+      :skin .group-h,:skin .th-cat{font-family:"Patrick Hand",Nunito,sans-serif;font-size:20px;color:#3e7a4e;letter-spacing:.01em;text-transform:none}
+      :skin .group-h::before{content:"";display:inline-block;width:12px;height:15px;margin-right:8px;vertical-align:-2px;border-radius:50% 50% 45% 45%/40% 40% 60% 60%;background:radial-gradient(circle at 40% 30%,#c98b4e,#8a5528 70%);box-shadow:inset 0 4px 0 -1px #5b3a1d}
+      :skin .group,:skin .gl,:skin .stat,:skin .qa,:skin .modal{background:radial-gradient(130% 120% at 30% 0%,#fffdf6 40%,#f7f1df 85%,#efe6cc);border:1px solid #e3dcc6;border-radius:18px;box-shadow:var(--shadow)}
+      :skin .group{padding:10px 14px}
+      :skin .task:not(.td-b){border-radius:14px} :skin .task:not(.td-b):hover{background:#f1f6e8}
+      :skin .check{border:2px solid #7aa36a;border-radius:50%}
+      :skin .task.done .check{background:radial-gradient(circle at 40% 35%,#c98b4e,#8a5528 70%);border-color:#5b3a1d}
+      :skin .btn{border-radius:999px} :skin .btn.primary,:skin .meet-btn{background:#3e7a4e;border-color:#3e7a4e;color:#fff}
+      :skin .chip{border-radius:999px;background:#e6f2df;border-color:#cfe3c4;color:#2f5d3a}
+      :skin .tt-acorn{position:fixed;width:16px;height:20px;margin:-10px 0 0 -8px;pointer-events:none;z-index:3000;border-radius:50% 50% 45% 45%/40% 40% 60% 60%;background:radial-gradient(circle at 40% 30%,#d79a5a,#8a5528 70%);box-shadow:inset 0 6px 0 -1px #5b3a1d;animation:tt-drop 1.3s cubic-bezier(.3,0,.4,1) forwards}
+      :skin .tt-acorn::before{content:"";position:absolute;left:7px;top:-4px;width:2px;height:5px;background:#5b3a1d;border-radius:2px}
+      @keyframes tt-drop{0%{opacity:0;transform:translateY(-60px) rotate(-20deg)}15%{opacity:1}50%{transform:translateY(0) rotate(10deg)}62%{transform:translateY(-14px) rotate(-6deg)}74%{transform:translateY(0)}84%{transform:translateY(-4px)}92%{transform:translateY(0);opacity:1}to{opacity:0;transform:translateY(0) translateX(14px) rotate(80deg)}}`,
     effects: ({ layer, level }) => {
+      const offDone = done(t => { const row = rowOf(t), r = row ? row.getBoundingClientRect() : { left: innerWidth / 2, top: innerHeight / 2, height: 0 };
+        const d = document.createElement('div'); d.className = 'tt-acorn'; d.style.left = (r.left + 18) + 'px'; d.style.top = (r.top + r.height / 2) + 'px'; layer.appendChild(d); setTimeout(() => d.remove(), 1400); });
       // a shower now and then: rain that comes and goes
       let rain = 0, target = 0, t = 0;
       const cycle = () => { target = target ? 0 : 1; t = setTimeout(cycle, target ? rnd(15000, 25000) : rnd(30000, 60000)); }; t = setTimeout(cycle, 4000);
@@ -318,6 +394,6 @@
         step: (p, dt) => { p.y += p.v * dt; p.x += p.v * .18 * dt; return p.y < innerHeight + 20; },
         draw: (cx, p) => { if (rain < .02) return; cx.strokeStyle = `rgba(90,120,140,${.35 * rain})`; cx.lineWidth = 1; cx.beginPath(); cx.moveTo(p.x, p.y); cx.lineTo(p.x + p.l * .18, p.y + p.l); cx.stroke(); },
         every: (cx, dt) => { rain += (target - rain) * .01 * dt; } });
-      return () => { clearTimeout(t); off(); };
+      return () => { clearTimeout(t); off(); offDone(); };
     } });
 })();

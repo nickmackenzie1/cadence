@@ -136,7 +136,7 @@
     addEventListener('hashchange', mark); mark();
     return () => { removeEventListener('hashchange', mark); host.remove(); };
   };
-  R({ id: 'blades', name: 'Blades', category: 'Fun', tagline: 'The 2005 console dashboard: glossy blades on the right, a soft green glow.',
+  R({ id: 'blades', name: 'Blades', category: 'Fun', tagline: 'The 2005 console dashboard: glossy blades on the right, drifting green glow, the green selection bar, achievement toasts.',
     font: '"Segoe UI",Selawik,"Helvetica Neue",Arial,sans-serif',
     vars: { '--ambient': 'off', '--accent': '#4aa81a', '--on-accent': '#fff', '--r': '6px', '--ok': '#4aa81a', '--client': '#e08a12' },
     light: { '--bg': '#e6e9ec', '--panel': 'rgba(255,255,255,.86)', '--side': '#f1f3f5', '--text': '#1b1d1f', '--muted': '#5f656c', '--faint': '#9aa0a6', '--line': '#cdd2d7', '--hover': '#e2f2d6',
@@ -159,7 +159,28 @@
       :skin .bl-blades a{pointer-events:auto;position:relative;flex:none;width:30px;margin-left:-6px;height:100%;background:linear-gradient(90deg,color-mix(in srgb,var(--c) 75%,#fff),var(--c) 40%,color-mix(in srgb,var(--c) 80%,#000));border-left:1px solid rgba(255,255,255,.55);box-shadow:-4px 0 10px rgba(0,0,0,.18);text-decoration:none;transition:width .25s ease;border-radius:10px 0 0 10px}
       :skin .bl-blades a span{position:absolute;top:24px;left:50%;transform:translateX(-50%) rotate(180deg);writing-mode:vertical-rl;color:#fff;font-weight:600;font-size:13px;letter-spacing:.04em;text-shadow:0 1px 2px rgba(0,0,0,.35);white-space:nowrap}
       :skin .bl-blades a:hover{width:38px} :skin .bl-blades a.on{width:46px} :skin .bl-blades a.on span{font-size:14px}
-      @media (max-width:900px){:skin .bl-blades{display:none} :skin .main{padding-right:0}}` });
+      @media (max-width:900px){:skin .bl-blades{display:none} :skin .main{padding-right:0}}
+      /* the 2005 look, fuller: slowly drifting glow orbs, glossy panels, the green selection bar, a big light heading */
+      :skin body::before{content:"";position:fixed;inset:-20%;z-index:-1;pointer-events:none;background:radial-gradient(closest-side,rgba(143,220,77,.28),transparent) 20% 30%/38% 38% no-repeat,radial-gradient(closest-side,rgba(255,255,255,.7),transparent) 70% 20%/30% 30% no-repeat,radial-gradient(closest-side,rgba(74,168,26,.18),transparent) 60% 80%/46% 46% no-repeat;animation:bl-drift 40s ease-in-out infinite alternate}
+      @keyframes bl-drift{to{transform:translate(4%,-3%) rotate(6deg)}}
+      :skin .head h1{font-weight:200;font-size:44px;letter-spacing:-.02em;color:color-mix(in srgb,var(--text) 85%,var(--accent));-webkit-box-reflect:below -14px linear-gradient(transparent 55%,rgba(255,255,255,.18))}
+      :skin .group,:skin .gl,:skin .stat,:skin .qa{background:linear-gradient(180deg,color-mix(in srgb,var(--panel) 100%,#fff 0%),color-mix(in srgb,var(--panel) 88%,var(--bg)));border:1px solid var(--line);border-radius:10px;box-shadow:inset 0 1px 0 rgba(255,255,255,.7),var(--shadow)}
+      :skin .task:not(.td-b){border-radius:6px;transition:background .12s}
+      :skin .task:not(.td-b):hover,:skin .task:not(.td-b).sel{background:linear-gradient(180deg,#8fdc4d,#4aa81a 55%,#3d9015);border-color:#2f700e;color:#fff;box-shadow:0 2px 8px rgba(74,168,26,.4)}
+      :skin .task:not(.td-b):hover *{color:#fff!important}
+      :skin .bl-ach{position:fixed;left:50%;bottom:44px;z-index:3000;display:flex;align-items:center;gap:12px;transform:translateX(-50%);padding:9px 22px 9px 9px;border-radius:999px;pointer-events:none;
+        background:linear-gradient(180deg,#3b4046,#16181b);border:1px solid #5a6168;box-shadow:0 8px 24px rgba(0,0,0,.4),inset 0 1px 0 rgba(255,255,255,.12);color:#fff;font-size:13px;animation:bl-ach 3.4s ease forwards}
+      :skin .bl-ach i{width:34px;height:34px;border-radius:50%;flex:none;background:radial-gradient(circle at 35% 30%,#d6ff9e,#4aa81a 55%,#2f700e);box-shadow:0 0 12px rgba(143,220,77,.8),inset 0 -3px 6px rgba(0,0,0,.25)}
+      :skin .bl-ach small{display:block;color:#b5ef7c;font-size:11px;letter-spacing:.04em}
+      @keyframes bl-ach{0%{opacity:0;transform:translate(-50%,30px) scale(.9)}10%{opacity:1;transform:translate(-50%,0)}85%{opacity:1}to{opacity:0;transform:translate(-50%,10px)}}
+      @media (prefers-reduced-motion:reduce){:skin body::before{animation:none}}`,
+    // finishing something: the console's achievement toast, worth a few points (no logos, our own shapes)
+    effects: ({ layer }) => {
+      const h = e => { const t = (e && e.detail) || {}; layer.querySelectorAll('.bl-ach').forEach(x => x.remove());
+        const d = document.createElement('div'); d.className = 'bl-ach'; d.innerHTML = '<i></i><div><small>Achievement unlocked</small><b></b></div>';
+        d.querySelector('b').textContent = `${Math.min(50, 5 + (String(t.title || '').length % 10) * 5)} · ${t.title || 'Task done'}`; layer.appendChild(d); setTimeout(() => d.remove(), 3500); };
+      document.addEventListener('cadence:task-complete', h); return () => document.removeEventListener('cadence:task-complete', h);
+    } });
 
   /* ---------------- Adventure: parchment over a deep forest, gold lettering, hearts for today's work ---------------- */
   const advEnhance = ({ api }) => {
