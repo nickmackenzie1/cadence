@@ -20,7 +20,9 @@ export function cleanName(name) {
   const core = String(name).replace(/\s/g, ""), kept = t.replace(/\s/g, "");
   return kept.length >= 2 && kept.length >= core.length * 0.6 ? t : null;
 }
-export function isArtist(name) { return !!name && !isThread(name) && !!cleanName(name); }
+// placeholders that charts and blogs use in the artist field
+const NOT_ARTIST_RE = /^(various( artists)?|v\.?\s?\/?\s?a\.?|unknown( artist)?|n\/a|ost|(original )?((motion )?picture |tv |television |game )?soundtrack|original (broadway |london |cast )*(cast )?recording|(the )?original cast|cast of .+|playlist|compilation|mixtape|best of .+|top \d+.*|(\d{4} )?year in review|album of the (week|year)|new music friday|this week'?s? .+)$/i;
+export function isArtist(name) { return !!name && !isThread(name) && !NOT_ARTIST_RE.test(String(name).trim()) && !!cleanName(name); }
 export function cleanGenre(g) {
   const t = String(g).toLowerCase().normalize("NFC").replace(/[-_]+/g, " ").replace(/^(and|&|or|\+)\s+/, "").replace(/\s+/g, " ").trim();
   if (!t || t.length < 3 || t.length > 24 || t.split(" ").length > 3 || /^\d/.test(t) || NOT_GENRE_RE.test(t) || NOT_GENRE.test(t)) return null;
@@ -50,7 +52,7 @@ export function parseTitle(title) {
   const m = t.match(SPLIT_RE);
   if (!m) return null;
   const artist = cleanName(m.groups.artist.trim().replace(/^["']+|["']+$/g, ""));
-  if (!artist || isThread(artist) || isThread(m.groups.song) && /\d|week|day/i.test(m.groups.song)) return null;
+  if (!artist || !isArtist(artist) || isThread(m.groups.song) && /\d|week|day/i.test(m.groups.song)) return null;
   let song = m.groups.song;
   const isAlbum = /album|ep|lp/.test(tagKind) || ALBUM_HINT.test(song);
   song = song.replace(/\s*[[(][^\])]*[\])]/g, "").trim().replace(/^["']+|["']+$/g, "");

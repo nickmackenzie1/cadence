@@ -311,17 +311,6 @@ data, or peer-to-peer on the same LAN). Personal data and secrets stay on each p
   keys (Bandcamp, label/blog RSS, Last.fm, the record-store feed); (4) make the Reddit part quiet when it fails —
   one calm line, not a "problem" notice. Do (4) regardless. Secrets stay in the NAS .env only.
 
-## Backlog (user, 2026-11-13 12:57): Music Radar data is noisy (screenshot of Most-posted / Albums / Breakout / Genres)
-- Not artists, counted as artists: "Daily Discussion", "Teatime & Trending Topics", "TOP TEN POP TEN" (subreddit
-  megathreads / recurring posts). Filter by flair and recurring title patterns, and skip mod/sticky posts.
-- One name with decorative unicode ("҉shɥro"-style) — normalise or drop names that are mostly symbols.
-- Dove Cameron 3 → 69 as "breakout": probably one subreddit or a spam burst. Cap per-subreddit/per-poster weight, and
-  require the name to show up in 2+ sources or subreddits before it can be a breakout.
-- "Genres that jumped" are junk tags: "áudio oficial", "and ambient folk" (a split fragment), "live at the brit awards
-  2026", "radio edit". Need a tag blocklist (video/audio labels, events, edits), better splitting, and a minimum count;
-  "0% → 0.14%" is too small to call a jump — show counts and hide anything under a floor.
-- Related: the Reddit 403s above. If Reddit goes, most of this noise goes with it.
-
 ## Backlog (user, 2026-11-13 13:09–13:12): theme add-ons from links
 - Simpsons theme + "The Simpsons in CSS" (alvaromontoro.com, github pattle/simpsons-in-css): those are drawings of the
   actual characters. Same homage rule as every screen theme (no characters, logos, quotes), so NOT adding them.

@@ -31,3 +31,11 @@ test('archive trends: breakouts need 2+ subreddits, genre jumps need a real shar
   expect(h.breakoutsByYear['2026'].map(b => b.artist)).toEqual(['Real Band']);
   expect(h.jumpsByYear['2026'].map(j => j.genre)).toEqual(['hyperpop']);
 });
+
+test('chart and blog placeholders are not artists (other sources get the same cleanup)', () => {
+  for (const n of ['Various Artists', 'V/A', 'Original Motion Picture Soundtrack', 'Original Broadway Cast Recording', 'Best of 2026', 'Top 50 Albums', 'Unknown Artist', 'New Music Friday'])
+    expect(X.isArtist(n), n).toBe(false);
+  for (const n of ['Beach House', 'Soundgarden', 'Best Coast', 'The Weeknd', 'Vampire Weekend']) expect(X.isArtist(n), n).toBe(true);
+  expect(X.parseTitle('Various Artists - Summer Mix [house]')).toBeNull();
+  expect(['music video', 'Official Audio', 'Electronic'].map(X.cleanGenre)).toEqual([null, null, 'electronic']);
+});

@@ -2,6 +2,7 @@
 import { now, DAY } from "./config.mjs";
 import * as store from "./store.mjs";
 import { momentum } from "./trends.mjs";
+import { isArtist, cleanName, cleanGenre } from "./extract.mjs";
 import { SOURCES, DEFAULT_CFG, tagsFor } from "./sources.mjs";
 
 // how much one signal from each source counts in the combined score (blogs and Hype Machine are the early-buzz signals)
@@ -34,21 +35,22 @@ export function sourcesData(state, snaps) {
 
   // ---- Reddit, so it combines with the rest ----
   const reddit = new Map();
-  for (const p of state.picks) if (t - p.ts < 30 * DAY) { const r = reddit.get(p.key) || { n: 0, first: p.ts, title: null, url: null, artist: p.artist }; r.n++; r.first = Math.min(r.first, p.ts); r.title ||= p.song; r.url ||= p.link; reddit.set(p.key, r); }
+  for (const p of state.picks) if (t - p.ts < 30 * DAY && isArtist(p.artist)) { const r = reddit.get(p.key) || { n: 0, first: p.ts, title: null, url: null, artist: p.artist }; r.n++; r.first = Math.min(r.first, p.ts); r.title ||= p.song; r.url ||= p.link; reddit.set(p.key, r); }
   const buzz = new Map();
   for (const s of snaps || []) if (s.kind === "artist" && t - s.ts < 7 * DAY) buzz.set(s.key, Math.max(buzz.get(s.key) || 0, s.score || 0));
 
   // ---- combined per artist, last 30 days ----
   const A = new Map(), get = (key, name) => { let a = A.get(key); if (!a) A.set(key, (a = { key, artist: name, sources: {}, n: 0, first: Infinity, last: 0, score: 0, titles: [], genres: {} })); return a; };
   for (const s of sig) {
-    if (t - s.last_seen > 30 * DAY) continue;
-    const a = get(s.artist_key, s.artist), age = Math.max(0, (t - s.first_seen) / DAY);
+    // same cleanup as Reddit: no "Various Artists", roundup headlines or decorated names; no upload labels as genres
+    if (t - s.last_seen > 30 * DAY || !isArtist(s.artist)) continue;
+    const a = get(s.artist_key, cleanName(s.artist)), age = Math.max(0, (t - s.first_seen) / DAY);
     a.sources[s.source] = (a.sources[s.source] || 0) + 1; a.n++;
     a.first = Math.min(a.first, s.first_seen); a.last = Math.max(a.last, s.last_seen);
     const rankBonus = s.best_rank ? Math.max(0, (51 - s.best_rank) / 50) : 0;
     a.score += (WEIGHT[s.source] || 1) * (1 + rankBonus) * Math.pow(0.5, age / 10);
     if (a.titles.length < 3 && s.title && s.title !== s.artist && !a.titles.some((x) => x.title === s.title)) a.titles.push({ title: s.title, url: s.url, source: s.source });
-    for (const g of String(s.genres || "").split(", ").filter(Boolean)) a.genres[g] = (a.genres[g] || 0) + 1;
+    for (const g0 of String(s.genres || "").split(", ")) { const g = cleanGenre(g0); if (g) a.genres[g] = (a.genres[g] || 0) + 1; }
   }
   for (const [key, r] of reddit) {
     const a = get(key, r.artist); a.sources.reddit = r.n; a.n += r.n; a.first = Math.min(a.first, r.first); a.last = Math.max(a.last, r.first);
@@ -69,7 +71,7 @@ export function sourcesData(state, snaps) {
   for (const p of state.picks) bump("reddit", p.ts);
   const name = (id) => (id === "reddit" ? "Reddit" : SOURCES[id]?.name || id);
   const genreRows = [];
-  for (const s of sig) for (const g of String(s.genres || "").split(", ").filter(Boolean)) genreRows.push({ ts: s.first_seen, genre: g.toLowerCase(), n: 1 });
+  for (const s of sig) if (isArtist(s.artist)) for (const g0 of String(s.genres || "").split(", ")) { const g = cleanGenre(g0); if (g) genreRows.push({ ts: s.first_seen, genre: g, n: 1 }); }
 
   // ---- crossover: your Reddit picks that turned up on the Apple chart, and chart movers ----
   const apple = new Map(); for (const s of bySource.apple || []) { const c = apple.get(s.artist_key); if (!c || (s.best_rank ?? 999) < (c.best_rank ?? 999)) apple.set(s.artist_key, s); }
@@ -77,7 +79,7 @@ export function sourcesData(state, snaps) {
   for (const p of state.picks) { const a = apple.get(p.key); if (a && !crossover.some((c) => c.key === p.key)) crossover.push({ key: p.key, artist: p.artist, picked: p.ts, charted: a.first_seen, rank: a.best_rank, feed: a.feed, url: a.url }); }
   const movers = [];
   for (const s of sig) {
-    if (!CHARTS.has(s.source) || s.rank == null) continue;
+    if (!CHARTS.has(s.source) || s.rank == null || !isArtist(s.artist)) continue;
     const was = firstRank.get(s.source + "|" + s.uid);
     if (was != null && was - s.rank >= 5 && t - s.last_seen < 2 * DAY) movers.push({ source: s.source, artist: s.artist, title: s.title, feed: s.feed, was, now: s.rank, url: s.url });
   }
