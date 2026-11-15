@@ -349,7 +349,9 @@ test('kids: a child, sizes, an activity with a registration task, memories, heal
   await page.click('[data-tab=mem]'); await page.fill('#kd-mem', 'Dinosaurs are just big chickens'); await page.click('#kd-madd');
   await expect(page.locator('.lk-card')).toContainText('Dinosaurs');
   await page.click('[data-tab=chores]'); await page.click('[data-chore]'); await page.fill('#lk-name', 'Feed the cat'); await page.fill('#lk-pts', '2'); await page.click('#lk-ok');
-  await page.click('[data-do]'); await expect(page.locator('.kd-bal b')).toHaveText('2');
+  // (failed once under full-suite load with a balance of 1: this line shows whether the chore saved 2 points)
+  const cat = page.locator('.lk-row', { hasText: 'Feed the cat' }); await expect(cat).toContainText('2 pts');
+  await cat.locator('[data-do]').click(); await expect(page.locator('.kd-bal b')).toHaveText('2');
   await page.click('[data-tab=party]'); await page.click('#kd-party'); await page.fill('#lk-date', reg); await page.fill('#lk-guests', 'Leo, Ava'); await page.click('#lk-ok');
   await expect(page.locator('[data-rsvp]')).toHaveCount(2);
   expect(errs).toEqual([]);

@@ -13,7 +13,7 @@ test.beforeAll(async () => {
   dir = mkdtempSync(join(tmpdir(), 'cadence-radar-'));
   const sim = spawnSync(process.execPath, ['server/services/radar/test/simulate.mjs'], { env: { ...process.env, RADAR_DATA: join(dir, 'radar'), RADAR_DB: join(dir, 'cadence.db'), ANTHROPIC_API_KEY: '', LASTFM_API_KEY: '' }, encoding: 'utf8' });
   if (sim.status !== 0) throw new Error('simulate failed: ' + sim.stderr);
-  server = spawn(process.execPath, ['--disable-warning=ExperimentalWarning', 'server.js'], { env: { ...process.env, PORT: String(PORT), DATA_DIR: dir, TLS_DIR: join(dir, 'x') }, stdio: 'ignore' });
+  server = spawn(process.execPath, ['--disable-warning=ExperimentalWarning', 'server.js'], { env: { ...process.env, PORT: String(PORT), DATA_DIR: dir, TLS_DIR: join(dir, 'x'), RADAR_DATA: join(dir, 'radar'), RADAR_DB: join(dir, 'cadence.db') }, stdio: 'ignore' });
   for (let i = 0; i < 150; i++) { try { if ((await fetch(B + '/api/health')).ok) return; } catch {} await new Promise(r => setTimeout(r, 100)); }
 });
 test.afterAll(() => { server && server.kill(); rmSync(dir, { recursive: true, force: true }); });
@@ -24,7 +24,9 @@ test('Music Radar view: charts, picks, thumbs and subreddits', async ({ page }) 
   await page.addInitScript(() => { localStorage.setItem('cadence.reviewNudge', (d => { d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); })(new Date())); localStorage.setItem('cadence.space', 'life'); });
   await page.goto(B + '/#view-radar');
   await expect(page.locator('.mr-tiles')).toBeVisible({ timeout: 10000 });
-  await expect(page.locator('.mr-chart svg polyline').first()).toBeVisible();
+  // (if this fails, say what the card showed)
+  await expect(page.locator('.mr-chart svg polyline').first()).toBeAttached({ timeout: 15000 }).catch(async e => {
+    throw new Error(e.message + '\nWho\'s climbing card: ' + await page.locator('.mr-card').first().innerText().catch(() => '(none)')); });
   await expect(page.locator('.mr-graph circle').first()).toBeAttached();
   await expect(page.locator('.mr-card').filter({ hasText: 'Fastest risers' })).toContainText('Glass Lantern');
   // off by default; nothing in the UI uses emoji

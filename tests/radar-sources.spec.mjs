@@ -4,6 +4,11 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
+// these specs point the radar modules at a temp folder through process.env; put it back so servers that
+// later specs start in this same worker don't inherit it (that made radar.spec read an empty database)
+const savedEnv = { RADAR_DATA: process.env.RADAR_DATA, RADAR_DB: process.env.RADAR_DB };
+test.afterAll(() => { for (const [k, v] of Object.entries(savedEnv)) { if (v === undefined) delete process.env[k]; else process.env[k] = v; } });
+
 test('every source parses its format, stores signals, and a failing source is recorded without stopping the rest', async () => {
   const dir = mkdtempSync(join(tmpdir(), 'radar-src-'));
   process.env.RADAR_DATA = join(dir, 'radar'); process.env.RADAR_DB = join(dir, 'cadence.db'); delete process.env.LASTFM_API_KEY; delete process.env.ANTHROPIC_API_KEY;

@@ -50,7 +50,8 @@ test('Podcasts: shows synced from Pocket Casts, resume from the phone, keeps pla
   // resume the in-progress one: it starts at 12 s, where the "phone" left it
   await page.locator('.pc-side .pc-ep', { hasText: 'Half way through' }).locator('[data-act-pc=play]').click();
   await expect.poll(() => page.evaluate(() => !CadencePodcasts.audio.paused), { timeout: 8000 }).toBe(true);
-  expect(await page.evaluate(() => CadencePodcasts.audio.currentTime)).toBeGreaterThanOrEqual(11.5);
+  // it jumps to 12 s once the file's length is known (a moment after play starts)
+  await expect.poll(() => page.evaluate(() => CadencePodcasts.audio.currentTime), { timeout: 8000 }).toBeGreaterThanOrEqual(11.5);
   await expect(page.locator('#pc-mini')).toBeVisible();
   // switch view and space: same audio element, still playing
   await page.goto(B + '/#today'); await page.locator('.space-sw [role=tab]', { hasText: 'Life' }).click(); await page.waitForTimeout(800);

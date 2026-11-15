@@ -40,7 +40,8 @@ function open() {
   try {
     fs.mkdirSync(path.dirname(DB_FILE), { recursive: true });
     db = new sqlite.DatabaseSync(DB_FILE);
-    db.exec(`PRAGMA journal_mode=WAL; PRAGMA synchronous=NORMAL; PRAGMA busy_timeout=5000;
+    db.exec(`PRAGMA busy_timeout=5000`);   // first: switching to WAL needs a lock the app may be holding
+    db.exec(`PRAGMA journal_mode=WAL; PRAGMA synchronous=NORMAL;
       CREATE TABLE IF NOT EXISTS radar_kv (key TEXT PRIMARY KEY, json TEXT NOT NULL, updated_at INTEGER NOT NULL);
       CREATE TABLE IF NOT EXISTS radar_artists (key TEXT PRIMARY KEY, name TEXT, genres TEXT, subs TEXT, first_seen INTEGER, listeners INTEGER, json TEXT NOT NULL);
       CREATE TABLE IF NOT EXISTS radar_picks (id TEXT PRIMARY KEY, ts INTEGER, artist TEXT, song TEXT, type TEXT, score REAL, genres TEXT, subs TEXT, link TEXT, thread TEXT, json TEXT NOT NULL);
@@ -61,7 +62,12 @@ function open() {
         CREATE INDEX IF NOT EXISTS radar_${name}_ts ON radar_${name}(ts);`);
     }
     importFiles();
-  } catch (e) { storageNote = "database error, using files: " + e.message; console.error("radar store", e); db = false; }
+  } catch (e) {
+    console.error("radar store", e); try { db && db.close(); } catch {}
+    // busy is temporary (the app was writing): try again next time instead of falling back to files for good
+    if (/busy|locked/i.test(e.message)) { db = null; storageNote = "database busy, retrying"; return false; }
+    storageNote = "database error, using files: " + e.message; db = false;
+  }
   return db;
 }
 export const usingDb = () => !!open();

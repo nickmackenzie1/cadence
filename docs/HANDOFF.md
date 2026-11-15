@@ -1,26 +1,9 @@
-# Session notes (Cadence)
-- Repo: /home/claude/repo (GitHub nickmackenzie1/cadence, push origin main). Commit as user.name="Cadence" email noreply@anthropic.com with Co-Authored-By + Claude-Session trailer.
-- App: public/index.html (core, first <script> block), plugins in public/plugins/*.js loaded by script tags at end of index.html:
-  island.js, status.js, momentum.js, brand.js, havoc.js, links.js, datepick.js. vendor/: matter.min.js, havoc-engine.js
-- Server: server.js (Node, no deps): /api/health, /api/state, /api/ai, /api/favicon, /api/company, /api/banner. safeFetch(url) = public-hosts-only fetch.
-- Artifact: slug ae5a5a29-2e8e-4973-abd3-9223e0b9c039, latest version 1794014753-00db (publish_files patch mode, list files).
-- Mock NAS for tests: /tmp/mock2.js -> `pkill -f mock2.js; rm -rf /tmp/cd3; mkdir -p /tmp/cd3; (DATA_DIR=/tmp/cd3 PORT=8496 node /tmp/mock2.js &)`; playwright tests in /tmp/t*.py
-- Plugin API: api.on(ev), api.sidebar.add({id,slot:'top'|'bottom',render}), api.views.add, api.commands.add, api.clientActions.add, api.storage.get/set, api.system(), api.ui.{toast,pointer,modal,close,esc,avatar,faviconUrl,navigate,refresh,currentRoute}, api.clients.{list,get,update}, api.tasks.*, api.plugins.enabled(id). Events: task:complete, task:quickadd, render {route}, render:side, sync, client:update, meeting:start/end, reminder.
-- Island API: window.CadenceIsland.show({title,sub,icon,check,spin,actions,sticky,ms}), .update(n), .dismiss(), .live(key,{prio,view}), .clear(key)
-- NOTE: something else is also editing public/plugins/status.js (corner boot + islandBoot timings). Read before editing.
-- TODO next: (1) Living mural plugin (task -> brushstroke in client brand colours, time-lapse, export poster). (2) Generic RSS feed plugin with server proxy /api/feed (safeFetch, cache), placement options (sidebar bottom / home / own view), "record store" vinyl theme using item images (Lightspeed CDN: swap /75x75x2/ -> /300x300x2/). Feed: https://www.somethingelserecords.ca/index.rss (RSS 2.0, image in description <img>).
-  (3) Spotify: user has Premium. HTTPS is now local mkcert (see below), no DDNS/Let's Encrypt.
-- mural.js added (view-mural). Next: test with t22, then RSS.
-- mural committed 16c034d
-- rss.js written + server /api/feed + preposition repair migration (S.fixPrep). testing t24
-- pushed 2a39412 (rss/island) + datepick home fix. artifact version 1794015195-dcc1 (needs index.html+datepick republish)
-- TODO: RSS pop-out timeline panel (click sidebar row -> slide-out vertical timeline grouped by day, 'new since last visit').
-- SPLIT DONE: public/core.js + core.css; built-ins moved to plugins/{importers,recap,pulse,zoho-tags,prep,chase,templates,review}.js. backup /tmp/index.backup.html
-- TODO: Mural MOSAIC mode: public-domain painting (Wikimedia presets via NAS /api/img proxy, or upload) rebuilt from tiles of client logos tinted to target colour; each completed task lays k tiles; ghost of target underneath.
+# Handoff: rules and open backlog
 
-## Session end 2026-11-06 21:20 (commit 5bc2dc6, artifact 1794017429-292b)
-Done: demo mode, calendar, insights, db viewer, feeds wall+timeline, motion/narrow, Island API (show/celebrate/progress/live), plugin cards (icon/color/category/tagline/settings), mural mosaic (/api/img), Havoc damage blends into the page, update notice.
-Next: (superseded, see below)
+Start with `CLAUDE.md` (how to work here). This file holds the user's standing rules and every backlog idea they have
+asked for, verbatim by date. Add new ideas at the bottom ("just add things I say to the backlog"). When something
+ships, delete it here and note it in the commit. The full session history up to 0.7.2 is in `docs/archive/HANDOFF-2026-11.md`;
+some backlog items below may already be partly done, so check there before starting one.
 
 ## RULES (from the user, 2026-11-08) — override anything above
 - No Tailscale. Never expose the NAS to the internet (no port forwarding, DDNS, Let's Encrypt HTTP challenge).
@@ -31,20 +14,6 @@ Next: (superseded, see below)
   (patch; `npm run bump minor` for big batches) before committing; it writes public/version.json + package.json.
   The app (window.Cadence.version, startup notice) and /api/health read version.json; CI tags v<version> and
   publishes a GitHub release after every green run (skips if the tag already exists, i.e. someone forgot to bump).
-
-## Session 2026-11-08
-- HTTPS (mkcert): tls.sh (called by deploy.sh) downloads pinned mkcert v1.4.4 (sha256 per arch), CA in .mkcert-ca/
-  (never mounted), leaf cert in certs/ -> mounted /certs:ro. Hosts = hostname, hostname.local, localhost, LAN IPv4s
-  + CERT_HOSTS. Reissues on host change / 30 days before expiry, exit 10 -> deploy.sh restarts container.
-  server.js: certs present -> https on 8443, http 8484 = 307 redirect (before auth) + /ca.crt (public CA only).
-  tests/https.spec.mjs covers it. HTTPS=off disables.
-- LOGIN (done): public/login.html (+ auth.js fetch guard -> login?next= on 401, plugins/account.js 'Sign out' command).
-  server: cookie cadence_session (HttpOnly, SameSite=Strict, Secure on https), sessions hashed in data/sessions.json (0600),
-  keyed to a password tag (password change = all signed out), 'keep me signed in' 30d sliding else 12h, lockout after 5 misses
-  (30s doubling, max 15m), Origin check on non-GET, Basic auth still accepted for scripts. tests/login.spec.mjs.
-- ISLAND (done): themed via core CSS vars (panel/text/line); idle = translucent panel + hairline (blends in);
-  notices add .up (lift, shadow, ring + glow in notice colour via --glow, dark colours fall back to accent) + one .ping ring.
-- Plan order: HTTPS (done) -> login page (cookie session, replaces Basic auth) -> SQLite (node:sqlite, Node 22 image).
 
 ## Backlog (user ideas, 2026-11-08)
 1. Client page redesign (screenshot was the Filecenter client page: flat, washed out). More aggressive theme in the
@@ -61,33 +30,6 @@ Next: (superseded, see below)
    plugins enabled, sidebar, theme. Needs a 'space' key in storage -> design SQLite with spaces from day one.
 - Web links plugin (done): plugins/weblinks.js, sidebar 'Links' section + Settings editor + ⌘K 'Add a web link'.
 - Older: right-click menu, verify mosaic with real Wikimedia images and logos on the NAS.
-
-## Session 2026-11-08 (later)
-- Shipped fun plugins: haunted.js (ghost per overdue task, 6 personalities: sulker/nosy/judge/prankster/drama/shy,
-  seek UI targets .task[data-id] / .qa / .isl-pill, speech bubbles one at a time, flinch on completes, z-index 25 under modals),
-  stocks.js (deterministic price from history: deliveries/meetings/chases up, idle >2d and overdue down; index + tape +
-  5 weakest; ⌘K Market report; Island crash alert once/day), intern.js (SVG pixel sprite, boxes = client-owed items,
-  sleeps at N days (setting), wakes you once/day/client with Chase -> window.CadenceChase).
-- MARKETING (user's words): "it can be as simple as writing and taking notes, a place to relax, or a place to go
-  batshit crazy and make it whatever you want." / "It's whatever you want it to be, but in the end life is always a to-do list."
-- NEXT (promised): Christmas mode plugin (lights, snow, optional build-up on UI/letters/where you type, real physics,
-  chaos level from gentle to insane in settings). Desktop-pet sheep (sheep.exe-style: walks panel edges, falls, sleeps,
-  draggable) — ORIGINAL pixel sheep, not the Stray Sheep/Poe design.
-- Ideas asked about: Letterboxd (no open API; public RSS letterboxd.com/<user>/rss/ -> rss.js 'films' skin with posters).
-- Life mode areas: Home, Health, Money, Projects (+custom). Waiting on user confirmation of the SQLite/spaces design.
-
-## Themes (2026-11-08)
-- themes.js = engine (data-skin on <html>, vars/light/dark, fonts always declared, stylesheets/scripts lazy, enhance + effects
-  hooks with cleanup, custom accent/font/corners/effects level in storage 'custom'/'effects', theme in storage 'theme', gallery
-  view 'view-themes', ⌘K 'Theme: X' / 'Next theme'). Loaded right after core.js so there's no flash.
-- themes-pack.js: Useful (paper, tufte, nord, solarized, contrast, calm), Fun (ninety-five, xp 'Luna', seven 'Aero',
-  chicago, nes, terminal, vaporwave, sketchbook), Crazy (crt, matrix, geocities, cyberpunk[augmented-ui enhance], doodle-party[css-doodle]).
-- Vendored (licenses alongside): 98.css fonts, system.css Chicago fonts, augmented-ui, css-doodle, ET Book (Tufte), OFL fonts.
-  Skipped: DOS VGA font (no license), doodle.css (no license), Apple Monaco/logo, any Microsoft assets.
-- User links to consider: Orbit (zumerlab, MIT) radial UI -> ideas: radial right-click/quick-add wheel, client 'solar system'
-  view, 24h day-clock of meetings/tasks.
-- Work/Life: user said YES to: separate spaces under one login, Life areas Home/Health/Money/Projects(+custom),
-  no clients/meetings/chasing in Life, calmer by default ('Calm' theme fits). Design SQLite with spaces.
 
 ## Backlog additions (2026-11-08 late) — user: "just add things I say to the backlog, react later"
 - Plugins declare spaces: `spaces: ['work'] | ['life'] | ['work','life']` so they show in one or both environments.
@@ -109,48 +51,6 @@ Next: (superseded, see below)
   eavestroughs spring + fall, detector batteries twice a year, water heater flush yearly…). Keeps a house profile:
   model numbers, filter sizes, paint colours, contractor contacts, warranty dates, so the details are there when needed.
   Belongs to the Life space (Home area); dashboard widget for "this month at home".
-
-## SQLite phase 1 (2026-11-08, shipped)
-- server.js storage layer: node:sqlite DatabaseSync at data/cadence.db (WAL). Tables: meta(schema=1, created, migrated_from_json),
-  state(id=1 json, updated_at) = the synced document (API unchanged), records(kind task|client|meeting|plugin|settings, id,
-  space default 'work', data JSON, updated_at (only bumps when data changes), deleted flag).
-- Startup: imports state.json when DB empty OR state.json.updatedAt > DB (rollback/STORAGE=json safety). JSON mirror still written
-  every save. Daily VACUUM INTO backups/cadence-YYYY-MM-DD.db. SIGTERM checkpoints + closes. STORAGE=json forces JSON.
-- Node 22 image (CMD silences ExperimentalWarning), CI node 22. /api/health: storage, storageNote. /api/db: db{rows…}.
-- NEXT (phase 2): per-record sync API (GET /api/records?since=, PUT /api/records batch with per-record updated_at, conflict = newest
-  per record), client switches from whole-document sync; then drop the JSON mirror; then spaces (space column + UI switch).
-- Toasts (e.g. "Theme: X · Undo") should come out of the top bar / Island instead of floating bottom-centre, and STACK when
-  several arrive close together. Slick, emerging from the UI naturally. (core toast() -> Island stack; keep actions.)
-
-## SQLite phase 2: per-record sync (2026-11-08, shipped)
-- Schema 2: records(kind task|client|meeting|plugin|doc, id, space, data, pos, rev, edited_at, device, deleted), history (every
-  version, 60 days, base for 3-way merge), conflicts (cid, field, kept/other + devices/times, resolved), meta.rev counter.
-  'doc'/'root' = every top-level key except tasks/clients/meetings/pluginData/updatedAt. Schema 1 -> 2 rebuilds records from state.
-- API: GET /api/sync?since=rev -> {cursor, records, docUpdatedAt, conflicts(count)}; POST /api/sync {device, since, changes:[{kind,id,
-  data|deleted, pos(new only), baseRev, at}]} -> applies, 3-way field merge vs history[baseRev]; same field both changed -> newest
-  `at` wins + conflicts row (plugin kind + internal doc fields = silent/resolved). Edit beats delete. Returns records since + newConflicts.
-  GET /api/conflicts, POST /api/conflicts/resolve {cid}. /api/state GET/PUT still work (older tabs): PUT = importDoc (record-level).
-  After each sync push: state table + state.json mirror refreshed (assembled doc), daily backup.
-- Client (core.js): Store.mode 'records' when health.storage==='sqlite' else 'doc' (old path). `Sync` object: localStorage
-  '<LS_KEY>.sync' {init, cursor, recs{key:{rev,h,deleted}}, dirty{key:firstSeenAt}}; diff() vs recs, apply() keeps local
-  unsent edits, adopt() on first run (server copy unless local S.updatedAt newer). Device name: localStorage 'cadence.device' or UA.
-  Clash notice on Island + 'Review sync clashes' (⌘K) modal; useConflictValue applies the other value and saves.
-- Tests: tests/sync.spec.mjs (two browser contexts, offline merges, clash + flip, deletes, old-tab PUT, upgrade paths).
-- NEXT: Work/Life spaces (records.space column exists; client needs a space switch + plugin `spaces` flag), then drop state.json mirror.
-- Calendar in Life: personal calendars per space (calendar.js is Work-only for now: it matches events to clients/meetings).
-
-## Spaces (2026-11-08, shipped)
-- Each space is a full document: Work = localStorage cadence.v1, Life = cadence.life.v1 (demo: cadence.demo[.life].v1).
-  SPACE per device (localStorage cadence.space), html[data-space]. S = current doc, OTHER = other (lazy). switchSpace(to):
-  swaps docs, rebuildPlugins, emit('space'). Life seed: areas Home/Health/Money/Projects (clients with icon), Calm theme,
-  haunted+havoc off. Areas = clients with `icon` (promptArea). Life UI: no waiting/meetings/chase, 'Still on the list',
-  area page Now/Later. ⌘K 'Switch to Life/Work', ⇧L.
-- Plugins: def.spaces ['work'] for client-specific plugins (fireflies, ai-extract, plain-lines, recap, pulse, zoho-tags, prep,
-  chase, templates, brand, links, mural, stocks, intern, zoho-status, calendar). enabled() = not disabled in this space's doc
-  AND spaceOk. Widgets may have spaces too (dashboard 'waiting' is Work-only). api.space().
-- Sync: records carry space; Life plugin/doc ids prefixed 'life:'. Server assemble/state/mirror = Work only; importDoc (old
-  tabs) never touches Life. Whole-document mode (no SQLite) keeps Life on the device.
-- tests/spaces.spec.mjs.
 
 ## Plugin ideas from the user (2026-11-08, backlog — build later)
 Meta / sharing
@@ -231,28 +131,6 @@ report, which feeds the next trip's lists.
    questions feeding the next lists.
 Needs: Life space (done), weather API (key on NAS), maps/GPX (offline tiles = phone app), photo storage on the NAS.
 
-## Ambient light (2026-11-09, shipped) — the client page rework
-- plugins/ambient.js: fixed #amb layer (z-index -1, sized to .main) with 5 blurred lights in the client palette
-  (brand.palette/primary/secondary/themeColor/color, greys dropped, topped up with hue-shifted siblings). html.amb-on makes
-  #view a frosted "screen" (84% bg + blur, rounded, glow shadow), hero gets the brand gradient + top stripe, stats get brand edges.
-  Colours transition (1.6s) when switching clients + a 'surge'; drift animation optional. --accent on #view = brand colour
-  darkened/lightened to >= 4.5:1 vs --bg. Settings: Bold/Subtle/Off, drift, brand accent. Themes opt out via '--ambient: off'
-  (ninety-five, chicago, terminal, crt, matrix, geocities, contrast, nes). Works for Life areas (single colour -> derived palette).
-
-## Good Homeowner (2026-11-09, shipped) — first Life plugin
-- `public/plugins/homeowner.js`, `spaces:['life']`. View `view-house` ("My home"), command "Set up home maintenance",
-  Settings button opens the interview, widget "This month at home".
-- Interview: place (type/own/climate) → heating & cooling → water → outside (houses/towns only) → safety & appliances →
-  review (untick jobs; remembered on re-run). ~50 catalogue items, each `{k, t, g, every, at, if, n}`.
-- Reminders are ordinary repeating tasks in the Life "Home" area (created with 🏠 if missing), tagged `home`, owned via
-  `task.gh = <catalogue key>`. The repeat spawn copies `gh`, so the chain stays owned. Re-running updates in place
-  and removes jobs that no longer apply; never duplicates. Warranties own `gh = warranty:<id>` (30 days before expiry).
-- First due: seasonal jobs at the start of their month; if the month is now or just passed, within the week.
-- Profile in plugin storage `profile`: answers, systems (filter size flows into the filter reminder's notes), paint,
-  pros, warranties, notes. Year strip shows how many jobs land in each month.
-- Core: repeat picker gained Every 3 months / Twice a year / Yearly; labels say "Yearly" etc.
-- Ideas next: mild/hot climate month shifts, "last done" history per job, attach photos/manuals, share with household.
-
 ## Notes from daily use (user, 2026-11-09) — backlog unless marked
 - (SHIPPED) Internal work tracking: "for now I just set a client as Catalyst Connect". Now: Projects (see below).
 - (SHIPPED) Long task titles ran off the card in the open editor (title was a one-line <input>). Now an auto-growing textarea.
@@ -264,180 +142,6 @@ Needs: Life space (done), weather API (key on NAS), maps/GPX (offline tiles = ph
 - Meeting recap / action items after a meeting: needs the nice date picker (same one as the task editor), and should
   clean up the list without AI (strip bullets, "- [ ]", "Action:", names → owner, dates → due, dedupe, capitalise),
   with an optional "fix the wording with AI" button later.
-
-## Projects (2026-11-09, shipped) — internal work in Work
-- Same record as a client with `kind: 'project'`, plus `icon`, `target` (YYYY-MM-DD), `status` active|paused|done,
-  `description`. `isProject(c)` in core. Quick add `@name` works as with clients.
-- Sidebar: own "Projects" section under Clients (+ button), finished ones collapse under "Finished".
-- Page `projectPage()`: progress bar (done/all tasks), target chip (days left / past), stats, Now / Next /
-  Waiting on others / Recently done. No meetings, website, industry.
-- `promptProject()` edit dialog; client dialog has "Make it a project", project dialog has "Make it a client".
-- Client-only plugins skip projects: stocks, pulse. Client actions show on project pages only with `projects: true`.
-
-## Dev, Desk tickets, follow-ups (2026-11-09, shipped)
-- Dev (core, Work only). User: "no specific people, just DEV". Task `owner: 'dev'` (third owner next to me/client),
-  `assignedAt` set when handed over. Quick add `>dev`, `>` or `^dev`. Owner chip: Mine / Client's / Dev; key O cycles.
-  Sidebar "Dev" page: stats (with dev, overdue, oldest, done this week), grouped by client. Client/project pages:
-  "With dev". Dev tasks STAY on my Today (user: "it's still on me"; `onMe(x)` = me|dev for Today/counts). Chip shows age after 2 days, red after 7. (An earlier same-day build had
-  named teammates with owner 'team'; loadDoc migrates those to 'dev'.)
-- Core hook `api.chips.add((task, preview) => html)` adds chips to task rows and the quick-add preview.
-- Desk tickets plugin (`desk.js`, Work): `task.ticket = {no,url,status,pri,opened,closed}`, tag `desk`. Quick add
-  `tkt 4821` / `ticket 4821` / `desk 4821` / pasted desk.zoho.* ticket URL. Board view `view-tickets` (Open,
-  Escalated, On hold, Waiting on customer; drag or select to move; client filter; past-SLA first). SLA days per
-  priority in settings (clock pauses on hold / waiting on customer). Link pattern with {n}. Task ⋯ → Desk ticket… /
-  Open in Desk. Completing the task closes the ticket. Widget "Open tickets", client page button "🎫 Tickets".
-  Next: Desk API sync (OAuth token on the NAS), auto-create from Desk assignment.
-- Follow-ups / in-progress (core): `task.stage` 'doing' | 'waiting', `task.log = [{at,text}]`. Editor "Progress" chip:
-  In progress, "Did my part, follow up…" (logs the step, sets the follow-up date, stage waiting), Log a step.
-  Key F on a selected task. Rows show the stage chip and the last step under the title. Repeats start clean.
-- Backlog (user, 2026-11-09): client news plugin. Related news articles per client on the client page (and a widget).
-  Non-AI first: Google News RSS search by client name/domain through the existing feed proxy (`/api/feed`, ttl), with
-  de-dupe and an exclude-words filter for common names; optional AI pass later to keep only genuinely relevant items
-  and summarise "why it matters for this client".
-- Backlog (user, 2026-11-09, "backburner"): Discord theme, inspired by radekkozak/discordian (Obsidian theme, MIT):
-  Discord's dark greys (#313338 / #2b2d31 / #1e1f22), blurple accent #5865f2, gg sans-like font stack, channel-list sidebar.
-- Backlog (user, 2026-11-09): client page gradients like Granim.js (sarcadass.github.io/granim.js): smooth animated
-  gradient transitions between brand-colour "states". Do it ourselves, no dependency: animate the ambient layer's
-  CSS custom properties (@property-registered colours) or a tiny canvas, respecting reduced motion.
-- Bug report (user, 2026-11-09 14:16): "tasks are clickable but anything I change doesn't show up". Could not
-  reproduce (all routes, two themes, edits + reload all fine). Added ErrLog: uncaught/plugin/widget errors now toast
-  with "Copy details", and ⌘K → "Copy error log". RESOLVED: the user's hard refresh fixed it (an old tab still
-  running the previous build against new data). Idea: detect a new deploy and offer a reload.
-- Backlog (user, 2026-11-09 15:17): NES.css theme should lean into NES.css harder: use its actual components
-  (nes-container with title for groups/cards, nes-btn variants, nes-checkbox for task checks, nes-progress for the
-  project bar, nes-balloon for toasts/Island, pixel icons), 8-bit palette, pixel borders on chips/popovers/modals.
-
-## Sidebar that fits + record-store feed (2026-11-09, shipped)
-- User: "I really hate the scrolling" in the sidebar. Now: Views are a row of icon tiles (label on hover); plugin
-  sidebar widgets live in a dock (row of plugin icons above the footer) and open in a flyout beside the sidebar;
-  📌 Pin keeps one inline (`S.settings.pinnedWidgets`, keys `pid:id`; ⤓ on hover sends it back). `fitSide()` folds
-  the quietest clients/projects (fewest open tasks, never the current one, projects last) into "+N more" (searchable
-  picker) until #side-main no longer overflows. Re-fits on resize and after widgets render.
-- Feeds (records style): Something Else Records feed has no price; server `/api/feed?prices=1` reads each product
-  page on the feed's own host (price after the <h1>, or meta/JSON-LD), 4 at a time, cached 12h, 6s budget then the
-  rest fill on a later refresh (client re-asks after 45s). Per-feed "show": Vinyl only (default for records) / Used
-  vinyl / New vinyl / Everything. `recMeta()` parses format (CD/tape/video/vinyl), new vs used, Goldmine grades
-  "(media/sleeve)" + notes, pressing text, colour words tint the record. Stickers: price tag, grade seal coloured by
-  grade, NEW, handwritten notes slip, pressing with colour dot.
-- Neo-Brutal UI pass (user screenshots, 2026-11-09): chips get real padding (were text-to-border), coloured due
-  chips, roomier task rows, wider gaps between hard-shadow cards, client hero puts actions in a row above the title
-  so the big Lexend name gets the full width; all themes: hero sub-line is a wrapping flex row, avatar + name never split.
-- Backlog (user, 2026-11-09 15:31): "Liquid Glass" UI theme (Apple-style): translucent panels with backdrop blur +
-  saturation, specular edge highlights, refraction-ish lensing on hover (SVG feDisplacementMap filter where
-  supported), floating pill sidebar and toolbar, content showing through. Pairs naturally with the ambient light layer.
-- Backlog (user, 2026-11-09 15:37, strong preference): "I hate the emojis, it makes it look so cheap". Replace EVERY
-  emoji in the UI with an open-source icon set (Lucide, ISC licence, vendored SVGs in public/vendor, no CDN): area and
-  project icons (picker becomes icon + colour), views/nav, plugin UI (🎫 🏡 🔥 📌 ⚙ ✨ etc.), stickers, toasts, Island,
-  Good Homeowner options, empty states. Store icon names (e.g. 'wrench') instead of emoji; migrate existing records.
-  Don't add new emojis in the meantime.
-- Meeting review (2026-11-09, shipped): `tidyText`/`tidyMeeting` run once on entering review (+ "Tidy up" button):
-  strip bullets/checkboxes/"Action item:"/timestamps, "Sarah will…" → assignee Sarah (client) or me if it matches
-  settings.myName, "I'll…" mine, "They will…" client, dates pulled via parseQuick into dueDate, dedupe, capitalise.
-  Due uses CadenceDatePick (fallback native picker). "Fix wording with AI" when the NAS has a key (AI.json).
-- Feed wall: long grade notes wrap; pins re-fit via ResizeObserver + fonts.ready (were overlapping).
-- Backlog (user, 2026-11-09 15:41): feed records whose title includes a date are upcoming releases (pre-orders). Show
-  them as their own card style with a small "Releases: Nov 28" badge on the top-left of the cover, nothing big; maybe
-  sort/group them as "Coming soon".
-- Links on tasks (2026-11-09, shipped): plugin `zoho-link.js` ("Links on tasks", Work + Life). Any URL in quick add
-  (or task ⋯ → "Link a Zoho task, email or page…") becomes `task.ref = {url, app, appName, kind, portal, id, host}`:
-  Zoho Projects task/issue/milestone, CRM module record, Books/Creator, Gmail email (u/N + message id), Outlook email,
-  or a plain web link (favicon). Row chip opens it directly; editor shows a card via new core hook
-  `api.taskCards.add(task => html)`. No iframes: Zoho and Google block framing. Desk URLs stay with desk.js.
-  Next: Gmail subject/sender preview would need Google OAuth (token on the NAS).
-- state.json retired (2026-11-09): SQLite mode no longer mirrors state.json on every write. At startup a state.json
-  newer than the DB is imported (rollback path), then moved to backups/state-retired-<time>.json. A readable
-  backups/state-YYYY-MM-DD.json snapshot is written once a day (dailyJsonBackup) next to the daily .db snapshot.
-  STORAGE=json still works as an emergency fallback (copy the latest snapshot to data/state.json first).
-- Links on tasks: open editor shows a "Paste a Zoho Projects task, email or any link" box when the task has none.
-- Backlog (user, 2026-11-09 15:52): sidebar refinement. (1) Clients list shows only the last 3–4 accessed (recents),
-  rest via "+N more" / ⌘K. (2) Main nav (Today, Upcoming, Waiting on clients, Dev, Inbox, Logbook) as compact tiles
-  like Views, with a tiny label underneath (and the count as a badge).
-- Gradient flow (2026-11-09, shipped): ambient.js option "Header gradient flows through the brand colours" (default on).
-  @property-registered --gf1..3/--gfa animated by @keyframes granim through palette rotations (22s), on the client
-  hero and its top bar. Reduced motion: static.
-- Backlog (user, 2026-11-09 15:55): AI client research. From the client's website (and public sources) let AI pull
-  more about the client: what they do, size, products, recent news, notable people, brand imagery and colours,
-  "interesting things to mention in the next meeting". Store on the client record; show on the client page.
-- Themes (2026-11-09, shipped): new file `plugins/themes-more.js` with Discord (server rail + channel list, # names,
-  blurple, message-box quick add) and Liquid Glass (light/dark, drifting colour mesh under frosted panels, floating
-  glass sidebar, specular edges, capsule buttons; falls back to opaque where backdrop-filter is missing). NES rewritten
-  with NES.css component looks: titled pixel containers for groups, balloon toasts/Island, pixel checkbox + check,
-  progress bar, coloured buttons/badges, pixel cursor, blinking ▶.
-- Support tickets (desk.js 1.1, 2026-11-09): user clarified tickets are mostly ones he OPENS with Zoho (partner support,
-  on a client's behalf). `ticket.via` = 'zoho' | 'desk' | 'other' (+ vendor). Quick add: `zs 12345` / "zoho ticket" /
-  "partner ticket" = Zoho; `desk 4821` = our Desk; `tkt`/`ticket` = settings default (Zoho). Tags zoho-support / desk /
-  support. Zoho/other tickets start as stage 'waiting' with log "Opened Zoho support ticket #N" and a check-back date
-  (settings: followDays, default 2). Board filter All / Zoho support / Our Desk / Other; cards show a via badge.
-  Pair with Links on tasks (paste the support email's Gmail link).
-- Christmas mode (2026-11-09, shipped): plugins/christmas.js (Work + Life). String lights (classic / warm / candy;
-  twinkle / chase / steady; sway at Blizzard+), canvas snow with wind, gusts, mouse plough, flakes settling on SURFACES
-  (cards, buttons, headings, tasks, quick add…) as per-element heightmaps with angle of repose, sliding off the ends;
-  the focused input collects 2× and keystrokes shake it off; task completion bursts at Blizzard+. Chaos levels Calm /
-  Festive / Blizzard / Total chaos. Shovel (settings + ⌘K). Offered once each December via the Island. Reduced motion:
-  no snow, still lights. Ids: #xm-string (lights), #xm-snow (canvas).
-- Nostalgia themes (2026-11-09, shipped, themes-more.js): Discord now builds a real server rail via enhance (Home,
-  client/project "servers" with overdue badges and the white pill, add client/project, explore plugins, Work/Life
-  switch), channel list with #channels, server-name header, user panel. MSN Messenger 7.5 homage: window chrome, your
-  display picture + status menu + personal message (shows ♫ now playing from the feed; "brb" sets Be Right Back),
-  contacts with status dots via :has(), Ctrl+G or triple-click your picture = Nudge (shake + buzz), "<client> has just
-  signed in." pop-ups, chime on task complete (not when Busy). Tones synthesized with WebAudio; state in localStorage
-  cadence.msn. LimeWire homage: search bar, striped results table, status bar (Turbo-Charged Connection, sharing N
-  tasks) and a fake .mp3 download when you complete a task. Core now dispatches DOM event `cadence:task-complete`.
-- Snow 2.0 (2026-11-09, shipped): depth layers (far specks, settling mid flakes, near bokeh), soft + six-armed crystal
-  sprites, fine-tune sliders (amount/size/speed/wind/gusts/drift depth) live-previewed, melt, reactions: click
-  shockwave + knock the clicked element's pile off as clumps that burst into powder, neighbours jolted, wheel shakes
-  piles, fast mouse carves. Drifts follow the element's top corner radius (base curve + per-bucket cap by slope).
-  Light reflections: G.bulbs + brightness model mirroring the CSS timing; flakes near bulbs glow in their colour,
-  drift tops glint, #xm-glow spills colour on the UI (screen blend on dark themes). ⌘K "Let it snow / stop the snow",
-  "Lights on / off" work independently any day (G.flip).
-- Sidebar: sections emptied by folding show "N in more"; the sidebar re-fits on theme change and when fonts load.
-  LimeWire/MSN: #view full width (flex column bug), Search/Send buttons positioned inside the box.
-- Backlog (user, 2026-11-09 16:23): meeting screen becomes the client's screen when a client is chosen: their logo,
-  brand colours (ambient), description, open items, last meeting notes.
-- MSN Messenger XP pass (2026-11-09, shipped): CSS Bliss-style desktop (sky, clouds, green hills), Luna window frames
-  for the contact list and main window with glossy title bars and XP caption buttons, working menu bar (File, Contacts,
-  Actions, Tools, Help → settings/themes/add client/project/meeting/nudge/waiting/plugins/shortcuts/palette), collapsible
-  "I want to…" panel (Add a Contact, Send an Instant Message → quick add, Start a Meeting, Send a Nudge; state in
-  localStorage cadence.msn.iw).
-- Backlog (user, 2026-11-09 16:40): typing effects, chosen in settings: fire licking up from what you type, ice/frost
-  crystals, typewriter (clack sound + carriage-return ding on Enter, slight letter jitter), "MS Word 97" (Clippy-ish
-  original helper: "It looks like you're writing a task…" — original character, not Clippy), confetti on Enter,
-  power-mode style screen shake + sparks. Per-effect intensity; off for reduced motion.
-- Snow fixes (2026-11-09): drifts persist per page + element key (STORE, localStorage cadence.snow, sidebar shared
-  '*'), "Shovel this page" / "Shovel everything" (settings + ⌘K); stopping snow clears all drifts. Light themes: no
-  dark rims (ICE sprite, CRYS_L sprites with baked blue edge; the per-crystal canvas `filter` was ~700ms/frame
-  without GPU, removed). Lights: thin translucent wire, silver caps, the string hooks into the Island pill's sides and
-  the pill wears a ring of mini bulbs (#xm-ring, ResizeObserver on the pill). Layers now under dialogs/menus/toasts
-  (glow 26, snow 27, string 29; ring 81 above the Island). Flakes start spread over the screen. G.reset(opts) for tests.
-- Christmas engine lifecycle (2026-11-09): switching Work/Life rebuilds plugins, which used to start a second snow
-  engine each time (slowdown). Now setup() calls G.teardown() first (raf, canvas, save interval, ring observer) and
-  window listeners are bound once and dispatch to G.h (the current engine). Settings are global (localStorage
-  cadence.xmas, falls back to the old per-space storage) so switching spaces never "stops" the snow.
-- Snow lands everywhere (2026-11-09): SURFACES now include checkboxes, chips, editor chips, inputs, nav text/icons/
-  counts, view tiles, stat numbers, list headings and the words of titles/headings (TEXTY: first-line text box via
-  Range, snow sits on the letters). A GROUND pile along the bottom of the window catches what gets through. Far layer
-  thinned (z<.22), each landing flake deposits ~2× (scaled by flake size). Up to 280 surfaces, ~57 fps.
-- Snow on letters (2026-11-09): TEXTY surfaces get a glyph profile (glyphs(): render the first line off-screen in the
-  element's computed font, scan per 4px bucket for the topmost ink; gaps = p.hole, flakes fall through). All piles
-  are lumpy (p.n per-bucket holding factor), deposits shift downwind, repose allows 3.6px steps, edges of letters/
-  words shed snow, drifts drawn as smooth quadratic curves per solid run.
-- Sidebar v3 (2026-11-09, shipped): main nav is a tile grid (.ntiles/.ntile: icon, label under, count badge; 3×2 in
-  Work, 4 in Life). Work shows "Recent": last 4 opened clients/projects (localStorage cadence.recent.<space>, touched
-  on the client route) + up to 3 with overdue work, topped up by busiest; "All clients & projects (N)" opens a
-  searchable picker (projects/paused labelled, counts, red when overdue). Life keeps its Areas list. Discord theme
-  renders tiles as #channels.
-- No emoji (2026-11-09, shipped): core `Deemoji` MutationObserver swaps every emoji (and ✦◉▦◇◖◐☰) in rendered text
-  for a Lucide icon (EMOJI_ICONS map, ~125 entries) — core, plugins, Island, toasts, stored area icons; skips
-  inputs/textarea/contenteditable/.keep-emoji. `icon(name)` / `api.ui.icon(name)` for direct use. Icons bundled in
-  public/vendor/lucide/icons.js (subset, ISC, LICENSE alongside); add more with
-  `node scripts/build-icons.mjs <lucide-static dir> name…`. New code should use icon names, not emoji.
-- Client intel (2026-11-09, shipped): plugins/client-intel.js (Work). Client page gets two cards below the task
-  columns. News: Google News RSS via /api/feed (ttl 60), kept only if the headline mentions the client name or domain
-  root (unless a custom search is set), deduped, per-client exclude words / custom query / off (plugin storage cfg),
-  last items cached for the "Client news" dashboard widget. Research: server /api/sitetext?d= (homepage + about page as
-  text, cached 7 days in data/companies/<d>.text.json) + headlines + open tasks → api.ai.json → client.research
-  {what, glance{size,hq,founded,model}, products, recent, people, talking, watch, sources}; told not to invent.
-  Also a client action "Research with AI". Dashboard widgets may now use Lucide icon names.
 
 ## Backlog: team / multiplayer (user, 2026-11-09 18:41)
 Needs real multi-user first. User (18:42): "users should not be NAS dependent" -> accounts/identity must not live only
@@ -452,49 +156,6 @@ data, or peer-to-peer on the same LAN). Personal data and secrets stay on each p
 - Chat, but in a fun way (reactions, stickers, Island pings).
 - Virtual chat room with avatars: walk your avatar into a client's "room" (Gather-style map) and that room is the
   client's chat channel.
-
-## Shipped 2026-11-09 evening
-- christmas.js: random/clumpy buildup that rolls downhill and creeps into a continuous cover, per-flake fall speed and
-  flutter, softer blended drifts; covered pages (meeting, dialogs) hide the page's snow; pill bulb ring follows the pill
-  frame by frame (ResizeObserver + MutationObserver kick a 950ms rAF follow).
-- core.js meetingBand: meeting screen in the client's brand (banner, facts, talking points).
-- rss.js: releaseOf(title) -> "Releases <date>" badge (.rs-rel) on covers/pins/rows; date-only parentheticals dropped from pressing notes.
-- typing-fx.js: modes off/fire/ice/typewriter/confetti/power/helper (localStorage cadence.typing), caret via mirror div,
-  one canvas only while particles live; Nib = original sticky-note helper with quick-add tips (#qa only).
-- sheep.js: original pixel sheep desktop pet (localStorage cadence.sheep {count}), walks on PLAT tops, physics, drag/throw.
-- orbit.js: view-orbit (client solar system + 24h day clock), dashboard widget 'dayclock', radial menu on right-click of
-  blank space (Shift = native menu; setting in cadence.orbit). Lucide 'orbit' + 'clock-4' added (🪐 / 🕓 map to them).
-- Backlog (user, 19:03): the "public ledger" posts to Zoho Cliq (status / message), not Slack. Cliq OAuth token on the NAS.
-- Backlog (user, 19:04, Life): recipe manager with a URL parser that grabs recipes from blogs (schema.org Recipe
-  JSON-LD via the NAS fetch, fallback to page heuristics, skip the life story). Ties into the meal plan + shopping list.
-- Shipped (evening batch): kanban.js, calview.js, notify.js (+ server Web Push, sw.js), weather.js (+ /api/weather),
-  rss skins podcast/news/films, fun-desk.js (aquarium, invoice radar, desk plant, weekly rewind), fun-games.js
-  (roulette, rival, quests, bucket), mindset.js (forecaster, done-list, future-you, regret), accountability.js
-  (grandma, stakes, Cliq ledger + /api/cliq/*). Core: api.notify, api.footer, api.plugins.list, api.ui.taskRow/openTask/
-  selected/refreshSide, views {wide:true}.
-- Shipped (Life batch): kitchen.js (+ /api/recipe JSON-LD parser), inbox-scan.js, life-kit.js (shared form/area/
-  ownTask helpers, window.LifeKit), kids.js, home-life.js (partner, household, yourself), family-hub.js (kiosk #kiosk,
-  vacation, traditions), camping.js, homeowner climate shift + history + attachments.
-- Not done / needs more: Location nudges need the phone app (tasks have `place` now). Inbox scanner reads pasted/.eml
-  mail only (IMAP later, creds on NAS). Shame escrow is honour system + links. Kitchen tablet has no household login
-  yet (open #kiosk on a signed-in tablet). Full suite is ~4 min serial: run with `timeout 590`.
-- Backlog (user, 2026-11-12 22:11): themes: Zelda/Link, Xbox 360 blades, Claude, Reddit, Mario, Pocket Casts.
-  Harper (Automattic/harper, local grammar checker, Rust/WASM) for writing in Cadence. A full podcast player/manager
-  inspired by Pocket Casts (open source iOS/Android): subscriptions, up next queue, speed/trim silence, chapters,
-  played state, discover; keep it original and Cadence-styled.
-- Queued: RSS "new entries per day" chart view; fire typing melts snow into water that streams down (SPH-style, see
-  asadm/SPHjs); mobile pass; server.js restructure into routes/services with comments; meeting code out of core.js;
-  single plugin bundle.
-
-## Shipped 2026-11-12 late: server restructure
-- server.js is now a thin entry point. Layout: server/config.js, server/app.js (pipeline: CA download → cross-site check →
-  auth routes → sign-in gate → API routes → static files), server/routes/*.js (controllers: auth, system, sync, lookup,
-  feeds, push, integrations, files, calendar), server/services/*.js, server/lib/*.js (http, auth, storage, net, tls, build).
-- Route contract: `async (req, res, { url, p, leaf })` answers, or returns `NEXT` (lib/http) to pass the request on.
-- Storage state is read through hasDb() / storageInfo() / allDocs() / resolveConflicts(); routes never touch `db` directly.
-- Dockerfile copies server/; deploy.sh rebuilds on server/* changes.
-- Sidebar count badges: the neutral badge was invisible (--hover on --side); now a solid grey pill, readable in both themes.
-- Known flake: spaces.spec "Life syncs to another device…" fails ~1 in 3 in isolation on the OLD server too (CI retries).
 
 ## Backlog: Today redesign (user, 2026-11-12 22:33): "THIS LOOKS SO TYPICAL AI DESIGN — COULD USE A REDESIGN"
 - The Today header: big greeting, an energy pill row, four equal rounded stat cards (ring / overdue / chase / upcoming),
@@ -542,13 +203,6 @@ data, or peer-to-peer on the same LAN). Personal data and secrets stay on each p
 - Fantasy work world: an RPG mini-game where you hold meetings and chat with co-workers; chat rooms with employees
   (ties into the team/multiplayer backlog: avatars walking to client "rooms").
 
-## Shipped 2026-11-12 late: Havoc gets an Elements mode
-- Havoc's toolbar has a Physics / Elements switch. Elements = vendor/elements-engine.js, a port of the user's falling-sand
-  "Ember & Frost" page: reads the visible screen (panels by background/border, words by Range rects in their real font,
-  img/canvas, SVG icons with computed paint, input values) into 2px cells without touching the DOM; damaged pieces break
-  loose and fall as one; fire/snow/water/lava/ice/sand/oil/wood/steam/stone/eraser, Ignite (I), Snowfall (S), Space
-  pause, [ ] brush, Esc or Shift+H exits. The last-used mode is remembered in synced pref cadence.havoc.
-
 ## Backlog (user, 2026-11-12 23:05): "I have a bunch of music on my NAS — music server?"
 - Option: run a self-hosted music server on the NAS (e.g. Navidrome: Docker, Subsonic API, LAN-only so it fits the
   no-Tailscale / no-internet-exposure rules), then a Cadence plugin that talks to it: focus playlists for focus mode,
@@ -565,13 +219,6 @@ data, or peer-to-peer on the same LAN). Personal data and secrets stay on each p
 
 ## Backlog (user, 23:15): weather in the Today greeting — maybe, undecided. Taken out of the mockup for now.
 
-## Shipped 2026-11-12 late: Today direction A, and the user's engine v2 in Havoc Elements
-- Today: greeting + date, add line, schedule strip (api.today.schedule for plugins; calendar meetings use it), Earlier
-  rows with Tomorrow / Next week / Clear (+ undo), Done today folded at the bottom, energy as a small switch.
-- Elements engine v2 (from the user's page (3).html): sharp mode (untouched cells show a full-resolution copy of the
-  screen, touched cells become pixels; P toggles), Christmas lights (WIRE/BULB, Twinkle/Chase/Steady, pixel halos,
-  warm bulbs melt snow, icicles grow from the string while it snows, snow on the wire stays shallow; L cycles).
-
 ## Next (user, 23:24): "apply it across the board — snow, lights, typing where it needs it"
 - One engine core (vendor/elements-core.js: grid, materials, step, render, sharp mask, lights) used by Havoc Elements,
   christmas.js (snow + lights + icicles replace the current canvas snow and DOM lights) and typing-fx.js (fire at the
@@ -585,125 +232,6 @@ data, or peer-to-peer on the same LAN). Personal data and secrets stay on each p
 - Refocus (user, 23:29): tab shown or window focused → refocus(): pulls data + prefs, plugins get 'refocus' (calendar
   reloads), and checkBuild(true) reloads at once on a new version unless something is half-typed or a meeting is open
   (then the banner). Throttled to once per 4s.
-
-## Shipped 2026-11-13 00:xx: Elements engine v3 (user's page (4).html)
-- elements-engine.js now carries the user's v3 simulation verbatim where possible (sim, lights, render, paint), wrapped
-  in Cadence's screen reader, toolbar and lifecycle: temperature grid (heat spreads/rises, heat view V), wind with gusts
-  (slider), lightning (fulgurites in sand), fireworks, gunpowder explosions with flash + shake, holly, acid + fumes,
-  storm (T), snow that settles everywhere or only on the lights, light that casts shadows (ambient stays 1 on a light
-  page so opening Elements doesn't dim the screen). To take a future version: re-run the splice in the commit message.
-
-## Shipped 2026-11-13 ~01:00: one matter layer for everything (user: "typing and christmas mode lets do it")
-- vendor/elements-engine.js is a factory: ElementsWorld.create({ kind: 'havoc' | 'ambient', cell, floor, z, hidden, ledges }).
-  Havoc Elements = kind 'havoc' (reads the screen, toolbar). Ambient = see-through layer, no mouse, cards/buttons/headings
-  become invisible ledges (SURF) refreshed every 400ms; 3px cells, 30 fps while things fall/burn, slow tick when settled;
-  soft glow on light pages; lights kept in a slim top strip; hidden while a dialog/meeting/Havoc Elements is open.
-- core.js CadenceFX: world() (shared ambient layer, null with reduced motion), want(key, {snow, everywhere, rain, storm,
-  lights, palette, wind}) merges what each plugin wants; re-applied after the layer rebuilds on resize ('elements:ready').
-- Christmas: new Look setting, Elements (default) or Classic. Elements = engine snow (settles on cards when "builds up"
-  is on, else only on the lights), engine lights with the chosen pattern/palette, icicles. The Island ring stays.
-- Typing: fire/ice put real fire+embers / snow into the layer (setting "Real fire and snow", default on).
-- Havoc Physics: havoc-engine.js dispatches 'havoc:fx' (blast, melt, hole, rain, stop); havoc.js plays them in the layer.
-- New plugin sand-jar.js: finished tasks stream sand into a glass jar (bottom right/left), fills over the day, empties at
-  midnight, refills after reload; settings: on, corner, empty.
-- Weather: "Show the weather on the page" (default on): real snow settles, rain 1–5 by intensity, wind from wind_speed_10m.
-  Thunderstorms = heavy rain, no lightning (calm principle).
-
-## Shipped 2026-11-13 ~01:30: engine v5 (user's page (5).html)
-- vendor/elements-core.js = the user's ENGINE, nearly verbatim, run as a Web Worker (on the page if a worker can't
-  start). Cadence additions marked "Cadence": SURF ledges, opts lights/palette/compact/rain/floor, inputs spawn/heat/
-  explode/surf/jar/clear/clearAt, 'count' message, frame.quiet. To take a new version: replace the ENGINE body and
-  re-apply those (small) additions.
-- vendor/elements-engine.js = the page side: the user's compositor (WebGL2; 2D on software GL — chosen on a spare
-  canvas), air snowflakes that land as grid snow, sound (off by default), plus Cadence's screen reader (now in the
-  engine's layout format: layer/boxOf/boxCol, so the real page shows through untouched cells: perfectly sharp), Havoc
-  toolbar, and the ambient API (spawn, heatAt, set, strike, explode, firework, jar, clear, clearAt, count→Promise,
-  counts→Promise). Ambient idles at 4 fps when the engine reports quiet.
-- Tests read material counts through counts() (the grid lives in the worker).
-
-## Shipped 2026-11-13 ~02:00: Music Radar as a Life plugin (user upload music-radar.zip)
-- Scanner: the user's app, nearly verbatim, in server/services/radar/ (ESM: lib/*.mjs, radar.mjs, digest.mjs,
-  backfill.mjs, test/simulate.mjs). Data in DATA_DIR/radar. Links in RSS/digests use the request's base URL.
-- server/services/radar.js (CJS wrapper): settings in data/radar/cadence.json ({on, lastScan, lastDigest, lastError}),
-  OFF by default; when on, a 10-min tick runs a scan every 6h and a digest every 7d. One job at a time.
-- server/routes/radar.js, all under /api/radar: status, settings, run {scan|digest|backfill|stop}, data, feedback
-  (POST, or GET from RSS links), subs {add|remove}, feed.xml, digests/<file>, spotify/login|callback, spotify.
-- public/plugins/music-radar.js: Life view #view-radar. Plain SVG charts (no CDN): who's climbing, risers, genre and
-  buzzword change bars, albums, sub lead-time, "sounds like" force map, picks with Lucide thumbs, subreddits +
-  suggestions + taste, over-the-years charts and year tables, track record, digests, a Setup section listing which
-  optional keys are on the NAS (ANTHROPIC_API_KEY, LASTFM_API_KEY, REDDIT_CLIENT_ID/_SECRET, NTFY_TOPIC,
-  SPOTIFY_CLIENT_ID/_SECRET). Keys stay in the NAS .env. Only works in NAS mode.
-- Test: tests/radar.spec.mjs (simulated data via simulate.mjs into a temp DATA_DIR).
-- Lucide icons added: loader, thumbs-down, circle-check, circle, history.
-- Not done yet: ntfy alerts are wired in the user's code but untested here; no Navidrome link-up (backlog: music server).
-
-## Shipped 2026-11-13 ~06:30: design pass, sharpening not redefining (user: "sure", after "whats next")
-- Corners: one base `--r` (10px) and multiples `--r-s/-m/-l/-xl` (6/8/12/16). Every radius in core + plugins uses them
-  (themes*.js and havoc keep their own). The Themes corner slider now just sets `--r`; the old !important class list
-  is gone.
-- Type: no half-pixel sizes (9.5→10, 10.5→11, 11.5→12, 12.5/13.5→13, 14.5→15, 17→18, 19/21→20, 26→28); weights are
-  400/500/600/700 only. Script: the one-off normaliser lived in /tmp, regex over core.css, core.js, plugins (not themes).
-- Calm: "Overdue" is now "From earlier" everywhere (client/project/dev stats, dashboard, Pulse, Board column, Island,
-  prep, review "Carried over"); no red for unfinished work (closing block in core.css); top priority is warm orange,
-  not red. Haunted backlog is OFF by default (new data and demo) — existing setups keep their choice.
-- Empty states: `api.ui.empty(title, sub, icon, sm)` and LifeKit.empty both render the core `.empty` look.
-- View subtitles: one short phrase, no instructions, no trailing period.
-- Left alone, worth asking the user: Bucket list still sorts by "good years left" with life-in-weeks (its design);
-  Desk plant still droops with old tasks (text softened); Haunted still exists, opt-in.
-
-## Shipped 2026-11-13 ~10:30: Music Radar data lives in cadence.db (user: "i really think it should be going into the db")
-- Symptom the user saw: archive ("Over the years") filled in, but scans gave 0 picks / 0 artists with no error. Cause:
-  the scanner swallowed per-subreddit Reddit failures (console.log only), so a refused scan looked successful.
-- Now: everything the scanner prints during a job is captured into the status log and stored in radar_jobs; a scan
-  where most Reddit requests fail sets lastError (with the HTTP code / network cause, and the REDDIT_CLIENT_ID/_SECRET
-  hint when Reddit answers 403/429). The Radar view shows it as a "The last run had a problem" note with a link to
-  the job log in Database.
-- server/services/radar/lib/store.mjs: SQLite (node:sqlite) on cadence.db, tables radar_kv, radar_artists, radar_picks,
-  radar_edges, radar_digests, radar_history, radar_snapshots, radar_genres, radar_terms, radar_jobs. Old files are
-  imported once on first start and renamed *.imported. Falls back to the files if node:sqlite is missing.
-  RADAR_DB overrides the DB path; simulate.mjs uses its own simulate.db unless RADAR_DB is set (never the real db).
-- Digests: HTML is in radar_digests; /api/radar/digests/<file> serves the file if present, else from the table.
-- Database view: "Music Radar tables" group (newest 500 rows per table, filter, inspector), page is now wide.
-  API: GET /api/radar/raw (table list), /api/radar/raw?table=radar_x&offset&limit.
-- Still to find out on the NAS: what the actual Reddit error is. Likely 403 without keys → add Reddit app keys.
-- Data quality without ANTHROPIC_API_KEY is rough (archive shows "Daily Discussion", "official video" as
-  artists/genres). The AI key fixes most of that; a stop-list for the plain extractor is a possible follow-up.
-
-## Fixed 2026-11-13 ~10:45: Havoc Elements, pictures vanished when burned (user screenshot: Feeds wall)
-- Cause: pictures from other sites (feed images) are cross-origin; getImageData threw, the engine skipped them, so the
-  picture had no material and turned into empty background once its card was touched.
-- Fix (elements-engine.js rasterize): a tainted <img> is re-fetched through /api/img (same origin) and sampled; if
-  that fails, it gets a plain textured fill so it still burns. api.stats now has pictures/foreign, and is reset at
-  start (it used to keep the previous run's stats until the new read finished).
-- Test: platform.spec "a picture from another site is still read in".
-- Also: tests now silence the Friday review nudge properly (the old 'x' value never matched; failed on Friday
-  afternoons UTC). The nudge text is now just "Weekly review".
-
-## Shipped 2026-11-13 ~11:00: Music Radar other sources (user: "lets add this to the music radar, so we can look at it by source, combine them look at trends etc")
-- server/services/radar/lib/sources.mjs: ListenBrainz fresh releases (sitewide + per-user with a username), Apple Music
-  most-played albums/songs (country, default CA), Audius trending (week, a few genres), Last.fm top artists + tag top
-  artists (needs LASTFM_API_KEY), Bandcamp discover "new" by tag (discover_web, falls back to hub/2/dig_deeper), Hype
-  Machine popular/latest JSON, blog RSS (Pitchfork, Stereogum, The Fader, Gorilla vs. Bear, Bandcamp Daily; editable)
-  read for artist names (Claude if ANTHROPIC_API_KEY, else headline rules: fromHeadline()).
-  Tags: your liked genres first, then a starter set; editable.
-- Runs after every Reddit scan, or "Check sources" (POST /api/radar/run {what:'sources', only?}). Settings: POST
-  /api/radar/sources (kept in radar_kv.sourcesCfg).
-- Tables: radar_signals (unique source+uid; first/last seen, rank, best rank), radar_chart_points (rank per check),
-  radar_source_runs (per-source result/error).
-- lib/sources-data.mjs: per-source lists (charts by rank with movement), combined per artist over 30 days (weights:
-  Reddit/blogs/Hype 3, Audius 2, Bandcamp/ListenBrainz 1.5, Apple/Last.fm 1; rank bonus; 10-day half-life; ×(1+0.5 per
-  extra source)), new finds per day per source, genres across sources, chart movers, crossover (Reddit picks later on
-  the Apple chart), "also on" chips on picks.
-- Not verified against the live APIs from here (no network in the build sandbox): formats are from the docs/known
-  shapes, parsed defensively; any mismatch shows as that source's error in its tab. Audius/Hype Machine/Bandcamp are
-  the likeliest to need a tweak.
-- Tests: tests/radar-sources.spec.mjs (fixtures in server/services/radar/test/source-fixtures.mjs), radar.spec.
-- Ideas not done: sources in the weekly digest; boosting Reddit pick scores by other sources.
-
-## Fixed 2026-11-13: weather snow blew right
-- weather.js used wind speed only (always positive = always right) at kmh/18 (very strong). Now uses
-  wind_direction_10m (added to the Open-Meteo query) for the sideways component, scaled kmh/50, capped ±0.8.
-  CadenceFX.wanted() exposes the current wants.
 
 ## Shipped 2026-11-13 ~11:30: six more themes (backlog 2026-11-12 22:11)
 - public/plugins/themes-extra.js (after themes-more.js): Claude (ivory/clay, Source Serif 4 headings, roomy composer,
@@ -751,31 +279,6 @@ data, or peer-to-peer on the same LAN). Personal data and secrets stay on each p
 - Test: platform "on a phone" (no sideways scroll on 13 views, stats rows, menu, meeting).
 - Not done: no command palette button on phones (⌘K only); swipe gestures; a bottom tab bar.
 
-## Shipped 2026-11-13 ~13:40: Harper in single-line boxes + autocorrect (user: "i dont see it? … auto correct like if i did ther it would do the")
-- The user's screenshot was the meeting box (#m-in, an <input>): Harper only did textareas then; those squiggles were
-  the browser's. Now also checks LINES = '#qa,#m-in,.qa input,.m-add input,input[data-grammar]' and task titles.
-  Single-line mirror: white-space:pre, line-height = inner height, scrollLeft synced. Quick-add syntax tokens
-  (@client ^owner >dev !1 #tag) are never flagged.
-- Autocorrect (setting "auto", default on): on space/punctuation after a word: a built-in SLIPS list (teh/ther→the,
-  dont→don't, tomorow→tomorrow, i→I, …) or, once Harper has loaded, its first spelling suggestion if it's 1 edit away
-  (≤5 letters) or 2 (longer), lowercase words of 4+ letters only. The fixed word glows blue (.hp-fixed). Backspace
-  straight after restores your word and keeps it for the session (G.keep). Words in your dictionary are never touched.
-- Harper starts loading as soon as a box is focused.
-- Tests: more.spec "grammar…" and "autocorrect…".
-
-## Fixed 2026-11-13 ~14:20: Christmas Elements look had two light strings and two kinds of snow (user report + screenshot)
-- Two strings: christmas.js turned the classic DOM string off only in apply(); resize/theme/Island-pill redraws called
-  lights(G.o) with the full settings and brought it back. lights() and snow() now force their classic part off
-  themselves when look !== 'classic' (classicOff).
-- Snow "less aware of the page than Havoc": the ambient layer only had ledges on a few selectors' top edges, and most
-  falling snow was v5 air flakes (crystals, blurry front bokeh). Now ledges() reads the page like ground: the top of
-  every line of text (at ~22% of the line box) and of everything solid-looking (bg/border/bg-image, IMG/SVG/INPUT/
-  BUTTON/…), up to 1500 elements and 2500 text rects; re-read when the page changes (MutationObserver + scroll +
-  resize, at most every 250 ms, and every 4 s anyway). No long tasks measured. Ambient flakes are plain (no crystals,
-  no near bokeh); Havoc keeps all three.
-- Also fixed: Harper's position loop threw when its box left the page mid-frame (place() detaches; check cur after).
-- Test: projects "Elements look: one set of lights after resizes and theme changes, snow settles on text".
-
 ## Backlog (user, 2026-11-13 12:05)
 - Themes, new categories. "Movie & TV": Jurassic Park, Star Wars, The Shining, Kill Bill, Titan A.E., The Simpsons,
   Family Guy, South Park, Over the Garden Wall. "Studio Ghibli": Spirited Away, My Neighbor Totoro. As with the other
@@ -784,20 +287,6 @@ data, or peer-to-peer on the same LAN). Personal data and secrets stay on each p
   greens, rain, soft painted sky; Jurassic = jungle greens, amber, park-signage type).
 - Themes screen redesign: it's very long, needs better navigation (category tabs/side index, search, maybe a compact
   grid + live preview). Bug: picking a theme scrolls the page back to the top.
-
-## Shipped 2026-11-13 ~15:00: Themes screen redesign + snow fixes
-- themes.js gallery (wide view): left index (search, Any/Light/Dark, Current, Recently used, each category with count,
-  Surprise me), sticky on desktop, chips row on phones; a Current-theme card (big preview, Light/Dark, "Adjust" opens
-  accent/font/corners/effects); categories as sections with anchors (IntersectionObserver highlights where you are);
-  compact cards. Categories are read from the registered themes (CATS order first), so new ones (Movie & TV, Ghibli)
-  appear on their own. Search and tone filter hide cards instead of rebuilding.
-- The "scrolls to top" bug: themes like Pocket Casts/LimeWire make #view the scroller, so switching moved the scroll
-  box. Picking no longer rebuilds the gallery, and keepPlace() walks every scrolling ancestor until the clicked card is
-  back where it was. `.thg [hidden]{display:none!important}` (card/panel display rules beat [hidden]).
-- Snow (user, two reports): text ledges now sit at each line's x-height (middle − 0.2 × font size) and all ledges round
-  to the nearest cell (floor left a 2–3 px gap: "floating"). Switching snow off on the calm layer now drops the
-  flakes in the air and clears settled SNOW and ICE at once (engine set({snow:false})).
-- Tests: smoke "themes screen…", projects "switching snow off clears the air and the drifts".
 
 ## Backlog (user, 2026-11-13 12:16)
 - A 3D theme (depth: tilted cards, parallax, layered panels; maybe a WebGL backdrop).
@@ -810,22 +299,6 @@ data, or peer-to-peer on the same LAN). Personal data and secrets stay on each p
   palettes, textures, type and mood (e.g. Steam = the client's dark slate blues; Borderlands = cel-shaded ink
   outlines; Half-Life = orange-on-black HEV-style HUD; CS:GO = tactical HUD greys/orange; GTA = sunset gradients and
   pastel 80s), no logos, characters or game art.
-
-## Shipped 2026-11-13 ~16:30: 13 themes + Harper preload
-- themes-screen.js: Movie & TV (Jurassic Park w/ occasional ripple, Star Wars starfield + hyperspace on complete,
-  The Shining hexagon carpet + typewriter, Kill Bill slash on complete, Titan A.E. crystals, The Simpsons, Family Guy,
-  South Park paper + snow, Over the Garden Wall leaves) and Studio Ghibli (Spirited Away lanterns, My Neighbor Totoro
-  passing showers). Shared particles() helper. Homage rules as before; fonts vendored (CREDITS.md).
-- themes-fx.js: 3D ("depth": grid floor, layered cards, pointer tilt as an effect, still while typing), Halloween
-  (Seasonal: original SVG jack-o'-lanterns with glowing carved faces + real FIRE/EMBER from CadenceFX at their tops,
-  fog, bats, moon), Mirror (webcam, Crazy: opt-in card → getUserMedia; 64×48 posterised big-pixel backdrop; your
-  outline (per column, first row unlike the wall above) becomes extra ledges so snow lands on you; frame-to-frame
-  motion clears snow (wave); "Camera on" badge with Off; stops on theme change, Off, or hidden tab; never stored/sent).
-- Engine: world.ledgesExtra([[x0,x1,y],…]) in px — extra ground from plugins; DOM ledges are cached and re-sent
-  with the extras (sendLedges) without re-reading the page.
-- themes.js CATS order: Useful, Editor, daisyUI, Fun, Movie & TV, Studio Ghibli, Games, Seasonal, Crazy.
-- Harper: engine starts loading in the background on idle after the app opens (user: slowdown on first typo).
-- Tests: smoke "3D, Halloween and Movie & TV…", tests/mirror.spec.mjs (fake camera; needs its own file for launch args).
 
 ## Backlog (user, 2026-11-13 12:49): Music Radar's Reddit scan is getting 403s — "do we really need an API? what's the cost?"
 - Seen: "scan: 45 of the Reddit requests failed, e.g. r/listentothis/hot: HTTP 403". Reddit now blocks all non-OAuth
@@ -848,21 +321,6 @@ data, or peer-to-peer on the same LAN). Personal data and secrets stay on each p
   2026", "radio edit". Need a tag blocklist (video/audio labels, events, edits), better splitting, and a minimum count;
   "0% → 0.14%" is too small to call a jump — show counts and hide anything under a floor.
 - Related: the Reddit 403s above. If Reddit goes, most of this noise goes with it.
-
-## Shipped 2026-11-13 afternoon: meeting.js, one bundle, faster boot, feed notice dupes
-- Meeting mode moved out of core.js into public/meeting.js. core.js is one closure, so meeting.js is a factory:
-  core calls window.CadenceMeeting({ S/AI live getters, save, render, … }) just before user plugins load.
-- One download for the app: index.html marks its scripts with <!-- bundle --> … <!-- /bundle -->; the server swaps
-  that for <script src="bundle.js?v=HASH"> (server/lib/bundle.js). Built in memory from public/ (no build step),
-  gzipped (1.5 MB → 450 KB), cached forever by hash. Each file still runs as its own <script> (same globals, one
-  broken plugin doesn't stop the rest, devtools names via sourceURL). Debug: open with ?nobundle or CADENCE_BUNDLE=0.
-  72 script requests → 6.
-- Found while measuring: every registerPlugin re-ran EVERY plugin's setup (~1,800 setups per load), so Calendar
-  fetched its events 53 times and Feeds 60+ times on each load. Registrations during load now set up once at
-  DOMContentLoaded. Calendar 53 → 1, feeds 62 → 7.
-- Feeds "1 new at Something Else Records" repeated every reload (user screenshot): the "told you" memory was per
-  page load. Now the newest announced item per feed is stored (synced), so each item is announced once.
-- smoke "data survives a reload" waits for the push to reach the NAS instead of a fixed 1.5 s.
 
 ## Backlog (user, 2026-11-13 13:09–13:12): theme add-ons from links
 - Simpsons theme + "The Simpsons in CSS" (alvaromontoro.com, github pattle/simpsons-in-css): those are drawings of the
@@ -909,22 +367,6 @@ data, or peer-to-peer on the same LAN). Personal data and secrets stay on each p
 - Use the Elements engine (CadenceFX world): drips from the top edge of panels and headings that run down and pool on
   ledges, a splash when you finish a task. Respect Effects Off / reduced motion. Keep it stylised (the film's
   saturated red on yellow/black), not gory.
-
-## Shipped 2026-11-13 13:40: Jurassic Park + Simpsons upgrades, Breath of the Wild (new Games category), NAS fonts
-- Fonts we can't ship (fan fonts, unclear licences: Hylia Serif "free while the site is up, not for profit";
-  the Jurassic Park font has no stated licence) are read from the NAS: drop the file in the data folder's `fonts/`
-  (e.g. HyliaSerifBeta-Regular.otf, JurassicPark.ttf, Simpsonfont.ttf). api/fonts/<name> finds it by name prefix;
-  missing → 404 and the theme uses its vendored fallback (Cinzel / Oswald / Fredoka). Theme font entries with
-  `mine: true` skip the format() hint.
-- Jurassic Park: timber park-sign heading with two flickering torches, hazard-striped fence on the sidebar edge,
-  red/yellow jeep stripes under group headers, amber checkboxes, amber drop with an insect when you finish a task,
-  three-toed footprints walking across the bottom now and then, the old ripple.
-- Simpsons: puffy cloud sky drifting behind the page (z-index -1, not in the fx layer), yellow pill group headers,
-  donut checkboxes, a frosted donut with sprinkles pops when you finish a task. No characters.
-- Breath of the Wild (plugins/themes-games.js, category Games): dusk hills, dark glass panels with cream inner frames,
-  corner-bracket cursor on hover, diamond checks that glow ancient-blue, a stamina wheel (top right) that fills with
-  today's done tasks, an item-get card with a cut gem for each finished task, drifting spirit lights.
-- Couldn't open the user's codepens/GitHub page from here (blocked), so these are built from the descriptions.
 
 ## Backlog (user, 2026-11-13 13:39): load only the plugins that are turned on
 - Today: one bundle with all 62 plugins (450 KB gzipped, cached by hash), so a repeat visit downloads nothing, but
@@ -991,43 +433,6 @@ Claims checked against the code 2026-11-13 (all real). Planned in 4 groups; do i
   the Start Meeting button; finishing an old task is the extinction event they prophesied. (Elements engine?)
 - Plugins gossip: the intern, sheep, ghosts and Chad have a group chat you can read. They talk about you
   (gently). AI-written when a key is set, canned lines otherwise.
-
-## Shipped 2026-11-13 14:15: load only the plugins you use (code review #5 / user 13:39)
-- server/lib/bundle.js builds a manifest (which plugins each plugins/*.js registers) by running the files in a vm
-  sandbox that only records Cadence.registerPlugin. index.html's bundle block becomes an inline chooser: it reads the
-  saved Work/Life docs (localStorage cadence.v1 / cadence.life.v1 → `disabled`), and leaves out every file whose
-  plugins are all off (or not offered) in both spaces → bundle.js?v=HASH&skip=…. A space this browser never opened
-  counts as all-off (switching to it fetches what it needs). First visit (nothing saved) loads everything; demo too.
-- core.js LazyPlugins: left-out plugins get placeholder defs (stub: file) so Settings → Plugins lists them; when one
-  becomes enabled (toggle, sync from another device, space switch) rebuildPlugins fetches bundle.js?only=<file> and
-  the real registerPlugin replaces the placeholder.
-- Never left out (ALWAYS): island, datepick, templates, chase, recap, prep, weather, life-kit — other code uses their
-  globals. Themes files always load (next candidate: load theme packs only when needed).
-- Savings: all optional plugins off → bundle 458 KB → 188 KB gzipped (1.5 MB → 0.64 MB of JS to parse).
-- Also: the accessibility labeller now labels buttons the moment they're added (was rAF-deferred → the
-  "icon-only button has a name" test flaked); dock buttons carry aria-label directly.
-- tests/lazy-plugins.spec.mjs.
-
-## Shipped 2026-11-13 21:30: safety batch (code review group 1)
-- #9 Basic auth goes through the login lockout (a repeated identical bad header counts once; each new guess counts;
-  while locked even the right password is refused). tests/basic-lockout.spec.mjs.
-- #10 feedparse abs(): only http(s) links/images survive. #12 safeFetch now uses node:http(s) with a guarded DNS lookup
-  inside the connection itself (no rebinding window); handles gzip/deflate/br, redirects hop by hop, size cap.
-  tests/net-safety.spec.mjs. Couldn't reach the internet from the sandbox: verified against a local server.
-- #13 Dockerfile: USER node + HEALTHCHECK on /healthz (open, says only "ok", answers on the plain-http port in both
-  modes). deploy.sh chowns data/ and certs/ to uid 1000 when needed (tls.sh writes certs as root, key 600).
-- #14 test.yml: concurrency group (newer push cancels older run) + promote only fast-forwards stable.
-- #15 deploy.sh: builds the new image from a `git archive` copy first (broken build → nothing touched); after
-  `up --build` waits for /healthz; if the new version doesn't start, resets files to the old commit and rebuilds.
-  A failed commit is remembered in .deploy-bad and not retried every 5 min (next push is).
-- #16 deploy.sh re-execs from a /tmp copy so `git reset --hard` can't rewrite it mid-run.
-- deploy.sh write_env now KEEPS lines you add to .env by hand (it used to rewrite .env with only its 5 keys, which
-  wiped REDDIT_*/LASTFM_* etc. every 5 minutes).
-- #17 package-lock.json committed, `npm ci`, npm + Playwright browser cache in CI.
-- #1 local save failures (browser storage full) show one sticky, calm notice; says whether the NAS still has it.
-- #7 app files (core.css, login, index, icons) get ETag + no-cache + gzip (core.css 67 KB → 15 KB, 304 on repeat).
-- FIRST DEPLOY OF THIS ON THE NAS: watch deploy.log for "gave data/ to the app user" and "rebuild ok". If it rolls
-  back, `docker logs cadence` will say why (most likely a file the node user can't read).
 
 ## Reddit (user asked 21:20): Reddit's Responsible Builder Policy says API access needs explicit approval first.
 - Create a "script" app (redirect uri http://localhost:8080, unused; we use client_credentials), then request access
@@ -1097,46 +502,7 @@ Claims checked against the code 2026-11-13 (all real). Planned in 4 groups; do i
   per database, each tested in CI where possible (Docker matrix: amd64/arm64 × sqlite/postgres/mysql).
 - Do with the rebrand (name appears in images, app IDs, bundle IDs, data paths).
 
-## Shipped 2026-11-13 22:20: database upkeep (code review #3, #4, #2)
-- History: full history only for task/client/meeting/doc. Plugin records keep their last 5 versions (enough for the
-  3-way merge of a device a few saves behind). One-off `compact()` a minute after first start trims the backlog and
-  VACUUMs (meta 'compacted'=1 marks it done).
-- tidy() daily: history older than 60 days (newest version always kept), deleted records older than 90 days plus their
-  history, orphaned history, resolved conflicts older than 90 days. Risk accepted: a device offline >90 days could
-  bring back something deleted.
-- refreshDoc() no longer runs on every push: a push stamps state.updated_at (devices compare against it) and marks the
-  document stale; it's assembled on GET /api/state or by the daily maintain() (JSON snapshot + DB snapshot + tidy),
-  which also runs hourly on a timer.
-- docs/BACKUP.md: Synology Hyper Backup to USB / second NAS, encrypted, nightly 3:17, Smart Recycle 30; restore steps.
-- tests/storage-tidy.spec.mjs.
-- CI incident 22:06: cancel-in-progress cancelled every run because pushes came faster than a run, so `stable` stopped
-  at d7333e4 and the NAS stopped updating. Now cancel-in-progress: false (+ the no-backwards promote).
 
-## Incident 2026-11-13 22:18: couldn't sign in after the safety batch reached the NAS
-- Cause: Dockerfile `USER node`. On the NAS the node user couldn't read certs/key.pem (HTTPS off → "Not encrypted")
-  and likely data/ (sign-in broke). Hotfix 0.6.7 removes USER node (runs as root again). Retry only with an
-  entrypoint that runs as root, checks/chowns data and certs, then drops to node (su-exec), and a deploy-time check.
-
-## Shipped 2026-11-13 22:30: Podcasts (Pocket Casts) 0.6.8
-- server/services/pocketcasts.js + routes/podcasts.js: login with POCKETCASTS_EMAIL/PASSWORD from the NAS .env
-  (token cached in data/pocketcasts.json, 600), /user/podcast/list, /user/new_releases, /user/in_progress,
-  /up_next/list, /sync/update_episode (status 2 in progress / 3 played), /sync/update_episode_star, show notes from
-  cache.pocketcasts.com. Field names normalised. POCKETCASTS_API / POCKETCASTS_CACHE override for tests.
-  UNTESTED against the real API (no internet from the dev sandbox): first real use may need endpoint tweaks.
-- public/plugins/podcasts.js: window.CadencePodcasts owns one <audio> on <html> (survives re-renders, plugin
-  rebuilds, space switches); resumes from max(local, Pocket Casts) position; saves locally each tick, sends to
-  Pocket Casts every 30 s, on pause, at the end and on pagehide (sendBeacon); speed, sleep timer, star, show notes,
-  local queue, Make a task; Media Session (lock-screen controls); pauses for meetings; one Island note for new
-  episodes; mini player bar (#pc-mini). Both spaces. tests/podcasts.spec.mjs uses a fake Pocket Casts.
-
-## Offline + deploy fixes (0.7.0)
-- **Opens offline.** `public/sw.js` keeps the app shell (page network-first, bundle per version, other files stale-while-revalidate). Never caches `/api/*`, login, or audio/video/range requests (they broke podcast seeking). Sign out clears the shell cache.
-- **Session started offline reconnects.** `Store.retryServer()` retries the NAS every 30 s and on `online`, then pushes pending changes.
-- **Bigger local storage.** Docs over 150 KB are stored lz-string compressed (`lz1:` prefix, `vendor/lz-string`). The plugin on/off list lives in `cadence.off.<space>` so the bundle chooser never has to parse the doc.
-- **deploy.sh:** hand edits to `.env` (e.g. adding ANTHROPIC_API_KEY) now recreate the container: a checksum in `.env.applied`. The throwaway git container is named `cadence-git-*` instead of a random Docker name.
-- Flaky (pass on retry): radar view, smoke "themes set 3", smoke "full browser storage". To fix in housekeeping.
-
-## Non-root container (0.7.1)
-- `entrypoint.sh` (installed as `cadence-entrypoint`, needs `su-exec` from apk) starts as root. It copies `/certs/*.pem` to `/run/cadence-certs`, owned by node with mode 600 (tls.sh makes the key root-only, which is what broke 0.6.6). It chowns `/data` if needed and proves node can write every file there. Then it runs `su-exec node`. If any check fails it **stays root and logs `cadence: staying root — <reason>`**, so it can't lock the user out again. Set `RUN_AS_ROOT=1` in .env to skip it.
-- deploy.sh logs `app runs as: <user>` after each rebuild, and rebuilds when entrypoint.sh changes.
-- Not testable with real Docker in the agent workspace (Docker Hub blocked). The script was tested with runuser standing in for su-exec: NAS-like root-only certs and data, an unfixable file, no certs, and the opt-out. The NAS precheck build guards against apk/build failures.
+## Test notes (0.7.3)
+- Kids chores test (more.spec "kids: a child…") failed once under full-suite load with a balance of 1 instead of 2.
+  It never reproduced, even under CPU stress. It now checks the row says "2 pts" first, so the next failure shows whether saving or clicking went wrong.

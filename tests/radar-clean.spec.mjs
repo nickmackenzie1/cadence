@@ -3,6 +3,11 @@ import { test, expect } from '@playwright/test';
 import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+
+// these specs point the radar modules at a temp folder through process.env; put it back so servers that
+// later specs start in this same worker don't inherit it (that made radar.spec read an empty database)
+const savedEnv = { RADAR_DATA: process.env.RADAR_DATA, RADAR_DB: process.env.RADAR_DB };
+test.afterAll(() => { for (const [k, v] of Object.entries(savedEnv)) { if (v === undefined) delete process.env[k]; else process.env[k] = v; } });
 process.env.RADAR_DATA ||= mkdtempSync(join(tmpdir(), 'cadence-radar-clean-'));   // the radar modules create their data folder on import
 const X = await import('../server/services/radar/lib/extract.mjs');
 const H = await import('../server/services/radar/lib/history.mjs');

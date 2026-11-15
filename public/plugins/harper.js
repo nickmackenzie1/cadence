@@ -39,6 +39,10 @@
       const cfg = () => ({ on: true, auto: true, dialect: 'Canadian', words: [], ...(api.storage.get('cfg') || {}) });
       const save = p => { api.storage.set('cfg', { ...cfg(), ...p }); };
 
+      // Harper's library starts its own download of the engine; leaving the page mid-download aborts it with an
+      // unhandled "WebAssembly compilation aborted". That's harmless (it loads next time), so keep it out of the error log.
+      if (!G.quietAbort) { G.quietAbort = true; addEventListener('unhandledrejection', e => { const m = String(e.reason && e.reason.message || e.reason || '');
+        if (/WebAssembly|Wasm/.test(m) && /abort/i.test(m)) { e.preventDefault(); G.loading = null; console.warn('Harper download interrupted; it will load next time'); } }); }
       async function linter() {
         if (G.linter) return G.linter;
         return G.loading = G.loading || (async () => {

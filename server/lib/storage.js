@@ -21,7 +21,8 @@ function openDb() {
   let sqlite; try { sqlite = require('node:sqlite'); } catch (e) { storageNote = 'node:sqlite unavailable (' + process.version + ')'; return; }
   try {
     db = new sqlite.DatabaseSync(DB_FILE);
-    db.exec(`PRAGMA journal_mode=WAL; PRAGMA synchronous=NORMAL; PRAGMA busy_timeout=4000;
+    db.exec(`PRAGMA busy_timeout=4000`);   // before WAL, which needs a lock
+    db.exec(`PRAGMA journal_mode=WAL; PRAGMA synchronous=NORMAL;
       CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT);
       CREATE TABLE IF NOT EXISTS state (id INTEGER PRIMARY KEY CHECK (id = 1), json TEXT NOT NULL, updated_at INTEGER NOT NULL);`);
     const ver = +((db.prepare("SELECT value FROM meta WHERE key = 'schema'").get() || {}).value || 0);

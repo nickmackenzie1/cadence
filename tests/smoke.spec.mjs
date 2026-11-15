@@ -209,9 +209,14 @@ test('dashboard: starter page, drag to move without overlaps, add from the libra
   const overlaps = list => { let n = 0; for (const a of list) for (const b of list) if (a !== b && a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h) n++; return n; };
   const before = (await items()).length;
   await page.click('#db-edit');
-  const note = page.locator('.db-item').filter({ has: page.locator('.dw-note') }), nb = await note.boundingBox(), gb = await page.locator('#db-grid').boundingBox();
-  await page.mouse.move(nb.x + 30, nb.y + 8); await page.mouse.down(); await page.mouse.move(gb.x + 20, gb.y + 10, { steps: 8 }); await page.mouse.up();
-  await expect.poll(async () => (await items()).find(i => i.key === 'dashboard:note').y).toBe(0);
+  const note = page.locator('.db-item').filter({ has: page.locator('.dw-note') });
+  // drag the note to the top-left; under load the first drag can start before the handler is ready, so retry it
+  await expect(async () => {
+    const nb = await note.boundingBox(), gb = await page.locator('#db-grid').boundingBox();
+    await page.mouse.move(nb.x + 30, nb.y + 8); await page.mouse.down(); await page.waitForTimeout(80);
+    await page.mouse.move(gb.x + 20, gb.y + 10, { steps: 15 }); await page.mouse.up();
+    await expect.poll(async () => (await items()).find(i => i.key === 'dashboard:note').y, { timeout: 2000 }).toBe(0);
+  }).toPass({ timeout: 15000 });
   expect(overlaps(await items())).toBe(0);
   await page.locator('.db-w', { hasText: 'Spacer' }).click();
   await expect.poll(async () => (await items()).length).toBe(before + 1);
@@ -260,7 +265,11 @@ test('themes set 3: Reddit votes change priority, the Pocket Casts player finish
   expect(await page.locator('.td-b .rd-vote').count()).toBe(0);   // never inside the schedule strip
   // Adventure: a heart per task due or done today
   await page.evaluate(() => CadenceThemes.apply('adventure'));
-  await expect(page.locator('.adv-hearts i')).toHaveCount(1);
+  // other tests share this server, so count what's really due or done today (at least our task)
+  const hearts = await page.evaluate(() => { const a = window.T3, t = a.util.todayKey();
+    return Math.min(10, a.tasks.list(x => (x.done && x.doneAt && a.util.ymd(new Date(x.doneAt)) === t) || (!x.done && x.dueDate && x.dueDate <= t)).length); });
+  expect(hearts).toBeGreaterThanOrEqual(1);
+  await expect(page.locator('.adv-hearts i')).toHaveCount(hearts);
   // Platformer: the coin counter
   await page.evaluate(() => CadenceThemes.apply('platformer'));
   await expect(page.locator('.pl-hud')).toContainText('×00');
@@ -332,6 +341,8 @@ test('a full browser storage is reported once, calmly, and the NAS still gets th
   await page.evaluate(() => { const set = Storage.prototype.setItem; Storage.prototype.setItem = function (k, v) { if (/^cadence\.(v1|life)/.test(k)) throw new DOMException('full', 'QuotaExceededError'); return set.call(this, k, v); }; });
   for (const t of ['Storage test one', 'Storage test two']) { await page.fill('#qa', t); await page.keyboard.press('Escape'); await page.focus('#qa'); await page.press('#qa', 'Enter'); }
 
-  await expect(page.getByText(/browser storage is full/)).toHaveCount(1);
+  // the Island shows one notice at a time, so a calm one may wait its turn behind another
+  await expect(page.getByText(/browser storage is full/)).toHaveCount(1, { timeout: 15000 }).catch(async e => {
+    throw new Error(e.message + '\nIsland showed: ' + await page.evaluate(() => (document.querySelector('#island, .island') || {}).innerText || '(nothing)')); });
   await expect.poll(() => page.evaluate(async () => /Storage test two/.test(await (await fetch('api/sync?since=0')).text())), { timeout: 8000 }).toBe(true);
 });
