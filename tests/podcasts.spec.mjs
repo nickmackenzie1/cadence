@@ -65,3 +65,14 @@ test('Podcasts: shows synced from Pocket Casts, resume from the phone, keeps pla
 test('Podcasts without Pocket Casts set up: a calm how-to, no errors', async () => {
   const r = await fetch(B + '/api/podcasts/status'); expect((await r.json()).configured).toBe(true);
 });
+
+test('search (⌘K) finds plugin views that aren\'t pinned, like Podcasts, in both spaces', async ({ page }) => {
+  await page.goto(B); await expect(page.locator('#sync')).toContainText('NAS', { timeout: 10000 });
+  for (const space of ['work', 'life']) {
+    if (space === 'life') await page.click('[data-act="space"][data-s="life"]');
+    await page.keyboard.press('Control+k'); await page.locator('#pal-in').fill('podcast');
+    await expect(page.locator('#pal-list .pal-item').first()).toHaveText('Go to Podcasts');
+    await page.keyboard.press('Enter'); await expect(page).toHaveURL(/#view-podcasts$/);
+    await expect(page.locator('#view')).toContainText('Pocket Casts');
+  }
+});
