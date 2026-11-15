@@ -1,12 +1,13 @@
 {
   "name": "cadence",
-  "version": "0.7.3",
+  "version": "0.7.4",
   "private": true,
   "description": "Modular to-do app for consultants. The app itself has no dependencies; these are only for tests.",
   "scripts": {
     "start": "node server.js",
     "test": "playwright test",
-    "bump": "node scripts/bump.mjs"
+    "bump": "node scripts/bump.mjs",
+    "format": "npx -y prettier@3 --write public/core.js"
   },
   "devDependencies": {
     "@playwright/test": "1.63.0"
