@@ -18,11 +18,13 @@ Cleaned up 2026-11-16 (0.8.2): items already built were moved out after checking
 - User location: Amherstview, Ontario (Loyalist Township). Garbage: Tuesday east of Speers Blvd, Wednesday west.
 
 ## In progress (user picked 2026-11-16)
-- Free data (all NAS-side, cached, no keys):
-  - Outdoors: air quality, pollen, UV (Open-Meteo); northern lights (NOAA SWPC); ISS passes.
-  - Daily: Wikipedia "On this day", xkcd, Lichess daily puzzle, top Hacker News stories.
-  - Home: dinner ideas (TheMealDB), garbage night (Loyalist preset + any weekly schedule), barcode → shopping list
-    (Open Food Facts), TV shows airing tonight (TVmaze).
+- Shipped 0.11.0: Outside (outdoors.js: air/UV/pollen, northern lights, ISS passes via server/vendor/satellite.min.js),
+  Daily (daily-bits.js: On this day, xkcd, Lichess puzzle iframe, HN), Home helpers (home-bits.js, Life: TheMealDB ideas →
+  Kitchen, garbage night with Loyalist presets, Open Food Facts barcodes, TVmaze). Server: services/daily.js, /api/daily/*.
+  Kitchen exposes window.CadenceKitchen { addToList, addRecipe } for other plugins.
+- Next queue (user, 12:39): remove Reddit completely; then music: artist page, Deezer previews + Want to hear, ICY
+  now-playing + history for every station, follow artists + calm alerts, simpler Radar front page, one Music home,
+  local shows (Bandsintown/Ticketmaster keys in .env).
 - Move local saves to IndexedDB (more room than compressed localStorage); keep the small cadence.off.* keys.
 - Design pass: one type scale, spacing scale, radius set and colour roles across core + every plugin; same patterns for
   headers, empty states, lists, dialogs, badges. Sharpen, don't redefine.

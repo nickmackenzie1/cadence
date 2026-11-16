@@ -71,3 +71,12 @@ test('!earshot National Top 50: rank, artist, album, label and Canadian content 
   expect(S.blogList({ blogs: v080 }).some(b => b.name === '!earshot reviews')).toBe(true);
   expect(S.blogList({ blogs: v080 }).some(b => b.name === 'Drowned in Sound')).toBe(true);
 });
+
+test('every earlier default blog list picks up blogs added since', async () => {
+  const S = await import('../server/services/radar/lib/sources.mjs');
+  for (const n of [6, 12, 13, 14, 18]) {
+    const saved = S.DEFAULT_BLOGS.slice(0, n).map(({ tier, ...b }) => b);
+    expect(S.blogList({ blogs: saved }).length, `a saved list of ${n}`).toBe(S.DEFAULT_BLOGS.length);
+  }
+  expect(S.blogList({ blogs: [{ name: 'Only mine', url: 'https://x.example/feed' }] })).toHaveLength(1);   // your own list is left alone
+});

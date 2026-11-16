@@ -203,15 +203,18 @@ test('themes: engine applies, persists, cleans up effects, and plugins can regis
 
 test('dashboard: starter page, drag to move without overlaps, add from the library, dock to the side', async ({ page }) => {
   const errs = errorsOf(page); await boot(page);
+  await page.setViewportSize({ width: 1280, height: 1400 });   // the whole starter page on screen, so the drag starts on the note
   await page.goto(`http://localhost:${PORT}/#view-dash`);
   await expect(page.locator('.db-item').first()).toBeVisible();
   const items = () => page.evaluate(() => JSON.parse(localStorage.getItem('cadence.v1')).pluginData.dashboard.pages[0].items);
   const overlaps = list => { let n = 0; for (const a of list) for (const b of list) if (a !== b && a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h) n++; return n; };
   const before = (await items()).length;
-  await page.click('#db-edit');
-  const note = page.locator('.db-item').filter({ has: page.locator('.dw-note') });
+  await page.click('#db-edit'); await page.waitForTimeout(400);   // edit mode turns dragging on after its redraw
+  // the note itself, not the copy that follows the mouse while dragging (.pop)
+  const note = page.locator('.db-item:not(.pop)').filter({ has: page.locator('.dw-note') }).first();
   // drag the note to the top-left; under load the first drag can start before the handler is ready, so retry it
   await expect(async () => {
+    await page.mouse.up();   // let go of a drag a failed try may have left going
     const nb = await note.boundingBox(), gb = await page.locator('#db-grid').boundingBox();
     await page.mouse.move(nb.x + 30, nb.y + 8); await page.mouse.down(); await page.waitForTimeout(80);
     await page.mouse.move(gb.x + 20, gb.y + 10, { steps: 15 }); await page.mouse.up();

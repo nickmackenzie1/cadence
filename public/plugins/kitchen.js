@@ -50,6 +50,9 @@
       function addToList(lines, from) { const cur = list(); const have = new Set(cur.filter(x => !x.done).map(x => x.name.toLowerCase()));
         const add = lines.map(l => String(l).trim()).filter(l => l && !have.has(l.toLowerCase())).map(name => ({ id: uid(), name, aisle: aisleOf(name), done: false, from: from || '' }));
         setList([...cur, ...add]); return add.length; }
+      // for other plugins (Home helpers: dinner ideas, barcode scanning): add to the shopping list, save a recipe
+      window.CadenceKitchen = { addToList: (lines, from) => { const n = addToList(lines, from); if (api.ui.currentRoute() === 'view-kitchen') api.ui.refresh(); return n; },
+        addRecipe: r => { const rec = { id: uid(), at: Date.now(), made: 0, skipped: 0, ingredients: [], steps: [], ...r }; setRecipes([rec, ...recipes()]); return rec; } };
       async function fromLink(u) {
         const r = await fetch('api/recipe?url=' + encodeURIComponent(u)); const j = await r.json(); if (!r.ok) throw new Error(j.error || 'Could not read that page');
         if (j.partial || !j.ingredients.length) throw new Error('That page has no recipe data we can read. Add it by hand instead.');
