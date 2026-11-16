@@ -9,9 +9,9 @@ import { SOURCES, DEFAULT_CFG, tagsFor, blogList } from "./sources.mjs";
 
 // how much one signal from each source counts in the combined score (blogs and Hype Machine are the early-buzz signals)
 // KEXP is DJs choosing records: the strongest early signal here. Blogs count by tier (see DEFAULT_BLOGS).
-const WEIGHT = { community: 3, blogs: 3, hypem: 3, kexp: 3.5, earshot: 3, audius: 2, bandcamp: 1.5, listenbrainz: 1.5, apple: 1, lastfm: 1 };
+const WEIGHT = { community: 3, blogs: 3, hypem: 3, kexp: 3.5, kexpchart: 3, earshot: 3, audius: 2, bandcamp: 1.5, listenbrainz: 1.5, apple: 1, lastfm: 1 };
 const TIER_WEIGHT = { big: 1.5, small: 3.5 };
-const CHARTS = new Set(["apple", "audius", "lastfm", "hypem", "earshot"]);
+const CHARTS = new Set(["apple", "audius", "lastfm", "hypem", "earshot", "kexpchart"]);
 export const sourcesCfg = () => { const c = store.getKv("sourcesCfg", {}) || {}; return { ...DEFAULT_CFG, ...c, on: { ...DEFAULT_CFG.on, ...(c.on || {}) } }; };
 
 export function sourcesData(state, snaps, hide = null) {

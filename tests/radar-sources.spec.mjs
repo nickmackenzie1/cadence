@@ -101,7 +101,7 @@ test('front page buzz uses every source: blog/KEXP-only artists climb, several s
   const W = { blogs: 3, kexp: 3.5, earshot: 3, apple: 1 };
   const common = { t, weight: s => W[s.source] || 1, communityWeight: 3, hide: new Set(['drake']), name: id => id };
   const snaps = [{ ts: t - 3600, kind: 'artist', key: 'community band', artist: 'Community Band', score: 40 }];
-  const signals = [sig('blogs', 'Quiet Blog Band', 1), sig('kexp', 'Quiet Blog Band', 0), sig('earshot', 'Quiet Blog Band', 2),
+  const signals = [sig('blogs', 'Quiet Blog Band', 1), sig('kexp', 'Quiet Blog Band', 0), sig('earshot', 'Quiet Blog Band', 2, { best_rank: 5 }),
     sig('blogs', 'One Source Band', 0), sig('blogs', 'Drake', 0), sig('blogs', 'Old News', 20)];
   const rise = B.allBuzz({ ...common, snaps, sig: signals, pts: [], chartSet: new Set(['apple', 'earshot']) });
   const names = rise.top.map(r => r.artist);
@@ -117,4 +117,18 @@ test('front page buzz uses every source: blog/KEXP-only artists climb, several s
   const albums = B.allAlbums({ ...common, snaps: [], sig: signals });
   expect(albums[0]).toEqual(expect.objectContaining({ artist: 'Quiet Blog Band', album: 'Quiet Blog Band LP' }));
   expect(albums[0].subs.length).toBe(3);
+});
+
+test('KEXP weekly charts: Top 90 and genre lists ranked, Adds as this week\'s mentions', async () => {
+  const S = await import('../server/services/radar/lib/sources.mjs');
+  const html = `<h2>KEXP Charts for the Week of Nov. 6 - Nov. 12</h2><h3>Add Date: Nov. 16</h3><h4>Top 90:</h4>
+    <p>1. Sampa the Great - Nu Zamrock (Loma Vista Recordings)<br>2. Shabazz Palaces - It&#39;s a Style Sport (Sub Pop)<br></p>
+    <h4>Adds:</h4><p>Aesop Rock &amp; Blockhead - Trouble Mountain (Rhymesayers)  <br>E. Lundquist - Chasing My Reflections (KingUnderground)</p>
+    <h4>Jazz:</h4><ol><li>Some Trio - Blue Hour (Label)</li></ol>`;
+  const v = S.kexpChart(html);
+  expect(v.map(r => [r.feed, r.rank, r.artist, r.title])).toEqual([
+    ['Top 90', 1, 'Sampa the Great', 'Nu Zamrock'], ['Top 90', 2, 'Shabazz Palaces', "It's a Style Sport"],
+    ['Adds this week', null, 'Aesop Rock & Blockhead', 'Trouble Mountain'], ['Adds this week', null, 'E. Lundquist', 'Chasing My Reflections'], ['Jazz', 1, 'Some Trio', 'Blue Hour']]);
+  expect(v[0].date).toBe('Week of Nov. 6 - Nov. 12');
+  expect(S.DEFAULT_CFG.on.kexpchart).toBe(true);
 });

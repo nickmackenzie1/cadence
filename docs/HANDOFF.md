@@ -106,3 +106,7 @@ Cleaned up 2026-11-16 (0.8.2): items already built were moved out after checking
   where each came from), Albums and EPs, Genres blowing up and Artists tracked. Buzz is scaled so the top artist is 100.
   Buzzwords and picks are still the Lemmy/Mastodon scan. Note: `tests/more.spec.mjs` has timing flakes under a busy
   workspace (a different test each full run: games, camping, kids); each passes alone. Worth hardening.
+- **0.14.3 (user asked 2026-11-16):** KEXP weekly charts (kexp.org/charts, no feed) as a Radar source `kexpchart`:
+  Top 90 + genre lists ranked, "Adds" (just added to rotation) as unranked mentions. Parser written from a text
+  description of the page, not its HTML: if the Sources card says it couldn't read the format, look at the page markup.
+  Skipped the 2017 all-time countdown (one-off, airplay-ranked; KEXP history already has all-time tops from plays).

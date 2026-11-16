@@ -70,7 +70,7 @@ export function blogList(cfg) {
   return b.map((x) => ({ ...x, tier: x.tier || DEFAULT_BLOGS.find((d) => d.url === x.url || d.name === x.name)?.tier }));
 }
 export const DEFAULT_CFG = {
-  on: { listenbrainz: true, apple: true, audius: true, lastfm: true, bandcamp: true, hypem: true, blogs: true, kexp: true, earshot: true },
+  on: { listenbrainz: true, apple: true, audius: true, lastfm: true, bandcamp: true, hypem: true, blogs: true, kexp: true, earshot: true, kexpchart: true },
   lbUser: "",            // ListenBrainz username for your own fresh releases
   appleCountry: "ca",
   audiusGenres: ["", "Electronic", "Hip-Hop/Rap", "Alternative"],   // "" = all genres
@@ -220,6 +220,18 @@ export const SOURCES = {
       return v;
     },
   },
+  kexpchart: {
+    // KEXP's weekly charts (kexp.org/charts, no feed): the Top 90, ten-record genre lists, and Adds, the records
+    // just put into rotation that week. Read at most once a day.
+    name: "KEXP weekly charts", kind: "Radio chart", site: "https://www.kexp.org/charts/",
+    async fetch() {
+      if (kexpChartCache.v && Date.now() - kexpChartCache.at < 20 * 3600e3) return kexpChartCache.v;
+      const v = kexpChart(await httpText(KEXP_CHARTS));
+      if (!v.length) throw new Error("couldn't read the chart page's format");
+      kexpChartCache = { at: Date.now(), v };
+      return v;
+    },
+  },
   blogs: {
     name: "Blogs and magazines", kind: "Headlines", site: null,
     async fetch(cfg) {
@@ -235,6 +247,45 @@ export const SOURCES = {
     },
   },
 };
+
+// ---------- KEXP weekly charts ----------
+const KEXP_CHARTS = process.env.KEXP_CHARTS || "https://www.kexp.org/charts/";
+let kexpChartCache = { at: 0, v: null };
+// The page is a run of headings ("Top 90:", "Jazz:", "Adds:") each followed by lines "12. Artist - Title (Label)"
+// (Adds have no numbers). Lists may be <ol>/<ul> items or <br>-separated lines.
+export function kexpChart(html) {
+  const ent = (t) => t.replace(/&#(\d+);/g, (m, n) => String.fromCodePoint(+n)).replace(/&#x([0-9a-f]+);/gi, (m, h) => String.fromCodePoint(parseInt(h, 16))).replace(/&quot;/g, '"').replace(/&#39;|&apos;|&rsquo;/g, "’").replace(/&nbsp;/g, " ").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&amp;/g, "&");
+  const text = (h) => ent(String(h).replace(/<[^>]+>/g, " ")).replace(/\s+/g, " ").trim();
+  html = String(html);
+  const week = text((html.match(/KEXP Charts for the Week of[^<]*/i) || [""])[0]).replace(/^KEXP Charts for the /i, "") || null;
+  const out = [], seen = new Set();
+  const parts = html.split(/<h[1-6][^>]*>/i).slice(1);
+  let ordered = 0;
+  for (const part of parts) {
+    const end = part.search(/<\/h[1-6]>/i); if (end < 0) continue;
+    const head = text(part.slice(0, end)).replace(/:$/, "").trim();
+    if (!head || head.length > 40 || /charts for the week|add date/i.test(head)) continue;
+    const body = part.slice(end);
+    let lines = (body.match(/<li[\s>][\s\S]*?<\/li>/gi) || []).map(text);
+    if (!lines.length) lines = body.split(/<br\s*\/?>|<\/p>|\n/i).map(text);
+    const adds = /^adds?$/i.test(head);
+    let i = 0;
+    for (let l of lines) {
+      if (!l) continue;
+      const num = l.match(/^(\d{1,3})[.)]\s+/); if (num) l = l.slice(num[0].length);
+      const m = l.match(/^(.{1,120}?)\s+[-–—]\s+(.{1,200}?)(?:\s+\(([^()]{1,80})\))?\s*$/); if (!m) continue;
+      i++;
+      const artist = m[1].trim(), title = m[2].replace(/^["“]|["”]$/g, "").trim(), rank = adds ? null : num ? +num[1] : i;
+      if (!isArtist(artist)) continue;
+      const uid = "kexpchart:" + norm(head) + ":" + norm(artist) + "|" + norm(title);
+      if (seen.has(uid)) continue; seen.add(uid);
+      out.push({ uid, artist: cleanName(artist) || artist, title, type: /\bb\/w\b|^".*"$/.test(m[2]) ? "track" : "album", rank, metric: rank ? Math.max(1, (head === "Top 90" ? 91 : 11) - rank) : null,
+        feed: adds ? "Adds this week" : head, url: KEXP_CHARTS, label: m[3] || null, genres: [], date: week, image: null });
+    }
+    ordered++;
+  }
+  return out;
+}
 
 // ---------- !earshot National Top 50 ----------
 // The feed is one item ("!earshot Top 50 for the Week Ending …") whose description holds the whole chart as HTML

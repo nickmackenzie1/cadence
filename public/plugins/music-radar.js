@@ -62,8 +62,8 @@
     </svg>`;
   }
 
-  const SRC_NAMES = { community: 'Lemmy & Mastodon', listenbrainz: 'ListenBrainz', apple: 'Apple Music', audius: 'Audius', lastfm: 'Last.fm', bandcamp: 'Bandcamp', hypem: 'Hype Machine', blogs: 'Blogs', kexp: 'KEXP', earshot: '!earshot' };
-  const SRC_COL = { community: '#6364ff', listenbrainz: '#eb743b', apple: '#ec4899', audius: '#8b5cf6', lastfm: '#ef4444', bandcamp: '#14b8a6', hypem: '#3b82f6', blogs: '#eab308', kexp: '#64748b', earshot: '#0d9488' };
+  const SRC_NAMES = { community: 'Lemmy & Mastodon', listenbrainz: 'ListenBrainz', apple: 'Apple Music', audius: 'Audius', lastfm: 'Last.fm', bandcamp: 'Bandcamp', hypem: 'Hype Machine', blogs: 'Blogs', kexp: 'KEXP', kexpchart: 'KEXP charts', earshot: '!earshot' };
+  const SRC_COL = { community: '#6364ff', listenbrainz: '#eb743b', apple: '#ec4899', audius: '#8b5cf6', lastfm: '#ef4444', bandcamp: '#14b8a6', hypem: '#3b82f6', blogs: '#eab308', kexp: '#64748b', kexpchart: '#475569', earshot: '#0d9488' };
   const srcPill = id => `<span class="mr-src" style="--c:${SRC_COL[id] || '#888'}">${esc(SRC_NAMES[id] || id)}</span>`;
   const day = ts => ts ? new Date(ts * 1000).toLocaleDateString([], { month: 'short', day: 'numeric' }) : '';
   const link = (u, t) => u ? `<a href="${esc(u)}" target="_blank" rel="noopener">${t}</a>` : t;

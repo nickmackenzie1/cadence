@@ -34,7 +34,7 @@ export function allBuzz({ t, snaps, sig, pts, weight, communityWeight, chartSet,
   for (const s of sig) {
     if (skip(s.artist)) continue;
     byUid.set(s.source + "|" + s.uid, s);
-    if (chartSet.has(s.source)) continue;   // charts count per day below
+    if (chartSet.has(s.source) && s.best_rank != null) continue;   // ranked chart entries count per day below (KEXP Adds have no rank: one mention)
     const w = weight(s) * (1 + rankBonus(s.best_rank));
     add(s.artist_key, cleanName(s.artist) || s.artist, dayOf(s.first_seen), w, s.source);
     if (s.source === "kexp" && dayOf(s.last_seen) !== dayOf(s.first_seen)) add(s.artist_key, cleanName(s.artist) || s.artist, dayOf(s.last_seen), w / 2, s.source);
