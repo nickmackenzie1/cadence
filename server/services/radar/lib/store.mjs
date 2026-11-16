@@ -220,14 +220,23 @@ export function chartPoints({ since = 0, uids = null } = {}) {
 // ---- read-only table access for the Database view ----
 export function tables() {
   if (!open()) return null;
-  return db.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name LIKE 'radar\\_%' ESCAPE '\\' ORDER BY name").all()
-    .map(({ name }) => ({ name, count: db.prepare(`SELECT COUNT(*) AS n FROM ${name}`).get().n,
+  // Music Radar's tables, plus KEXP's play history (kexp_*) which lives in the same file
+  return db.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND (name LIKE 'radar\\_%' ESCAPE '\\' OR name LIKE 'kexp\\_%' ESCAPE '\\') ORDER BY name").all()
+    .map(({ name }) => ({ name, count: db.prepare(`SELECT COUNT(*) AS n FROM ${name}`).get().n, bytes: tableBytes(name),
       columns: db.prepare(`PRAGMA table_info(${name})`).all().map((c) => c.name) }));
+}
+// space a table (and its indexes) takes on disk: exact from dbstat when SQLite has it, else estimated from the data
+function tableBytes(name) {
+  try { return db.prepare("SELECT SUM(pgsize) AS b FROM dbstat WHERE name = ? OR name IN (SELECT name FROM sqlite_master WHERE type = 'index' AND tbl_name = ?)").get(name, name).b || 0; }
+  catch {
+    try { const cols = db.prepare(`PRAGMA table_info(${name})`).all().map((c) => `IFNULL(LENGTH(CAST(${c.name} AS BLOB)), 0)`).join(" + ") || "0";
+      return Math.round((db.prepare(`SELECT SUM(${cols}) AS b FROM ${name}`).get().b || 0) * 1.3); } catch { return null; }
+  }
 }
 export function tableRows(name, { offset = 0, limit = 50 } = {}) {
   const t = (tables() || []).find((x) => x.name === name);
   if (!t) return null;
-  const order = t.columns.includes("ts") ? "ORDER BY ts DESC" : t.columns.includes("month") ? "ORDER BY month DESC, sub" : "";
+  const order = t.columns.includes("ts") ? "ORDER BY ts DESC" : t.columns.includes("airdate") ? "ORDER BY airdate DESC" : t.columns.includes("start") ? "ORDER BY start DESC" : t.columns.includes("month") ? "ORDER BY month DESC, sub" : "";
   const rows = db.prepare(`SELECT * FROM ${name} ${order} LIMIT ? OFFSET ?`).all(limit, offset);
   return { name, total: t.count, offset, columns: t.columns, rows: rows.map((r) => t.columns.map((c) => r[c])) };
 }

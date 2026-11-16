@@ -111,12 +111,17 @@ async function backfillStep() {
   return 'running';
 }
 
+// space on disk for the kexp_* tables and their indexes (SQLite's dbstat; null if this SQLite doesn't have it)
+function kexpBytes(d) {
+  try { return d.prepare("SELECT SUM(pgsize) AS b FROM dbstat WHERE name LIKE 'kexp\\_%' ESCAPE '\\' OR name IN (SELECT name FROM sqlite_master WHERE type = 'index' AND tbl_name LIKE 'kexp\\_%' ESCAPE '\\')").get().b || 0; }
+  catch { return null; }
+}
 function status() {
   if (!ON) return { on: false };
   try {
     const d = open(), r = d.prepare('SELECT COUNT(*) AS n, MIN(airdate) AS since, MAX(airdate) AS latest FROM kexp_plays').get();
     return { on: true, plays: r.n, since: r.since ? iso(r.since) : null, latest: r.latest ? iso(r.latest) : null, backfill: state.backfill, error: state.error, backDays: BACK_DAYS === Infinity ? 'all' : BACK_DAYS,
-      shows: (d.prepare('SELECT COUNT(*) AS n FROM kexp_shows').get() || {}).n || 0 };
+      shows: (d.prepare('SELECT COUNT(*) AS n FROM kexp_shows').get() || {}).n || 0, bytes: kexpBytes(d) };
   } catch (e) { return { on: true, error: e.message }; }
 }
 
