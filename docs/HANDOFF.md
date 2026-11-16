@@ -102,3 +102,7 @@ Cleaned up 2026-11-16 (0.8.2): items already built were moved out after checking
   Only the 2023 page layout was checked (from a copy the user sent); 2005-2007 use older page names and may read
   differently: the page lists any year that didn't read. Feeds: Under the Radar `/site/rss` (from the user) and
   Said the Gramophone via `feeds.feedburner.com/saidthegramophone/stg` (linked in the blog's footer).
+- **0.14.2:** Radar's front page now uses every source (`radar/lib/buzz.mjs`): Who's climbing, Fastest risers (with
+  where each came from), Albums and EPs, Genres blowing up and Artists tracked. Buzz is scaled so the top artist is 100.
+  Buzzwords and picks are still the Lemmy/Mastodon scan. Note: `tests/more.spec.mjs` has timing flakes under a busy
+  workspace (a different test each full run: games, camping, kids); each passes alone. Worth hardening.

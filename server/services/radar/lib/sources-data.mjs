@@ -4,6 +4,7 @@ import * as store from "./store.mjs";
 import { momentum } from "./trends.mjs";
 import { isArtist, cleanName, cleanGenre, norm } from "./extract.mjs";
 import { withArt } from "./coverart.mjs";
+import { allBuzz, allAlbums } from "./buzz.mjs";
 import { SOURCES, DEFAULT_CFG, tagsFor, blogList } from "./sources.mjs";
 
 // how much one signal from each source counts in the combined score (blogs and Hype Machine are the early-buzz signals)
@@ -24,8 +25,8 @@ export function sourcesData(state, snaps, hide = null) {
   for (const s of sig) (bySource[s.source] ||= []).push(s);
 
   // chart movement over the last 14 days: first position seen vs now
-  const pts = store.chartPoints({ since: t - 14 * DAY }), firstRank = new Map();
-  for (const p of pts) { const k = p.source + "|" + p.uid; if (!firstRank.has(k)) firstRank.set(k, p.rank); }
+  const pts = store.chartPoints({ since: t - 24 * DAY }), firstRank = new Map();
+  for (const p of pts) { if (p.ts < t - 14 * DAY) continue; const k = p.source + "|" + p.uid; if (!firstRank.has(k)) firstRank.set(k, p.rank); }
 
   // ---- each source ----
   const list = Object.entries(SOURCES).map(([id, src]) => {
@@ -79,6 +80,8 @@ export function sourcesData(state, snaps, hide = null) {
   for (const p of state.picks) bump("community", p.ts);
   const name = (id) => (id === "community" ? "Lemmy & Mastodon" : SOURCES[id]?.name || id);
   const genreRows = [];
+  // the community scan's genres too (counted once per scan, about 4 a day, so they're scaled to match one mention)
+  for (const r of store.readJsonl("genres", t - 28 * DAY)) { const g = cleanGenre(r.genre); if (g) genreRows.push({ ts: r.ts, genre: g, n: (r.n || 1) / 4 }); }
   for (const s of sig) if (isArtist(s.artist)) for (const g0 of String(s.genres || "").split(", ")) { const g = cleanGenre(g0); if (g) genreRows.push({ ts: s.first_seen, genre: g, n: 1 }); }
 
   // ---- crossover: community picks that turned up on the Apple chart, and chart movers ----
@@ -94,11 +97,17 @@ export function sourcesData(state, snaps, hide = null) {
   movers.sort((a, b) => (b.was - b.now) - (a.was - a.now));
   const movesOnce = []; const once = new Set(); for (const m of movers) { const k = m.source + "|" + m.artist + "|" + m.title; if (!once.has(k)) { once.add(k); movesOnce.push(m); } }
 
+  // ---- the front page, from every source (see buzz.mjs) ----
+  const common = { t, snaps: (snaps || []).filter((x) => isArtist(x.artist)), sig, weight, communityWeight: WEIGHT.community, hide, name };
+  let rise = null, albums = null;
+  try { rise = allBuzz({ ...common, pts, chartSet: CHARTS }); albums = allAlbums(common); } catch (e) { console.error("radar all-sources buzz", e); }
+  const tracked = new Set([...Object.keys(state.artists || {}), ...sig.filter((s) => isArtist(s.artist)).map((s) => s.artist_key)]).size;
+
   return {
-    available: true, cfg: { ...cfg, blogs: blogList(cfg), tagsUsed: tagsFor(cfg, state) }, list,
+    available: true, rise, albums, tracked, cfg: { ...cfg, blogs: blogList(cfg), tagsUsed: tagsFor(cfg, state) }, list,
     combined: combined.slice(0, 60), multi: combined.filter((a) => a.breadth >= 2).length,
     perDay: { labels, series: Object.entries(perDay).map(([id, data]) => ({ id, label: name(id), data })).sort((a, b) => b.data.reduce((x, y) => x + y, 0) - a.data.reduce((x, y) => x + y, 0)) },
-    genres: momentum(genreRows, t, "genre").slice(0, 16),
+    genres: momentum(genreRows, t, "genre").map((g) => ({ ...g, thisWeek: +g.thisWeek.toFixed(1) })).slice(0, 20),
     crossover: crossover.sort((a, b) => b.charted - a.charted).slice(0, 20),
     movers: movesOnce.slice(0, 20),
     alsoOn: Object.fromEntries(combined.filter((a) => Object.keys(a.sources).some((s) => s !== "community")).map((a) => [a.key, Object.keys(a.sources).filter((s) => s !== "community")])),

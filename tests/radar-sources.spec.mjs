@@ -93,3 +93,28 @@ test('every earlier default blog list picks up blogs added since', async () => {
     .toEqual(['https://www.thefader.com/feed.rss', 'https://www.undertheradarmag.com/site/rss', 'https://x.example/f']);
   expect(S.blogList({ blogs: [{ name: 'Only mine', url: 'https://x.example/feed' }] })).toHaveLength(1);   // your own list is left alone
 });
+
+test('front page buzz uses every source: blog/KEXP-only artists climb, several sources beat one, mainstream stays out', async () => {
+  const B = await import('../server/services/radar/lib/buzz.mjs');
+  const DAY = 86400, t = 1_800_000_000;
+  const sig = (source, artist, daysAgo, extra = {}) => ({ source, uid: source + artist + daysAgo, artist, artist_key: artist.toLowerCase(), first_seen: t - daysAgo * DAY, last_seen: t - daysAgo * DAY, seen: 1, best_rank: null, type: 'album', title: artist + ' LP', ...extra });
+  const W = { blogs: 3, kexp: 3.5, earshot: 3, apple: 1 };
+  const common = { t, weight: s => W[s.source] || 1, communityWeight: 3, hide: new Set(['drake']), name: id => id };
+  const snaps = [{ ts: t - 3600, kind: 'artist', key: 'community band', artist: 'Community Band', score: 40 }];
+  const signals = [sig('blogs', 'Quiet Blog Band', 1), sig('kexp', 'Quiet Blog Band', 0), sig('earshot', 'Quiet Blog Band', 2),
+    sig('blogs', 'One Source Band', 0), sig('blogs', 'Drake', 0), sig('blogs', 'Old News', 20)];
+  const rise = B.allBuzz({ ...common, snaps, sig: signals, pts: [], chartSet: new Set(['apple', 'earshot']) });
+  const names = rise.top.map(r => r.artist);
+  expect(names[0]).toBe('Quiet Blog Band');                       // three sources this week
+  expect(names).toContain('Community Band');                      // the community scan still counts
+  expect(names).toContain('One Source Band');
+  expect(names).not.toContain('Drake');
+  expect(rise.top[0].sources.sort()).toEqual(['blogs', 'kexp']);  // earshot is a chart: counted per day on the chart, none here
+  const one = rise.top.find(r => r.artist === 'One Source Band');
+  expect(rise.top[0].cur).toBeGreaterThan(one.cur);
+  const old = rise.top.find(r => r.artist === 'Old News');           // three weeks ago: fading, near the bottom
+  expect(old.status).toBe('fading'); expect(old.cur).toBeLessThan(one.cur / 3);
+  const albums = B.allAlbums({ ...common, snaps: [], sig: signals });
+  expect(albums[0]).toEqual(expect.objectContaining({ artist: 'Quiet Blog Band', album: 'Quiet Blog Band LP' }));
+  expect(albums[0].subs.length).toBe(3);
+});

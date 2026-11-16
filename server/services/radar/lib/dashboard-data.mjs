@@ -28,18 +28,21 @@ export function dashboardData(state) {
   }
 
   let sources; try { sources = sourcesData(state, snaps, hide); } catch (e) { console.error('radar sources data', e); sources = { available: false, note: e.message }; }
+  // the front page uses every source when the database is there (sources-data → buzz.mjs); else the community scan alone
+  const all = !!(sources.available && sources.rise);
   return {
     generatedAt: t,
+    allSources: all,
     sources,
-    rise,
-    albums: [...albums.values()].sort((a, b) => b.score - a.score).slice(0, 12),
-    genres: momentum(readJsonl("genres", t - 28 * DAY).filter((r) => cleanGenre(r.genre)), t, "genre").slice(0, 20),
+    rise: all ? sources.rise : rise,
+    albums: all ? sources.albums : [...albums.values()].sort((a, b) => b.score - a.score).slice(0, 12),
+    genres: all ? sources.genres : momentum(readJsonl("genres", t - 28 * DAY).filter((r) => cleanGenre(r.genre)), t, "genre").slice(0, 20),
     buzz: momentum(readJsonl("terms", t - 28 * DAY), t, "term", 4).slice(0, 20),
     subLead: subLeadTimes(state.artists).filter((s) => s.samples >= 2).slice(0, 15),
     graph: soundsLikeGraph(state.edges, taste.liked),
     picks: withArt([...state.picks].filter((p) => !p.artist || (isArtist(p.artist) && keep(p.artist))).sort((a, b) => b.ts - a.ts).slice(0, 40).map((p) => ({ ...p, feedback: state.feedback[p.id] || 0, alsoOn: sources.alsoOn?.[p.key] || [] })), (p) => p.artist, (p) => p.song),
     picksThisWeek: state.picks.filter((p) => t - p.ts < 7 * DAY).length,
-    artistsTracked: Object.keys(state.artists).length,
+    artistsTracked: all ? sources.tracked : Object.keys(state.artists).length,
     trackRecord: trackRecord(state),
     taste: { genres: taste.genreWeights, subs: taste.subWeights, liked: taste.liked.size, disliked: taste.disliked.size },
     mainstream: { ...mainstreamCfg(), hiding: hide ? hide.size : 0 },
