@@ -507,3 +507,13 @@ Claims checked against the code 2026-11-13 (all real). Planned in 4 groups; do i
 - Open: !earshot (Canadian campus radio charts) — its robots.txt disallows automated access to /charts, so not
   scraped. Ask them for a feed, or link to it. NACC chart: page format unchecked; may be JS-rendered.
 - Open: confirm Amherst Island Radio's stream is in Radio Browser (else add it by address in Radio).
+
+## Backlog (user, 2026-11-15 21:21): KEXP song history search
+- User shared KSSE (github.com/geluso/kexp_song_search_engine, live at 5tephen.com/ksse): search KEXP's play history
+  by artist/song, see the songs played around it ("neighbors") and DJ comments, plus all-time top songs/artists.
+  It scrapes KEXP's hourly playlist HTML into a database (Python + PHP); searchable history from 2016. No API, licence unstated.
+- Idea for Cadence: don't scrape their site. The NAS already reads api.kexp.org/v2/plays for Music Radar, which includes
+  DJ comments, labels and rotation. Keep every play in our own table from now on (a few hundred rows a day), then:
+  search in Radio ("when did KEXP last play X?"), the songs before and after, DJ comments, top artists this month,
+  and "you'd like these" from the neighbours of songs you saved. Check whether the API's airdate filters allow a
+  backfill before building one.
