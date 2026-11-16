@@ -301,8 +301,12 @@ test('themes screen: search, light/dark, an index that jumps, Adjust tucked away
     await card.scrollIntoViewIfNeeded(); await page.mouse.wheel(0, 1); await page.waitForTimeout(150);
     const y0 = (await card.boundingBox()).y;
     await card.click();
-    // the page puts the card back where it was once the new theme has laid out (slower on a busy machine)
+    // the page puts the card back where it was once the new theme has laid out, and keeps it there while the theme
+    // settles (about 1.5 s, unless you scroll). Wait that out before the next card: a scroll made by the test (not a
+    // person) during that window would be put back too.
     await expect.poll(async () => Math.abs((await card.boundingBox()).y - y0), { message: id, timeout: 5000 }).toBeLessThan(4);
+    await page.waitForTimeout(1600);
+    expect(Math.abs((await card.boundingBox()).y - y0), id + ' (after settling)').toBeLessThan(4);
     await expect(card).toHaveClass(/\bon\b/);
     await expect(page.locator('#thg-now h2')).toHaveText(await page.evaluate(id => CadenceThemes.list().find(t => t.id === id).name, id));
   }

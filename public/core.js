@@ -190,16 +190,109 @@
    the browser's ~5 MB storage holds far more before it fills. Reading accepts both. The plugin switches are also kept
    in their own small key, which the page reads before anything else loads (server/lib/bundle.js). */
   const LZ_MIN = 150000;
+  /* IndexedDB (2026-11-16): every save of the big documents (each space, and the sync records) also goes into this
+   browser's IndexedDB, which has far more room than localStorage (~5 MB). localStorage stays the quick copy the app
+   opens from while it fits; when a save no longer fits, a tiny "idb1:" marker takes its place and the app opens from
+   IndexedDB instead: before it draws, saves or syncs (see Boot). Small keys (settings, cadence.off.*) stay as they are.
+   Without IndexedDB (some private windows) everything works as before. */
+  const IDB = (() => {
+    const ok = typeof indexedDB !== 'undefined' && !DEMO;
+    let dbp = null;
+    const db = () =>
+      (dbp =
+        dbp ||
+        new Promise((res, rej) => {
+          // (re)open, creating the store if it's missing (a database made by something else has none)
+          const go = v => {
+            const r = v ? indexedDB.open('cadence', v) : indexedDB.open('cadence');
+            r.onupgradeneeded = () => r.result.objectStoreNames.contains('docs') || r.result.createObjectStore('docs');
+            r.onsuccess = () => {
+              const d = r.result;
+              // another tab (or a repair) needs the database: let go, and reopen on the next save
+              d.onversionchange = () => {
+                d.close();
+                dbp = null;
+              };
+              if (d.objectStoreNames.contains('docs')) return res(d);
+              const next = d.version + 1;
+              d.close();
+              go(next);
+            };
+            r.onerror = () => rej(r.error);
+            r.onblocked = () => rej(new Error('IndexedDB is blocked by another tab'));
+          };
+          go(0);
+        }));
+    const tx = (mode, fn) =>
+      db().then(
+        d =>
+          new Promise((res, rej) => {
+            const t = d.transaction('docs', mode),
+              out = fn(t.objectStore('docs'));
+            t.oncomplete = () => res(out && 'result' in out ? out.result : undefined);
+            t.onerror = t.onabort = () => rej(t.error);
+          })
+      );
+    const timers = {},
+      latest = {};
+    return {
+      ok,
+      get: k => (ok ? tx('readonly', st => st.get(k)) : Promise.resolve(undefined)),
+      // soon (coalesced), or at once when this key lives only here
+      put(k, obj, now) {
+        if (!ok) return;
+        latest[k] = obj;
+        clearTimeout(timers[k]);
+        const go = () => {
+          const v = latest[k];
+          delete latest[k];
+          tx('readwrite', st => st.put(v, k)).catch(e => localSaveFailed(e));
+        };
+        if (now) go();
+        else timers[k] = setTimeout(go, 400);
+      },
+      flush() {
+        for (const k of Object.keys(latest)) {
+          clearTimeout(timers[k]);
+          this.put(k, latest[k], true);
+        }
+      }
+    };
+  })();
+  const BIG = new Set(); // keys whose current copy is only in IndexedDB
+  addEventListener('pagehide', () => IDB.flush());
   function lsRead(k) {
     const r = localStorage.getItem(k);
     if (!r) return null;
+    if (r.startsWith('idb1:')) {
+      BIG.add(k);
+      return null;
+    }
     return JSON.parse(r.startsWith('lz1:') && window.LZString ? LZString.decompressFromUTF16(r.slice(4)) : r);
   }
   function lsWrite(k, obj) {
+    if (HOLD.on) return; // still opening the IndexedDB copy: never save the placeholder over it
+    IDB.put(k, obj, BIG.has(k));
     const j = JSON.stringify(obj);
-    localStorage.setItem(k, j.length > LZ_MIN && window.LZString ? 'lz1:' + LZString.compressToUTF16(j) : j);
+    try {
+      localStorage.setItem(k, j.length > LZ_MIN && window.LZString ? 'lz1:' + LZString.compressToUTF16(j) : j);
+      BIG.delete(k);
+    } catch (e) {
+      if (!IDB.ok) throw e;
+      // too big for localStorage: IndexedDB keeps it; leave a marker so the next start reads from there
+      if (!BIG.has(k)) IDB.put(k, obj, true);
+      BIG.add(k);
+      try {
+        localStorage.setItem(k, 'idb1:' + Date.now());
+      } catch (_) {
+        localStorage.removeItem(k);
+        throw e;
+      }
+    }
   }
+  const HOLD = { on: false, spaces: new Set(), sync: false };
   function noteOff(space, d) {
+    if (HOLD.on) return;
     try {
       localStorage.setItem('cadence.off.' + space, JSON.stringify(d.disabled || []));
     } catch (e) {}
@@ -213,6 +306,12 @@
         return d;
       }
     } catch (e) {}
+    // its copy is in IndexedDB: a placeholder until Boot has read it (nothing is saved or synced meanwhile)
+    if (BIG.has(LS_KEYS[space])) {
+      HOLD.on = true;
+      HOLD.spaces.add(space);
+      return blank();
+    }
     if (space === 'life') return null;
     if (DEMO && window.CadenceDemo) {
       const d = Object.assign(blank(), window.CadenceDemo.build());
@@ -224,6 +323,14 @@
     return blank();
   }
   let S = loadDoc(SPACE) || lifeSeed();
+  try {
+    const ok2 = SPACE === 'work' ? 'life' : 'work';
+    if ((localStorage.getItem(LS_KEYS[ok2]) || '').startsWith('idb1:')) {
+      BIG.add(LS_KEYS[ok2]);
+      HOLD.on = true;
+      HOLD.spaces.add(ok2);
+    }
+  } catch (e) {}
   let OTHER; // the other space's document, loaded when first needed (undefined = not loaded, null = doesn't exist yet)
   function otherDoc() {
     if (OTHER === undefined) OTHER = loadDoc(SPACE === 'work' ? 'life' : 'work');
@@ -742,7 +849,12 @@
     told: false,
     st: (() => {
       try {
-        return Object.assign({ init: false, cursor: 0, recs: {}, dirty: {} }, lsRead(LS_KEY + '.sync') || {});
+        const v = lsRead(LS_KEY + '.sync');
+        if (!v && BIG.has(LS_KEY + '.sync')) {
+          HOLD.on = true;
+          HOLD.sync = true;
+        }
+        return Object.assign({ init: false, cursor: 0, recs: {}, dirty: {} }, v || {});
       } catch (e) {
         return { init: false, cursor: 0, recs: {}, dirty: {} };
       }
@@ -5898,15 +6010,18 @@
   }));
 
   /* user-installed plugins */
-  for (const code of S.userPlugins) {
-    loadingUser = code;
-    try {
-      new Function('Cadence', code)(window.Cadence);
-    } catch (e) {
-      console.warn('User plugin failed', e);
+  function loadUserPlugins() {
+    for (const code of S.userPlugins || []) {
+      loadingUser = code;
+      try {
+        new Function('Cadence', code)(window.Cadence);
+      } catch (e) {
+        console.warn('User plugin failed', e);
+      }
+      loadingUser = null;
     }
-    loadingUser = null;
   }
+  loadUserPlugins();
 
   /* =========================================================
    Boot
@@ -6010,7 +6125,44 @@
       renderSide();
     }
   }, 60000);
-  Store.init();
+  /* the saved copy lives in IndexedDB (too big for localStorage): read it, then draw, and only then sync */
+  if (HOLD.on) {
+    const shown = setTimeout(() => toast('Opening your saved copy…'), 600);
+    Promise.all([
+      ...[...HOLD.spaces].map(sp => IDB.get(LS_KEYS[sp]).then(v => [sp, v])),
+      HOLD.sync ? IDB.get(Sync.KEY).then(v => ['sync', v]) : null
+    ])
+      .then(rows => {
+        for (const r of rows) {
+          if (!r) continue;
+          const [k, v] = r;
+          if (k === 'sync') {
+            if (v) Sync.st = Object.assign({ init: false, cursor: 0, recs: {}, dirty: {} }, v);
+            continue;
+          }
+          if (!v) continue;
+          const d = Object.assign(blank(), v);
+          migrateOwners(d);
+          setDoc(k, d);
+        }
+      })
+      .catch(e => {
+        // couldn't read it: start this device fresh against the NAS (a full pull), never pushing the empty placeholder
+        console.warn('Cadence: IndexedDB copy unreadable', e);
+        Sync.st = { init: false, cursor: 0, recs: {}, dirty: {} };
+        toast("Couldn't open this browser's saved copy. Your NAS has everything; it's loading from there.");
+      })
+      .finally(() => {
+        clearTimeout(shown);
+        HOLD.on = false;
+        loadUserPlugins();
+        noteOff(SPACE, S);
+        rebuildPlugins();
+        render();
+        renderWidgets();
+        Store.init();
+      });
+  } else Store.init();
   /* narrow layout: slide-over sidebar */
   $('#nav-btn') && $('#nav-btn').addEventListener('click', () => document.body.classList.toggle('nav-open'));
   $('#nav-scrim') && $('#nav-scrim').addEventListener('click', () => document.body.classList.remove('nav-open'));

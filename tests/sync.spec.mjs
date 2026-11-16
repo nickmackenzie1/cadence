@@ -27,6 +27,9 @@ async function device(browser, name) {
   return { ctx, page,
     tasks: () => page.evaluate(() => window.T.tasks.list()),
     pull: () => page.evaluate(() => document.dispatchEvent(new Event('visibilitychange'))),
+    // ask the NAS again, then read (the app takes at most one refocus every 4 s, so waits on this run 12 s): on a busy
+    // machine one early pull can come before the other device's change has reached the NAS
+    fresh: async () => { await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange'))); return page.evaluate(() => window.T.tasks.list()); },
     settle: () => page.waitForTimeout(1600) };
 }
 
@@ -35,7 +38,7 @@ test('two devices: adds, different-field edits merge, a same-field clash keeps t
   // A adds a task; B gets it
   const id = await A.page.evaluate(() => window.T.tasks.add({ title: 'Send SOW', owner: 'me', dueDate: '2026-11-20' }).id);
   await A.settle(); await Bd.pull();
-  await expect.poll(async () => (await Bd.tasks()).find(t => t.id === id)?.title).toBe('Send SOW');
+  await expect.poll(async () => (await Bd.fresh()).find(t => t.id === id)?.title, { timeout: 12000 }).toBe('Send SOW');
 
   // B goes offline and changes the due date; A changes the title; B comes back: both survive
   await Bd.ctx.setOffline(true);
@@ -45,7 +48,7 @@ test('two devices: adds, different-field edits merge, a same-field clash keeps t
   await Bd.ctx.setOffline(false);
   await Bd.page.evaluate(() => window.dispatchEvent(new Event('online')));
   await Bd.settle(); await A.pull(); await Bd.pull();
-  for (const d of [A, Bd]) await expect.poll(async () => { const t = (await d.tasks()).find(t => t.id === id); return t && `${t.title}|${t.dueDate}`; }).toBe('Send SOW v2|2026-11-25');
+  for (const d of [A, Bd]) await expect.poll(async () => { const t = (await d.fresh()).find(t => t.id === id); return t && `${t.title}|${t.dueDate}`; }, { timeout: 12000 }).toBe('Send SOW v2|2026-11-25');
 
   // a real clash: both change the title while B is offline; B's (newer) edit wins, A can flip it
   await Bd.ctx.setOffline(true);
@@ -57,7 +60,7 @@ test('two devices: adds, different-field edits merge, a same-field clash keeps t
   // the clash notice is on the Island (it may be queued behind a boot notice on a slow machine)
   await expect.poll(() => Bd.page.evaluate(() => [window.__island.cur, ...window.__island.queue].some(n => n && /clashed/.test(n.title || ''))), { timeout: 8000 }).toBe(true);
   await A.pull();
-  await expect.poll(async () => (await A.tasks()).find(t => t.id === id)?.title).toBe('From phone');
+  await expect.poll(async () => (await A.fresh()).find(t => t.id === id)?.title, { timeout: 12000 }).toBe('From phone');
   // review on the laptop, from the command palette, and pick its own version
   const clashes = await (await fetch(B + '/api/conflicts')).json();
   expect(clashes.conflicts.some(c => c.field === 'title' && c.kept === 'From phone' && c.other === 'From laptop' && c.keptDevice === 'Phone')).toBe(true);
@@ -67,13 +70,13 @@ test('two devices: adds, different-field edits merge, a same-field clash keeps t
   await expect(A.page.locator('.cf').first()).toBeVisible();
   await A.page.locator('.cf', { hasText: 'Title' }).locator('[data-keep=other]').click();
   await A.settle(); await Bd.pull();
-  for (const d of [A, Bd]) await expect.poll(async () => (await d.tasks()).find(t => t.id === id)?.title).toBe('From laptop');
+  for (const d of [A, Bd]) await expect.poll(async () => (await d.fresh()).find(t => t.id === id)?.title, { timeout: 12000 }).toBe('From laptop');
   expect((await (await fetch(B + '/api/conflicts')).json()).conflicts.filter(c => c.field === 'title')).toHaveLength(0);
 
   // deletes travel too
   await A.page.evaluate(id => window.T.tasks.remove(id), id);
   await A.settle(); await Bd.pull();
-  await expect.poll(async () => (await Bd.tasks()).some(t => t.id === id)).toBe(false);
+  await expect.poll(async () => (await Bd.fresh()).some(t => t.id === id), { timeout: 12000 }).toBe(false);
   await A.ctx.close(); await Bd.ctx.close();
 });
 
@@ -81,6 +84,8 @@ test('two devices: adds, different-field edits merge, a same-field clash keeps t
 async function seeded(browser) {
   const A = await device(browser, 'Laptop');
   if (!(await (await fetch(B + '/api/state')).json()).json) { await A.page.evaluate(() => window.T.tasks.add({ title: 'Seed', owner: 'me' })); await A.settle(); }
+  // until the NAS has a saved document (slower on a busy machine than the fixed settle)
+  await expect.poll(async () => !!(await (await fetch(B + '/api/state')).json()).json, { timeout: 12000 }).toBe(true);
   return A;
 }
 
@@ -90,7 +95,7 @@ test('an older tab that still sends the whole document is merged in, and devices
   S.tasks.push({ id: 'old-tab-task', title: 'Made in an old tab', owner: 'me' }); S.updatedAt = Date.now();
   expect((await fetch(B + '/api/state', { method: 'PUT', headers: { 'Content-Type': 'application/json', Origin: B }, body: JSON.stringify({ json: JSON.stringify(S), updatedAt: S.updatedAt }) })).status).toBe(200);
   await A.pull();
-  await expect.poll(async () => (await A.tasks()).some(t => t.id === 'old-tab-task')).toBe(true);
+  await expect.poll(async () => (await A.fresh()).some(t => t.id === 'old-tab-task'), { timeout: 12000 }).toBe(true);
   await A.ctx.close();
 });
 

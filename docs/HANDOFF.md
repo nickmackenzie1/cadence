@@ -25,7 +25,6 @@ Cleaned up 2026-11-16 (0.8.2): items already built were moved out after checking
 - Next queue (user, 12:39), Reddit removal done in 0.12.0; then music: artist page, Deezer previews + Want to hear, ICY
   now-playing + history for every station, follow artists + calm alerts, simpler Radar front page, one Music home,
   local shows (Bandsintown/Ticketmaster keys in .env).
-- Move local saves to IndexedDB (more room than compressed localStorage); keep the small cadence.off.* keys.
 - Design pass: one type scale, spacing scale, radius set and colour roles across core + every plugin; same patterns for
   headers, empty states, lists, dialogs, badges. Sharpen, don't redefine.
 - README rewrite. Rename: the user is still thinking about a name (offered Hearth, Almanac, Homebase, Lantern). When
@@ -142,3 +141,13 @@ Cleaned up 2026-11-16 (0.8.2): items already built were moved out after checking
   limits it). One page every 8 s (was 30 s) plus that page's shows (~0.5 requests/s, ~2 days for ~3.6M plays,
   ~1–1.5 GB). "Done" now needs the real floor (`backfill_floor`), so a stop at the old 365-day default resumes.
   Show names: filled from the page just fetched / last 14 days for live plays, no whole-table scans per tick.
+- **0.17.0 (user, 2026-11-16):**
+  - IndexedDB (`IDB` in core.js): every save of the space documents and the sync records also goes to IndexedDB
+    (db `cadence`, store `docs`, coalesced 400 ms, flushed on pagehide). localStorage stays the quick copy while it
+    fits; when a save doesn't, an `idb1:` marker replaces it and Boot reads IndexedDB first (`HOLD`: no saves, no
+    `noteOff`, no `Store.init` until then; user plugins load after). Unreadable → fresh full pull from the NAS. A db
+    missing its store is repaired (version bump); connections close on `versionchange`. Test: tests/idb.spec.mjs.
+  - Flaky tests fixed. Real bugs found: forms' late autofocus stole the cursor mid-typing (`CadenceKit.focusLater`
+    everywhere); theme picking kept the card in place only for 120 ms (now on size changes for 1.5 s, stops if you
+    scroll); Harper threw offline before it was cached (now quiet). Test-only: roulette uses reduced motion; task links
+    wait for the last date picker; sync waits re-pull (refocus is throttled to one per 4 s).

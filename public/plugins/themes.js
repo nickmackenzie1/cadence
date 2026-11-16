@@ -300,8 +300,16 @@
           // walk up every scrolling box (themes can nest them, e.g. Pocket Casts) until the card is back where it was
           const fix = () => { const a = key ? el.querySelector(`.thg-sec .th-card[data-th="${CSS.escape(key)}"]`) || el.querySelector(`.th-card[data-th="${CSS.escape(key)}"]`) : anchor; if (!a || !a.isConnected) return;
             for (let e = a.parentElement; e; e = e.parentElement) { const d = a.getBoundingClientRect().top - y; if (Math.abs(d) <= 1) return; const o = getComputedStyle(e).overflowY; if ((o === 'auto' || o === 'scroll') && e.scrollHeight > e.clientHeight) e.scrollTop += d; }
-            const d = a.getBoundingClientRect().top - y; if (Math.abs(d) > 1) document.scrollingElement.scrollTop += d; };
+            const d = a.getBoundingClientRect().top - y; if (Math.abs(d) > 1) document.scrollingElement.scrollTop += d; };   // instant: smooth scrolling would overshoot as it's corrected each frame
+          // a new theme can keep changing the layout for a while (its fonts arrive, effects start): for 1.5 s, put the card
+          // back whenever sizes change. Scrolling changes no sizes, so this never fights you (and stops if you scroll).
           fix(); requestAnimationFrame(() => { fix(); requestAnimationFrame(fix); }); setTimeout(fix, 120);
+          let stop = false; const quit = () => { stop = true; try { ro.disconnect(); } catch (e) {} ['wheel', 'touchstart', 'keydown', 'pointerdown'].forEach(t => removeEventListener(t, quit, true)); };
+          ['wheel', 'touchstart', 'keydown', 'pointerdown'].forEach(t => addEventListener(t, quit, { capture: true, passive: true }));
+          const ro = typeof ResizeObserver === 'function' ? new ResizeObserver(() => { if (!stop) requestAnimationFrame(() => !stop && fix()); }) : null;
+          if (ro) { ro.observe(el); ro.observe(document.body); }
+          setTimeout(quit, 1500);
+          if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { if (!stop) fix(); });
         }
         const pick = (id, anchor) => {
           const prev = current;
