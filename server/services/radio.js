@@ -10,7 +10,7 @@ const { safeFetch, guardedLookup, assertPublic } = require('../lib/net');
 const DATA = process.env.DATA_DIR || path.join(__dirname, '..', '..', 'data');
 const CACHE_FILE = path.join(DATA, 'radio-cache.json');
 const RB = ['https://de1.api.radio-browser.info', 'https://nl1.api.radio-browser.info', 'https://at1.api.radio-browser.info', 'https://de2.api.radio-browser.info'];
-const WEEK = 7 * 864e5;
+const WEEK = 7 * 864e5, DAY = 864e5, BUDGET = +process.env.RADIO_LOOKUP_MS || 2500;
 
 // Indie, college and community stations. `url` when the station publishes one; otherwise `find` is searched in Radio Browser.
 const PRESETS = [
@@ -36,7 +36,7 @@ const saveCache = () => { try { fs.writeFileSync(CACHE_FILE, JSON.stringify(cach
 async function rb(pathAndQuery) {
   let last;
   for (const host of RB) {
-    try { const r = await safeFetch(host + pathAndQuery, { headers: { 'User-Agent': 'Cadence/1 (self-hosted to-do app)' } }, 1024 * 1024); return JSON.parse(r.buf.toString('utf8')); }
+    try { const r = await safeFetch(host + pathAndQuery, { headers: { 'User-Agent': 'Cadence/1 (self-hosted to-do app)' }, timeout: 4000 }, 1024 * 1024); return JSON.parse(r.buf.toString('utf8')); }
     catch (e) { last = e; }
   }
   throw new Error('Radio Browser unreachable: ' + (last && last.message));
@@ -55,22 +55,37 @@ async function search(q, limit = 25) {
   return (Array.isArray(list) ? list : []).map(shape).filter(s => s.url && !s.hls);
 }
 
-// the stream for a preset: its own address, or the best Radio Browser match (kept for a week)
+// Looking up a preset's stream in Radio Browser. Kept a week when found and a day when not (so a station that isn't
+// listed doesn't cost a search every time Radio opens). One lookup per station at a time.
+const inflight = new Map();
+function lookup(p) {
+  if (inflight.has(p.id)) return inflight.get(p.id);
+  const job = (async () => {
+    for (const name of p.find || [p.name]) {
+      const hit = best(await search(name, 10));
+      if (hit) { cache[p.id] = { url: hit.url, art: hit.art, at: Date.now() }; saveCache(); return cache[p.id]; }
+    }
+    cache[p.id] = { url: null, miss: true, at: Date.now() }; saveCache(); return cache[p.id];
+  })().finally(() => inflight.delete(p.id));
+  inflight.set(p.id, job);
+  return job;
+}
+// the stream for a preset: its own address, else what we know (refreshed in the background when it's old), else a
+// fresh lookup that gets BUDGET ms before the page is shown without it (it keeps going and is ready next time)
 async function resolve(p) {
   if (p.url) return { url: p.url };
-  const c = cache[p.id]; if (c && Date.now() - c.at < WEEK) return c;
-  for (const name of p.find || [p.name]) {
-    try { const hit = best(await search(name, 10)); if (hit) { cache[p.id] = { url: hit.url, art: hit.art, at: Date.now() }; saveCache(); return cache[p.id]; } }
-    catch (e) { if (c) return c; throw e; }   // directory down: last known address beats nothing
-  }
-  if (c) return c;
-  return { url: null };
+  const c = cache[p.id], age = c ? Date.now() - c.at : Infinity;
+  if (c && age < (c.miss ? DAY : WEEK)) return c;
+  const job = lookup(p).catch(e => { if (c) return c; throw e; });   // directory down: last known address beats nothing
+  if (c) { job.catch(() => {}); return c; }
+  const timeout = new Promise(r => setTimeout(() => r({ url: null, pending: true }), BUDGET).unref());
+  return Promise.race([job, timeout]);
 }
 
 async function stations() {
   return Promise.all(PRESETS.map(async p => {
     const { find, ...pub } = p;
-    try { const r = await resolve(p); return { ...pub, url: r.url || null, art: r.art || null, missing: !r.url }; }
+    try { const r = await resolve(p); return { ...pub, url: r.url || null, art: r.art || null, missing: !r.url && !r.pending, pending: !!r.pending }; }
     catch (e) { return { ...pub, url: null, missing: true, error: e.message }; }
   }));
 }
@@ -118,5 +133,8 @@ async function relay(url, clientReq, clientRes) {
   const stop = () => { try { req.destroy(); } catch {} };
   clientReq.on('close', stop); clientRes.on('close', stop); res.on('error', stop);
 }
+
+// look the presets up shortly after the NAS starts, so the first visit to Radio doesn't wait
+if (!process.env.CI && process.env.RADIO_WARM !== '0') setTimeout(() => { stations().catch(() => {}); }, 20000).unref();
 
 module.exports = { PRESETS, stations, search, nowPlaying, relay, resolve, shape, best };

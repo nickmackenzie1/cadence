@@ -58,7 +58,7 @@ async function safeFetch(u, opts = {}, max = 2 * 1024 * 1024) {
   let url = u;
   for (let hop = 0; hop < 5; hop++) {
     await assertPublic(url);
-    const r = await getOnce(url, opts.headers || {}, max, 8000);
+    const r = await getOnce(url, opts.headers || {}, max, opts.timeout || 8000);   // opts.timeout: ms per request
     if (r.status >= 300 && r.status < 400 && r.headers.location) { url = new URL(r.headers.location, url).href; continue; }
     if (r.status < 200 || r.status >= 300) throw new Error('HTTP ' + r.status);
     return { url, type: String(r.headers['content-type'] || ''), buf: r.buf };

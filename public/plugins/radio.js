@@ -16,11 +16,13 @@
     description: 'Indie, college and community stations, with Amherst Island Radio and the Toronto and Kingston campus stations for local. Search thousands more (Radio Browser, no account needed) and save your own. KEXP shows what song is on. Works in Work and Life and keeps playing everywhere.',
     setup(api) {
       const offMini = P.useMini ? P.useMini(api) : () => {};
-      let stations = null, results = null, searching = false, error = null, nowTimer = 0, hist = null;
+      let stations = null, results = null, searching = false, error = null, nowTimer = 0, hist = null, stTimer = 0;
       const mine = () => api.storage.get('mine') || [];
       const setMine = list => api.storage.set('mine', list);
       const load = async () => { try { stations = await getJson('api/radio/stations'); error = null; } catch (e) { error = e.message; stations = stations || []; }
-        try { hist = await getJson('api/radio/kexp-history'); } catch { hist = null; } refresh(); };
+        try { hist = await getJson('api/radio/kexp-history'); } catch { hist = null; } refresh();
+        // stations the NAS is still looking up: ask again shortly (it keeps searching in the background)
+        clearTimeout(stTimer); if (stations.some(s => s.pending)) stTimer = setTimeout(load, 4000); };
       const day = iso => new Date(iso).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
       const refresh = () => { if (api.ui.currentRoute() === 'view-radio') api.ui.refresh(); };
 
@@ -47,7 +49,7 @@
         return `<div class="rd-st${on ? ' on' : ''}">
           ${s.art ? `<img src="${E(s.art)}" alt="" loading="lazy" onerror="this.replaceWith(Object.assign(document.createElement('i'),{className:'rd-noart'}))">` : `<i class="rd-noart">${api.ui.icon('radio')}</i>`}
           <div class="rd-t"><b>${E(s.name)}</b><span class="muted">${E([s.place, s.about].filter(Boolean).join(' · '))}</span>
-            ${s.missing ? `<span class="muted rd-miss">Couldn't find its stream right now</span>` : ''}</div>
+            ${s.pending ? `<span class="muted rd-miss">Looking up its stream…</span>` : s.missing ? `<span class="muted rd-miss">Couldn't find its stream. Add it by address below if you know it.</span>` : ''}</div>
           <div class="rd-act">
             ${s.home ? `<a class="pc-ib" href="${E(s.home)}" target="_blank" rel="noopener" aria-label="${E(s.name)} website" title="Website">${api.ui.icon('external-link')}</a>` : ''}
             ${opts.save ? `<button class="pc-ib" data-rd="save" data-i="${opts.i}" aria-label="Save ${E(s.name)}" title="Save to your stations">${api.ui.icon('plus')}</button>` : ''}
@@ -218,7 +220,7 @@
       api.on('render', () => { if (api.ui.currentRoute() !== 'view-kexp-history') K.away = true; });
       api.on('refocus', () => { K.away = true; });
 
-      return () => { offMini(); offPlay(); offNow(); clearTimeout(nowTimer); };
+      return () => { offMini(); offPlay(); offNow(); clearTimeout(nowTimer); clearTimeout(stTimer); };
     },
   });
 
