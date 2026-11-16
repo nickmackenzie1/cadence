@@ -65,7 +65,7 @@
         el.innerHTML = `<div class="rd">
           ${live ? `<div class="pc-card rd-now">${(n && n.art) || live.art ? `<img src="${E((n && n.art) || live.art)}" alt="" onerror="this.style.visibility='hidden'">` : `<i class="rd-noart big">${api.ui.icon('radio')}</i>`}
             <div class="rd-t"><span class="muted">${P.failed ? "Can't reach this station right now" : P.audio.paused ? 'Paused' : 'Live'}${live.now && live.now.airbreak ? ' · DJ talking' : ''}</span>
-              <b>${E(n ? n.song : live.title)}</b><span class="muted">${E(n ? `${n.artist}${n.album ? ' · ' + n.album : ''} · ${live.title}` : live.podcastTitle)}</span></div>
+              <b>${E(n ? n.song : live.title)}</b><span class="muted">${n ? `<a class="ar-link" href="#view-artist" data-artist="${E(n.artist)}">${E(n.artist)}</a>${n.album ? ' · ' + E(n.album) : ''} · ${E(live.title)}` : E(live.podcastTitle)}</span></div>
             <button class="pc-ib pc-big" data-rd="${P.audio.paused ? 'resume' : 'pause'}" aria-label="${P.audio.paused ? 'Play' : 'Pause'}">${api.ui.icon(P.audio.paused ? 'play' : 'pause')}</button></div>` : ''}
           ${error ? `<p class="pc-note">${api.ui.icon('refresh-cw')}Couldn't load stations from the NAS: ${E(error)}</p>` : ''}
           ${my.length ? `<h3 class="rd-h">Your stations</h3><div class="rd-list">${my.map(s => card(s, { remove: true })).join('')}</div>` : ''}
@@ -138,7 +138,8 @@
           const a = kget('view=artist&artist=' + enc(d.artist));
           if (!a) return back + '<p class="muted">Loading…</p>';
           if (a.error || a === null) return back + `<p class="muted">Nothing saved for ${E(d.artist)} yet.</p>`;
-          return `${back}<div class="kx-head">${art(a.image, true)}<div><h3>${E(a.artist)}</h3><p class="muted">${n(a.plays, 'play', 'plays')} · first ${E(when(a.first))} · last ${E(when(a.last))}</p></div></div>
+          return `${back}<div class="kx-head">${art(a.image, true)}<div><h3>${E(a.artist)}</h3><p class="muted">${n(a.plays, 'play', 'plays')} · first ${E(when(a.first))} · last ${E(when(a.last))}</p>
+            <a class="btn kx-full" href="#view-artist" data-artist="${E(a.artist)}">${api.ui.icon('mic-vocal')}Everything about ${E(a.artist)}</a></div></div>
             ${a.months.length > 1 ? bars(a.months) : ''}
             <h4 class="rd-h">Songs</h4>${list(a.songs.map(s => ({ ...s, artist: a.artist, image: null })), rowSong, '')}
             <h4 class="rd-h">Recent plays</h4>${list(a.recent, p => rowPlay(p), '')}`;
@@ -170,6 +171,8 @@
         return back;
       };
 
+      // the artist page's "Every KEXP play" opens this view on that artist
+      window.CadenceKexpHistory = { artist: name => { K.detail = { type: 'artist', artist: name }; K.stack = []; K.away = false; api.ui.navigate('view-kexp-history'); } };
       api.views.add({ id: 'kexp-history', title: 'KEXP history', icon: '🎼', subtitle: 'Every song KEXP plays, kept on your NAS', wide: true, render: el => {
         if (K.away) { K.away = false; K.cache = {}; hist = null; }
         if (!hist) { el.innerHTML = '<div class="rd"><p class="muted">Loading…</p></div>'; getJson('api/radio/kexp-history').then(h => { hist = h; }, () => { hist = { on: false }; }).then(() => api.ui.refresh()); return; }
@@ -261,6 +264,7 @@
     .kx-back{align-self:flex-start;display:inline-flex;gap:6px;align-items:center}
     .kx-bars{display:flex;align-items:flex-end;gap:2px;height:48px;padding:4px 0} .kx-bars span{flex:1;max-width:18px;background:var(--accent);opacity:.7;border-radius:2px 2px 0 0}
     .kx-tog{font-size:13px;display:flex;gap:6px;align-items:center}
+    .kx-full{display:inline-flex;gap:6px;align-items:center;margin-top:6px;font-size:13px}
     .kx-show{font-size:12px} .kx-two{display:grid;grid-template-columns:1fr 1fr;gap:16px} @media (max-width:800px){.kx-two{grid-template-columns:1fr}}
     @media (max-width:640px){.kx-when{width:92px;white-space:normal}}
     @media (max-width:640px){.rd-list{grid-template-columns:1fr}}`;

@@ -212,6 +212,12 @@ export function signals({ since = 0, source = null, limit = 5000 } = {}) {
   return db.prepare(`SELECT source, uid, first_seen, last_seen, seen, artist, artist_key, title, type, feed, rank, best_rank, metric, genres, date, url, image
     FROM radar_signals WHERE last_seen >= ? ${source ? "AND source = ?" : ""} ORDER BY first_seen DESC, id DESC LIMIT ?`).all(...(source ? [since, source, limit] : [since, limit]));
 }
+// everything any source has said about one artist (by normalised name), newest first
+export function signalsFor(artistKey, limit = 300) {
+  if (!open()) return [];
+  return db.prepare(`SELECT source, uid, first_seen, last_seen, seen, artist, artist_key, title, type, feed, rank, best_rank, metric, genres, date, url, image
+    FROM radar_signals WHERE artist_key = ? ORDER BY last_seen DESC, id DESC LIMIT ?`).all(artistKey, limit);
+}
 export function chartPoints({ since = 0, uids = null } = {}) {
   if (!open()) return [];
   return db.prepare("SELECT ts, source, uid, artist, title, feed, rank, metric FROM radar_chart_points WHERE ts >= ? ORDER BY ts").all(since).filter((p) => !uids || uids.has(p.source + "|" + p.uid));

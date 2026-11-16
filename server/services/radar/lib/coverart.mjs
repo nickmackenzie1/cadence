@@ -37,16 +37,16 @@ export function withArt(rows, artistOf = (r) => r.artist, titleOf = (r) => r.tit
   return rows;
 }
 
-function enqueue(k, artist, title) {
+function enqueue(k, artist, title, job = () => lookup(artist, title)) {
   if (queue.has(k) || queue.size >= MAXQ) return;
-  queue.set(k, { artist, title });
+  queue.set(k, { artist, title, job });
   if (!running) pump();
 }
 async function pump() {
   running = true;
   while (queue.size) {
     const [k, v] = queue.entries().next().value; queue.delete(k);
-    try { setKv(k, (await lookup(v.artist, v.title)) || { none: true, at: Date.now() }); }
+    try { setKv(k, (await v.job()) || { none: true, at: Date.now() }); }
     catch (e) { /* offline or rate-limited: not cached, so it's tried again next time it's shown */ }
     await new Promise((r) => setTimeout(r, GAP).unref?.());
   }
@@ -65,5 +65,39 @@ export async function lookup(artist, title) {
     img = front ? (front.thumbnails?.["250"] || front.thumbnails?.small || front.image || null) : null;
   } catch { /* no cover art for this one */ }
   return { mbid: rg.id, img: img ? img.replace(/^http:/, "https:") : null, date: rg["first-release-date"] || null, type: rg["primary-type"] || null, at: Date.now() };
+}
+// ---------- the artist: where they're from, links, tags and releases (two MusicBrainz requests, kept 30 days) ----------
+const AKEY = (name) => "mba:" + norm(name);
+export function artistInfo(name, { queue: q = true } = {}) {
+  if (!name || !ON()) return { pending: false, info: null };
+  const k = AKEY(name); let c = null; try { c = getKv(k); } catch { return { pending: false, info: null }; }
+  const stale = !c || Date.now() - (c.at || 0) > (c.none ? RETRY : 30 * 86400e3);
+  if (stale && q) enqueue(k, name, "", () => lookupArtist(name));
+  return { pending: stale && (queue.has(k) || !c), info: c && !c.none ? c : null };
+}
+const LINK_TYPES = [["bandcamp", /bandcamp\.com/], ["website", null], ["wikipedia", /wikipedia\.org/], ["instagram", /instagram\.com/], ["youtube", /youtube\.com/],
+  ["spotify", /open\.spotify\.com/], ["apple", /music\.apple\.com/], ["soundcloud", /soundcloud\.com/], ["bluesky", /bsky\.app/], ["mastodon", /\/@[^/]+$/]];
+export async function lookupArtist(name) {
+  const h = { headers: { "User-Agent": UA, Accept: "application/json" } };
+  const j = await httpJson(`${MB()}/ws/2/artist/?fmt=json&limit=5&query=${encodeURIComponent(`artist:"${lucene(name)}"`)}`, h);
+  const want = norm(name), list = j.artists || [];
+  const a0 = list.find((a) => (a.score ?? 0) >= 90 && norm(a.name) === want) || list.find((a) => (a.score ?? 0) >= 99);
+  if (!a0) return null;
+  await new Promise((r) => setTimeout(r, GAP).unref?.());   // MusicBrainz: about one request a second
+  const a = await httpJson(`${MB()}/ws/2/artist/${a0.id}?fmt=json&inc=url-rels+tags+release-groups`, h);
+  const links = [];
+  for (const rel of a.relations || []) {
+    const u = rel.url && rel.url.resource; if (!u || rel.ended) continue;
+    const kind = rel.type === "official homepage" ? "website" : (LINK_TYPES.find(([, re]) => re && re.test(u)) || [])[0];
+    if (kind && !links.some((l) => l.kind === kind)) links.push({ kind, url: u.replace(/^http:/, "https:") });
+  }
+  const rgs = (a["release-groups"] || []).filter((r) => !(r["secondary-types"] || []).some((t) => /compilation|live|remix|demo|dj-mix|interview/i.test(t)))
+    .map((r) => ({ id: r.id, title: r.title, date: r["first-release-date"] || null, type: r["primary-type"] || "Release",
+      cover: `https://coverartarchive.org/release-group/${r.id}/front-250` }))
+    .sort((x, y) => String(y.date || "").localeCompare(String(x.date || "")));
+  return { mbid: a.id, name: a.name, type: a.type || null, disambiguation: a.disambiguation || null,
+    from: (a["begin-area"] && a["begin-area"].name) || (a.area && a.area.name) || null, country: a.country || null,
+    since: (a["life-span"] && a["life-span"].begin) || null, ended: !!(a["life-span"] && a["life-span"].ended),
+    tags: (a.tags || []).sort((x, y) => y.count - x.count).slice(0, 8).map((t) => t.name), links, releases: rgs.slice(0, 40), at: Date.now() };
 }
 export const _queue = () => queue.size;

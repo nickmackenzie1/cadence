@@ -28,13 +28,16 @@
       const comic = () => { const v = get('xkcd', 'api/daily/xkcd', 3600e3); if (!v) return wait(v);
         return `<figure class="db-x">${A(v.url, `<img src="${E(v.img)}" alt="${E(v.alt)}" title="${E(v.alt)}" loading="lazy">`)}<figcaption><b>${E(v.title)}</b> <span class="muted">#${v.num}</span></figcaption><details><summary>The hidden caption</summary><p>${E(v.alt)}</p></details></figure>`; };
       // Lichess's own embeddable daily-puzzle board: play it right here
+      // the board itself is Lichess's own page, so it only loads when you choose to play
       const chess = (h = 300) => { const v = get('chess', 'api/daily/lichess', 3600e3);
-        return `<div class="db-c"><iframe src="https://lichess.org/training/frame?theme=brown&bg=auto" title="Lichess daily puzzle" style="height:${h}px" loading="lazy"></iframe>
+        return `<div class="db-c"><div class="db-board" data-h="${h}"><button class="btn" data-play-chess>${api.ui.icon('crown')}Play today's puzzle here</button></div>
           ${v ? `<p class="muted">Rated ${v.rating}${v.themes.length ? ' · ' + E(v.themes.slice(0, 3).join(', ').replace(/([a-z])([A-Z])/g, '$1 $2').toLowerCase()) : ''} · ${A(v.url, 'Open on Lichess')}</p>` : ''}</div>`; };
       const news = (n = 6) => { const v = get('hn', 'api/daily/hn', 15 * 60e3); if (!v) return wait(v);
         return `<ol class="db-hn">${v.slice(0, n).map(s => `<li>${A(s.url, E(s.title))}<span class="muted">${s.score} points · ${A(s.discuss, s.comments + ' comments')}</span></li>`).join('')}</ol>`; };
 
-      const card = fn => el => { el.innerHTML = nas() ? fn() : '<p class="muted">Needs the NAS.</p>'; };
+      const wireChess = el => el.querySelectorAll('[data-play-chess]').forEach(b => b.onclick = () => {
+        const box = b.closest('.db-board'); box.innerHTML = `<iframe src="https://lichess.org/training/frame?theme=brown&bg=auto" title="Lichess daily puzzle" style="height:${box.dataset.h}px"></iframe>`; });
+      const card = fn => el => { el.innerHTML = nas() ? fn() : '<p class="muted">Needs the NAS.</p>'; wireChess(el); };
       api.widgets.add({ id: 'on-this-day', title: 'On this day', icon: 'calendar', size: 'm', description: 'What happened on today\'s date (Wikipedia).', render: card(() => otd(3)) });
       api.widgets.add({ id: 'xkcd', title: 'xkcd', icon: 'smile', size: 'm', description: 'The latest xkcd comic.', render: card(comic) });
       api.widgets.add({ id: 'chess', title: 'Chess puzzle', icon: 'crown', size: 'm', description: 'The Lichess daily puzzle, playable here.', render: card(() => chess(260)) });
@@ -44,12 +47,13 @@
         if (!nas()) { el.innerHTML = '<p class="muted">Daily needs the NAS.</p>'; return; }
         el.innerHTML = `<div class="db-grid"><section><h3>On this day</h3>${otd(8)}</section><section><h3>xkcd</h3>${comic()}</section>
           <section><h3>Chess puzzle</h3>${chess(380)}</section><section><h3>Hacker News</h3>${news(12)}</section></div>`;
+        wireChess(el);
       } });
 
       const css = document.createElement('style');
       css.textContent = `.db-otd{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px;font-size:13px} .db-otd li{display:grid;grid-template-columns:44px 1fr;gap:8px}
         .db-x{margin:0} .db-x img{max-width:100%;height:auto;display:block;margin:0 auto 6px;background:#fff;border-radius:4px} .db-x figcaption{font-size:13px} .db-x details{font-size:12px;color:var(--muted)}
-        .db-c iframe{width:100%;max-width:400px;border:0;border-radius:6px;display:block} .db-c p{font-size:12px;margin:6px 0 0}
+        .db-c iframe{width:100%;max-width:400px;border:0;border-radius:6px;display:block} .db-board .btn{display:inline-flex;gap:6px;align-items:center} .db-c p{font-size:12px;margin:6px 0 0}
         .db-hn{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:6px;font-size:13px} .db-hn li span{display:block;font-size:12px}
         .db-hn a,.db-otd a{color:inherit} .db-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:18px;max-width:1200px} .db-grid h3{margin:0 0 8px;font-size:15px}`;
       document.head.appendChild(css);

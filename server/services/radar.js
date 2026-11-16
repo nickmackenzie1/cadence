@@ -125,6 +125,12 @@ async function community(input) {
   const f = store.getKv('fediCfg', {}) || {};
   return { communities: f.communities || F.DEFAULT_COMMUNITIES, tags: f.tags || F.DEFAULT_TAGS, mainstream: M.mainstreamCfg() };
 }
+// one artist, everything known (Radar + sources + charts + KEXP + MusicBrainz)
+async function artist(name) {
+  const A = await import(pathToFileURL(path.join(__dirname, 'radar', 'lib', 'artist.mjs')).href);
+  let kexp = null; try { const K = require('./kexp-log'); if (K.status().on !== false) kexp = K.artist(name); } catch (e) { kexp = null; }
+  return A.artistData(name, { kexp });
+}
 async function rss(base) { const { store, rss } = await load(); return rss.buildRss(store.loadState(), 80, base); }
 async function digestFile(name) {
   const f = path.join(DIR, 'digests', path.basename(String(name)));
@@ -134,4 +140,4 @@ async function digestFile(name) {
 }
 async function spotify() { const { spotify } = await load(); return spotify; }
 
-module.exports = { community, sourcesNow, sourcesSettings, raw, settings, status, scan, digestNow, data, feedback, rss, digestFile, spotify };
+module.exports = { artist, community, sourcesNow, sourcesSettings, raw, settings, status, scan, digestNow, data, feedback, rss, digestFile, spotify };

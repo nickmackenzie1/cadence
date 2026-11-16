@@ -181,7 +181,10 @@ function artist(name) {
   const months = d.prepare(`SELECT strftime('%Y-%m', airdate, 'unixepoch') AS month, COUNT(*) AS plays FROM kexp_plays WHERE artist = ? COLLATE NOCASE GROUP BY month ORDER BY month`).all(a);
   const plays = d.prepare('SELECT * FROM kexp_plays WHERE artist = ? COLLATE NOCASE ORDER BY airdate DESC LIMIT 100').all(a).map(play);
   const name0 = (d.prepare('SELECT MIN(artist) AS artist FROM kexp_plays WHERE artist = ? COLLATE NOCASE').get(a) || {}).artist || a;
-  return { artist: name0, plays: sum.plays, first: iso(sum.first), last: iso(sum.last), image: sum.image, songs, months, recent: plays };
+  // which shows and DJs play them most
+  const djs = d.prepare(`SELECT s.hosts AS hosts, s.program AS program, COUNT(*) AS plays FROM kexp_plays p JOIN kexp_shows s ON s.id = p.show_id
+    WHERE p.artist = ? COLLATE NOCASE AND s.hosts IS NOT NULL GROUP BY s.hosts, s.program ORDER BY plays DESC LIMIT 8`).all(a);
+  return { artist: name0, plays: sum.plays, first: iso(sum.first), last: iso(sum.last), image: sum.image, songs, months, recent: plays, djs };
 }
 // one program (e.g. "The Morning Show") or one DJ: what they play most, and their recent plays
 function onAir({ program, dj, period = 'all' } = {}) {

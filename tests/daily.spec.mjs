@@ -74,6 +74,9 @@ test('Daily page and Outside page render from the NAS', async ({ page }) => {
   await page.goto(B + '/#view-daily');
   await expect(page.locator('.db-otd')).toContainText('Something happened in Ontario.');
   await expect(page.locator('.db-x figcaption')).toContainText('A Comic');
+  await expect(page.locator('.db-c iframe')).toHaveCount(0);                 // nothing loads from Lichess until you choose to play
+  await page.route('https://lichess.org/**', r => r.fulfill({ body: '<p>board</p>', contentType: 'text/html' }));
+  await page.click('[data-play-chess]');
   await expect(page.locator('.db-c iframe')).toHaveAttribute('src', /lichess\.org\/training\/frame/);
   await expect(page.locator('.db-c')).toContainText('Rated 1840');
   await expect(page.locator('.db-hn li')).toHaveCount(2);

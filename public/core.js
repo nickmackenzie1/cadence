@@ -1828,6 +1828,7 @@
     '📻': 'radio',
     '🗓': 'calendar-days',
     '🧺': 'shopping-basket',
+    '🎤': 'mic-vocal',
     '🎼': 'list-music',
     '✦': 'sparkles',
     '⛺': 'tent',
