@@ -1,4 +1,4 @@
-// Music Radar: the Life view draws the NAS radar data (simulated here), and thumbs and subreddit edits go back to the NAS.
+// Music Radar: the Life view draws the NAS radar data (simulated here), and thumbs and settings go back to the NAS.
 import { test, expect } from '@playwright/test';
 import { createServer } from 'node:net';
 import { spawn, spawnSync } from 'node:child_process';
@@ -18,7 +18,7 @@ test.beforeAll(async () => {
 });
 test.afterAll(() => { server && server.kill(); rmSync(dir, { recursive: true, force: true }); });
 
-test('Music Radar view: charts, picks, thumbs and subreddits', async ({ page }) => {
+test('Music Radar view: charts, picks, thumbs, and no Reddit anywhere', async ({ page }) => {
   test.setTimeout(120000);
   const errs = []; page.on('pageerror', e => errs.push(String(e)));
   await page.addInitScript(() => { localStorage.setItem('cadence.reviewNudge', (d => { d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); })(new Date())); localStorage.setItem('cadence.space', 'life'); });
@@ -41,15 +41,10 @@ test('Music Radar view: charts, picks, thumbs and subreddits', async ({ page }) 
   await page.locator(`[data-fb="${id}"][data-v="1"]`).click();
   await expect.poll(async () => (await (await fetch(B + '/api/radar/data')).json()).picks.find(p => p.id === id).feedback).toBe(0);
 
-  // add and remove a subreddit
-  await page.fill('#mr-new', 'r/synthwave'); await page.keyboard.press('Enter');
-  await expect(page.locator('.mr-sc', { hasText: 'r/synthwave' })).toBeVisible({ timeout: 15000 });
-  await page.click('[data-rm="synthwave"]');
-  await expect(page.locator('.mr-sc', { hasText: 'r/synthwave' })).toHaveCount(0, { timeout: 15000 });
-
-  // years view switches
-  await page.click('#mr-hy [data-v=month]');
-  await expect(page.locator('#mr-hy [data-v=month]')).toHaveClass(/on/);
+  // Reddit was removed (user, 2026-11-16): nothing on the page mentions it, and the old subreddit route is gone
+  await expect(page.locator('#view')).not.toContainText(/reddit|subreddit|\br\/\w/i);
+  await expect(page.locator('#mr-new')).toHaveCount(0);
+  expect((await fetch(B + '/api/radar/subs', { method: 'POST', body: '{}' })).status).toBe(404);
 
   // other sources: combined across sources, each source on its own tab, and their settings
   await page.goto(B + '/#view-radar');
@@ -80,9 +75,9 @@ test('Music Radar view: charts, picks, thumbs and subreddits', async ({ page }) 
   expect(errs).toEqual([]);
 });
 
-test('Where it listens: Lemmy/Mastodon settings, Reddit off without keys, and hiding an artist removes them from picks', async ({ page }) => {
+test('Where it listens: Lemmy/Mastodon settings, and hiding an artist removes them from picks', async ({ page }) => {
   const c = await (await fetch(B + '/api/radar/community')).json();
-  expect(c.reddit).toBe(false);
+  expect(c.reddit).toBeUndefined();
   expect(c.communities).toContain('indieheads@lemmy.ml');
   const before = await (await fetch(B + '/api/radar/data')).json();
   const who = before.picks.find(p => p.artist)?.artist;
@@ -91,7 +86,6 @@ test('Where it listens: Lemmy/Mastodon settings, Reddit off without keys, and hi
   await page.goto(B + '/#view-radar');
   await expect(page.locator('.mr-tiles')).toBeVisible({ timeout: 10000 });
   await expect(page.locator('#mr-comm')).toContainText('Where it listens');
-  await expect(page.locator('#mr-reddit')).not.toBeChecked();
   // add them to the mainstream list from the card
   const list = page.locator('#mr-ms-list');
   await list.fill((await list.inputValue()) + '\n' + who);

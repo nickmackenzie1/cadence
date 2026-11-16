@@ -8,7 +8,7 @@ import { SOURCES, DEFAULT_CFG, tagsFor, blogList } from "./sources.mjs";
 
 // how much one signal from each source counts in the combined score (blogs and Hype Machine are the early-buzz signals)
 // KEXP is DJs choosing records: the strongest early signal here. Blogs count by tier (see DEFAULT_BLOGS).
-const WEIGHT = { reddit: 3, blogs: 3, hypem: 3, kexp: 3.5, earshot: 3, audius: 2, bandcamp: 1.5, listenbrainz: 1.5, apple: 1, lastfm: 1 };
+const WEIGHT = { community: 3, blogs: 3, hypem: 3, kexp: 3.5, earshot: 3, audius: 2, bandcamp: 1.5, listenbrainz: 1.5, apple: 1, lastfm: 1 };
 const TIER_WEIGHT = { big: 1.5, small: 3.5 };
 const CHARTS = new Set(["apple", "audius", "lastfm", "hypem", "earshot"]);
 export const sourcesCfg = () => { const c = store.getKv("sourcesCfg", {}) || {}; return { ...DEFAULT_CFG, ...c, on: { ...DEFAULT_CFG.on, ...(c.on || {}) } }; };
@@ -40,16 +40,16 @@ export function sourcesData(state, snaps, hide = null) {
       feeds: [...new Set(items.map((r) => r.feed).filter(Boolean))] };
   });
 
-  // ---- Reddit, so it combines with the rest ----
-  const reddit = new Map();
-  for (const p of state.picks) if (t - p.ts < 30 * DAY && isArtist(p.artist)) { const r = reddit.get(p.key) || { n: 0, first: p.ts, title: null, url: null, artist: p.artist }; r.n++; r.first = Math.min(r.first, p.ts); r.title ||= p.song; r.url ||= p.link; reddit.set(p.key, r); }
+  // ---- the scan's picks (Lemmy and Mastodon communities), so they combine with the rest ----
+  const community = new Map();
+  for (const p of state.picks) if (t - p.ts < 30 * DAY && isArtist(p.artist)) { const r = community.get(p.key) || { n: 0, first: p.ts, title: null, url: null, artist: p.artist }; r.n++; r.first = Math.min(r.first, p.ts); r.title ||= p.song; r.url ||= p.link; community.set(p.key, r); }
   const buzz = new Map();
   for (const s of snaps || []) if (s.kind === "artist" && t - s.ts < 7 * DAY) buzz.set(s.key, Math.max(buzz.get(s.key) || 0, s.score || 0));
 
   // ---- combined per artist, last 30 days ----
   const A = new Map(), get = (key, name) => { let a = A.get(key); if (!a) A.set(key, (a = { key, artist: name, sources: {}, n: 0, first: Infinity, last: 0, score: 0, titles: [], genres: {} })); return a; };
   for (const s of sig) {
-    // same cleanup as Reddit: no "Various Artists", roundup headlines or decorated names; no upload labels as genres
+    // same cleanup as the community posts: no "Various Artists", roundup headlines or decorated names; no upload labels as genres
     if (t - s.last_seen > 30 * DAY || !isArtist(s.artist) || hide?.has(norm(s.artist))) continue;
     const a = get(s.artist_key, cleanName(s.artist)), age = Math.max(0, (t - s.first_seen) / DAY);
     a.sources[s.source] = (a.sources[s.source] || 0) + 1; a.n++;
@@ -59,10 +59,10 @@ export function sourcesData(state, snaps, hide = null) {
     if (a.titles.length < 3 && s.title && s.title !== s.artist && !a.titles.some((x) => x.title === s.title)) a.titles.push({ title: s.title, url: s.url, source: s.source });
     for (const g0 of String(s.genres || "").split(", ")) { const g = cleanGenre(g0); if (g) a.genres[g] = (a.genres[g] || 0) + 1; }
   }
-  for (const [key, r] of reddit) {
-    const a = get(key, r.artist); a.sources.reddit = r.n; a.n += r.n; a.first = Math.min(a.first, r.first); a.last = Math.max(a.last, r.first);
-    a.score += WEIGHT.reddit * (1 + Math.min(1, (buzz.get(key) || 0) / 100)) * Math.pow(0.5, Math.max(0, (t - r.first) / DAY) / 10);
-    if (r.title && a.titles.length < 3) a.titles.unshift({ title: r.title, url: r.url, source: "reddit" });
+  for (const [key, r] of community) {
+    const a = get(key, r.artist); a.sources.community = r.n; a.n += r.n; a.first = Math.min(a.first, r.first); a.last = Math.max(a.last, r.first);
+    a.score += WEIGHT.community * (1 + Math.min(1, (buzz.get(key) || 0) / 100)) * Math.pow(0.5, Math.max(0, (t - r.first) / DAY) / 10);
+    if (r.title && a.titles.length < 3) a.titles.unshift({ title: r.title, url: r.url, source: "community" });
   }
   const combined = [...A.values()].map((a) => {
     const n = Object.keys(a.sources).length;
@@ -76,12 +76,12 @@ export function sourcesData(state, snaps, hide = null) {
   const perDay = {};
   const bump = (src, ts) => { const i = idx.get(new Date(ts * 1000).toISOString().slice(0, 10)); if (i == null) return; (perDay[src] ||= Array(days).fill(0))[i]++; };
   for (const s of sig) bump(s.source, s.first_seen);
-  for (const p of state.picks) bump("reddit", p.ts);
-  const name = (id) => (id === "reddit" ? "Reddit" : SOURCES[id]?.name || id);
+  for (const p of state.picks) bump("community", p.ts);
+  const name = (id) => (id === "community" ? "Lemmy & Mastodon" : SOURCES[id]?.name || id);
   const genreRows = [];
   for (const s of sig) if (isArtist(s.artist)) for (const g0 of String(s.genres || "").split(", ")) { const g = cleanGenre(g0); if (g) genreRows.push({ ts: s.first_seen, genre: g, n: 1 }); }
 
-  // ---- crossover: your Reddit picks that turned up on the Apple chart, and chart movers ----
+  // ---- crossover: community picks that turned up on the Apple chart, and chart movers ----
   const apple = new Map(); for (const s of bySource.apple || []) { const c = apple.get(s.artist_key); if (!c || (s.best_rank ?? 999) < (c.best_rank ?? 999)) apple.set(s.artist_key, s); }
   const crossover = [];
   for (const p of state.picks) { const a = apple.get(p.key); if (a && !crossover.some((c) => c.key === p.key)) crossover.push({ key: p.key, artist: p.artist, picked: p.ts, charted: a.first_seen, rank: a.best_rank, feed: a.feed, url: a.url }); }
@@ -101,6 +101,6 @@ export function sourcesData(state, snaps, hide = null) {
     genres: momentum(genreRows, t, "genre").slice(0, 16),
     crossover: crossover.sort((a, b) => b.charted - a.charted).slice(0, 20),
     movers: movesOnce.slice(0, 20),
-    alsoOn: Object.fromEntries(combined.filter((a) => Object.keys(a.sources).some((s) => s !== "reddit")).map((a) => [a.key, Object.keys(a.sources).filter((s) => s !== "reddit")])),
+    alsoOn: Object.fromEntries(combined.filter((a) => Object.keys(a.sources).some((s) => s !== "community")).map((a) => [a.key, Object.keys(a.sources).filter((s) => s !== "community")])),
   };
 }

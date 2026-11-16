@@ -44,7 +44,7 @@ test('Lemmy and Mastodon posts come out like Reddit posts', async () => {
   } finally { srv.close(); }
 });
 
-test('mainstream artists: your list, Last.fm listeners over the limit, the Apple chart; history hides them too', async () => {
+test('mainstream artists: your list, Last.fm listeners over the limit, the Apple chart', async () => {
   const dir = mkdtempSync(join(tmpdir(), 'cadence-ms-'));
   Object.assign(process.env, { RADAR_DATA: dir, RADAR_DB: join(dir, 'cadence.db') });
   try {
@@ -60,8 +60,5 @@ test('mainstream artists: your list, Last.fm listeners over the limit, the Apple
     expect(['Drake', 'Taylor Swift', 'Big Indie Band', 'Chart Topper'].map(n => M.hidden(set2, n))).toEqual([true, false, false, false]);
     M.saveMainstreamCfg({ on: false });
     expect(M.mainstreamSet(state)).toBeNull();
-    // the yearly history leaves hidden artists out of top lists and breakouts
-    const H = await import('../server/services/radar/lib/history.mjs');
-    expect(typeof H.historyTrends).toBe('function');
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });

@@ -1,12 +1,11 @@
 // Everything the dashboard and digest need, computed from stored data.
-import { now, DAY, DEFAULT_SUBS } from "./config.mjs";
+import { now, DAY } from "./config.mjs";
 import { readJsonl, signals } from "./store.mjs";
 import { mainstreamSet, hidden, mainstreamCfg } from "./mainstream.mjs";
 import { riseData, momentum, subLeadTimes, soundsLikeGraph } from "./trends.mjs";
 import { tasteModel } from "./taste.mjs";
 import { trackRecord } from "./discover.mjs";
 import { withArt } from "./coverart.mjs";
-import { loadHistory, historyTrends } from "./history.mjs";
 import { spotifyConnected, hasSpotifyApp, playlistUrl } from "./spotify.mjs";
 import { sourcesData } from "./sources-data.mjs";
 import { isArtist, cleanGenre } from "./extract.mjs";
@@ -41,11 +40,8 @@ export function dashboardData(state) {
     picks: withArt([...state.picks].filter((p) => !p.artist || (isArtist(p.artist) && keep(p.artist))).sort((a, b) => b.ts - a.ts).slice(0, 40).map((p) => ({ ...p, feedback: state.feedback[p.id] || 0, alsoOn: sources.alsoOn?.[p.key] || [] })), (p) => p.artist, (p) => p.song),
     picksThisWeek: state.picks.filter((p) => t - p.ts < 7 * DAY).length,
     artistsTracked: Object.keys(state.artists).length,
-    subs: state.subs || DEFAULT_SUBS,
-    suggestions: state.subSuggestions,
     trackRecord: trackRecord(state),
     taste: { genres: taste.genreWeights, subs: taste.subWeights, liked: taste.liked.size, disliked: taste.disliked.size },
-    history: historyTrends(loadHistory(), { hide: keep }),
     mainstream: { ...mainstreamCfg(), hiding: hide ? hide.size : 0 },
     digests: [...state.digests].reverse().slice(0, 10).map(({ html, ...d }) => d),
     spotify: { app: hasSpotifyApp(), connected: spotifyConnected(), url: playlistUrl() },

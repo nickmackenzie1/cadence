@@ -1,6 +1,6 @@
-// Community buzz without Reddit (user, 2026-11-16: "the reddit thing isn't gonna work"). Lemmy communities and
+// Community buzz (user, 2026-11-16: Reddit removed). Lemmy communities and
 // Mastodon hashtags have public read APIs with no account or key. Their posts come out in the same shape as Reddit's
-// (see reddit.mjs toPost), so picks, trends, breakouts and genre jumps work on them unchanged.
+// (id, sub, title, score, ratio, comments, created, url, permalink), so picks, trends, breakouts and genre jumps work on them unchanged.
 //   Lemmy:    GET https://<host>/api/v3/post/list?community_name=<name>&type_=All&sort=Hot|New&limit=40
 //             GET https://<host>/api/v3/comment/list?post_id=<id>&sort=Top&type_=All&limit=12
 //   Mastodon: GET https://<host>/api/v1/timelines/tag/<tag>?limit=40

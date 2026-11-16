@@ -51,7 +51,7 @@ export function momentum(rows, t, field, minTotal = 3) {
   return out.sort((a, b) => (b.change ?? 99) - (a.change ?? 99) || b.thisWeek - a.thisWeek);
 }
 
-// Which subreddits post an artist first, and how far ahead of the others.
+// Which communities post an artist first, and how far ahead of the others.
 export function subLeadTimes(artists) {
   const stats = {};
   for (const a of Object.values(artists)) {

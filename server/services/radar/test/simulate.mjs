@@ -15,7 +15,6 @@ process.env.RADAR_NOW = String(START);
 const { run } = await import("../radar.mjs");
 const { digest } = await import("../digest.mjs");
 const { loadState, saveState } = await import("../lib/store.mjs");
-const { saveHistory } = await import("../lib/history.mjs");
 const store = await import("../lib/store.mjs");
 const { runSources } = await import("../lib/sources.mjs");
 const { mockFetch, TEST_BLOGS } = await import("./source-fixtures.mjs");
@@ -92,21 +91,4 @@ saveState(s);
 await digest({ offline: true });
 
 // 10 years of fake archive data
-const hist = { listentothis: {} };
-const g = (y, m) => ({
-  "indie rock": 30 - (y - 2016) * 1.2, "shoegaze": 3 + Math.max(0, y - 2019) * 2.2, "hyperpop": y === 2020 || y === 2021 ? 9 : y > 2021 ? 3 : 0.5,
-  "dream pop": 8 + Math.sin(y) * 2, "hip hop": 15, "post punk": 4 + (y >= 2018 && y <= 2022 ? 6 : 1), "midwest emo": 2 + Math.max(0, y - 2022) * 3, "uk garage": y >= 2023 ? 5 + (y - 2023) * 2 : 1,
-});
-for (let y = 2016; y <= 2026; y++) for (let m = 1; m <= 12; m++) {
-  if (y === 2026 && m > 10) break;
-  const genres = Object.fromEntries(Object.entries(g(y, m)).map(([k, v]) => [k, Math.max(0, Math.round(v * (0.85 + rnd() * 0.3)))]));
-  const artists = {};
-  for (const a of ["Phoebe Bridgers", "Alvvays", "Fontaines D.C.", "Wednesday", "Glass Lantern", "Mira Vale", "Fred again..", "MJ Lenderman"]) {
-    const start = { "Phoebe Bridgers": 2017, "Alvvays": 2016, "Fontaines D.C.": 2019, "Wednesday": 2023, "Glass Lantern": 2025, "Mira Vale": 2026, "Fred again..": 2021, "MJ Lenderman": 2024 }[a];
-    if (y >= start) artists[a.toLowerCase()] = { name: a, n: Math.round((y === start ? 1 : 3) * (1 + rnd() * 2)), score: 400 };
-  }
-  hist.listentothis[`${y}-${String(m).padStart(2, "0")}`] = { posts: 300, music: 100, genres, artists,
-    albums: y >= 2023 ? { "wednesday::rat saw god": { artist: "Wednesday", album: "Rat Saw God", type: "album", n: y === 2023 ? 4 : 1, score: 900 } } : {} };
-}
-saveHistory(hist);
 console.log("Simulation done. Data in", process.env.RADAR_DATA);

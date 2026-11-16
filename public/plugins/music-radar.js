@@ -1,8 +1,9 @@
-/* Music Radar (Life): up-and-coming artists, songs and albums from music subreddits, scored for buzz and for your taste.
+/* Music Radar (Life): up-and-coming artists, songs and albums from indie blogs, campus radio, charts and music
+   communities on Lemmy and Mastodon, scored for buzz and for your taste (Reddit removed 2026-11-16).
    Nick's music-radar app, running on the NAS (server/services/radar). This is its dashboard:
-   who's climbing, fastest risers, genres and scenes blowing up, albums, which subreddits find artists first, the
-   "sounds like" map, picks you rate up or down (that's how it learns your taste), subreddits, the archive over the
-   years, the track record, and the weekly digests. Switched off until you turn it on: then the NAS scans every
+   who's climbing, fastest risers, genres and scenes blowing up, albums, which communities find artists first, the
+   "sounds like" map, picks you rate up or down (that's how it learns your taste), where it listens, the track
+   record, and the weekly digests. Switched off until you turn it on: then the NAS scans every
    6 hours and writes a digest every week. */
 (() => {
   const esc = window.CadenceKit.esc, css = window.CadenceKit.css;
@@ -61,8 +62,8 @@
     </svg>`;
   }
 
-  const SRC_NAMES = { reddit: 'Reddit', listenbrainz: 'ListenBrainz', apple: 'Apple Music', audius: 'Audius', lastfm: 'Last.fm', bandcamp: 'Bandcamp', hypem: 'Hype Machine', blogs: 'Blogs', kexp: 'KEXP', earshot: '!earshot' };
-  const SRC_COL = { reddit: '#f97316', listenbrainz: '#eb743b', apple: '#ec4899', audius: '#8b5cf6', lastfm: '#ef4444', bandcamp: '#14b8a6', hypem: '#3b82f6', blogs: '#eab308', kexp: '#64748b', earshot: '#0d9488' };
+  const SRC_NAMES = { community: 'Lemmy & Mastodon', listenbrainz: 'ListenBrainz', apple: 'Apple Music', audius: 'Audius', lastfm: 'Last.fm', bandcamp: 'Bandcamp', hypem: 'Hype Machine', blogs: 'Blogs', kexp: 'KEXP', earshot: '!earshot' };
+  const SRC_COL = { community: '#6364ff', listenbrainz: '#eb743b', apple: '#ec4899', audius: '#8b5cf6', lastfm: '#ef4444', bandcamp: '#14b8a6', hypem: '#3b82f6', blogs: '#eab308', kexp: '#64748b', earshot: '#0d9488' };
   const srcPill = id => `<span class="mr-src" style="--c:${SRC_COL[id] || '#888'}">${esc(SRC_NAMES[id] || id)}</span>`;
   const day = ts => ts ? new Date(ts * 1000).toLocaleDateString([], { month: 'short', day: 'numeric' }) : '';
   const link = (u, t) => u ? `<a href="${esc(u)}" target="_blank" rel="noopener">${t}</a>` : t;
@@ -97,21 +98,21 @@
           <td class="mr-small">${cur.chart ? (x.was == null || x.was === x.rank ? (x.seen > 1 ? 'steady' : 'new') : x.was > x.rank ? `up ${x.was - x.rank}` : `down ${x.rank - x.was}`) : esc(day(x.first_seen))}</td></tr>`).join('')}</table>`
           : empty(cur.missing ? 'Add the key on the NAS to use this source.' : 'Nothing from this source yet.')}`;
     }
-    return `<section class="mr-card w12" id="mr-sources"><div class="mr-row" style="justify-content:space-between"><div><h3>Other sources</h3><p class="mr-sub">Blogs, charts, new releases and streaming trends, next to Reddit</p></div>
+    return `<section class="mr-card w12" id="mr-sources"><div class="mr-row" style="justify-content:space-between"><div><h3>Other sources</h3><p class="mr-sub">Blogs, charts, radio, new releases and streaming trends, next to the communities</p></div>
         <span class="mr-row"><button class="btn" id="mr-srcnow">${ic('refresh-cw')}Check sources</button><button class="btn" id="mr-srcset">${ic('settings')}Sources</button></span></div>
       <div class="seg mr-tabs" id="mr-srctabs">${tabs.map(([id, n]) => { const x = S0.list.find(y => y.id === id); return `<button data-src="${id}" class="${G.src === id || (id === 'all' && !cur) ? 'on' : ''}">${esc(n)}${x ? ` <span class="mr-n${x.run && !x.run.ok ? ' bad' : ''}">${x.total}</span>` : ''}</button>`; }).join('')}</div>
       ${body}</section>
       <section class="mr-card w8"><h3>New finds per day, by source</h3><p class="mr-sub">Artists, songs and records each source turned up, last 30 days</p>${lineChart(S0.perDay.labels, S0.perDay.series.map(x => ({ label: x.label, data: x.data })), { h: 220, unit: 'finds' })}</section>
       <section class="mr-card w4"><h3>Climbing the charts</h3><p class="mr-sub">Up 5 or more places in two weeks</p>
         ${S0.movers.length ? `<table class="mr-t">${S0.movers.slice(0, 8).map(m => `<tr><td>${link(m.url, `<b>${esc(m.artist)}</b>`)}<div class="mr-small">${esc(m.title || '')} · ${esc(SRC_NAMES[m.source])} ${esc(m.feed || '')}</div></td><td class="n" style="white-space:nowrap">${m.was} → ${m.now}</td></tr>`).join('')}</table>` : empty('No big moves yet.')}
-        <h4>Crossed over</h4><p class="mr-sub">Your Reddit picks that later showed up on the Apple chart</p>
+        <h4>Crossed over</h4><p class="mr-sub">Community picks that later showed up on the Apple chart</p>
         ${S0.crossover.length ? `<table class="mr-t">${S0.crossover.map(c => `<tr><td>${link(c.url, `<b>${esc(c.artist)}</b>`)}<div class="mr-small">picked ${esc(day(c.picked))}, charted ${esc(day(c.charted))}</div></td><td class="n">#${c.rank}</td></tr>`).join('')}</table>` : empty('None yet.')}</section>
-      <section class="mr-card w12"><h3>Genres across sources</h3><p class="mr-sub">Tags from every source except Reddit: last 7 days vs the weekly average of the 3 weeks before</p>${changeBars(S0.genres)}</section>`;
+      <section class="mr-card w12"><h3>Genres across sources</h3><p class="mr-sub">Tags from every source except the communities: last 7 days vs the weekly average of the 3 weeks before</p>${changeBars(S0.genres)}</section>`;
   }
   function sourcesDialog(api, S0) {
     const c = S0.cfg, E = esc;
     api.ui.modal('Sources', `<div class="mr-dlg">
-      <p class="mr-small">Checked after every Reddit scan, or with Check sources. Each one is free; Last.fm uses the key on the NAS.</p>
+      <p class="mr-small">Checked after every scan, or with Check sources. Each one is free; Last.fm uses the key on the NAS.</p>
       ${S0.list.map(x => `<label class="mr-srcrow"><input type="checkbox" data-on="${x.id}" ${c.on[x.id] ? 'checked' : ''}> <b>${E(x.name)}</b> <span class="mr-small">${E(x.kind)}${x.missing ? ' · needs ' + E(x.needs) : ''}</span></label>`).join('')}
       <div class="field"><label>ListenBrainz username (adds releases picked for you)</label><input class="inp" id="mr-lb" value="${E(c.lbUser || '')}" placeholder="optional"></div>
       <div class="field"><label>Apple Music chart country</label><input class="inp" id="mr-cc" value="${E(c.appleCountry || 'ca')}" maxlength="2" style="width:5em"></div>
@@ -129,8 +130,8 @@
 
   Cadence.registerPlugin({
     id: 'music-radar', name: 'Music Radar', version: '1.0.0', category: 'Life', spaces: ['life'],
-    description: 'Finds up-and-coming artists, songs and albums on music subreddits, tracks what\'s rising, and learns your taste from thumbs up and down. Runs on your NAS: a scan every 6 hours and a weekly digest, an RSS feed, optional phone alerts and a Spotify playlist.',
-    tagline: 'Up-and-coming music from Reddit buzz', color: '#3b82f6',
+    description: 'Finds up-and-coming artists, songs and albums from indie blogs, campus radio, charts and music communities on Lemmy and Mastodon, tracks what\'s rising, and learns your taste from thumbs up and down. Runs on your NAS: a scan every 6 hours and a weekly digest, an RSS feed, optional phone alerts and a Spotify playlist.',
+    tagline: 'Up-and-coming music before it breaks', color: '#3b82f6',
     icon: '<path d="M19.07 4.93A10 10 0 0 0 6.99 3.34M4 6h.01M2.29 9.62A10 10 0 1 0 21.31 8.35M16.24 7.76A6 6 0 1 0 8.23 16.67M12 18h.01M17.99 11.66A6 6 0 0 1 15.77 16.67"/><circle cx="12" cy="12" r="2"/><path d="m13.41 10.59 5.66-5.66"/>',
     setup(api) {
       const G = { d: null, st: null, years: 'year', year: null, all: false, poll: 0, src: 'all', feed: '', multi: true };
@@ -144,15 +145,13 @@
       }
       window.__radar = { load, get G() { return G; } };
 
-      api.views.add({ id: 'radar', title: 'Music Radar', icon: '📡', subtitle: 'Up-and-coming music from Reddit buzz', wide: true, render: el => {
+      api.views.add({ id: 'radar', title: 'Music Radar', icon: '📡', subtitle: 'Up-and-coming music before it breaks', wide: true, render: el => {
         if (api.system().mode !== 'nas') { el.innerHTML = empty('Music Radar runs on your NAS. Open Cadence from the NAS to use it.'); return; }
         if (!G.d || !G.st) { el.innerHTML = empty('Loading…'); load(); return; }
         const D = G.d, S = G.st, ic = n => api.ui.icon(n);
         const hot = D.genres.find(g => g.change != null && g.change > 0) || D.genres[0];
         const risers = D.rise.risers.filter(r => r.delta > 0).slice(0, 10);
         const picks = G.all ? D.picks : D.picks.slice(0, 15);
-        const h = D.history, y = h ? (G.year && h.years.includes(G.year) ? G.year : h.years[h.years.length - 1]) : null;
-        const ylist = (title, rows, f) => `<div><h4>${title}</h4>${rows && rows.length ? `<table class="mr-t">${rows.map(f).join('')}</table>` : empty('Nothing yet')}</div>`;
         const keys = S.keys, setupRow = (on, name, what) => `<li class="${on ? 'on' : ''}">${ic(on ? 'circle-check' : 'circle')}<code>${name}</code> ${what}</li>`;
         el.innerHTML = `
           <div class="mr-top">
@@ -166,7 +165,6 @@
             </span>
           </div>
           ${S.lastError && !S.job ? `<div class="mr-problem">${ic('circle-alert')}<div><b>The last run had a problem</b><div>${esc(S.lastError)}</div><a href="#view-db" id="mr-log">See the job log in Database</a></div></div>` : ''}
-          ${S.redditNote && !S.lastError && !S.job ? `<p class="mr-sub mr-note">${ic('cloud')}${esc(S.redditNote)}</p>` : ''}
           <div class="mr-tiles">
             <div class="mr-tile"><b>${fmt(D.picksThisWeek)}</b><span>Picks this week</span></div>
             <div class="mr-tile"><b>${fmt(D.artistsTracked)}</b><span>Artists tracked</span></div>
@@ -181,9 +179,9 @@
             <section class="mr-card w6"><h3>Genres blowing up</h3><p class="mr-sub">Last 7 days vs the weekly average of the 3 weeks before</p>${changeBars(D.genres)}</section>
             <section class="mr-card w6"><h3>New scenes and buzzwords</h3><p class="mr-sub">Phrases from comments, same comparison</p>${changeBars(D.buzz)}</section>
             <section class="mr-card w6"><h3>Albums and EPs blowing up</h3><p class="mr-sub">Best buzz score in the last 7 days</p>
-              ${D.albums.length ? `<table class="mr-t"><tr><th>Release</th><th>Where</th><th class="n">Score</th></tr>${D.albums.map(a => `<tr><td><a href="${esc(a.link)}" target="_blank" rel="noopener">${esc(a.artist)} — ${esc(a.album)}</a> <span class="chip">${esc(a.type)}</span></td><td class="mr-small">${esc(a.subs.map(s => 'r/' + s).join(', '))}</td><td class="n">${Math.round(a.score)}</td></tr>`).join('')}</table>` : empty('No album or EP posts in the last week.')}</section>
-            <section class="mr-card w6"><h3>Which subreddits find artists first</h3><p class="mr-sub">How often each sub posted a shared artist first. Early subs count more in scoring.</p>
-              ${D.subLead.length ? `<div class="mr-bars">${D.subLead.map(s => `<div class="mr-bar" title="first on ${Math.round(s.firstShare * 100)}% of ${s.samples} shared artists${s.avgLeadHours ? `, ~${Math.round(s.avgLeadHours)}h ahead` : ''}"><span class="mr-bl">r/${esc(s.sub)}</span><span class="mr-bt"><i class="up" style="left:0;width:${Math.round(s.firstShare * 100)}%"></i></span><span class="mr-bv">${Math.round(s.firstShare * 100)}%</span></div>`).join('')}</div>` : empty('Needs artists that show up in 2+ subreddits.')}</section>
+              ${D.albums.length ? `<table class="mr-t"><tr><th>Release</th><th>Where</th><th class="n">Score</th></tr>${D.albums.map(a => `<tr><td><a href="${esc(a.link)}" target="_blank" rel="noopener">${esc(a.artist)} — ${esc(a.album)}</a> <span class="chip">${esc(a.type)}</span></td><td class="mr-small">${esc(a.subs.map(s => s).join(', '))}</td><td class="n">${Math.round(a.score)}</td></tr>`).join('')}</table>` : empty('No album or EP posts in the last week.')}</section>
+            <section class="mr-card w6"><h3>Which communities find artists first</h3><p class="mr-sub">How often each sub posted a shared artist first. Early subs count more in scoring.</p>
+              ${D.subLead.length ? `<div class="mr-bars">${D.subLead.map(s => `<div class="mr-bar" title="first on ${Math.round(s.firstShare * 100)}% of ${s.samples} shared artists${s.avgLeadHours ? `, ~${Math.round(s.avgLeadHours)}h ahead` : ''}"><span class="mr-bl">${esc(s.sub)}</span><span class="mr-bt"><i class="up" style="left:0;width:${Math.round(s.firstShare * 100)}%"></i></span><span class="mr-bv">${Math.round(s.firstShare * 100)}%</span></div>`).join('')}</div>` : empty('Needs artists that show up in 2+ subreddits.')}</section>
             <section class="mr-card w12"><h3>"Sounds like" map</h3><p class="mr-sub">Comparisons people make in comments. Bigger dot = compared more often. Ringed = artists you liked. Hover a dot for who it's compared with.</p>${graph(D.graph)}</section>
             ${sourcesCard(D.sources, ic, G)}
             <section class="mr-card w8"><h3>Recent picks</h3><p class="mr-sub">Thumbs up and down teach the radar your taste</p>
@@ -196,7 +194,6 @@
               <textarea class="inp mr-ta" id="mr-lemmy" rows="5" spellcheck="false">${esc(G.comm.communities.join('\n'))}</textarea>
               <label class="mr-small">Mastodon hashtags (one per line)</label>
               <textarea class="inp mr-ta" id="mr-tags" rows="3" spellcheck="false">${esc(G.comm.tags.join('\n'))}</textarea>
-              <label class="mr-small mr-chk"><input type="checkbox" id="mr-reddit" ${G.comm.reddit ? 'checked' : ''}> Also read Reddit${G.comm.redditKeys ? '' : ' (needs REDDIT_CLIENT_ID and REDDIT_CLIENT_SECRET on the NAS; refused without them)'}</label>
               <h4>Hide mainstream artists</h4>
               <label class="mr-small mr-chk"><input type="checkbox" id="mr-ms-on" ${G.comm.mainstream.on ? 'checked' : ''}> Hide them everywhere on this page${D.mainstream && D.mainstream.hiding ? ` (${D.mainstream.hiding} hidden now)` : ''}</label>
               <label class="mr-small mr-chk"><input type="checkbox" id="mr-ms-charts" ${G.comm.mainstream.charts ? 'checked' : ''}> Anyone on the Apple Music chart</label>
@@ -205,19 +202,8 @@
               <textarea class="inp mr-ta" id="mr-ms-list" rows="6" spellcheck="false">${esc(G.comm.mainstream.list.join('\n'))}</textarea>
               <div class="mr-row"><button class="btn" id="mr-comm-save">Save</button><span class="mr-small">Takes effect on the next scan; the mainstream filter right away.</span></div>
             </section>` : ''}
-            <section class="mr-card w4"><h3>Subreddits</h3><p class="mr-sub">${G.comm && !G.comm.reddit ? 'Not being read: Reddit is switched off under Where it listens.' : 'What the radar scans'}</p>
-              <div class="mr-chips">${D.subs.map(s => `<span class="mr-sc">r/${esc(s)}<button data-rm="${esc(s)}" aria-label="Remove r/${esc(s)}">${ic('x')}</button></span>`).join('')}</div>
-              <div class="mr-row"><input class="inp" id="mr-new" placeholder="Add a subreddit" value="${esc(G.newSub || '')}"><button class="btn" id="mr-add">Add</button></div>
-              <h4>Suggested for you</h4><p class="mr-sub">Where artists you liked keep getting posted (refreshed by the weekly digest)</p>
-              ${D.suggestions.length ? `<table class="mr-t">${D.suggestions.map(s => `<tr><td><a href="https://reddit.com/r/${esc(s.sub)}" target="_blank" rel="noopener">r/${esc(s.sub)}</a><div class="mr-small">${fmt(s.subscribers)} members · because: ${esc(s.because.slice(0, 3).join(', '))}</div></td><td><button class="btn" data-add="${esc(s.sub)}">Add</button></td></tr>`).join('')}</table>` : empty('The weekly digest finds suggestions.')}
-              <h4>What it's learned</h4>
+            <section class="mr-card w4"><h3>What it's learned</h3>
               <div class="mr-small">${D.taste.liked + D.taste.disliked ? `${D.taste.liked} liked · ${D.taste.disliked} not for me<br>${Object.entries(D.taste.genres).sort((a, b) => b[1] - a[1]).slice(0, 8).map(([g, w]) => `${esc(g)} ×${w}`).join(' · ')}` : 'Rate a few picks and it starts weighting genres and subreddits.'}</div></section>
-            <section class="mr-card w12"><h3>Over the years</h3><p class="mr-sub">From the Reddit archive. Share of music posts tagged with each genre.</p>
-              ${h ? `<div class="seg" id="mr-hy"><button data-v="year" class="${G.years === 'year' ? 'on' : ''}">By year</button><button data-v="month" class="${G.years === 'month' ? 'on' : ''}">By month</button></div>
-                ${lineChart(G.years === 'year' ? h.years : h.months, (G.years === 'year' ? h.genreShareByYear : h.genreShareByMonth).map(s => ({ label: s.genre, data: s.values })), { h: 280, unit: '%' })}
-                <div class="mr-row" style="margin-top:12px"><b>Look at a year:</b> <select class="inp" id="mr-year" style="width:auto">${h.years.slice().reverse().map(v => `<option ${v === y ? 'selected' : ''}>${v}</option>`).join('')}</select></div>
-                <div class="mr-years">${ylist('Most-posted artists', h.topArtistsByYear[y], a => `<tr><td>${esc(a.name)}</td><td class="n">${a.n}</td></tr>`)}${ylist('Albums and EPs', h.topAlbumsByYear[y], a => `<tr><td>${esc(a.artist)} — ${esc(a.album)}</td><td class="n">${a.n}</td></tr>`)}${ylist('Breakout artists', h.breakoutsByYear[y], b => `<tr><td>${esc(b.artist)}</td><td class="n">${b.before} → ${b.mentions}</td></tr>`)}${ylist('Genres that jumped', h.jumpsByYear[y], j => `<tr><td>${esc(j.genre)}</td><td class="n">${j.from}% → ${j.to}%</td></tr>`)}</div>`
-                : empty('No archive data yet.') + `<p style="text-align:center"><button class="btn" id="mr-back" ${S.job ? 'disabled' : ''}>${ic('history')}Pull the archive (about 30–60 minutes, runs on the NAS)</button></p>`}</section>
             <section class="mr-card w6"><h3>Track record</h3><p class="mr-sub">Picks from 30+ days ago: did their Last.fm listeners grow 25% or more?</p>
               ${D.trackRecord.checked ? `<p>${D.trackRecord.hits} of ${D.trackRecord.checked} checked picks were hits.</p><table class="mr-t"><tr><th>Artist</th><th class="n">Then</th><th class="n">Now</th><th class="n">Growth</th></tr>${D.trackRecord.best.map(b => `<tr><td>${esc(b.artist)}</td><td class="n">${fmt(b.before)}</td><td class="n">${fmt(b.now)}</td><td class="n">${pct(b.growth)}</td></tr>`).join('')}</table>` : empty('Needs a Last.fm key and picks that are 30+ days old.')}</section>
             <section class="mr-card w6"><h3>Weekly digests</h3>
@@ -226,7 +212,6 @@
                 <p class="mr-small">Everything works without them; each one unlocks more. Add them to the NAS <code>.env</code>; they never leave the NAS.</p>
                 <ul>${setupRow(keys.ai, 'ANTHROPIC_API_KEY', 'Claude reads posts and comments: better artists and genres, "sounds like" pairs, nicer blurbs and digest')}
                   ${setupRow(keys.lastfm, 'LASTFM_API_KEY', 'real listener counts (small-but-buzzing gets boosted), track record')}
-                  ${setupRow(keys.reddit, 'REDDIT_CLIENT_ID / _SECRET', 'more reliable Reddit access')}
                   ${setupRow(keys.ntfy, 'NTFY_TOPIC', 'phone alerts when an artist spikes, plus the weekly digest')}
                   ${setupRow(keys.spotify, 'SPOTIFY_CLIENT_ID / _SECRET', `a "Music Radar" playlist. Redirect address: <code id="mr-redir">…</code>`)}</ul>
                 ${S.log && S.log.length ? `<pre class="mr-log">${esc(S.log.join('\n'))}</pre>` : ''}</details></section>
@@ -236,29 +221,18 @@
         $('#mr-scan').onclick = async () => { G.st = await post('api/radar/run', { what: 'scan' }); api.ui.toast('Scanning. It takes a few minutes; this page updates when it\'s done.'); load(); };
         $('#mr-digest').onclick = async () => { G.st = await post('api/radar/run', { what: 'digest' }); load(); };
         const lg = $('#mr-log'); if (lg) lg.onclick = () => { (window.__dbv = window.__dbv || {}).want = 'sql:radar_jobs'; };
-        const back = $('#mr-back'); if (back) back.onclick = async () => { G.st = await post('api/radar/run', { what: 'backfill' }); api.ui.toast('Pulling the archive on the NAS. You can leave this page.'); load(); };
         el.querySelectorAll('[data-fb]').forEach(b => b.onclick = async () => { const v = +b.dataset.v, cur = +b.dataset.cur; await post('api/radar/feedback', { id: b.dataset.fb, v: cur === v ? 0 : v }); load(); });
-        el.querySelectorAll('[data-rm]').forEach(b => b.onclick = async () => { await post('api/radar/subs', { remove: b.dataset.rm }); load(); });
-        el.querySelectorAll('[data-add]').forEach(b => b.onclick = async () => { await post('api/radar/subs', { add: b.dataset.add }); load(); });
-        const add = async () => { const v = $('#mr-new').value.trim().replace(/^\/?r\//, ''); if (!v) return; G.newSub = ''; await post('api/radar/subs', { add: v }); load(); };
         const cs = $('#mr-comm-save'); if (cs) cs.onclick = async () => {
-          G.comm = await post('api/radar/community', { communities: $('#mr-lemmy').value, tags: $('#mr-tags').value, reddit: $('#mr-reddit').checked,
+          G.comm = await post('api/radar/community', { communities: $('#mr-lemmy').value, tags: $('#mr-tags').value,
             mainstream: { on: $('#mr-ms-on').checked, charts: $('#mr-ms-charts').checked, listeners: +$('#mr-ms-l').value, list: $('#mr-ms-list').value } });
           api.ui.toast('Saved'); load();
         };
-        $('#mr-add').onclick = add; $('#mr-new').onkeydown = e => { if (e.key === 'Enter') add(); };
-        // a redraw (a scan finishing, a thumbs click) keeps what you were typing and where
-        const ni = $('#mr-new'); ni.oninput = () => { G.newSub = ni.value; };
-        if (G.newSubFocus) { ni.focus(); ni.setSelectionRange(ni.value.length, ni.value.length); }
-        ni.onfocus = () => { G.newSubFocus = true; }; ni.onblur = () => { setTimeout(() => { if (!el.contains(document.activeElement)) G.newSubFocus = false; else if (document.activeElement !== el.querySelector('#mr-new')) G.newSubFocus = false; }, 0); };
         el.querySelectorAll('#mr-srctabs [data-src]').forEach(b => b.onclick = () => { G.src = b.dataset.src; G.feed = ''; api.ui.refresh(); });
         el.querySelectorAll('[data-feed]').forEach(b => b.onclick = () => { G.feed = b.dataset.feed; api.ui.refresh(); });
         const mm = $('#mr-multi'); if (mm) mm.onchange = () => { G.multi = mm.checked; api.ui.refresh(); };
         const sn = $('#mr-srcnow'); if (sn) { sn.disabled = !!S.job; sn.onclick = async () => { G.st = await post('api/radar/run', { what: 'sources' }); api.ui.toast('Checking sources. This page updates when it\'s done.'); load(); }; }
         const ss = $('#mr-srcset'); if (ss) ss.onclick = () => sourcesDialog(api, D.sources);
         const all = $('#mr-all'); if (all) all.onclick = () => { G.all = true; api.ui.refresh(); };
-        el.querySelectorAll('#mr-hy button').forEach(b => b.onclick = () => { G.years = b.dataset.v; api.ui.refresh(); });
-        const ys = $('#mr-year'); if (ys) ys.onchange = () => { G.year = ys.value; api.ui.refresh(); };
         const det = $('.mr-setup'); if (det) det.ontoggle = () => { if (det.open) get('api/radar/spotify').then(r => { const c = el.querySelector('#mr-redir'); if (c) c.textContent = r.redirect; }).catch(() => {}); };
       } });
       api.commands.add({ title: '📡 Music Radar', run: () => api.ui.navigate('view-radar') });
@@ -302,7 +276,6 @@
         .mr-chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}.mr-sc{display:inline-flex;align-items:center;gap:2px;border:1px solid var(--line);border-radius:999px;padding:2px 2px 2px 10px;font-size:13px}
         .mr-sc button{border:0;background:none;color:var(--muted);cursor:pointer;display:grid;place-items:center;width:22px;height:22px}.mr-sc button svg{width:12px;height:12px}
         .mr-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.mr-row .inp{flex:1;min-width:8rem}
-        .mr-years{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;margin-top:6px}
         .mr-setup{margin-top:14px}.mr-setup summary{cursor:pointer;font-size:13px;color:var(--muted)}.mr-setup ul{list-style:none;padding:0;margin:8px 0;display:flex;flex-direction:column;gap:6px;font-size:13px}
         .mr-setup li{display:flex;gap:6px;align-items:flex-start;color:var(--muted)}.mr-setup li.on{color:var(--text)}.mr-setup li svg{width:14px;height:14px;flex:none;margin-top:2px}
         .mr-log{font:11px var(--mono);background:var(--bg);border:1px solid var(--line);border-radius:var(--r-m);padding:8px;max-height:160px;overflow:auto;white-space:pre-wrap}`);

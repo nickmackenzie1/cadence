@@ -11,7 +11,7 @@ const STATE = path.join(DATA, "state.json");
 const HISTORY = path.join(DATA, "history.json");
 export const DB_FILE = process.env.RADAR_DB || path.join(process.env.DATA_DIR || path.dirname(DATA), "cadence.db");
 const blank = () => ({
-  subs: null,            // your subreddit list (null = defaults)
+  subs: null,            // (unused: the old subreddit list)
   artists: {},           // key -> { name, firstSeen:{sub:ts}, genres:{g:n}, lastfm, listenersHistory }
   picks: [],             // everything ever put in your feed
   feedback: {},          // pickId -> 1 | -1
@@ -155,7 +155,7 @@ export function readJsonl(name, sinceTs = 0) {
   } catch { return []; }
 }
 
-// ---- the Reddit archive, by subreddit and month ----
+// ---- the old Reddit archive (no longer collected or shown since 2026-11-16; table kept, nothing deletes it) ----
 function writeHistory(h) {
   tx(() => {
     db.exec("DELETE FROM radar_history");

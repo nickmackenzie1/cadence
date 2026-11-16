@@ -1,8 +1,9 @@
 'use strict';
 /* Music Radar on the NAS (Nick's music-radar app, in server/services/radar/). Once you switch it on in Life → Music
-   Radar, it scans music subreddits every 6 hours and writes the weekly digest every 7 days. Off by default, so
-   nothing reaches Reddit until you ask. Its own data lives in data/radar; optional keys (Last.fm, Reddit, Spotify,
-   ntfy, and the Anthropic key Cadence already uses) come from the NAS .env and never leave the NAS. */
+   Radar, it reads music communities on Lemmy and Mastodon every 6 hours (plus blogs, charts and radio as "other
+   sources") and writes the weekly digest every 7 days. Off by default. Reddit was removed 2026-11-16 at the user's
+   request. Its own data lives in data/radar; optional keys (Last.fm, Spotify, ntfy, and the Anthropic key Cadence
+   already uses) come from the NAS .env and never leave the NAS. */
 const fs = require('fs');
 const path = require('path');
 const { pathToFileURL } = require('url');
@@ -18,16 +19,16 @@ let mods = null;
 async function load() {
   if (mods) return mods;
   const m = n => import(pathToFileURL(path.join(__dirname, 'radar', n)).href);
-  const [radar, digest, backfill, store, data, rss, spotify, sources, srcData] = await Promise.all(['radar.mjs', 'digest.mjs', 'backfill.mjs', 'lib/store.mjs', 'lib/dashboard-data.mjs', 'lib/rss.mjs', 'lib/spotify.mjs', 'lib/sources.mjs', 'lib/sources-data.mjs'].map(m));
-  return (mods = { radar, digest, backfill, store, data, rss, spotify, sources, srcData });
+  const [radar, digest, store, data, rss, spotify, sources, srcData] = await Promise.all(['radar.mjs', 'digest.mjs', 'lib/store.mjs', 'lib/dashboard-data.mjs', 'lib/rss.mjs', 'lib/spotify.mjs', 'lib/sources.mjs', 'lib/sources-data.mjs'].map(m));
+  return (mods = { radar, digest, store, data, rss, spotify, sources, srcData });
 }
 
 const readSettings = () => { try { return { on: false, lastScan: 0, lastDigest: 0, lastError: null, ...JSON.parse(fs.readFileSync(SETTINGS, 'utf8')) }; } catch { return { on: false, lastScan: 0, lastDigest: 0, lastError: null }; } };
 const writeSettings = s => { fs.mkdirSync(DIR, { recursive: true }); fs.writeFileSync(SETTINGS, JSON.stringify(s)); };
 function settings(patch) { const s = { ...readSettings(), ...(patch || {}) }; if (patch) writeSettings(s); return s; }
 
-// one job at a time: a scan, the digest, or the archive backfill
-let job = null, stopBackfill = false;
+// one job at a time: a scan, the digest, or checking the other sources
+let job = null;
 const log = [];
 const note = line => { log.push(`${new Date().toISOString().slice(11, 19)} ${line}`); if (log.length > 60) log.shift(); };
 // Everything the scanner prints during a job (Reddit refusals included) goes into the log, and each job is kept
@@ -43,16 +44,11 @@ function runJob(kind, fn) {
   const finish = (ok, err) => {
     Object.assign(console, keep);
     const ms = Date.now() - job.since;
-    // a scan that "worked" but got refused by Reddit on most requests is not a success
-    const failed = errors.filter(e => /^! r\//.test(e)), done = lines.filter(l => /^r\/.*: done$/.test(l)).length;
+    // a scan that reached none of the communities (Lemmy / Mastodon) isn't a success; some failing is normal
+    const failed = errors.filter(e => /^!\s+\S+[@#]|^!\s+#/.test(e)), done = lines.filter(l => /: done$/.test(l)).length;
     let problem = err ? `${kind}: ${err.message}` : null;
-    // Reddit turning the NAS away is expected these days (no keys): a calm note, not a "problem"
-    const refused = kind === 'scan' && lines.some(l => /Reddit is refusing the NAS/.test(l));
-    if (kind === 'scan') settings({ redditNote: refused ? 'Reddit isn\u2019t letting the NAS in right now, so this scan used the other sources.' : null });
-    if (!problem && kind === 'scan' && !refused && failed.length && failed.length >= done) {
-      const first = failed[0].replace(/^!\s*/, ''), refused = failed.some(e => /HTTP (403|429)/.test(e));
-      problem = `scan: ${failed.length} of the Reddit requests failed, e.g. ${first}.` + (refused ? ' Reddit is refusing the NAS: adding REDDIT_CLIENT_ID and REDDIT_CLIENT_SECRET to the NAS .env usually fixes this.' : ' Check that the NAS can reach reddit.com.');
-    }
+    if (kind === 'scan') settings({ redditNote: null });
+    if (!problem && kind === 'scan' && failed.length && !done) problem = `scan: couldn't reach any of the communities, e.g. ${failed[0].replace(/^!\s*/, '')}.`;
     note(problem ? `${kind} finished with problems` : `${kind} done`);
     settings({ lastError: problem });
     load().then(({ store }) => store.addJob({ ts: Date.now(), kind, ok: !problem, ms, errors: errors.length, problem, lines: lines.slice(-80) })).catch(e => console.error('radar job log', e));
@@ -82,8 +78,6 @@ async function sourcesSettings(patch) {
   return srcData.sourcesCfg();
 }
 const digestNow = () => runJob('digest', async () => { const { digest } = await load(); await digest.digest({}); settings({ lastDigest: Date.now() }); });
-const backfill = opts => { stopBackfill = false; return runJob('backfill', async () => { const { backfill } = await load(); await backfill.backfill({ ...(opts || {}), log: note, stop: () => stopBackfill }); }); };
-const stop = () => { stopBackfill = true; };
 
 // the schedule: checked every 10 minutes, only while switched on
 setInterval(() => {
@@ -94,7 +88,7 @@ setInterval(() => {
 
 function status() {
   const s = readSettings();
-  return { ...s, job, log: log.slice(-40), keys: { ai: !!process.env.ANTHROPIC_API_KEY, lastfm: !!process.env.LASTFM_API_KEY, reddit: !!(process.env.REDDIT_CLIENT_ID && process.env.REDDIT_CLIENT_SECRET), ntfy: !!process.env.NTFY_TOPIC, spotify: !!(process.env.SPOTIFY_CLIENT_ID && process.env.SPOTIFY_CLIENT_SECRET) } };
+  return { ...s, job, log: log.slice(-40), keys: { ai: !!process.env.ANTHROPIC_API_KEY, lastfm: !!process.env.LASTFM_API_KEY, ntfy: !!process.env.NTFY_TOPIC, spotify: !!(process.env.SPOTIFY_CLIENT_ID && process.env.SPOTIFY_CLIENT_SECRET) } };
 }
 // ---- raw tables for the Database view (read-only): the radar_* tables in cadence.db ----
 async function raw(name, offset = 0, limit = 50) {
@@ -114,15 +108,7 @@ async function feedback(id, v) {
   if (v === 0) delete state.feedback[id]; else state.feedback[id] = v > 0 ? 1 : -1;
   store.saveState(state); return true;
 }
-async function subs({ add, remove }) {
-  const { store } = await load(); const cfg = await import(pathToFileURL(path.join(__dirname, 'radar', 'lib', 'config.mjs')).href);
-  const state = store.loadState(); let list = state.subs || [...cfg.DEFAULT_SUBS];
-  if (add && /^[A-Za-z0-9_]{2,21}$/.test(add) && !list.some(s => s.toLowerCase() === add.toLowerCase())) list.push(add);
-  if (remove) list = list.filter(s => s.toLowerCase() !== String(remove).toLowerCase());
-  state.subs = list; state.subSuggestions = state.subSuggestions.filter(s => s.sub.toLowerCase() !== String(add || '').toLowerCase());
-  store.saveState(state); return list;
-}
-// community sources (Reddit on/off, Lemmy communities, Mastodon hashtags) and the mainstream filter
+// community sources (Lemmy communities, Mastodon hashtags) and the mainstream filter
 async function community(input) {
   const { store } = await load();
   const F = await import(pathToFileURL(path.join(__dirname, 'radar', 'lib', 'fediverse.mjs')).href);
@@ -130,14 +116,14 @@ async function community(input) {
   const lines = v => Array.isArray(v) ? v : String(v || '').split(/[\n,]+/);
   if (input) {
     const cur = store.getKv('fediCfg', {}) || {}, next = { ...cur };
-    if (input.reddit !== undefined) next.reddit = input.reddit === null ? undefined : !!input.reddit;
+    delete next.reddit;
     if (input.communities !== undefined) next.communities = [...new Set(lines(input.communities).map(F.parseCommunity).filter(Boolean).map(c => `${c.name}@${c.host}`))].slice(0, 40);
     if (input.tags !== undefined) next.tags = [...new Set(lines(input.tags).map(F.parseTag).filter(Boolean).map(t => '#' + t.tag + (t.host === 'mastodon.social' ? '' : '@' + t.host)))].slice(0, 20);
     store.setKv('fediCfg', next);
     if (input.mainstream) M.saveMainstreamCfg(input.mainstream);
   }
-  const f = store.getKv('fediCfg', {}) || {}, keys = !!(process.env.REDDIT_CLIENT_ID && process.env.REDDIT_CLIENT_SECRET);
-  return { reddit: f.reddit ?? keys, redditKeys: keys, communities: f.communities || F.DEFAULT_COMMUNITIES, tags: f.tags || F.DEFAULT_TAGS, mainstream: M.mainstreamCfg() };
+  const f = store.getKv('fediCfg', {}) || {};
+  return { communities: f.communities || F.DEFAULT_COMMUNITIES, tags: f.tags || F.DEFAULT_TAGS, mainstream: M.mainstreamCfg() };
 }
 async function rss(base) { const { store, rss } = await load(); return rss.buildRss(store.loadState(), 80, base); }
 async function digestFile(name) {
@@ -148,4 +134,4 @@ async function digestFile(name) {
 }
 async function spotify() { const { spotify } = await load(); return spotify; }
 
-module.exports = { community, sourcesNow, sourcesSettings, raw, settings, status, scan, digestNow, backfill, stop, data, feedback, subs, rss, digestFile, spotify };
+module.exports = { community, sourcesNow, sourcesSettings, raw, settings, status, scan, digestNow, data, feedback, rss, digestFile, spotify };

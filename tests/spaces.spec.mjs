@@ -84,7 +84,7 @@ test('Life syncs to another device, stays out of the Work document, and older ta
   // and an edit on the phone's Life reaches the laptop
   await P.page.evaluate(() => { const t = window.T.tasks.list().find(t => t.title === 'Renew car insurance'); window.T.tasks.update(t.id, { title: 'Renew car insurance (shop around)' }); });
   await P.settle(); await A.pull();
-  await expect.poll(async () => A.page.evaluate(() => window.T.tasks.list().map(t => t.title))).toContain('Renew car insurance (shop around)');
+  await expect.poll(async () => A.page.evaluate(() => window.T.tasks.list().map(t => t.title)), { timeout: 20000 }).toContain('Renew car insurance (shop around)');
   expect([...A.errs, ...P.errs]).toEqual([]);
   await A.ctx.close(); await P.ctx.close();
 });

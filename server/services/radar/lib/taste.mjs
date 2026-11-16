@@ -1,4 +1,4 @@
-// Learns from your 👍/👎: genres and subreddits you like get boosted,
+// Learns from your 👍/👎: genres and communities you like get boosted,
 // and artists that "sound like" ones you liked get a bump.
 export function tasteModel(state) {
   const g = {}, s = {}, liked = new Set(), disliked = new Set();

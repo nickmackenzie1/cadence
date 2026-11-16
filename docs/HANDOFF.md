@@ -22,7 +22,7 @@ Cleaned up 2026-11-16 (0.8.2): items already built were moved out after checking
   Daily (daily-bits.js: On this day, xkcd, Lichess puzzle iframe, HN), Home helpers (home-bits.js, Life: TheMealDB ideas →
   Kitchen, garbage night with Loyalist presets, Open Food Facts barcodes, TVmaze). Server: services/daily.js, /api/daily/*.
   Kitchen exposes window.CadenceKitchen { addToList, addRecipe } for other plugins.
-- Next queue (user, 12:39): remove Reddit completely; then music: artist page, Deezer previews + Want to hear, ICY
+- Next queue (user, 12:39), Reddit removal done in 0.12.0; then music: artist page, Deezer previews + Want to hear, ICY
   now-playing + history for every station, follow artists + calm alerts, simpler Radar front page, one Music home,
   local shows (Bandsintown/Ticketmaster keys in .env).
 - Move local saves to IndexedDB (more room than compressed localStorage); keep the small cadence.off.* keys.
@@ -35,9 +35,8 @@ Cleaned up 2026-11-16 (0.8.2): items already built were moved out after checking
 ## Music and radio
 - Music on the NAS: Navidrome (LAN-only, Subsonic API) or Cadence serving the folder itself. User to decide.
 - Spotify listening stats view.
-- Reddit: user doubts approval will come (2026-11-16). Since 0.10.0 Radar reads Lemmy communities + Mastodon hashtags
-  instead (lib/fediverse.mjs, same post shape as Reddit) and Reddit is only read with keys or when switched on.
-  Don't scrape Reddit or work around the block. A mainstream filter hides big artists (lib/mainstream.mjs).
+- Reddit: removed completely 2026-11-16 ("I don't like Reddit anymore"): no fetching, archive, subreddit list,
+  suggestions, keys or Reddit theme. Old radar_history / Reddit picks stay in the database untouched. Don't add it back.
 - NACC chart: page format unchecked, may be JS-rendered.
 - Check from the NAS: Amherst Island Radio's stream; the six blog feed addresses added in 0.8.0 (warnings in Sources).
 

@@ -7,13 +7,6 @@ export const ROOT = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 export const DATA = process.env.RADAR_DATA || path.join(process.env.DATA_DIR || "/data", "radar");
 fs.mkdirSync(path.join(DATA, "digests"), { recursive: true });
 
-// Starting subreddit list. Once you add/remove subs from the dashboard,
-// your edited list is saved in data/state.json and used instead.
-export const DEFAULT_SUBS = [
-  "listentothis", "indieheads", "newmusic", "ifyoulikeblank", "Music",
-  "hiphopheads", "popheads", "electronicmusic", "indie_rock", "shoegaze",
-  "postpunk", "LetsTalkMusic", "Emo", "treemusic", "futurebeats",
-];
 export const LISTINGS = ["hot", "rising", "new"];
 export const POSTS_PER_LISTING = 50;
 export const COMMENT_POSTS = 60;          // fetch comments for the N hottest new posts per run

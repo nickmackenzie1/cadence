@@ -5,9 +5,8 @@
  *
  *   node radar.mjs [--top 15] [--playlist]
  */
-import { DEFAULT_SUBS, COMMENT_POSTS, WINDOW_HOURS, TOO_BIG, ALERT_MIN_SCORE, now, DAY } from "./lib/config.mjs";
+import { COMMENT_POSTS, WINDOW_HOURS, TOO_BIG, ALERT_MIN_SCORE, now, DAY } from "./lib/config.mjs";
 import { loadState, saveState, appendJsonl, readJsonl, getKv } from "./lib/store.mjs";
-import { fetchPosts, fetchComments } from "./lib/reddit.mjs";
 import { fetchLemmy, fetchMastodon, fetchLemmyComments, DEFAULT_COMMUNITIES, DEFAULT_TAGS } from "./lib/fediverse.mjs";
 import { extractAll, norm } from "./lib/extract.mjs";
 import { hotness, buildCandidates, albumBoard } from "./lib/score.mjs";
@@ -20,7 +19,7 @@ import { writeRss } from "./lib/rss.mjs";
 import { updatePlaylist } from "./lib/spotify.mjs";
 
 function defaultBlurb(c) {
-  const bits = [`${c.mentions} mention${c.mentions > 1 ? "s" : ""} across r/${c.subs.join(", r/")}`];
+  const bits = [`${c.mentions} mention${c.mentions > 1 ? "s" : ""} across ${c.subs.join(", ")}`];
   if (!c.commentOnly) bits.push(`${c.upvotes.toLocaleString()} upvotes, ${c.comments.toLocaleString()} comments`);
   else bits.push("recommended by commenters");
   if (c.genres.length) bits.push(c.genres.slice(0, 2).join(" / "));
@@ -47,15 +46,13 @@ export async function run({ top = 15, demoPosts = null, playlist = false, quiet 
   const log = quiet ? () => {} : console.log;
   const t = now();
   const state = loadState();
-  const subs = state.subs || DEFAULT_SUBS;
 
   // 1. collect
-  // Reddit only with keys (or switched on by hand): keyless requests are refused. Lemmy and Mastodon always.
-  const fedi = getKv("fediCfg", {}) || {}, useReddit = fedi.reddit ?? !!(process.env.REDDIT_CLIENT_ID && process.env.REDDIT_CLIENT_SECRET);
+  // community posts: Lemmy communities and Mastodon hashtags (Reddit was removed 2026-11-16 at the user's request)
+  const fedi = getKv("fediCfg", {}) || {};
   let posts = demoPosts;
   if (!posts) {
     posts = [];
-    if (useReddit) { log(`Fetching ${subs.length} subreddits…`); posts.push(...await fetchPosts(subs)); }
     const comms = fedi.communities || DEFAULT_COMMUNITIES, tags = fedi.tags || DEFAULT_TAGS;
     if (comms.length) { log(`Fetching ${comms.length} Lemmy communities…`); posts.push(...await fetchLemmy(comms, log)); }
     if (tags.length) { log(`Fetching ${tags.length} Mastodon hashtags…`); posts.push(...await fetchMastodon(tags, log)); }
@@ -65,7 +62,7 @@ export async function run({ top = 15, demoPosts = null, playlist = false, quiet 
   if (!demoPosts) {
     const hot = [...fresh].sort((a, b) => hotness(b, t) - hotness(a, t)).slice(0, COMMENT_POSTS);
     log(`Reading comments on ${hot.length} posts…`);
-    for (const p of hot) { try { p.commentTexts = p.fedi ? await fetchLemmyComments(p) : await fetchComments(p); } catch {} }
+    for (const p of hot) { try { p.commentTexts = await fetchLemmyComments(p); } catch {} }
   }
 
   // 2. extract (Claude reads titles + comments if ANTHROPIC_API_KEY is set)
@@ -144,14 +141,14 @@ export async function run({ top = 15, demoPosts = null, playlist = false, quiet 
     log(`  ${c.score.toFixed(1).padStart(7)}  ${c.type !== "track" ? "💿 " : ""}${c.artist} — ${c.song ?? "(recommended in comments)"}  [${c.subs.join(", ")}]`);
   }
 
-  // 8. phone alert when something suddenly spikes across subs
+  // 8. phone alert when something suddenly spikes across communities
   for (const c of cands.slice(0, 30)) {
     const before = prev.get(c.key) || 0;
     const spiking = c.subs.length >= 2 && c.score >= ALERT_MIN_SCORE && c.score >= 2 * before;
     if (spiking && !(t - (state.alerts[c.key] || 0) < 7 * DAY)) {
       state.alerts[c.key] = t;
       await notify({ title: `🚀 ${c.artist} is spiking`, url: c.link,
-        message: `${c.song ? c.song + " · " : ""}${c.mentions} mentions across r/${c.subs.join(", r/")} (score ${c.score.toFixed(0)}${before ? `, was ${before.toFixed(0)}` : ""})` });
+        message: `${c.song ? c.song + " · " : ""}${c.mentions} mentions across ${c.subs.join(", ")} (score ${c.score.toFixed(0)}${before ? `, was ${before.toFixed(0)}` : ""})` });
       log(`  🔔 alert: ${c.artist}`);
     }
   }

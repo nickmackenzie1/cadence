@@ -1,4 +1,4 @@
-/* Six more themes (user backlog 2026-11-12): Claude, Reddit, Pocket Casts, Blades, Adventure, Platformer.
+/* More themes (user backlog 2026-11-12): Claude, Pocket Casts, Blades, Adventure, Platformer (Reddit removed 2026-11-16).
    Same CadenceThemes.register() API as themes-pack.js. Homages: each borrows a palette, layout or texture and is
    drawn for Cadence. No logos, mascots, characters or other brand artwork. Fonts are vendored (OFL, see CREDITS.md). */
 (() => {
@@ -32,52 +32,6 @@
       :skin .check{border-radius:50%;border-width:1.5px} :skin .task.done .check{background:var(--accent);border-color:var(--accent)}
       :skin .task:not(.td-b){border-radius:12px} :skin .task:not(.td-b):hover{background:var(--hover)}
       :skin ::selection{background:color-mix(in srgb,var(--accent) 30%,transparent)}` });
-
-  /* ---------------- Reddit: posts with a vote column (votes are the priority), orangered and blue ---------------- */
-  const redditEnhance = ({ api }) => {
-    if (!api) return;
-    const cols = ['', 'low', 'med', 'high'];
-    const paint = () => {
-      for (const row of document.querySelectorAll('#view .task[data-id]:not(.td-b)')) {
-        if (row.querySelector('.rd-vote') || row.querySelector('input,textarea')) continue;
-        const t = api.tasks.get(row.dataset.id); if (!t) continue;
-        const p = t.priority || 0, v = document.createElement('div');
-        v.className = 'rd-vote' + (p ? ' up' : '');
-        v.innerHTML = `<button class="rd-up" aria-label="Raise priority">${api.ui.icon('arrow-big-up')}</button><b>${p ? p : '•'}</b><button class="rd-dn" aria-label="Lower priority">${api.ui.icon('arrow-big-down')}</button>`;
-        v.title = p ? `Priority: ${cols[p]}` : 'No priority';
-        v.onclick = e => { e.stopPropagation(); const b = e.target.closest('button'); if (!b) return; const cur = (api.tasks.get(t.id) || {}).priority || 0; api.tasks.update(t.id, { priority: Math.max(0, Math.min(3, cur + (b.classList.contains('rd-up') ? 1 : -1))) }); };
-        row.prepend(v);
-      }
-    };
-    const off = onView(paint);
-    return () => { off(); document.querySelectorAll('.rd-vote').forEach(x => x.remove()); };
-  };
-  R({ id: 'reddit', name: 'Reddit', category: 'Fun', tagline: 'Tasks as posts with a vote column: upvote to raise the priority.',
-    fonts: [400, 500, 700].map(w => ({ family: 'IBM Plex Sans', src: F + `ibm-plex-sans-latin-${w}-normal.woff2`, weight: w })),
-    font: '"IBM Plex Sans",-apple-system,"Segoe UI",sans-serif',
-    vars: { '--ambient': 'off', '--accent': '#ff4500', '--on-accent': '#fff', '--client': '#0079d3', '--ok': '#46d160', '--r': '4px' },
-    light: { '--bg': '#dae0e6', '--panel': '#ffffff', '--side': '#ffffff', '--text': '#1c1c1c', '--muted': '#787c7e', '--faint': '#a5a4a4', '--line': '#edeff1', '--hover': '#f6f7f8',
-      '--accent-soft': '#ffe5d9', '--client-soft': '#e3f1fb', '--danger': '#ea0027', '--danger-soft': '#fde0e5', '--shadow': 'none' },
-    dark: { '--bg': '#030303', '--panel': '#1a1a1b', '--side': '#1a1a1b', '--text': '#d7dadc', '--muted': '#818384', '--faint': '#5a5c5d', '--line': '#343536', '--hover': '#272729',
-      '--accent-soft': 'rgba(255,69,0,.16)', '--client-soft': 'rgba(0,121,211,.18)', '--client': '#4fbcff', '--danger': '#ff585b', '--danger-soft': 'rgba(255,88,91,.15)', '--shadow': 'none' },
-    preview: { bg: '#dae0e6', panel: '#ffffff', side: '#ffffff', text: '#1c1c1c', accent: '#ff4500', line: '#ccc', r: '4px' },
-    enhance: redditEnhance,
-    css: `:skin body{font-size:14px} :skin .side{border-right:1px solid var(--line)}
-      :skin .head h1{font-size:22px;font-weight:700}
-      :skin .group-h{font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
-      :skin .task:not(.td-b){background:var(--panel);border:1px solid var(--line);border-radius:4px;margin-bottom:8px;padding:0 10px 0 0;align-items:stretch;overflow:hidden}
-      :skin .task:not(.td-b):hover{border-color:var(--muted)}
-      :skin .rd-vote{flex:none;width:40px;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:0;padding:6px 0;margin-right:8px;background:color-mix(in srgb,var(--text) 3%,transparent);font-size:12px;font-weight:700;color:var(--text)}
-      :skin .rd-vote button{border:0;background:none;padding:2px;color:var(--faint);cursor:pointer;border-radius:2px;display:grid;place-items:center} :skin .rd-vote button:hover{background:var(--hover)}
-      :skin .rd-vote .rd-up:hover{color:#ff4500} :skin .rd-vote .rd-dn:hover{color:#7193ff} :skin .rd-vote svg{width:20px;height:20px}
-      :skin .rd-vote.up b,:skin .rd-vote.up .rd-up{color:#ff4500} :skin .rd-vote b{font-weight:700;line-height:1}
-      :skin .task:not(.td-b) .check{align-self:center}
-      :skin .chip{border-radius:2px;font-size:12px}
-      :skin .chip:has(.av)::before{content:'r/';font-weight:700;margin-right:-2px}
-      :skin .btn{border-radius:999px;font-weight:700}
-      :skin .btn.primary,:skin .meet-btn{background:var(--client);border-color:var(--client);color:#fff;border-radius:999px}
-      :skin .qa{border-radius:4px;background:var(--panel);border:1px solid var(--line)} :skin .qa:hover{border-color:var(--client)}
-      :skin a{color:var(--client)}` });
 
   /* ---------------- Pocket Casts: dark, red, rounded artwork, and an Up Next player for your work ---------------- */
   const pcEnhance = ({ api }) => {
