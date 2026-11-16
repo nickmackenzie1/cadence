@@ -122,6 +122,23 @@ async function subs({ add, remove }) {
   state.subs = list; state.subSuggestions = state.subSuggestions.filter(s => s.sub.toLowerCase() !== String(add || '').toLowerCase());
   store.saveState(state); return list;
 }
+// community sources (Reddit on/off, Lemmy communities, Mastodon hashtags) and the mainstream filter
+async function community(input) {
+  const { store } = await load();
+  const F = await import(pathToFileURL(path.join(__dirname, 'radar', 'lib', 'fediverse.mjs')).href);
+  const M = await import(pathToFileURL(path.join(__dirname, 'radar', 'lib', 'mainstream.mjs')).href);
+  const lines = v => Array.isArray(v) ? v : String(v || '').split(/[\n,]+/);
+  if (input) {
+    const cur = store.getKv('fediCfg', {}) || {}, next = { ...cur };
+    if (input.reddit !== undefined) next.reddit = input.reddit === null ? undefined : !!input.reddit;
+    if (input.communities !== undefined) next.communities = [...new Set(lines(input.communities).map(F.parseCommunity).filter(Boolean).map(c => `${c.name}@${c.host}`))].slice(0, 40);
+    if (input.tags !== undefined) next.tags = [...new Set(lines(input.tags).map(F.parseTag).filter(Boolean).map(t => '#' + t.tag + (t.host === 'mastodon.social' ? '' : '@' + t.host)))].slice(0, 20);
+    store.setKv('fediCfg', next);
+    if (input.mainstream) M.saveMainstreamCfg(input.mainstream);
+  }
+  const f = store.getKv('fediCfg', {}) || {}, keys = !!(process.env.REDDIT_CLIENT_ID && process.env.REDDIT_CLIENT_SECRET);
+  return { reddit: f.reddit ?? keys, redditKeys: keys, communities: f.communities || F.DEFAULT_COMMUNITIES, tags: f.tags || F.DEFAULT_TAGS, mainstream: M.mainstreamCfg() };
+}
 async function rss(base) { const { store, rss } = await load(); return rss.buildRss(store.loadState(), 80, base); }
 async function digestFile(name) {
   const f = path.join(DIR, 'digests', path.basename(String(name)));
@@ -131,4 +148,4 @@ async function digestFile(name) {
 }
 async function spotify() { const { spotify } = await load(); return spotify; }
 
-module.exports = { sourcesNow, sourcesSettings, raw, settings, status, scan, digestNow, backfill, stop, data, feedback, subs, rss, digestFile, spotify };
+module.exports = { community, sourcesNow, sourcesSettings, raw, settings, status, scan, digestNow, backfill, stop, data, feedback, subs, rss, digestFile, spotify };

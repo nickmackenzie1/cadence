@@ -2,7 +2,7 @@
 import { now, DAY } from "./config.mjs";
 import * as store from "./store.mjs";
 import { momentum } from "./trends.mjs";
-import { isArtist, cleanName, cleanGenre } from "./extract.mjs";
+import { isArtist, cleanName, cleanGenre, norm } from "./extract.mjs";
 import { withArt } from "./coverart.mjs";
 import { SOURCES, DEFAULT_CFG, tagsFor, blogList } from "./sources.mjs";
 
@@ -13,7 +13,7 @@ const TIER_WEIGHT = { big: 1.5, small: 3.5 };
 const CHARTS = new Set(["apple", "audius", "lastfm", "hypem", "earshot"]);
 export const sourcesCfg = () => { const c = store.getKv("sourcesCfg", {}) || {}; return { ...DEFAULT_CFG, ...c, on: { ...DEFAULT_CFG.on, ...(c.on || {}) } }; };
 
-export function sourcesData(state, snaps) {
+export function sourcesData(state, snaps, hide = null) {
   const t = now(), cfg = sourcesCfg();
   const tierOf = new Map(blogList(cfg).map((b) => [b.name, b.tier]));
   const weight = (s) => (s.source === "blogs" ? TIER_WEIGHT[tierOf.get(s.feed)] || WEIGHT.blogs : WEIGHT[s.source] || 1);
@@ -50,7 +50,7 @@ export function sourcesData(state, snaps) {
   const A = new Map(), get = (key, name) => { let a = A.get(key); if (!a) A.set(key, (a = { key, artist: name, sources: {}, n: 0, first: Infinity, last: 0, score: 0, titles: [], genres: {} })); return a; };
   for (const s of sig) {
     // same cleanup as Reddit: no "Various Artists", roundup headlines or decorated names; no upload labels as genres
-    if (t - s.last_seen > 30 * DAY || !isArtist(s.artist)) continue;
+    if (t - s.last_seen > 30 * DAY || !isArtist(s.artist) || hide?.has(norm(s.artist))) continue;
     const a = get(s.artist_key, cleanName(s.artist)), age = Math.max(0, (t - s.first_seen) / DAY);
     a.sources[s.source] = (a.sources[s.source] || 0) + 1; a.n++;
     a.first = Math.min(a.first, s.first_seen); a.last = Math.max(a.last, s.last_seen);

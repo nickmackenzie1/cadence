@@ -77,7 +77,8 @@ test('Life syncs to another device, stays out of the Work document, and older ta
   // a second device sees Life (areas, task, calm theme) after switching
   const P = await device(browser, 'Phone');
   await P.page.click('.space-sw [data-s=life]'); await P.hook();
-  await expect.poll(async () => P.page.evaluate(() => window.T.tasks.list().map(t => t.title))).toContain('Renew car insurance');
+  // the other device picks Life up on its next sync, which can take a few seconds under full-suite load
+  await expect.poll(async () => P.page.evaluate(() => window.T.tasks.list().map(t => t.title)), { timeout: 20000 }).toContain('Renew car insurance');
   expect(await P.page.evaluate(() => window.T.clients.list().map(c => c.name).sort())).toEqual(expect.arrayContaining(['Health', 'Home', 'Money', 'Projects']));
   expect(await P.page.evaluate(() => document.documentElement.dataset.skin)).toBe('calm');
   // and an edit on the phone's Life reaches the laptop

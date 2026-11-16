@@ -41,7 +41,8 @@ export function aggregateMonth(posts, ext) {
 }
 
 // ---------- analysis ----------
-export function historyTrends(hist, { topGenres = 8 } = {}) {
+export function historyTrends(hist, { topGenres = 8, hide = null } = {}) {
+  const ok = (name) => !hide || hide(name);   // hide = keep(name): false for mainstream artists
   const years = {};               // year -> { music, genres, artists, albums }
   const months = {};              // "YYYY-MM" -> { music, genres }
   // the archive was read with older, looser rules: tidy it here too (thread titles, decorated names, upload labels)
@@ -90,7 +91,7 @@ export function historyTrends(hist, { topGenres = 8 } = {}) {
   }
 
   // top artists/albums each year, and breakout years (first year they really took off)
-  const rank = (obj) => Object.values(obj).sort((a, b) => b.n - a.n || b.score - a.score);
+  const rank = (obj) => Object.values(obj).filter((a) => ok(a.artist || a.name)).sort((a, b) => b.n - a.n || b.score - a.score);
   const topArtistsByYear = Object.fromEntries(yearList.map((y) => [y, rank(years[y].artists).slice(0, 10)]));
   const topAlbumsByYear = Object.fromEntries(yearList.map((y) => [y, rank(years[y].albums).slice(0, 10)]));
   const breakouts = [];
@@ -102,7 +103,7 @@ export function historyTrends(hist, { topGenres = 8 } = {}) {
       // count for more than 3x the rest combined
       const per = Object.values(a.subs || {}), top = Math.max(0, ...per), rest = a.n - top;
       const n = Math.min(a.n, rest * 4);
-      if (per.length >= 2 && n >= 4 && n >= 3 * (prev + 1)) breakouts.push({ year: y, artist: a.name, mentions: n, before: prev, subs: per.length });
+      if (ok(a.name) && per.length >= 2 && n >= 4 && n >= 3 * (prev + 1)) breakouts.push({ year: y, artist: a.name, mentions: n, before: prev, subs: per.length });
     }
     for (const [k, a] of Object.entries(years[y].artists)) seenBefore[k] = Math.max(seenBefore[k] || 0, a.n);
   }

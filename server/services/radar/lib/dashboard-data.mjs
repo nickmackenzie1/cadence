@@ -1,6 +1,7 @@
 // Everything the dashboard and digest need, computed from stored data.
 import { now, DAY, DEFAULT_SUBS } from "./config.mjs";
-import { readJsonl } from "./store.mjs";
+import { readJsonl, signals } from "./store.mjs";
+import { mainstreamSet, hidden, mainstreamCfg } from "./mainstream.mjs";
 import { riseData, momentum, subLeadTimes, soundsLikeGraph } from "./trends.mjs";
 import { tasteModel } from "./taste.mjs";
 import { trackRecord } from "./discover.mjs";
@@ -13,7 +14,10 @@ import { isArtist, cleanGenre } from "./extract.mjs";
 export function dashboardData(state) {
   const t = now();
   // older scans stored thread titles ("Daily Discussion") as artists and upload labels as genres: leave them out
-  const snaps = readJsonl("snapshots", t - 15 * DAY).filter((s) => isArtist(s.artist));
+  // and mainstream artists are hidden everywhere below (see mainstream.mjs)
+  let chartArtists = []; try { chartArtists = signals({ since: t - 30 * DAY, source: "apple", limit: 2000 }).map((r) => r.artist); } catch {}
+  const hide = mainstreamSet(state, { chartArtists }), keep = (name) => !hidden(hide, name);
+  const snaps = readJsonl("snapshots", t - 15 * DAY).filter((s) => isArtist(s.artist) && keep(s.artist));
   const rise = riseData(snaps, t);
   const taste = tasteModel(state);
 
@@ -24,7 +28,7 @@ export function dashboardData(state) {
     if (!cur || s.score > cur.score) albums.set(s.key, s);
   }
 
-  let sources; try { sources = sourcesData(state, snaps); } catch (e) { console.error('radar sources data', e); sources = { available: false, note: e.message }; }
+  let sources; try { sources = sourcesData(state, snaps, hide); } catch (e) { console.error('radar sources data', e); sources = { available: false, note: e.message }; }
   return {
     generatedAt: t,
     sources,
@@ -34,14 +38,15 @@ export function dashboardData(state) {
     buzz: momentum(readJsonl("terms", t - 28 * DAY), t, "term", 4).slice(0, 20),
     subLead: subLeadTimes(state.artists).filter((s) => s.samples >= 2).slice(0, 15),
     graph: soundsLikeGraph(state.edges, taste.liked),
-    picks: withArt([...state.picks].filter((p) => !p.artist || isArtist(p.artist)).sort((a, b) => b.ts - a.ts).slice(0, 40).map((p) => ({ ...p, feedback: state.feedback[p.id] || 0, alsoOn: sources.alsoOn?.[p.key] || [] })), (p) => p.artist, (p) => p.song),
+    picks: withArt([...state.picks].filter((p) => !p.artist || (isArtist(p.artist) && keep(p.artist))).sort((a, b) => b.ts - a.ts).slice(0, 40).map((p) => ({ ...p, feedback: state.feedback[p.id] || 0, alsoOn: sources.alsoOn?.[p.key] || [] })), (p) => p.artist, (p) => p.song),
     picksThisWeek: state.picks.filter((p) => t - p.ts < 7 * DAY).length,
     artistsTracked: Object.keys(state.artists).length,
     subs: state.subs || DEFAULT_SUBS,
     suggestions: state.subSuggestions,
     trackRecord: trackRecord(state),
     taste: { genres: taste.genreWeights, subs: taste.subWeights, liked: taste.liked.size, disliked: taste.disliked.size },
-    history: historyTrends(loadHistory()),
+    history: historyTrends(loadHistory(), { hide: keep }),
+    mainstream: { ...mainstreamCfg(), hiding: hide ? hide.size : 0 },
     digests: [...state.digests].reverse().slice(0, 10).map(({ html, ...d }) => d),
     spotify: { app: hasSpotifyApp(), connected: spotifyConnected(), url: playlistUrl() },
   };

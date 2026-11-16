@@ -79,3 +79,24 @@ test('Music Radar view: charts, picks, thumbs and subreddits', async ({ page }) 
   expect(rss).toContain('<rss');
   expect(errs).toEqual([]);
 });
+
+test('Where it listens: Lemmy/Mastodon settings, Reddit off without keys, and hiding an artist removes them from picks', async ({ page }) => {
+  const c = await (await fetch(B + '/api/radar/community')).json();
+  expect(c.reddit).toBe(false);
+  expect(c.communities).toContain('indieheads@lemmy.ml');
+  const before = await (await fetch(B + '/api/radar/data')).json();
+  const who = before.picks.find(p => p.artist)?.artist;
+  expect(who).toBeTruthy();
+  await page.addInitScript(() => { localStorage.setItem('cadence.reviewNudge', (d => { d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); })(new Date())); localStorage.setItem('cadence.space', 'life'); });
+  await page.goto(B + '/#view-radar');
+  await expect(page.locator('.mr-tiles')).toBeVisible({ timeout: 10000 });
+  await expect(page.locator('#mr-comm')).toContainText('Where it listens');
+  await expect(page.locator('#mr-reddit')).not.toBeChecked();
+  // add them to the mainstream list from the card
+  const list = page.locator('#mr-ms-list');
+  await list.fill((await list.inputValue()) + '\n' + who);
+  await page.locator('#mr-lemmy').fill('indieheads@lemmy.ml\nnot valid\npostpunk@lemmy.world');
+  await page.click('#mr-comm-save');
+  await expect.poll(async () => (await (await fetch(B + '/api/radar/data')).json()).picks.some(p => p.artist === who)).toBe(false);
+  expect((await (await fetch(B + '/api/radar/community')).json()).communities).toEqual(['indieheads@lemmy.ml', 'postpunk@lemmy.world']);
+});

@@ -138,7 +138,7 @@
       const post = async (u, b) => { const r = await fetch(u, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(b || {}) }); return r.json(); };
       async function load() {
         if (api.system().mode !== 'nas') return;
-        try { [G.st, G.d] = await Promise.all([get('api/radar/status'), get('api/radar/data')]); } catch (e) { G.err = e.message; }
+        try { [G.st, G.d, G.comm] = await Promise.all([get('api/radar/status'), get('api/radar/data'), get('api/radar/community').catch(() => G.comm || null)]); } catch (e) { G.err = e.message; }
         if (api.ui.currentRoute() === 'view-radar') api.ui.refresh();
         clearTimeout(G.poll); if (G.st && G.st.job) G.poll = setTimeout(load, 3000);   // a scan is running: check back
       }
@@ -191,7 +191,21 @@
                   ${(p.genres || []).slice(0, 3).map(g => `<span class="chip">${esc(g)}</span>`).join(' ')}${(p.alsoOn || []).length ? ` <span class="mr-small">also on</span> ${p.alsoOn.map(srcPill).join(' ')}` : ''}<div class="mr-small">${esc(p.blurb)} · <a href="${esc(p.thread)}" target="_blank" rel="noopener">thread</a></div></div>
                 <div class="mr-fb"><button class="${p.feedback === 1 ? 'on' : ''}" data-fb="${esc(p.id)}" data-v="1" data-cur="${p.feedback}" aria-label="More like this">${ic('thumbs-up')}</button><button class="${p.feedback === -1 ? 'on' : ''}" data-fb="${esc(p.id)}" data-v="-1" data-cur="${p.feedback}" aria-label="Not for me">${ic('thumbs-down')}</button></div></div>`).join('')
                 + (D.picks.length > 15 && !G.all ? `<p><button class="btn" id="mr-all">Show all ${D.picks.length}</button></p>` : '') : empty('No picks yet. Press Scan now, or switch the radar on.')}</section>
-            <section class="mr-card w4"><h3>Subreddits</h3><p class="mr-sub">What the radar scans</p>
+            ${G.comm ? `<section class="mr-card w4" id="mr-comm"><h3>Where it listens</h3><p class="mr-sub">Community posts the radar reads, besides the other sources. No accounts or keys.</p>
+              <label class="mr-small">Lemmy communities (one per line, name@server)</label>
+              <textarea class="inp mr-ta" id="mr-lemmy" rows="5" spellcheck="false">${esc(G.comm.communities.join('\n'))}</textarea>
+              <label class="mr-small">Mastodon hashtags (one per line)</label>
+              <textarea class="inp mr-ta" id="mr-tags" rows="3" spellcheck="false">${esc(G.comm.tags.join('\n'))}</textarea>
+              <label class="mr-small mr-chk"><input type="checkbox" id="mr-reddit" ${G.comm.reddit ? 'checked' : ''}> Also read Reddit${G.comm.redditKeys ? '' : ' (needs REDDIT_CLIENT_ID and REDDIT_CLIENT_SECRET on the NAS; refused without them)'}</label>
+              <h4>Hide mainstream artists</h4>
+              <label class="mr-small mr-chk"><input type="checkbox" id="mr-ms-on" ${G.comm.mainstream.on ? 'checked' : ''}> Hide them everywhere on this page${D.mainstream && D.mainstream.hiding ? ` (${D.mainstream.hiding} hidden now)` : ''}</label>
+              <label class="mr-small mr-chk"><input type="checkbox" id="mr-ms-charts" ${G.comm.mainstream.charts ? 'checked' : ''}> Anyone on the Apple Music chart</label>
+              <label class="mr-small mr-chk">Anyone with more than <input class="inp mr-num" id="mr-ms-l" type="number" min="0" step="100000" value="${G.comm.mainstream.listeners}"> Last.fm listeners${G.st && G.st.keys && G.st.keys.lastfm ? '' : ' (needs LASTFM_API_KEY)'}</label>
+              <label class="mr-small">And these artists (one per line)</label>
+              <textarea class="inp mr-ta" id="mr-ms-list" rows="6" spellcheck="false">${esc(G.comm.mainstream.list.join('\n'))}</textarea>
+              <div class="mr-row"><button class="btn" id="mr-comm-save">Save</button><span class="mr-small">Takes effect on the next scan; the mainstream filter right away.</span></div>
+            </section>` : ''}
+            <section class="mr-card w4"><h3>Subreddits</h3><p class="mr-sub">${G.comm && !G.comm.reddit ? 'Not being read: Reddit is switched off under Where it listens.' : 'What the radar scans'}</p>
               <div class="mr-chips">${D.subs.map(s => `<span class="mr-sc">r/${esc(s)}<button data-rm="${esc(s)}" aria-label="Remove r/${esc(s)}">${ic('x')}</button></span>`).join('')}</div>
               <div class="mr-row"><input class="inp" id="mr-new" placeholder="Add a subreddit" value="${esc(G.newSub || '')}"><button class="btn" id="mr-add">Add</button></div>
               <h4>Suggested for you</h4><p class="mr-sub">Where artists you liked keep getting posted (refreshed by the weekly digest)</p>
@@ -227,6 +241,11 @@
         el.querySelectorAll('[data-rm]').forEach(b => b.onclick = async () => { await post('api/radar/subs', { remove: b.dataset.rm }); load(); });
         el.querySelectorAll('[data-add]').forEach(b => b.onclick = async () => { await post('api/radar/subs', { add: b.dataset.add }); load(); });
         const add = async () => { const v = $('#mr-new').value.trim().replace(/^\/?r\//, ''); if (!v) return; G.newSub = ''; await post('api/radar/subs', { add: v }); load(); };
+        const cs = $('#mr-comm-save'); if (cs) cs.onclick = async () => {
+          G.comm = await post('api/radar/community', { communities: $('#mr-lemmy').value, tags: $('#mr-tags').value, reddit: $('#mr-reddit').checked,
+            mainstream: { on: $('#mr-ms-on').checked, charts: $('#mr-ms-charts').checked, listeners: +$('#mr-ms-l').value, list: $('#mr-ms-list').value } });
+          api.ui.toast('Saved'); load();
+        };
         $('#mr-add').onclick = add; $('#mr-new').onkeydown = e => { if (e.key === 'Enter') add(); };
         // a redraw (a scan finishing, a thumbs click) keeps what you were typing and where
         const ni = $('#mr-new'); ni.oninput = () => { G.newSub = ni.value; };
@@ -275,6 +294,7 @@
         .mr-bt{position:relative;height:12px;border-radius:3px;background:color-mix(in srgb,var(--text) 5%,transparent)}.mr-bt i{position:absolute;top:0;bottom:0;border-radius:3px}.mr-bt i.up{background:#3b82f6}.mr-bt i.dn{background:#a3a3a3}
         .mr-graph{width:100%;height:auto;display:block}.mr-edge{stroke:var(--line)}.mr-node{fill:#3b82f6;stroke:var(--panel);stroke-width:2}.mr-node.liked{stroke:#f97316;stroke-width:3}.mr-gl{fill:var(--muted);font:11px Inter,system-ui;pointer-events:none}
         .mr-pick{display:flex;gap:10px;padding:10px 0;border-bottom:1px solid var(--line)}
+        .mr-ta{width:100%;font:12px/1.4 ui-monospace,monospace;margin:2px 0 8px;resize:vertical} .mr-chk{display:flex;align-items:center;gap:6px;margin:4px 0} .mr-num{width:110px;padding:2px 6px}
         .mr-art{width:36px;height:36px;border-radius:4px;object-fit:cover;flex:none;background:var(--line)} .mr-art.big{width:56px;height:56px;border-radius:6px}
         .mr-withart{display:flex;align-items:center;gap:8px}.mr-pb{flex:1;min-width:0}
         .mr-fb{display:flex;gap:4px;align-items:flex-start}.mr-fb button{border:1px solid var(--line);background:var(--panel);border-radius:var(--r-m);width:34px;height:32px;display:grid;place-items:center;cursor:pointer;color:var(--muted)}

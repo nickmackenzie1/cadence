@@ -2,11 +2,10 @@
 // starts; the poller is pointed at nothing and never runs.
 import { test, expect } from '@playwright/test';
 import { createServer } from 'node:net';
-import { spawn } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { createRequire } from 'node:module';
 const freePort = () => new Promise(r => { const s = createServer().listen(0, () => { const p = s.address().port; s.close(() => r(p)); }); });
 
 const PORT = await freePort(), B = `http://localhost:${PORT}`;
@@ -14,22 +13,24 @@ const dir = mkdtempSync(join(tmpdir(), 'cadence-kx-'));
 let server;
 
 test.beforeAll(async () => {
-  // fill kexp_plays through the real module (its poller stays off in this process)
-  process.env.DATA_DIR = dir; process.env.KEXP_LOG = '0';
-  const K = createRequire(import.meta.url)('../server/services/kexp-log.js');
-  const d = K.open(), ins = d.prepare('INSERT INTO kexp_plays VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)'), now = Date.now();
-  let id = 1;
-  const P = (minsAgo, artist, song, album, extra = {}) => ins.run(...K.row({ id: id++, play_type: 'trackplay', airdate: new Date(now - minsAgo * 60e3).toISOString(), artist, song, album, labels: ['Polyvinyl'], show: 7, ...extra }));
-  d.prepare('INSERT INTO kexp_shows VALUES (?,?,?,?,?,?,?)').run(7, 'The Morning Show', 'Eclectic', 'John Richards', 0, null, null);
-  d.prepare('INSERT INTO kexp_shows VALUES (?,?,?,?,?,?,?)').run(8, 'Audioasis', 'Local', 'Sharlese Metcalf', 0, null, null);
-  // two months back so "New to KEXP" has something to compare with
-  P(60 * 24 * 50, 'Old Favourite', 'Classic', 'Back Catalogue');
-  P(60 * 24 * 40, 'Jay Som', 'Float', 'Belong');
-  for (let i = 0; i < 5; i++) P(60 * 24 * i + 30, 'Jay Som', 'Appointments', 'Belong', { rotation_status: 'Heavy', comment: i === 0 ? 'Playing the Crocodile on Thursday' : '' });
-  P(25, 'Wednesday', 'Bleeds', 'Bleeds', { show: 8 });
-  P(20, 'Brand New Band', 'First Single', 'Demo', { is_local: true });
-  P(15, 'Brand New Band', 'Second Single', 'Demo');
-  delete process.env.KEXP_LOG;
+  // fill kexp_plays through the real module, in its own process (loading server code here would leave its
+  // DATA_DIR behind for later specs in this worker)
+  const fill = spawnSync(process.execPath, ['--disable-warning=ExperimentalWarning', '-e', `
+    const K = require('./server/services/kexp-log.js');
+    const d = K.open(), ins = d.prepare('INSERT INTO kexp_plays VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)'), now = Date.now();
+    let id = 1;
+    const P = (minsAgo, artist, song, album, extra = {}) => ins.run(...K.row({ id: id++, play_type: 'trackplay', airdate: new Date(now - minsAgo * 60e3).toISOString(), artist, song, album, labels: ['Polyvinyl'], show: 7, ...extra }));
+    d.prepare('INSERT INTO kexp_shows VALUES (?,?,?,?,?,?,?)').run(7, 'The Morning Show', 'Eclectic', 'John Richards', 0, null, null);
+    d.prepare('INSERT INTO kexp_shows VALUES (?,?,?,?,?,?,?)').run(8, 'Audioasis', 'Local', 'Sharlese Metcalf', 0, null, null);
+    // two months back so "New to KEXP" has something to compare with
+    P(60 * 24 * 50, 'Old Favourite', 'Classic', 'Back Catalogue');
+    P(60 * 24 * 40, 'Jay Som', 'Float', 'Belong');
+    for (let i = 0; i < 5; i++) P(60 * 24 * i + 30, 'Jay Som', 'Appointments', 'Belong', { rotation_status: 'Heavy', comment: i === 0 ? 'Playing the Crocodile on Thursday' : '' });
+    P(25, 'Wednesday', 'Bleeds', 'Bleeds', { show: 8 });
+    P(20, 'Brand New Band', 'First Single', 'Demo', { is_local: true });
+    P(15, 'Brand New Band', 'Second Single', 'Demo');
+  `], { env: { ...process.env, DATA_DIR: dir, KEXP_LOG: '0' }, encoding: 'utf8' });
+  if (fill.status !== 0) throw new Error('filling the test database failed: ' + fill.stderr);
   server = spawn(process.execPath, ['--disable-warning=ExperimentalWarning', 'server.js'], { env: { ...process.env, PORT: String(PORT), DATA_DIR: dir,
     KEXP_LOG: '1', KEXP_API: 'http://127.0.0.1:9', KEXP_LOG_DELAY: '99999999' }, stdio: 'ignore' });
   for (let i = 0; i < 150; i++) { try { if ((await fetch(B + '/api/health')).ok) return; } catch {} await new Promise(r => setTimeout(r, 100)); }

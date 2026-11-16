@@ -6,8 +6,9 @@
  *   node radar.mjs [--top 15] [--playlist]
  */
 import { DEFAULT_SUBS, COMMENT_POSTS, WINDOW_HOURS, TOO_BIG, ALERT_MIN_SCORE, now, DAY } from "./lib/config.mjs";
-import { loadState, saveState, appendJsonl, readJsonl } from "./lib/store.mjs";
+import { loadState, saveState, appendJsonl, readJsonl, getKv } from "./lib/store.mjs";
 import { fetchPosts, fetchComments } from "./lib/reddit.mjs";
+import { fetchLemmy, fetchMastodon, fetchLemmyComments, DEFAULT_COMMUNITIES, DEFAULT_TAGS } from "./lib/fediverse.mjs";
 import { extractAll, norm } from "./lib/extract.mjs";
 import { hotness, buildCandidates, albumBoard } from "./lib/score.mjs";
 import { subWeights } from "./lib/trends.mjs";
@@ -49,14 +50,22 @@ export async function run({ top = 15, demoPosts = null, playlist = false, quiet 
   const subs = state.subs || DEFAULT_SUBS;
 
   // 1. collect
-  if (!demoPosts) log(`Fetching ${subs.length} subreddits…`);
-  const posts = demoPosts ?? await fetchPosts(subs);
+  // Reddit only with keys (or switched on by hand): keyless requests are refused. Lemmy and Mastodon always.
+  const fedi = getKv("fediCfg", {}) || {}, useReddit = fedi.reddit ?? !!(process.env.REDDIT_CLIENT_ID && process.env.REDDIT_CLIENT_SECRET);
+  let posts = demoPosts;
+  if (!posts) {
+    posts = [];
+    if (useReddit) { log(`Fetching ${subs.length} subreddits…`); posts.push(...await fetchPosts(subs)); }
+    const comms = fedi.communities || DEFAULT_COMMUNITIES, tags = fedi.tags || DEFAULT_TAGS;
+    if (comms.length) { log(`Fetching ${comms.length} Lemmy communities…`); posts.push(...await fetchLemmy(comms, log)); }
+    if (tags.length) { log(`Fetching ${tags.length} Mastodon hashtags…`); posts.push(...await fetchMastodon(tags, log)); }
+  }
   const windowPosts = posts.filter((p) => t - p.created < WINDOW_HOURS * 3600 && p.created <= t);
   const fresh = windowPosts.filter((p) => !state.extractCache[p.id]);
   if (!demoPosts) {
     const hot = [...fresh].sort((a, b) => hotness(b, t) - hotness(a, t)).slice(0, COMMENT_POSTS);
     log(`Reading comments on ${hot.length} posts…`);
-    for (const p of hot) { try { p.commentTexts = await fetchComments(p); } catch {} }
+    for (const p of hot) { try { p.commentTexts = p.fedi ? await fetchLemmyComments(p) : await fetchComments(p); } catch {} }
   }
 
   // 2. extract (Claude reads titles + comments if ANTHROPIC_API_KEY is set)

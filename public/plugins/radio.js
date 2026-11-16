@@ -36,6 +36,10 @@
         try { P.setNow(await getJson('api/radio/now?id=kexp')); } catch (e) { /* the stream keeps playing without it */ }
         if (!P.audio.paused) nowTimer = setTimeout(pollNow, 30000);
       };
+      // the Radio page redraws when the song changes (the mini player does its own)
+      let nowKey = '';
+      const offNow = P.on(() => { const c = P.current, k = c && c.live && c.now ? (c.now.song || '') + '|' + (c.now.artist || '') + '|' + !!c.now.airbreak : '';
+        if (k !== nowKey) { nowKey = k; if (api.ui.currentRoute() === 'view-radio') api.ui.refresh(); } });
       const offPlay = P.on(() => { const c = P.current; if (c && c.live && c.station === 'kexp' && !P.audio.paused && !nowTimer) pollNow(); if (P.audio.paused) { clearTimeout(nowTimer); nowTimer = 0; } });
 
       const card = (s, opts = {}) => {
@@ -214,7 +218,7 @@
       api.on('render', () => { if (api.ui.currentRoute() !== 'view-kexp-history') K.away = true; });
       api.on('refocus', () => { K.away = true; });
 
-      return () => { offMini(); offPlay(); clearTimeout(nowTimer); };
+      return () => { offMini(); offPlay(); offNow(); clearTimeout(nowTimer); };
     },
   });
 

@@ -18,10 +18,6 @@ Cleaned up 2026-11-16 (0.8.2): items already built were moved out after checking
 - User location: Amherstview, Ontario (Loyalist Township). Garbage: Tuesday east of Speers Blvd, Wednesday west.
 
 ## In progress (user picked 2026-11-16)
-- KEXP search in Radio, no AI: search plays, group by artist / song, top songs and artists by period, the songs
-  around a play, DJ comments. Data: kexp_plays (services/kexp-log.js, saving since 0.8.2).
-- !earshot in Music Radar from their published feeds: charts/NewTop50Feed.cfm and reviews/rss.cfm.
-- Album art + release info for Music Radar from MusicBrainz + Cover Art Archive (NAS-side, 1 req/s, cached).
 - Free data (all NAS-side, cached, no keys):
   - Outdoors: air quality, pollen, UV (Open-Meteo); northern lights (NOAA SWPC); ISS passes.
   - Daily: Wikipedia "On this day", xkcd, Lichess daily puzzle, top Hacker News stories.
@@ -37,7 +33,9 @@ Cleaned up 2026-11-16 (0.8.2): items already built were moved out after checking
 ## Music and radio
 - Music on the NAS: Navidrome (LAN-only, Subsonic API) or Cadence serving the folder itself. User to decide.
 - Spotify listening stats view.
-- Reddit for Music Radar: waiting on the user's API approval (Responsible Builder Policy; don't work around it).
+- Reddit: user doubts approval will come (2026-11-16). Since 0.10.0 Radar reads Lemmy communities + Mastodon hashtags
+  instead (lib/fediverse.mjs, same post shape as Reddit) and Reddit is only read with keys or when switched on.
+  Don't scrape Reddit or work around the block. A mainstream filter hides big artists (lib/mainstream.mjs).
 - NACC chart: page format unchecked, may be JS-rendered.
 - Check from the NAS: Amherst Island Radio's stream; the six blog feed addresses added in 0.8.0 (warnings in Sources).
 
