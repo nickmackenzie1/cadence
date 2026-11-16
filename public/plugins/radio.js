@@ -66,7 +66,7 @@
           </div></div>`;
       };
 
-      api.views.add({ id: 'radio', title: 'Radio', icon: '📻', subtitle: 'Indie, college and community stations', wide: true, render: el => {
+      api.views.add({ id: 'radio', group: 'music', order: 20, title: 'Radio', icon: '📻', subtitle: 'Indie, college and community stations', wide: true, render: el => {
         if (!stations) { el.innerHTML = `<div class="rd"><p class="muted">Tuning the dial…</p></div>`; load(); return; }
         const c = P.current, live = c && c.live ? c : null, n = live && live.now && !live.now.airbreak ? live.now : null;
         const my = mine();
@@ -120,7 +120,7 @@
         ${x.artist && window.CadencePreview && window.CadencePreview.buttons ? window.CadencePreview.buttons(x.artist, x.song, 'song', 'radio') : ''}</li>`).join('')}</ul>`;
       const openStation = async s => { ST.s = s; ST.d = null; if (api.ui.currentRoute() !== 'view-radio-station') location.hash = 'view-radio-station'; else api.ui.refresh();
         try { ST.d = await getJson('api/radio/history?id=' + encodeURIComponent(s.id) + '&limit=200'); } catch (e) { ST.d = { error: e.message, plays: [] }; } if (api.ui.currentRoute() === 'view-radio-station') api.ui.refresh(); };
-      api.views.add({ id: 'radio-station', title: 'Station history', icon: '📻', hidden: true, render: el => {
+      api.views.add({ id: 'radio-station', group: 'music', order: 99, title: 'Station history', icon: '📻', hidden: true, render: el => {
         const s = ST.s, d = ST.d;
         if (!s) { el.innerHTML = '<p class="muted">Pick a station on the <a href="#view-radio">Radio</a> page.</p>'; return; }
         el.innerHTML = `<div class="rd"><p><a href="#view-radio">${api.ui.icon('arrow-left')}Radio</a></p><h2 class="rd-h">${E(s.name)}</h2>
@@ -135,7 +135,7 @@
       } });
 
       // ---------------- KEXP history: every play the NAS has saved, grouped and counted (no AI) ----------------
-      const K = { tab: api.storage.get('kTab') || 'top', by: api.storage.get('kBy') || 'artist', period: api.storage.get('kPeriod') || 'month', q: '', group: 'artist', detail: null, cache: {} };
+      const K = { wby: api.storage.get('wby') || 'artist', wper: api.storage.get('wper') || 'month', tab: api.storage.get('kTab') || 'top', by: api.storage.get('kBy') || 'artist', period: api.storage.get('kPeriod') || 'month', q: '', group: 'artist', detail: null, cache: {} };
       const kget = (qs, key = qs) => {
         if (K.cache[key] !== undefined) return K.cache[key];
         K.cache[key] = null;
@@ -165,6 +165,16 @@
       const chips = (name, cur, opts) => `<div class="kx-chips" role="tablist">${opts.map(([v, l]) => `<button class="kx-chip${cur === v ? ' on' : ''}" data-k="${name}" data-v="${v}" role="tab" aria-selected="${cur === v}">${l}</button>`).join('')}</div>`;
       const bars = months => { const max = Math.max(1, ...months.map(m => m.plays)); return `<div class="kx-bars" aria-label="Plays per month">${months.map(m => `<span title="${E(m.month)}: ${m.plays}" style="height:${Math.max(4, Math.round(m.plays / max * 100))}%"></span>`).join('')}</div>`; };
 
+      // winners: one row per month or year: the most-played artist / song / album and the runner-up
+      const winnersHtml = (r, max = 0) => {
+        if (!r) return '<p class="muted">Counting…</p>';
+        if (r.error) return `<p class="pc-note">${E(r.error)}</p>`;
+        const rows = max ? r.list.slice(0, max) : r.list;
+        if (!rows.length) return '<p class="muted">Not enough saved plays yet.</p>';
+        const label = p => p.length === 4 ? p : new Date(p + '-15').toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+        const what = w => `<button class="kx-link" data-k="artist" data-a="${E(w.artist)}"><b>${E(w.artist)}</b></button>${w.song ? ' — ' + E(w.song) : w.album ? ' — ' + E(w.album) : ''} <span class="muted">${w.plays}×</span>`;
+        return `<ul class="kx-win">${rows.map(x => `<li><span class="kx-wp">${E(label(x.period))}</span><div>${what(x.winner)}${x.runnerUp ? `<div class="muted kx-ru">then ${what(x.runnerUp)}</div>` : ''}</div></li>`).join('')}</ul>`;
+      };
       const detailHtml = () => {
         const d = K.detail, back = `<button class="btn kx-back" data-k="back">${api.ui.icon('arrow-left')}Back</button>`;
         if (d.type === 'artist') {
@@ -192,6 +202,7 @@
             : 'on ' + String(r.programs || '').split(',').slice(0, 6).map(x => `<button class="kx-link" data-k="program" data-v="${E(x)}">${E(x)}</button>`).join(', ');
           return `${back}<div class="kx-head">${art(r.image, true)}<div><h3>${E(d.name)}</h3><p class="muted">${who}</p><p class="muted">${n(r.plays, 'play', 'plays')} across ${n(r.shows, 'show', 'shows')} · last ${E(when(r.last))}${r.tags ? ' · ' + E(r.tags) : ''}</p></div></div>
             <div class="kx-two"><div><h4 class="rd-h">Artists they play most</h4>${list(r.artists, rowArtist, '')}</div><div><h4 class="rd-h">Songs they play most</h4>${list(r.songs, rowSong, '')}</div></div>
+            <h4 class="rd-h">Their favourite artist each month</h4>${winnersHtml(kget(`view=winners&by=artist&per=month&${d.type}=${enc(d.name)}`), 12)}
             <h4 class="rd-h">Recent plays</h4>${list(r.recent, p => rowPlay(p), '')}`;
         }
         if (d.type === 'around') {
@@ -206,7 +217,7 @@
 
       // the artist page's "Every KEXP play" opens this view on that artist
       window.CadenceKexpHistory = { artist: name => { K.detail = { type: 'artist', artist: name }; K.stack = []; K.away = false; api.ui.navigate('view-kexp-history'); } };
-      api.views.add({ id: 'kexp-history', title: 'KEXP history', icon: '🎼', subtitle: 'Every song KEXP plays, kept on your NAS', wide: true, render: el => {
+      api.views.add({ id: 'kexp-history', group: 'music', order: 30, title: 'KEXP history', icon: '🎼', subtitle: 'Every song KEXP plays, kept on your NAS', wide: true, render: el => {
         if (K.away) { K.away = false; K.cache = {}; hist = null; }
         if (!hist) { el.innerHTML = '<div class="rd"><p class="muted">Loading…</p></div>'; getJson('api/radio/kexp-history').then(h => { hist = h; }, () => { hist = { on: false }; }).then(() => api.ui.refresh()); return; }
         let body;
@@ -214,12 +225,15 @@
         else if (!hist.plays) body = `<p class="muted">Your NAS starts saving KEXP's playlist a few seconds after it starts. Check back in a few minutes.</p>`;
         else if (K.detail) body = detailHtml();
         else {
-          const tabs = chips('tab', K.tab, [['top', 'Top'], ['recent', 'Recent'], ['new', 'New to KEXP'], ['search', 'Search']]);
+          const tabs = chips('tab', K.tab, [['top', 'Top'], ['winners', 'Winners'], ['recent', 'Recent'], ['new', 'New to KEXP'], ['search', 'Search']]);
           let inner = '';
           if (K.tab === 'top') {
             const rows = kget(`view=top&by=${K.by}&period=${K.period}&limit=100`);
             inner = `<div class="kx-bar">${chips('by', K.by, [['artist', 'Artists'], ['song', 'Songs'], ['album', 'Albums'], ['show', 'Shows'], ['dj', 'DJs']])}${chips('period', K.period, [['week', 'Week'], ['month', 'Month'], ['year', 'Year'], ['all', 'All time']])}</div>
               ${list(rows, K.by === 'song' ? rowSong : K.by === 'album' ? rowAlbum : K.by === 'show' ? rowShow : K.by === 'dj' ? rowDj : rowArtist, K.by === 'show' || K.by === 'dj' ? 'Show names are still being filled in. Check back in a few minutes.' : 'Nothing played in this period yet.')}`;
+          } else if (K.tab === 'winners') {
+            inner = `<div class="kx-bar">${chips('wby', K.wby, [['artist', 'Artist'], ['song', 'Song'], ['album', 'Album']])}${chips('wper', K.wper, [['month', 'Each month'], ['year', 'Each year']])}</div>
+              <p class="muted">The most-played ${K.wby} of each ${K.wper}, and the runner-up.</p>${winnersHtml(kget(`view=winners&by=${K.wby}&per=${K.wper}`))}`;
           } else if (K.tab === 'recent') {
             const c = api.storage.get('kComments') === true;
             inner = `<label class="kx-tog"><input type="checkbox" id="kx-com" ${c ? 'checked' : ''}> Only plays with a DJ comment</label>${list(kget('view=recent&limit=100' + (c ? '&comments=1' : '')), p => rowPlay(p), 'Nothing yet.')}`;
@@ -242,6 +256,7 @@
           const b = e.target.closest('[data-k]'); if (!b || b.tagName === 'SUMMARY') return;
           const k = b.dataset.k;
           if (k === 'tab') { K.tab = b.dataset.v; api.storage.set('kTab', K.tab); K.detail = null; K.stack = []; api.ui.refresh(); }
+          else if (k === 'wby' || k === 'wper') { K[k] = b.dataset.v; api.storage.set(k, b.dataset.v); api.ui.refresh(); }
           else if (k === 'by' || k === 'period' || k === 'group') { K[k] = b.dataset.v; if (k !== 'group') api.storage.set(k === 'by' ? 'kBy' : 'kPeriod', b.dataset.v); api.ui.refresh(); }
           else if (k === 'artist') go({ type: 'artist', artist: b.dataset.a });
           else if (k === 'song' && b.dataset.s) go({ type: 'song', artist: b.dataset.a, song: b.dataset.s });
@@ -278,6 +293,8 @@
     .rd-find{display:flex;gap:6px;flex-wrap:wrap} .rd-find .inp{flex:1;min-width:160px}
     .rd-add summary{cursor:pointer;color:var(--muted);font-size:13px} .rd-add form{margin-top:8px}
     .rd-foot{font-size:12px}
+    .kx-win{list-style:none;padding:0;margin:6px 0 16px;display:flex;flex-direction:column;gap:8px}.kx-win li{display:flex;gap:12px;align-items:baseline;font-size:14px}
+    .kx-wp{min-width:9.5em;color:var(--muted);font-size:13px}.kx-ru{font-size:12px;margin-top:1px}.kx-ru .kx-link b{font-weight:500}
     .rd-earlier{margin:4px 0 14px;font-size:14px}.rd-earlier summary{cursor:pointer;color:var(--muted)}
     .rd-pl{list-style:none;padding:0;margin:8px 0;display:flex;flex-direction:column;gap:6px}.rd-pl li{display:flex;gap:10px;align-items:baseline;font-size:14px}
     .rd-pl li>span.muted{min-width:7.5em;font-size:12px}.rd-pl li>div{flex:1;min-width:0}

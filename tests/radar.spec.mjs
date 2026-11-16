@@ -49,6 +49,9 @@ test('Music Radar view: charts, picks, thumbs, and no Reddit anywhere', async ({
   // other sources: combined across sources, each source on its own tab, and their settings
   await page.goto(B + '/#view-radar');
   const src = page.locator('#mr-sources');
+  // the simpler front page (2026-11-16): sources live under "Sources and charts", folded until opened (and remembered)
+  await expect(page.locator('details[data-more=sources]')).not.toHaveAttribute('open', '');
+  await page.locator('details[data-more=sources] > summary').click();
   await expect(src).toContainText('Glass Lantern');
   await expect(src.locator('tr', { hasText: 'Glass Lantern' }).locator('.mr-src')).toHaveCount(5);   // blogs, Audius, ListenBrainz, Hype Machine, Reddit
   await page.click('[data-src=hypem]');
@@ -85,6 +88,7 @@ test('Where it listens: Lemmy/Mastodon settings, and hiding an artist removes th
   await page.addInitScript(() => { localStorage.setItem('cadence.reviewNudge', (d => { d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); })(new Date())); localStorage.setItem('cadence.space', 'life'); });
   await page.goto(B + '/#view-radar');
   await expect(page.locator('.mr-tiles')).toBeVisible({ timeout: 10000 });
+  await page.locator('details[data-more=settings] > summary').click();
   await expect(page.locator('#mr-comm')).toContainText('Where it listens');
   // add them to the mainstream list from the card
   const list = page.locator('#mr-ms-list');

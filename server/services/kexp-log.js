@@ -187,6 +187,36 @@ function topNow({ by = 'artist', period = 'month', limit = 50 } = {}) {
   return d.prepare(`SELECT MIN(artist) AS artist, COUNT(*) AS plays, COUNT(DISTINCT song) AS songs, MAX(airdate) AS last, MAX(image) AS image FROM kexp_plays
     WHERE airdate >= ? AND artist IS NOT NULL AND ${NOT_VA} GROUP BY artist COLLATE NOCASE ORDER BY plays DESC, last DESC LIMIT ?`).all(t, n).map(r => ({ ...r, last: iso(r.last) }));
 }
+// winners (idea from kexp.fyi): the most-played artist, song or album of each month or year, for the whole station or
+// one program / DJ, with the runner-up. Groups over every saved play, so it's cached like the top lists.
+function winners(o = {}) {
+  const k = 'w' + JSON.stringify([o.by, o.per, o.program, o.dj]), c = topCache.get(k);
+  if (c && Date.now() - c.at < 30 * 60e3) return c.v;
+  const v = winnersNow(o); topCache.set(k, { at: Date.now(), v }); if (topCache.size > 60) topCache.delete(topCache.keys().next().value);
+  return v;
+}
+function winnersNow({ by = 'artist', per = 'month', program = null, dj = null } = {}) {
+  const d = open(), fmt = per === 'year' ? '%Y' : '%Y-%m';
+  const key = by === 'song' ? 'p.artist COLLATE NOCASE, p.song COLLATE NOCASE' : by === 'album' ? 'p.artist COLLATE NOCASE, p.album COLLATE NOCASE' : 'p.artist COLLATE NOCASE';
+  const notNull = by === 'song' ? 'p.song IS NOT NULL' : by === 'album' ? "p.album IS NOT NULL AND p.album NOT LIKE '%live on kexp%'" : 'p.artist IS NOT NULL';
+  const who = program ? 'AND s.program = ?' : dj ? "AND (', ' || s.hosts || ', ') LIKE ? ESCAPE '\\'" : '';
+  const args = program ? [String(program)] : dj ? [like(', ' + String(dj) + ', ').replace(/^%|%$/g, '%')] : [];
+  const rows = d.prepare(`WITH g AS (
+      SELECT strftime('${fmt}', p.airdate, 'unixepoch', 'localtime') AS period, MIN(p.artist) AS artist, MIN(p.song) AS song, MIN(p.album) AS album, COUNT(*) AS plays
+      FROM kexp_plays p ${program || dj ? 'JOIN kexp_shows s ON s.id = p.show_id' : ''}
+      WHERE ${notNull} AND ${NOT_VA.replace('artist NOT IN', 'p.artist NOT IN')} ${who}
+      GROUP BY period, ${key}),
+    r AS (SELECT *, ROW_NUMBER() OVER (PARTITION BY period ORDER BY plays DESC, artist) AS n, SUM(plays) OVER (PARTITION BY period) AS total FROM g)
+    SELECT * FROM r WHERE n <= 2 ORDER BY period DESC, n`).all(...args);
+  const out = [];
+  for (const x of rows) {
+    const it = { artist: x.artist, song: by === 'song' ? x.song : null, album: by === 'album' ? x.album : null, plays: x.plays };
+    if (x.n === 1) out.push({ period: x.period, total: x.total, winner: it, runnerUp: null });
+    else if (out.length && out[out.length - 1].period === x.period) out[out.length - 1].runnerUp = it;
+  }
+  return { by, per, program, dj, list: out };
+}
+
 // q matches artist, song or album; group: artist | song | play
 function search({ q, group = 'artist', limit = 100 } = {}) {
   q = String(q || '').trim(); if (q.length < 2) return [];
@@ -252,4 +282,4 @@ function newArtists({ days = 14, limit = 50 } = {}) {
 }
 
 start();
-module.exports = { status, checkNew, backfillStep, fillShows, row, start, top, search, artist, song, around, recent, newArtists, onAir, open };
+module.exports = { winners, status, checkNew, backfillStep, fillShows, row, start, top, search, artist, song, around, recent, newArtists, onAir, open };

@@ -8,7 +8,7 @@
   const day = ts => new Date(ts * 1000).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
   const year = d => d ? String(d).slice(0, 4) : '';
   let current = null;
-  window.CadenceArtist = { open(name) { if (!name) return; current = String(name); try { sessionStorage.setItem('cadence.artist', current); } catch (e) {} if (location.hash === '#view-artist') window.dispatchEvent(new Event('cadence-artist')); else location.hash = 'view-artist'; } };
+  window.CadenceArtist = { open(name) { if (!name) return; current = String(name); try { const r = JSON.parse(localStorage.getItem('cadence.recentArtists') || '[]').filter(x => x.toLowerCase() !== current.toLowerCase()); localStorage.setItem('cadence.recentArtists', JSON.stringify([current, ...r].slice(0, 40))); } catch (e) {} try { sessionStorage.setItem('cadence.artist', current); } catch (e) {} if (location.hash === '#view-artist') window.dispatchEvent(new Event('cadence-artist')); else location.hash = 'view-artist'; } };
   // ---- listening: 30-second previews (Deezer, via the NAS) in the shared player, and Want to hear ----
   const P = () => window.CadencePodcasts;
   const PV = { queue: [], want: null, wantAt: 0, toast: m => {} };
@@ -66,7 +66,7 @@
       const sgLoad = async (year) => { try { SG.d = await (await fetch('api/radar/stg' + (year ? '?year=' + year : ''))).json(); SG.at = Date.now(); } catch (e) { SG.d = SG.d || { err: true }; }
         if (api.ui.currentRoute() === 'view-stg') api.ui.refresh();
         if (SG.d && SG.d.status && SG.d.status.running) setTimeout(() => api.ui.currentRoute() === 'view-stg' && sgLoad(SG.year), 8000); };
-      api.views.add({ id: 'stg', title: 'Said the Gramophone', icon: '🎼', subtitle: 'Best songs and albums of every year, from the blog', render: el => {
+      api.views.add({ id: 'stg', group: 'music', order: 50, title: 'Said the Gramophone', icon: '🎼', subtitle: 'Best songs and albums of every year, from the blog', render: el => {
         const d = SG.d;
         if (!d || Date.now() - SG.at > 60e3) { sgLoad(SG.year); if (!d) { el.innerHTML = '<p class="muted">Loading…</p>'; return; } }
         if (d.err) { el.innerHTML = '<p class="muted">The NAS didn\'t answer. Try again in a moment.</p>'; return; }
@@ -94,8 +94,59 @@
         const all = el.querySelector('#sg-all'); if (all) all.onclick = () => window.CadencePreview.playAll(d.list.songs.map(x => ({ artist: x.artist, title: x.title })));
       } });
 
+      // Shows: concerts near home, the ones by artists you care about first (NAS: api/radar/shows)
+      const SH = { d: null, at: 0, busy: false };
+      const shLoad = async (extra = {}) => { SH.busy = true;
+        let recent = []; try { recent = JSON.parse(localStorage.getItem('cadence.recentArtists') || '[]'); } catch (e) {}
+        try { const r = await fetch('api/radar/shows', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ recent, ...extra }) }); SH.d = await r.json(); if (!r.ok) SH.d = { error: SH.d.error || 'HTTP ' + r.status }; }
+        catch (e) { SH.d = { error: e.message }; }
+        SH.busy = false; SH.at = Date.now(); if (api.ui.currentRoute() === 'view-shows') api.ui.refresh(); };
+      const dateLabel = (d, t) => { if (!d) return 'Date to be announced'; const x = new Date(d + 'T' + (t || '12:00') + ':00');
+        return x.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: x.getFullYear() === new Date().getFullYear() ? undefined : 'numeric' }) + (t ? ' · ' + x.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' }) : ''); };
+      const showRow = (e, full) => `<li><span class="sh-d">${E(dateLabel(e.date, e.time))}</span><div>
+          ${e.artists.slice(0, 4).map((a, i) => `<a class="ar-link" href="#view-artist" data-artist="${E(a)}">${i ? E(a) : `<b>${E(a)}</b>`}</a>`).join(', ')}${e.artists.length > 4 ? ' and more' : ''}
+          <span class="muted">${E([e.venue, e.city, e.km != null ? e.km + ' km away' : null, e.price].filter(Boolean).join(' · '))}${e.url ? ` · <a href="${E(e.url)}" target="_blank" rel="noopener">Details</a>` : ''}</span>
+          ${full && e.match ? `<span class="sh-why">${E(e.match.why)}</span>` : ''}</div>${full && e.match ? window.CadencePreview.buttons(e.match.name, null, 'artist', 'Shows') : ''}</li>`;
+      api.views.add({ id: 'shows', group: 'music', order: 45, title: 'Shows', icon: '🗓', subtitle: 'Concerts near home, by artists you care about first', render: el => {
+        const d = SH.d;
+        if (!d || Date.now() - SH.at > 10 * 60e3) { if (!SH.busy) shLoad(); if (!d) { el.innerHTML = '<p class="muted">Looking for shows… (the first look can take a minute)</p>'; return; } }
+        if (d.error) { el.innerHTML = `<p class="muted">Couldn't check for shows: ${E(d.error)}</p>`; return; }
+        const c = d.cfg, k = d.keys;
+        const dist = [[50, '50 km'], [100, '100 km: Kingston, Belleville, Gananoque'], [200, '200 km: adds Ottawa and Peterborough'], [300, '300 km: adds Toronto and Montreal']];
+        const noKey = d.note === 'needs a key';
+        const setup = `<details class="sh-set" ${noKey ? 'open' : ''}><summary>Where the shows come from</summary>
+          <p class="muted">Kingston Live needs nothing. The other two are free, each with its own key in the NAS <code>.env</code> (the NAS picks up a changed .env on its next update check):</p>
+          <ul><li>${k.kingstonlive ? api.ui.icon('circle-check') : api.ui.icon('circle')}<div><b>Kingston Live</b>: the volunteer-run listings for Kingston${k.kingstonlive ? ' (used when Kingston is inside your circle)' : ' (turned off with KINGSTONLIVE=0)'}</div></li><li>${k.ticketmaster ? api.ui.icon('circle-check') : api.ui.icon('circle')}<div><b>Ticketmaster</b>: every concert near you. Sign up at <a href="https://developer.ticketmaster.com" target="_blank" rel="noopener">developer.ticketmaster.com</a>, open My Apps, copy the Consumer Key, and add <code>TICKETMASTER_API_KEY=…</code></div></li>
+            <li>${k.bandsintown ? api.ui.icon('circle-check') : api.ui.icon('circle')}<div><b>Bandsintown</b>: tour dates for the artists you care about, including smaller venues. Bandsintown gives app IDs on request; add <code>BANDSINTOWN_APP_ID=…</code></div></li></ul></details>`;
+        el.innerHTML = `<div class="sg sh">
+          <div class="sh-bar"><label>Around ${E(c.place)}, within <select class="inp" id="sh-km">${dist.map(([v, l]) => `<option value="${v}" ${c.radiusKm === v ? 'selected' : ''}>${l}</option>`).join('')}${dist.some(x => x[0] === c.radiusKm) ? '' : `<option selected value="${c.radiusKm}">${c.radiusKm} km</option>`}</select></label>
+            ${!noKey ? `<button class="linkish" id="sh-again">${api.ui.icon('refresh-cw')}Check again</button>` : ''}</div>
+          ${noKey ? '<p>Shows need Kingston inside your circle, or a free key from Ticketmaster or Bandsintown. Here\'s how:</p>' + setup : `
+          ${(d.errors || []).map(x => `<p class="muted">${E(x)}</p>`).join('')}
+          <h3>By artists you care about</h3>
+          ${d.matches.length ? `<ul class="sh-l">${d.matches.map(e => showRow(e, true)).join('')}</ul>` : '<p class="muted">Nobody from your lists is playing nearby right now. Shows by artists in Want to hear, climbing on Radar, played a lot on KEXP, or that you look up will show here.</p>'}
+          ${d.nearby.length ? `<details class="sh-more"><summary>Everything else nearby (${d.nearby.length})</summary><ul class="sh-l">${d.nearby.map(e => showRow(e, false)).join('')}</ul></details>` : ''}
+          ${setup}`}</div>`;
+        const km = el.querySelector('#sh-km'); if (km) km.onchange = () => { SH.d = null; api.ui.refresh(); shLoad({ settings: { radiusKm: +km.value } }); };
+        const ag = el.querySelector('#sh-again'); if (ag) ag.onclick = () => { api.ui.toast('Checking for shows'); shLoad({ refresh: true }); };
+      } });
+
+      // Artists: open any artist by name, the ones you looked at lately, and the ones in Want to hear
+      api.views.add({ id: 'artists', group: 'music', order: 60, title: 'Artists', icon: '🎤', subtitle: 'Look anyone up, or go back to who you looked at', render: el => {
+        let recent = []; try { recent = JSON.parse(localStorage.getItem('cadence.recentArtists') || '[]'); } catch (e) {}
+        const saved = [...new Set((PV.want || []).map(x => x.artist))].filter(a => !recent.some(r => r.toLowerCase() === a.toLowerCase()));
+        const chips = list => `<div class="ars">${list.map(a => `<a class="ar-chip" href="#view-artist" data-artist="${E(a)}">${E(a)}</a>`).join('')}</div>`;
+        el.innerHTML = `<div class="sg"><form id="ar-find" class="ar-find"><input class="inp" id="ar-q" placeholder="Any artist or band" aria-label="Artist name" autocomplete="off"><button class="btn primary" type="submit">Look up</button></form>
+          <h3>Looked at lately</h3>${recent.length ? chips(recent) : '<p class="muted">Artists you open from Radar, Radio or KEXP history show up here.</p>'}
+          ${saved.length ? `<h3>From Want to hear</h3>${chips(saved)}` : ''}
+          ${recent.length ? '<p><button class="linkish" id="ar-clear">Clear the list</button></p>' : ''}</div>`;
+        el.querySelector('#ar-find').onsubmit = e => { e.preventDefault(); const q = el.querySelector('#ar-q').value.trim(); if (q) { window.CadenceArtist.open(q); location.hash = 'view-artist'; } };
+        const c = el.querySelector('#ar-clear'); if (c) c.onclick = () => { localStorage.removeItem('cadence.recentArtists'); api.ui.refresh(); };
+        if (!PV.want) wantList().then(() => api.ui.currentRoute() === 'view-artists' && api.ui.refresh());
+      } });
+
       // the Want to hear page: everything you saved, to listen through
-      api.views.add({ id: 'want', title: 'Want to hear', icon: '🎧', subtitle: 'Music you saved to listen to', render: el => {
+      api.views.add({ id: 'want', group: 'music', order: 40, title: 'Want to hear', icon: '🎧', subtitle: 'Music you saved to listen to', render: el => {
         const list = PV.want;
         if (!list) { el.innerHTML = '<p class="muted">Loading…</p>'; wantList(true).then(() => api.ui.refresh()); return; }
         el.innerHTML = `<div class="wh">${list.length ? `<button class="btn primary" id="wh-all">${api.ui.icon('play')}Play all previews</button>
@@ -117,7 +168,7 @@
       const onOpen = () => { if (api.ui.currentRoute() === 'view-artist') api.ui.refresh(); };
       window.addEventListener('cadence-artist', onOpen);
 
-      api.views.add({ id: 'artist', title: 'Artist', icon: '🎤', hidden: true, wide: true, render: el => {
+      api.views.add({ id: 'artist', group: 'music', order: 99, title: 'Artist', icon: '🎤', hidden: true, wide: true, render: el => {
         if (!current) { try { current = sessionStorage.getItem('cadence.artist'); } catch (e) {} }
         if (!current) { el.innerHTML = '<p class="muted">Pick an artist from Music Radar, Radio or KEXP history.</p>'; return; }
         if (api.system().mode !== 'nas') { el.innerHTML = '<p class="muted">Artist pages need the NAS.</p>'; return; }
@@ -190,6 +241,13 @@
         .ap-spark{color:var(--accent);margin-top:2px} .ap-relplay{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px} .ap-relplay .btn{display:inline-flex;gap:4px;align-items:center;font-size:12px;padding:3px 8px}
         .pv-btns{display:inline-flex;gap:2px;vertical-align:middle} .pv-b{background:none;border:0;padding:3px;border-radius:6px;cursor:pointer;color:var(--muted);display:inline-flex}
         .pv-b:hover{background:var(--accent-soft);color:var(--accent)} .pv-b.on{color:var(--accent)} .pv-b svg{width:16px;height:16px} .pv-busy{opacity:.4}
+        .sh-bar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin:2px 0 14px}.sh-bar .inp{width:auto;display:inline-block;margin-left:4px}
+        .sh-l{list-style:none;padding:0;margin:8px 0 16px;display:flex;flex-direction:column;gap:10px}.sh-l li{display:flex;gap:12px;align-items:flex-start;font-size:14px}
+        .sh-l li>div{flex:1;min-width:0;display:flex;flex-direction:column}.sh-l .muted{font-size:12px}.sh-d{min-width:9em;color:var(--muted);font-size:13px}
+        .sh-why{font-size:12px;color:var(--accent)}.sh-more>summary,.sh-set>summary{cursor:pointer;color:var(--muted);margin:8px 0}
+        .sh-set ul{list-style:none;padding:0;display:flex;flex-direction:column;gap:8px;font-size:14px}.sh-set li{display:flex;gap:8px;align-items:flex-start}.sh-set li svg{width:15px;height:15px;flex:none;margin-top:2px}
+        .ar-find{display:flex;gap:8px;max-width:520px;margin:4px 0 18px}.ar-find .inp{flex:1}
+        .ars{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0 16px}.ar-chip{border:1px solid var(--line);background:var(--panel);border-radius:999px;padding:4px 12px;font-size:13px;color:var(--text);text-decoration:none}.ar-chip:hover{border-color:var(--accent);color:var(--accent)}
         .sg{max-width:820px} .sg-tabs{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0 14px} .sg-c{border:1px solid var(--line);background:var(--panel);color:var(--muted);border-radius:999px;padding:3px 10px;font-size:13px;cursor:pointer} .sg-c.on{border-color:var(--accent);color:var(--accent);background:var(--accent-soft)} .sg-l{list-style:none;padding:0;margin:6px 0 18px;display:flex;flex-direction:column;gap:6px}
         .sg-l li{display:flex;gap:10px;align-items:flex-start;font-size:14px} .sg-l li>div{flex:1;min-width:0;display:flex;flex-direction:column} .sg-l .muted{font-size:12px}
         .sg-n{min-width:2.2em;text-align:right;color:var(--muted);font-variant-numeric:tabular-nums} .sg-songs li>div{flex-direction:row;flex-wrap:wrap;gap:0 4px}

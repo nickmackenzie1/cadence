@@ -78,3 +78,30 @@ test('an artist nobody knows still gets a calm page', async ({ page }) => {
   await expect(page.locator('#view')).toContainText('No blog, chart or community has mentioned them yet.');
   await expect(page.locator('#view')).toContainText('KEXP hasn\'t played them');
 });
+
+test('Music home: one tile, tabs on every music page, and it reopens the tab you used last', async ({ page }) => {
+  await page.goto(B + '/');
+  await page.click('[data-act="space"][data-s="life"]');
+  await page.evaluate(() => { location.hash = 'music'; });
+  await expect(page).toHaveURL(/#view-(radar|radio|kexp-history|want|shows|stg|artists)$/);   // the last music tab (settings sync, so another test may have chosen one)
+  const tabs = page.locator('.mus-tabs a');
+  await expect(tabs).toHaveText(['Music Radar', 'Radio', 'KEXP history', 'Want to hear', 'Shows', 'Said the Gramophone', 'Artists']);
+  await expect(page.locator('#view h1')).toHaveText('Music');
+  await tabs.filter({ hasText: 'Radio' }).first().click();
+  await expect(page).toHaveURL(/#view-radio$/);
+  await expect(page.locator('.mus-tabs a.on')).toHaveText('Radio');
+  await page.evaluate(() => { location.hash = 'today'; });
+  await page.evaluate(() => { location.hash = 'music'; });
+  await expect(page).toHaveURL(/#view-radio$/);                    // back where you were
+  // the side menu has one Music tile, not a tile per music page
+  await expect(page.locator('#side-main a.vt[href="#music"]')).toHaveCount(1);
+  await expect(page.locator('#side-main a.vt[href="#view-radar"], #side-main a.vt[href="#view-radio"]')).toHaveCount(0);
+  // Artists: look anyone up; they're remembered
+  await page.locator('.mus-tabs a', { hasText: 'Artists' }).click();
+  await page.fill('#ar-q', 'Glass Lantern'); await page.click('#ar-find button');
+  await expect(page).toHaveURL(/#view-artist$/);
+  await expect(page.locator('.mus-tabs a')).toHaveCount(7);         // tabs stay on top of an artist page…
+  await expect(page.locator('.mus-tabs a.on')).toHaveCount(0);      // …with none of them chosen
+  await page.evaluate(() => { location.hash = 'view-artists'; });
+  await expect(page.locator('.ar-chip', { hasText: 'Glass Lantern' })).toHaveCount(1);
+});

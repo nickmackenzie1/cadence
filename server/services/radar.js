@@ -178,6 +178,21 @@ async function preview({ artist, title }) {
   return v;
 }
 // Want to hear: a list on the NAS (same in both spaces and on every device)
+// ---- local shows: concerts near home, matched to artists you care about (radar/lib/shows.mjs) ----
+const showsLib = () => import(pathToFileURL(path.join(__dirname, 'radar', 'lib', 'shows.mjs')).href);
+async function shows(input = {}) {
+  const S = await showsLib(), { store } = await load();
+  if (input.settings) S.saveShowsCfg(input.settings);
+  const interest = [];
+  const add = (name, why) => { if (name) interest.push({ name: String(name).slice(0, 120), why }); };
+  for (const w of store.getKv('wantToHear', []) || []) add(w.artist, 'In your Want to hear');
+  for (const r of (Array.isArray(input.recent) ? input.recent : []).slice(0, 40)) add(r, 'You looked them up');
+  try { const d = await data(); for (const r of [...(d.rise.top || []), ...(d.rise.risers || [])]) add(r.artist, 'Climbing on Music Radar');
+    for (const a of ((d.sources && d.sources.combined) || []).slice(0, 30)) add(a.artist, 'Showing up in ' + Object.keys(a.sources).length + ' Radar sources'); } catch {}
+  try { const K = require('./kexp-log'); if (K.status().on !== false) for (const a of K.top({ by: 'artist', period: 'year', limit: 80 })) add(a.artist, `KEXP played them ${a.plays} times this year`); } catch {}
+  try { const G = (await stgLib()).stgData(); for (const a of G.artists.slice(0, 60)) add(a.artist, `On Said the Gramophone's best-of ${a.n} time${a.n === 1 ? '' : 's'}`); } catch {}
+  return S.shows(interest, { force: !!input.refresh });
+}
 async function want(input) {
   const { store } = await load();
   let list = store.getKv('wantToHear', []) || [];
@@ -199,4 +214,4 @@ async function digestFile(name) {
 }
 async function spotify() { const { spotify } = await load(); return spotify; }
 
-module.exports = { artist, stg, preview, want, community, sourcesNow, sourcesSettings, raw, settings, status, scan, digestNow, data, feedback, rss, digestFile, spotify };
+module.exports = { artist, stg, shows, preview, want, community, sourcesNow, sourcesSettings, raw, settings, status, scan, digestNow, data, feedback, rss, digestFile, spotify };

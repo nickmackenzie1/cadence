@@ -2644,7 +2644,9 @@
     </nav>
     ${(() => {
       const loose = Reg.views.filter(v => !v.group && !v.hidden),
-        ins = Reg.views.filter(v => v.group === 'insights');
+        ins = Reg.views.filter(v => v.group === 'insights'),
+        mus = Reg.views.filter(v => v.group === 'music' && !v.hidden).sort((a, b) => (a.order ?? 50) - (b.order ?? 50)),
+        onMusic = r === 'music' || Reg.views.some(v => v.group === 'music' && r === 'view-' + v.id);
       const tile = (id, ic, label) =>
         `<a class="vt ${r === id ? 'on' : ''}" href="#${id}" aria-label="${label}"><span class="ic">${ic}</span><span class="vl">${label}</span></a>`;
       // only pinned views get a tile (plus the one you're on); everything else lives behind "All views"
@@ -2652,7 +2654,9 @@
         shown = loose
           .filter(v => pins.includes(v.id) || r === 'view-' + v.id)
           .sort((x, y) => (pins.indexOf(x.id) + 1 || 99) - (pins.indexOf(y.id) + 1 || 99));
-      const items = (ins.length ? [tile('insights', '✦', 'Insights')] : []).concat(
+      const items = (ins.length ? [tile('insights', '✦', 'Insights')] : [])
+        .concat(mus.length ? [tile(onMusic ? r : 'music', '🎧', 'Music').replace('href="#' + r + '"', 'href="#music"')] : [])
+        .concat(
         shown.map(v => tile('view-' + v.id, esc(v.icon || '◇'), esc(v.title)))
       );
       if (loose.length > shown.length)
@@ -3135,6 +3139,11 @@
         ${clientAgendaCard(c)}
         ${mtgs.length ? `<div class="group"><div class="group-h">Meeting log<span class="c">${mtgs.length}</span></div>${mtgs.map(m => `<details class="mtg"><summary><b>${new Date(m.start).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}</b><span class="muted">${Math.max(1, Math.round((m.end - m.start) / 60000))} min · ${m.itemIds.length} action items</span></summary>${(m.agenda || []).length ? `<div class="mlog-ag">${m.agenda.map(a => `<span class="${a.done ? 'done' : ''}">${a.done ? '✓' : '○'} ${esc(a.text)}${a.tasks.length ? ` <em>${a.tasks.length} follow-up${a.tasks.length === 1 ? '' : 's'}</em>` : ''}</span>`).join('')}</div>` : ''}<div class="notes">${esc(m.notes || 'No notes.')}</div>${(m.shots || []).length ? `<div class="m-shots log">${m.shots.map(sh => shotTile(sh, true, m.id)).join('')}</div>` : ''}${Reg.meetingActions.length ? `<div class="row" style="margin-top:10px;flex-wrap:wrap">${Reg.meetingActions.map((ac, i) => `<button class="btn" data-act="mlog-action" data-mid="${m.id}" data-i="${i}">${esc(ac.label)}</button>`).join('')}</div>` : ''}</details>`).join('')}</div>` : ''}`;
       }
+    } else if (r === 'music') {
+      // Music home: opens the tab you used last (each music page keeps its own address, with the tabs on top)
+      const mus = Reg.views.filter(x => x.group === 'music' && !x.hidden).sort((a, b) => (a.order ?? 50) - (b.order ?? 50));
+      if (mus.length) { location.replace('#view-' + ((mus.find(x => x.id === S.settings.musicTab) || mus[0]).id)); return; }
+      html = emptyState('🎧', 'No music yet', 'Turn on Radio or Music Radar in Settings → Plugins.');
     } else if (r === 'insights') {
       const ins = Reg.views.filter(x => x.group === 'insights');
       if (!ins.length) {
@@ -3160,7 +3169,10 @@
       const pv = Reg.views.find(x => 'view-' + x.id === r);
       v.classList.toggle('vw-wide', !!(pv && pv.wide));
       if (pv) {
-        v.innerHTML = `<div class="head"><div><h1>${esc(pv.title)}</h1>${pv.subtitle ? `<div class="sub">${esc(pv.subtitle)}</div>` : ''}</div></div><div id="pv"></div>`;
+        // music pages share one set of tabs (Music home)
+        const mtabs = pv.group === 'music' ? Reg.views.filter(x => x.group === 'music' && !x.hidden).sort((a, b) => (a.order ?? 50) - (b.order ?? 50)) : [];
+        if (mtabs.includes(pv) && S.settings.musicTab !== pv.id) { S.settings.musicTab = pv.id; persistLocal(); }
+        v.innerHTML = `<div class="head"><div><h1>${pv.group === 'music' && !pv.hidden ? 'Music' : esc(pv.title)}</h1>${pv.subtitle ? `<div class="sub">${esc(pv.subtitle)}</div>` : ''}</div></div>${mtabs.length ? `<nav class="ins-tabs mus-tabs" aria-label="Music">${mtabs.map(x => `<a href="#view-${esc(x.id)}" class="${x === pv ? 'on' : ''}"${x === pv ? ' aria-current="page"' : ''}>${esc(x.title)}</a>`).join('')}</nav>` : ''}<div id="pv"></div>`;
         try {
           pv.render($('#pv'), makeApi(pv.pid));
         } catch (e) {

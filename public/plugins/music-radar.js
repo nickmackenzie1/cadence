@@ -137,7 +137,7 @@
     tagline: 'Up-and-coming music before it breaks', color: '#3b82f6',
     icon: '<path d="M19.07 4.93A10 10 0 0 0 6.99 3.34M4 6h.01M2.29 9.62A10 10 0 1 0 21.31 8.35M16.24 7.76A6 6 0 1 0 8.23 16.67M12 18h.01M17.99 11.66A6 6 0 0 1 15.77 16.67"/><circle cx="12" cy="12" r="2"/><path d="m13.41 10.59 5.66-5.66"/>',
     setup(api) {
-      const G = { d: null, st: null, years: 'year', year: null, all: false, poll: 0, src: 'all', feed: '', multi: true };
+      const G = { more: api.storage.get('more') || {}, d: null, st: null, years: 'year', year: null, all: false, poll: 0, src: 'all', feed: '', multi: true };
       const get = async u => { const r = await fetch(u, { cache: 'no-store' }); if (!r.ok) throw new Error(r.status); return r.json(); };
       const post = async (u, b) => { const r = await fetch(u, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(b || {}) }); return r.json(); };
       async function load() {
@@ -148,7 +148,7 @@
       }
       window.__radar = { load, get G() { return G; } };
 
-      api.views.add({ id: 'radar', title: 'Music Radar', icon: '📡', subtitle: 'Up-and-coming music before it breaks', wide: true, render: el => {
+      api.views.add({ id: 'radar', group: 'music', order: 10, title: 'Music Radar', icon: '📡', subtitle: 'Up-and-coming music before it breaks', wide: true, render: el => {
         if (api.system().mode !== 'nas') { el.innerHTML = empty('Music Radar runs on your NAS. Open Cadence from the NAS to use it.'); return; }
         if (!G.d || !G.st) { el.innerHTML = empty('Loading…'); load(); return; }
         const D = G.d, S = G.st, ic = n => api.ui.icon(n);
@@ -179,25 +179,49 @@
               return list.length ? `<section class="mr-card w12 mr-want"><div class="mr-row" style="justify-content:space-between"><div><h3>Want to hear</h3><p class="mr-sub">What you saved, newest first</p></div>
                 <span class="mr-row"><button class="btn" id="mr-wantall">${ic('play')}Play all previews</button><a class="btn" href="#view-want">See all ${list.length}</a></span></div>
                 <ul class="mr-wl">${list.slice(0, 5).map(x => `<li>${pv(x.artist, x.title, x.type, x.from)} ${an(x.artist, true)}${x.title ? ' — ' + esc(x.title) : ''}</li>`).join('')}</ul></section>` : ''; })()}
-            <section class="mr-card w12"><div class="mr-row" style="justify-content:space-between"><div><h3>Said the Gramophone, every year</h3><p class="mr-sub">A Montreal blog's 100 favourite songs and best albums of each year since 2005, and the artists it keeps coming back to</p></div><a class="btn" href="#view-stg">Open</a></div></section>
             <section class="mr-card w8"><h3>Who's climbing</h3><p class="mr-sub">${D.allSources ? 'Daily buzz from every source (blogs, KEXP, campus radio, charts, Bandcamp, Lemmy and Mastodon), last 14 days' : 'Daily buzz score, last 14 days'}: the 6 artists buzzing most right now.</p>
               ${D.rise.top.length ? lineChart(D.rise.labels, D.rise.top.map(r => ({ label: r.artist, data: r.series })), { unit: 'buzz' }) : empty('Scan a few times to see trends.')}</section>
             <section class="mr-card w4"><h3>Fastest risers</h3><p class="mr-sub">Buzz now vs a week ago${D.allSources ? ', and where it came from this week' : ''}</p>
               ${risers.length ? `<table class="mr-t"><tr><th>Artist</th><th class="n">Week ago</th><th class="n">Now</th><th></th></tr>${risers.map(r => `<tr><td>${an(r.artist, false)} ${pv(r.artist, null, null, 'Music Radar')}${r.sources && r.sources.length ? `<div class="mr-small">${esc(r.sources.join(', '))}</div>` : ''}</td><td class="n">${Math.round(r.weekAgo)}</td><td class="n">${Math.round(r.cur)}</td><td><span class="chip">${STATUS[r.status]}</span></td></tr>`).join('')}</table>` : empty('Nothing rising yet.')}</section>
-            <section class="mr-card w6"><h3>Genres blowing up</h3><p class="mr-sub">${D.allSources ? 'Every source: l' : 'L'}ast 7 days vs the weekly average of the 3 weeks before</p>${changeBars(D.genres)}</section>
-            <section class="mr-card w6"><h3>New scenes and buzzwords</h3><p class="mr-sub">Phrases from Lemmy and Mastodon comments, same comparison</p>${changeBars(D.buzz)}</section>
             <section class="mr-card w6"><h3>Albums and EPs blowing up</h3><p class="mr-sub">${D.allSources ? 'Reviews, KEXP, campus radio, Bandcamp and community posts in the last 7 days' : 'Best buzz score in the last 7 days'}</p>
               ${D.albums.length ? `<table class="mr-t"><tr><th>Release</th><th>Where</th><th class="n">Score</th></tr>${D.albums.map(a => `<tr><td>${pv(a.artist, a.album, a.type, 'Music Radar')} ${an(a.artist, false)} — ${a.link ? `<a href="${esc(a.link)}" target="_blank" rel="noopener">${esc(a.album)}</a>` : esc(a.album)} <span class="chip">${esc(a.type)}</span></td><td class="mr-small">${esc((a.subs || []).join(', '))}</td><td class="n">${Math.round(a.score)}</td></tr>`).join('')}</table>` : empty('No albums or EPs mentioned in the last week.')}</section>
-            <section class="mr-card w6"><h3>Which communities find artists first</h3><p class="mr-sub">How often each community posted a shared artist first. Early ones count more in scoring.</p>
-              ${D.subLead.length ? `<div class="mr-bars">${D.subLead.map(s => `<div class="mr-bar" title="first on ${Math.round(s.firstShare * 100)}% of ${s.samples} shared artists${s.avgLeadHours ? `, ~${Math.round(s.avgLeadHours)}h ahead` : ''}"><span class="mr-bl">${esc(s.sub)}</span><span class="mr-bt"><i class="up" style="left:0;width:${Math.round(s.firstShare * 100)}%"></i></span><span class="mr-bv">${Math.round(s.firstShare * 100)}%</span></div>`).join('')}</div>` : empty('Needs artists that show up in 2 or more communities.')}</section>
-            <section class="mr-card w12"><h3>"Sounds like" map</h3><p class="mr-sub">Comparisons people make in comments. Bigger dot = compared more often. Ringed = artists you liked. Hover a dot for who it's compared with.</p>${graph(D.graph)}</section>
-            ${sourcesCard(D.sources, ic, G)}
-            <section class="mr-card w8"><h3>Recent picks</h3><p class="mr-sub">Thumbs up and down teach the radar your taste</p>
+            <section class="mr-card w6"><h3>Genres blowing up</h3><p class="mr-sub">${D.allSources ? 'Every source: l' : 'L'}ast 7 days vs the weekly average of the 3 weeks before</p>${changeBars(D.genres)}</section>
+            <section class="mr-card w12"><h3>Recent picks</h3><p class="mr-sub">Thumbs up and down teach the radar your taste</p>
               ${D.picks.length ? picks.map(p => `<div class="mr-pick">${artImg(p).replace('mr-art', 'mr-art big')}<div class="mr-pb">${p.artist ? an(p.artist) : ''} ${pv(p.artist, p.song, p.type, (p.subs || [])[0] || 'Music Radar')} — <a href="${esc(p.link)}" target="_blank" rel="noopener">${esc(p.song || 'recommended in comments')}</a>${p.type && p.type !== 'track' ? ` <span class="chip">${esc(p.type)}</span>` : ''}${relNote(p)}
                   ${(p.genres || []).slice(0, 3).map(g => `<span class="chip">${esc(g)}</span>`).join(' ')}${(p.alsoOn || []).length ? ` <span class="mr-small">also on</span> ${p.alsoOn.map(srcPill).join(' ')}` : ''}<div class="mr-small">${esc(p.blurb)} · <a href="${esc(p.thread)}" target="_blank" rel="noopener">thread</a></div></div>
                 <div class="mr-fb"><button class="${p.feedback === 1 ? 'on' : ''}" data-fb="${esc(p.id)}" data-v="1" data-cur="${p.feedback}" aria-label="More like this">${ic('thumbs-up')}</button><button class="${p.feedback === -1 ? 'on' : ''}" data-fb="${esc(p.id)}" data-v="-1" data-cur="${p.feedback}" aria-label="Not for me">${ic('thumbs-down')}</button></div></div>`).join('')
                 + (D.picks.length > 15 && !G.all ? `<p><button class="btn" id="mr-all">Show all ${D.picks.length}</button></p>` : '') : empty('No picks yet. Press Scan now, or switch the radar on.')}</section>
-            ${G.comm ? `<section class="mr-card w4" id="mr-comm"><h3>Where it listens</h3><p class="mr-sub">Community posts the radar reads, besides the other sources. No accounts or keys.</p>
+          </div>
+          <details class="mr-more" data-more="sources" ${G.more['sources'] ? 'open' : ''}><summary><b>Sources and charts</b><span class="mr-sub">Each source on its own, chart movers, new finds per day</span></summary>
+            <div class="mr-grid">
+            ${sourcesCard(D.sources, ic, G)}
+            </div></details>
+          <details class="mr-more" data-more="scenes" ${G.more['scenes'] ? 'open' : ''}><summary><b>Scenes and connections</b><span class="mr-sub">Buzzwords, which communities find artists first, the "sounds like" map</span></summary>
+            <div class="mr-grid">
+            <section class="mr-card w6"><h3>New scenes and buzzwords</h3><p class="mr-sub">Phrases from Lemmy and Mastodon comments, same comparison</p>${changeBars(D.buzz)}</section>
+            <section class="mr-card w6"><h3>Which communities find artists first</h3><p class="mr-sub">How often each community posted a shared artist first. Early ones count more in scoring.</p>
+              ${D.subLead.length ? `<div class="mr-bars">${D.subLead.map(s => `<div class="mr-bar" title="first on ${Math.round(s.firstShare * 100)}% of ${s.samples} shared artists${s.avgLeadHours ? `, ~${Math.round(s.avgLeadHours)}h ahead` : ''}"><span class="mr-bl">${esc(s.sub)}</span><span class="mr-bt"><i class="up" style="left:0;width:${Math.round(s.firstShare * 100)}%"></i></span><span class="mr-bv">${Math.round(s.firstShare * 100)}%</span></div>`).join('')}</div>` : empty('Needs artists that show up in 2 or more communities.')}</section>
+            <section class="mr-card w12"><h3>"Sounds like" map</h3><p class="mr-sub">Comparisons people make in comments. Bigger dot = compared more often. Ringed = artists you liked. Hover a dot for who it's compared with.</p>${graph(D.graph)}</section>
+            </div></details>
+          <details class="mr-more" data-more="record" ${G.more['record'] ? 'open' : ''}><summary><b>How it's doing</b><span class="mr-sub">Track record, what it's learned about your taste, weekly digests</span></summary>
+            <div class="mr-grid">
+            <section class="mr-card w6"><h3>Track record</h3><p class="mr-sub">Picks from 30+ days ago: did their Last.fm listeners grow 25% or more?</p>
+              ${D.trackRecord.checked ? `<p>${D.trackRecord.hits} of ${D.trackRecord.checked} checked picks were hits.</p><table class="mr-t"><tr><th>Artist</th><th class="n">Then</th><th class="n">Now</th><th class="n">Growth</th></tr>${D.trackRecord.best.map(b => `<tr><td>${esc(b.artist)}</td><td class="n">${fmt(b.before)}</td><td class="n">${fmt(b.now)}</td><td class="n">${pct(b.growth)}</td></tr>`).join('')}</table>` : empty('Needs a Last.fm key and picks that are 30+ days old.')}</section>
+            <section class="mr-card w6"><h3>What it's learned</h3>
+              <div class="mr-small">${D.taste.liked + D.taste.disliked ? `${D.taste.liked} liked · ${D.taste.disliked} not for me<br>${Object.entries(D.taste.genres).sort((a, b) => b[1] - a[1]).slice(0, 8).map(([g, w]) => `${esc(g)} ×${w}`).join(' · ')}` : 'Rate a few picks and it starts weighting genres and subreddits.'}</div></section>
+            <section class="mr-card w6"><h3>Weekly digests</h3>
+              ${D.digests.length ? `<table class="mr-t">${D.digests.map(d => `<tr><td><a href="api/radar/digests/${esc(d.file)}" target="_blank" rel="noopener">${esc(plain(d.title))}</a></td></tr>`).join('')}</table>` : empty('The first digest comes a week after the first scan.')}
+              <details class="mr-setup"><summary>Setup: optional keys on the NAS</summary>
+                <p class="mr-small">Everything works without them; each one unlocks more. Add them to the NAS <code>.env</code>; they never leave the NAS.</p>
+                <ul>${setupRow(keys.ai, 'ANTHROPIC_API_KEY', 'Claude reads posts and comments: better artists and genres, "sounds like" pairs, nicer blurbs and digest')}
+                  ${setupRow(keys.lastfm, 'LASTFM_API_KEY', 'real listener counts (small-but-buzzing gets boosted), track record')}
+                  ${setupRow(keys.ntfy, 'NTFY_TOPIC', 'phone alerts when an artist spikes, plus the weekly digest')}
+                  ${setupRow(keys.spotify, 'SPOTIFY_CLIENT_ID / _SECRET', `a "Music Radar" playlist. Redirect address: <code id="mr-redir">…</code>`)}</ul>
+                ${S.log && S.log.length ? `<pre class="mr-log">${esc(S.log.join('\n'))}</pre>` : ''}</details></section>
+            </div></details>
+          <details class="mr-more" data-more="settings" ${G.more['settings'] ? 'open' : ''}><summary><b>Settings</b><span class="mr-sub">Where it listens, hiding mainstream artists</span></summary>
+            <div class="mr-grid">
+            ${G.comm ? `<section class="mr-card w6" id="mr-comm"><h3>Where it listens</h3><p class="mr-sub">Community posts the radar reads, besides the other sources. No accounts or keys.</p>
               <label class="mr-small">Lemmy communities (one per line, name@server)</label>
               <textarea class="inp mr-ta" id="mr-lemmy" rows="5" spellcheck="false">${esc(G.comm.communities.join('\n'))}</textarea>
               <label class="mr-small">Mastodon hashtags (one per line)</label>
@@ -210,21 +234,10 @@
               <textarea class="inp mr-ta" id="mr-ms-list" rows="6" spellcheck="false">${esc(G.comm.mainstream.list.join('\n'))}</textarea>
               <div class="mr-row"><button class="btn" id="mr-comm-save">Save</button><span class="mr-small">Takes effect on the next scan; the mainstream filter right away.</span></div>
             </section>` : ''}
-            <section class="mr-card w4"><h3>What it's learned</h3>
-              <div class="mr-small">${D.taste.liked + D.taste.disliked ? `${D.taste.liked} liked · ${D.taste.disliked} not for me<br>${Object.entries(D.taste.genres).sort((a, b) => b[1] - a[1]).slice(0, 8).map(([g, w]) => `${esc(g)} ×${w}`).join(' · ')}` : 'Rate a few picks and it starts weighting genres and subreddits.'}</div></section>
-            <section class="mr-card w6"><h3>Track record</h3><p class="mr-sub">Picks from 30+ days ago: did their Last.fm listeners grow 25% or more?</p>
-              ${D.trackRecord.checked ? `<p>${D.trackRecord.hits} of ${D.trackRecord.checked} checked picks were hits.</p><table class="mr-t"><tr><th>Artist</th><th class="n">Then</th><th class="n">Now</th><th class="n">Growth</th></tr>${D.trackRecord.best.map(b => `<tr><td>${esc(b.artist)}</td><td class="n">${fmt(b.before)}</td><td class="n">${fmt(b.now)}</td><td class="n">${pct(b.growth)}</td></tr>`).join('')}</table>` : empty('Needs a Last.fm key and picks that are 30+ days old.')}</section>
-            <section class="mr-card w6"><h3>Weekly digests</h3>
-              ${D.digests.length ? `<table class="mr-t">${D.digests.map(d => `<tr><td><a href="api/radar/digests/${esc(d.file)}" target="_blank" rel="noopener">${esc(plain(d.title))}</a></td></tr>`).join('')}</table>` : empty('The first digest comes a week after the first scan.')}
-              <details class="mr-setup"><summary>Setup: optional keys on the NAS</summary>
-                <p class="mr-small">Everything works without them; each one unlocks more. Add them to the NAS <code>.env</code>; they never leave the NAS.</p>
-                <ul>${setupRow(keys.ai, 'ANTHROPIC_API_KEY', 'Claude reads posts and comments: better artists and genres, "sounds like" pairs, nicer blurbs and digest')}
-                  ${setupRow(keys.lastfm, 'LASTFM_API_KEY', 'real listener counts (small-but-buzzing gets boosted), track record')}
-                  ${setupRow(keys.ntfy, 'NTFY_TOPIC', 'phone alerts when an artist spikes, plus the weekly digest')}
-                  ${setupRow(keys.spotify, 'SPOTIFY_CLIENT_ID / _SECRET', `a "Music Radar" playlist. Redirect address: <code id="mr-redir">…</code>`)}</ul>
-                ${S.log && S.log.length ? `<pre class="mr-log">${esc(S.log.join('\n'))}</pre>` : ''}</details></section>
-          </div>`;
+            </div></details>
+`;
         const $ = s => el.querySelector(s);
+        el.querySelectorAll('details.mr-more').forEach(d => d.ontoggle = () => { G.more[d.dataset.more] = d.open; api.storage.set('more', G.more); });
         $('#mr-on').onchange = async e => { G.st = await post('api/radar/settings', { on: e.target.checked }); api.ui.toast(e.target.checked ? 'Music Radar is on: it scans every 6 hours' : 'Music Radar is off'); api.ui.refresh(); };
         $('#mr-scan').onclick = async () => { G.st = await post('api/radar/run', { what: 'scan' }); api.ui.toast('Scanning. It takes a few minutes; this page updates when it\'s done.'); load(); };
         $('#mr-digest').onclick = async () => { G.st = await post('api/radar/run', { what: 'digest' }); load(); };
@@ -277,6 +290,8 @@
         .mr-bt{position:relative;height:12px;border-radius:3px;background:color-mix(in srgb,var(--text) 5%,transparent)}.mr-bt i{position:absolute;top:0;bottom:0;border-radius:3px}.mr-bt i.up{background:#3b82f6}.mr-bt i.dn{background:#a3a3a3}
         .mr-graph{width:100%;height:auto;display:block}.mr-edge{stroke:var(--line)}.mr-node{fill:#3b82f6;stroke:var(--panel);stroke-width:2}.mr-node.liked{stroke:#f97316;stroke-width:3}.mr-gl{fill:var(--muted);font:11px Inter,system-ui;pointer-events:none}
         .mr-pick{display:flex;gap:10px;padding:10px 0;border-bottom:1px solid var(--line)}
+        .mr-more{margin-top:16px;border-top:1px solid var(--line);padding-top:10px}.mr-more>summary{cursor:pointer;display:flex;flex-direction:column;gap:2px;padding:6px 0;list-style:none}
+        .mr-more>summary::-webkit-details-marker{display:none}.mr-more>summary b::before{content:'+ ';color:var(--muted)}.mr-more[open]>summary b::before{content:'– '}.mr-more>.mr-grid{margin-top:10px}
         .mr-wl{list-style:none;padding:0;margin:6px 0 0;display:flex;flex-direction:column;gap:4px;font-size:14px}
         .mr-ta{width:100%;font:12px/1.4 ui-monospace,monospace;margin:2px 0 8px;resize:vertical} .mr-chk{display:flex;align-items:center;gap:6px;margin:4px 0} .mr-num{width:110px;padding:2px 6px}
         .mr-art{width:36px;height:36px;border-radius:4px;object-fit:cover;flex:none;background:var(--line)} .mr-art.big{width:56px;height:56px;border-radius:6px}

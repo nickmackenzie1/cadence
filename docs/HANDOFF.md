@@ -120,3 +120,17 @@ Cleaned up 2026-11-16 (0.8.2): items already built were moved out after checking
   ("Keep a history": checked every 2 min, `RADIO_FOLLOW_EVERY`; `RADIO_HISTORY=0` off; off under CI). Routes
   `/api/radio/now?id&u`, `/api/radio/history`, POST `/api/radio/follow`. Page: song + preview/save buttons for any
   station, "Played earlier", hidden view `radio-station`. Not checked against real stations (workspace can't reach them).
+- **0.16.0 (user, 2026-11-16):**
+  - Radar front page simplified: tiles, Want to hear, climbing + risers, albums + genres, picks; the rest folded under
+    "Sources and charts", "Scenes and connections", "How it's doing", "Settings" (open state remembered).
+  - Music home: views with `group: 'music'` (and `order`) share one "Music" tile and a tab bar (core.js); `#music`
+    opens the last tab (`S.settings.musicTab`). Tabs: Radar, Radio, KEXP history, Want to hear, Shows, Said the
+    Gramophone, Artists (new: look anyone up, recently opened, from Want to hear).
+  - KEXP winners (`kexp-log.winners`, view=winners): most-played artist/song/album per month or year, with runner-up,
+    station-wide or per program/DJ; Winners tab, and "Their favourite artist each month" on DJ/show pages.
+  - Shows (`radar/lib/shows.mjs`, Music → Shows): Ticketmaster (`TICKETMASTER_API_KEY`), Bandsintown
+    (`BANDSINTOWN_APP_ID`), Kingston Live feed (no key; address from the user; `KINGSTONLIVE=0` off). Matched to Want
+    to hear, recently opened artists, Radar, KEXP's year, Said the Gramophone. Default circle 100 km around Amherstview.
+    Kingston Live's feed format wasn't visible from the agent workspace: the reader is generic; if the page says it
+    couldn't read it, get the feed text from the user.
+  - Rename brainstorm sent; user hasn't picked yet (shortlist: Almanac, Hearth, Porchlight, Stella).

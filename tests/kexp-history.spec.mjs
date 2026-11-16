@@ -29,6 +29,7 @@ test.beforeAll(async () => {
     P(25, 'Wednesday', 'Bleeds', 'Bleeds', { show: 8 });
     P(20, 'Brand New Band', 'First Single', 'Demo', { is_local: true });
     P(15, 'Brand New Band', 'Second Single', 'Demo');
+    for (let i = 0; i < 7; i++) P(14 - i, 'Various Artists', 'Comp ' + i, 'Compilation');   // a bucket, not a band: never a winner
   `], { env: { ...process.env, DATA_DIR: dir, KEXP_LOG: '0' }, encoding: 'utf8' });
   if (fill.status !== 0) throw new Error('filling the test database failed: ' + fill.stderr);
   server = spawn(process.execPath, ['--disable-warning=ExperimentalWarning', 'server.js'], { env: { ...process.env, PORT: String(PORT), DATA_DIR: dir,
@@ -39,7 +40,7 @@ test.afterAll(() => { server && server.kill(); rmSync(dir, { recursive: true, fo
 
 test('KEXP history: top artists and songs, an artist, a song, the songs around a play, DJ comments, search', async ({ page }) => {
   await page.goto(B + '/#view-kexp-history');
-  await expect(page.locator('.kx-sum')).toContainText('10 songs saved since');
+  await expect(page.locator('.kx-sum')).toContainText('17 songs saved since');
   // Top: artists this month, Jay Som first with 5 plays
   await expect(page.locator('.kx-row').first()).toContainText('Jay Som');
   await expect(page.locator('.kx-row').first().locator('.kx-n')).toHaveText('5');
@@ -105,4 +106,25 @@ test('KEXP history: top artists and songs, an artist, a song, the songs around a
   await page.click('.kx-chip[data-v="play"]');
   await expect(page.locator('.kx-play')).toHaveCount(2);
   await expect(page.locator('.kx-play').first()).toContainText('Second Single');
+});
+
+test('KEXP winners: most-played each month and year, for the station and for one show', async ({ page }) => {
+  const w = async q => (await fetch(B + '/api/radio/kexp?view=winners&' + q)).json();
+  const m = await w('by=artist&per=month');
+  expect(m.list.length).toBeGreaterThanOrEqual(2);                      // this month (or two), and the one 40–50 days back
+  expect(m.list.every(x => x.winner.artist !== 'Various Artists')).toBe(true);
+  expect(m.list.some(x => x.winner.artist === 'Jay Som')).toBe(true);
+  expect(m.list[0].period > m.list[m.list.length - 1].period).toBe(true); // newest first
+  const y = await w('by=song&per=year');
+  expect(y.list[0].winner).toEqual(expect.objectContaining({ artist: 'Jay Som', song: 'Appointments' }));
+  expect(y.list[0].runnerUp).toBeTruthy();
+  const show = await w('by=artist&per=year&program=' + encodeURIComponent('Audioasis'));
+  expect(show.list.map(x => x.winner.artist)).toEqual(['Wednesday']);
+  // the page
+  await page.goto(B + '/#view-kexp-history');
+  await page.locator('[data-k=tab][data-v=winners]').click();
+  await expect(page.locator('.kx-win li').first()).toBeVisible();
+  await page.locator('[data-k=wper][data-v=year]').click();
+  await page.locator('[data-k=wby][data-v=song]').click();
+  await expect(page.locator('.kx-win li').first()).toContainText('Appointments');
 });
