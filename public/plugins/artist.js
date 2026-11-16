@@ -79,8 +79,8 @@
         let body = '';
         if (SG.tab === 'artists') {
           body = d.artists.length ? `<p class="muted">Artists who keep coming back: how many years they made his lists (songs or albums), and their best spot.</p>
-            <ul class="sg-l">${d.artists.map(a => `<li><span class="sg-n">${a.n}</span><div><a class="ar-link" href="#view-artist" data-artist="${E(a.artist)}"><b>${E(a.artist)}</b></a>
-              <span class="muted">${a.years.join(', ')}${a.best ? ` · best #${a.best}` : ''}${a.albums.length ? ` · ${a.albums.length} album${a.albums.length === 1 ? '' : 's'} of the year` : ''}</span></div>${window.CadencePreview.buttons(a.artist, (a.songs[0] || {}).title, null, 'Said the Gramophone')}</li>`).join('')}</ul>` : '<p class="muted">Once a few years are read, the artists he loves year after year show up here.</p>';
+            <ul class="sg-l">${d.artists.map(a => `<li><span class="sg-n">${a.n}</span>${window.CadencePreview.buttons(a.artist, (a.songs[0] || {}).title, null, 'Said the Gramophone')}<div><a class="ar-link" href="#view-artist" data-artist="${E(a.artist)}"><b>${E(a.artist)}</b></a>
+              <span class="muted">${a.years.join(', ')}${a.best ? ` · best #${a.best}` : ''}${a.albums.length ? ` · ${a.albums.length} album${a.albums.length === 1 ? '' : 's'} of the year` : ''}</span></div></li>`).join('')}</ul>` : '<p class="muted">Once a few years are read, the artists he loves year after year show up here.</p>';
         } else if (d.list) {
           const L = d.list;
           body = `<p class="muted"><a href="${E(L.url)}" target="_blank" rel="noopener">Read the ${d.year} post</a> · <button class="linkish" id="sg-all">${api.ui.icon('play')}Play previews in order</button></p>
@@ -103,11 +103,11 @@
         SH.busy = false; SH.at = Date.now(); if (api.ui.currentRoute() === 'view-shows') api.ui.refresh(); };
       const dateLabel = (d, t) => { if (!d) return 'Date to be announced'; const x = new Date(d + 'T' + (t || '12:00') + ':00');
         return x.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: x.getFullYear() === new Date().getFullYear() ? undefined : 'numeric' }) + (t ? ' · ' + x.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' }) : ''); };
-      const showRow = (e, full) => `<li><span class="sh-d">${E(dateLabel(e.date, e.time))}</span><div>
+      const showRow = (e, full) => `<li><span class="sh-d">${E(dateLabel(e.date, e.time))}</span>${full && e.match ? window.CadencePreview.buttons(e.match.name, null, 'artist', 'Shows') : ''}<div>
           ${e.artists.slice(0, 4).map((a, i) => `<a class="ar-link" href="#view-artist" data-artist="${E(a)}">${i ? E(a) : `<b>${E(a)}</b>`}</a>`).join(', ')}${e.artists.length > 4 ? ' and more' : ''}${e.title && e.title !== e.artists.join(', ') ? ` <span class="muted">· ${E(e.title.split(': ')[0])}</span>` : ''}
           <span class="muted">${E([e.venue, e.city, e.km != null ? e.km + ' km away' : null, e.price].filter(Boolean).join(' · '))}${e.url ? ` · <a href="${E(e.url)}" target="_blank" rel="noopener">Details</a>` : ''}</span>
           ${e.note ? `<span class="muted sh-note">${E(e.note)}</span>` : ''}
-          ${full && e.match ? `<span class="sh-why">${E(e.match.why)}</span>` : ''}</div>${full && e.match ? window.CadencePreview.buttons(e.match.name, null, 'artist', 'Shows') : ''}</li>`;
+          ${full && e.match ? `<span class="sh-why">${E(e.match.why)}</span>` : ''}</div></li>`;
       api.views.add({ id: 'shows', group: 'music', order: 45, title: 'Shows', icon: '🗓', subtitle: 'Concerts near home, by artists you care about first', render: el => {
         const d = SH.d;
         if (!d || Date.now() - SH.at > 10 * 60e3) { if (!SH.busy) shLoad(); if (!d) { el.innerHTML = '<p class="muted">Looking for shows… (the first look can take a minute)</p>'; return; } }
@@ -123,7 +123,7 @@
           <div class="sh-bar"><label>Around ${E(c.place)}, within <select class="inp" id="sh-km">${dist.map(([v, l]) => `<option value="${v}" ${c.radiusKm === v ? 'selected' : ''}>${l}</option>`).join('')}${dist.some(x => x[0] === c.radiusKm) ? '' : `<option selected value="${c.radiusKm}">${c.radiusKm} km</option>`}</select></label>
             ${!noKey ? `<button class="linkish" id="sh-again">${api.ui.icon('refresh-cw')}Check again</button>` : ''}</div>
           ${noKey ? '<p>Shows need Kingston inside your circle, or a free key from Ticketmaster or Bandsintown. Here\'s how:</p>' + setup : `
-          ${(d.errors || []).map(x => `<p class="muted">${E(x)}</p>`).join('')}
+          ${(d.errors || []).map(x => `<p class="muted" title="${E(x)}">${E(x.split(':')[0])} couldn't be reached just now. It'll try again on the next check.</p>`).join('')}
           <h3>By artists you care about</h3>
           ${d.matches.length ? `<ul class="sh-l">${d.matches.map(e => showRow(e, true)).join('')}</ul>` : '<p class="muted">Nobody from your lists is playing nearby right now. Shows by artists in Want to hear, climbing on Radar, played a lot on KEXP, or that you look up will show here.</p>'}
           ${d.nearby.length ? `<details class="sh-more"><summary>Everything else nearby (${d.nearby.length})</summary><ul class="sh-l">${d.nearby.map(e => showRow(e, false)).join('')}</ul></details>` : ''}
@@ -151,7 +151,7 @@
         const list = PV.want;
         if (!list) { el.innerHTML = '<p class="muted">Loading…</p>'; wantList(true).then(() => api.ui.refresh()); return; }
         el.innerHTML = `<div class="wh">${list.length ? `<button class="btn primary" id="wh-all">${api.ui.icon('play')}Play all previews</button>
-          <ul class="wh-l">${list.map(x => `<li>${window.CadencePreview.buttons(x.artist, x.title, x.type, x.from)}<div><a class="ar-link" href="#view-artist" data-artist="${E(x.artist)}"><b>${E(x.artist)}</b></a>${x.title ? ' — ' + E(x.title) : ''}
+          <ul class="wh-l">${list.map(x => `<li>${window.CadencePreview.buttons(x.artist, x.title, x.type, x.from)}<div><span><a class="ar-link" href="#view-artist" data-artist="${E(x.artist)}"><b>${E(x.artist)}</b></a>${x.title ? ' — ' + E(x.title) : ''}</span>
             <span class="muted">${x.from ? 'from ' + E(x.from) + ' · ' : ''}saved ${new Date(x.at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</span></div></li>`).join('')}</ul>`
           : '<p class="muted">Nothing saved yet. Use the bookmark next to any pick in Music Radar or on an artist page.</p>'}</div>`;
         const all = el.querySelector('#wh-all'); if (all) all.onclick = () => window.CadencePreview.playAll(list);

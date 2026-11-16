@@ -3291,7 +3291,9 @@
       return;
     } else if (r.startsWith('view-')) {
       const pv = Reg.views.find(x => 'view-' + x.id === r);
-      v.classList.toggle('vw-wide', !!(pv && pv.wide));
+      // music pages share one width and one set of styles (core.css: Music pages), so switching tabs moves nothing
+      v.classList.toggle('vw-wide', !!(pv && (pv.wide || pv.group === 'music')));
+      v.classList.toggle('vw-music', !!(pv && pv.group === 'music'));
       if (pv) {
         // music pages share one set of tabs (Music home)
         const mtabs = pv.group === 'music' ? Reg.views.filter(x => x.group === 'music' && !x.hidden).sort((a, b) => (a.order ?? 50) - (b.order ?? 50)) : [];

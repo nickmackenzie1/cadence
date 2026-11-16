@@ -728,3 +728,19 @@ svg.lu{width:1.1em;height:1.1em;display:inline-block;vertical-align:-.17em;fill:
   .m-head .btn{padding-left:10px;padding-right:10px}
   .qa input{font-size:16px}
 }
+
+/* buttons that are links look like buttons */
+a.btn{color:var(--text);text-decoration:none}
+a.btn.primary{color:#fff}
+/* Music pages (Radar, Radio, KEXP history, Want to hear, Shows, Said the Gramophone, Artists): one width, one heading
+   style, one chip, one link colour, so the pages read as one place and switching tabs moves nothing (design pass,
+   2026-11-16). Cards on the Radar page keep their own smaller headings. */
+.vw-music :is(.sg,.wh,.rd){max-width:880px}
+.vw-music :is(.sg,.wh,.sh) h3,.vw-music h3.rd-h,.vw-music h4.rd-h{font-size:15px;font-weight:600;line-height:1.3;margin:22px 0 6px}
+.vw-music :is(.sg,.wh,.sh)>h3:first-child{margin-top:4px}
+.vw-music :is(.kx-chip,.sg-c,.ar-chip){display:inline-flex;align-items:center;border:1px solid var(--line);background:var(--panel);color:var(--text);border-radius:999px;padding:4px 12px;font:inherit;font-size:13px;line-height:1.4;cursor:pointer;text-decoration:none}
+.vw-music :is(.kx-chip,.sg-c,.ar-chip):hover{border-color:var(--faint)}
+.vw-music :is(.kx-chip,.sg-c).on{background:var(--accent-soft);border-color:var(--accent);color:var(--accent)}
+.vw-music #pv a:not(.btn):not(.ar-chip):not(.ar-link):not(.pc-ib){color:var(--accent);text-decoration:none}
+.vw-music #pv a:not(.btn):not(.ar-chip):not(.ar-link):not(.pc-ib):hover{text-decoration:underline}
+.vw-music :is(.kx-chips,.sg-tabs,.ars){gap:6px}

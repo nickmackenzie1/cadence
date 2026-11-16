@@ -151,3 +151,8 @@ Cleaned up 2026-11-16 (0.8.2): items already built were moved out after checking
     everywhere); theme picking kept the card in place only for 120 ms (now on size changes for 1.5 s, stops if you
     scroll); Harper threw offline before it was cached (now quiet). Test-only: roulette uses reduced motion; task links
     wait for the last date picker; sync waits re-pull (refocus is throttled to one per 4 s).
+- **0.17.1 design pass (Music):** every `group: 'music'` view gets `vw-wide` + `vw-music` (core.js), and one block in
+  core.css ("Music pages") sets the content width (880), section headings, chips (selected = soft accent), links and
+  `a.btn`. Fixes: tabs no longer shift sideways between pages; Want to hear on one line; risers fit their card (status
+  only when not "climbing"); play/save buttons always sit before the name; Shows errors in plain words (detail on hover).
+  Next design-pass candidates: the rest of the app (same pattern: one heading/list/empty-state style), dark mode check.
