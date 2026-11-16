@@ -11,22 +11,39 @@ import { createRequire } from "node:module";
 import { httpJson, httpText } from "./http.mjs";
 import { norm, parseTitle } from "./extract.mjs";
 import { hasAI, claude, parseJson } from "./ai.mjs";
-import { now } from "./config.mjs";
+import { now, DAY } from "./config.mjs";
 
 const require = createRequire(import.meta.url);
 let parseFeed = null;
 try { ({ parseFeed } = require("../../../lib/feedparse.js")); } catch (e) { console.error("radar: feed parser", e); }   // Cadence's RSS/Atom parser (no config, no disk)
 
+// tier "big": mainstream outlets that count for less, so a band only looks like it's rising once the small blogs and
+// radio pick it up too (user, 2026-11-15). tier "small": independent blogs that post less but are picky.
 export const DEFAULT_BLOGS = [
-  { name: "Pitchfork reviews", url: "https://pitchfork.com/feed/feed-album-reviews/rss" },
-  { name: "Pitchfork news", url: "https://pitchfork.com/feed/feed-news/rss" },
+  { name: "Pitchfork reviews", url: "https://pitchfork.com/feed/feed-album-reviews/rss", tier: "big" },
+  { name: "Pitchfork news", url: "https://pitchfork.com/feed/feed-news/rss", tier: "big" },
   { name: "Stereogum", url: "https://www.stereogum.com/feed/" },
-  { name: "The Fader", url: "https://www.thefader.com/rss.xml" },
-  { name: "Gorilla vs. Bear", url: "https://www.gorillavsbear.net/feed/" },
-  { name: "Bandcamp Daily", url: "https://daily.bandcamp.com/feed" },
+  { name: "The Fader", url: "https://www.thefader.com/rss.xml", tier: "big" },
+  { name: "Gorilla vs. Bear", url: "https://www.gorillavsbear.net/feed/", tier: "small" },
+  { name: "Bandcamp Daily", url: "https://daily.bandcamp.com/feed", tier: "small" },
+  // added 2026-11-15 for underground indie rock. Feed addresses follow each site's platform (WordPress /feed/,
+  // Squarespace ?format=rss) and weren't checked from the agent workspace: a wrong one shows as a warning in Sources.
+  { name: "Post-Trash", url: "https://post-trash.com/news?format=rss", tier: "small" },
+  { name: "Rosy Overdrive", url: "https://rosyoverdrive.com/feed/", tier: "small" },
+  { name: "Aquarium Drunkard", url: "https://aquariumdrunkard.com/feed/", tier: "small" },
+  { name: "Obscure Sound", url: "https://www.obscuresound.com/feed/", tier: "small" },
+  { name: "Under the Radar", url: "https://www.undertheradarmag.com/rss.xml", tier: "small" },
+  { name: "The Line of Best Fit", url: "https://www.thelineofbestfit.com/feeds/rss", tier: "small" },
 ];
+// a saved list that is just the old six defaults gets the new ones; a list you changed yourself is left alone
+const OLD_DEFAULTS = ["Pitchfork reviews", "Pitchfork news", "Stereogum", "The Fader", "Gorilla vs. Bear", "Bandcamp Daily"];
+export function blogList(cfg) {
+  const b = cfg?.blogs;
+  if (!b?.length || (b.length === OLD_DEFAULTS.length && b.every((x) => OLD_DEFAULTS.includes(x.name)))) return DEFAULT_BLOGS;
+  return b.map((x) => ({ ...x, tier: x.tier || DEFAULT_BLOGS.find((d) => d.url === x.url || d.name === x.name)?.tier }));
+}
 export const DEFAULT_CFG = {
-  on: { listenbrainz: true, apple: true, audius: true, lastfm: true, bandcamp: true, hypem: true, blogs: true },
+  on: { listenbrainz: true, apple: true, audius: true, lastfm: true, bandcamp: true, hypem: true, blogs: true, kexp: true },
   lbUser: "",            // ListenBrainz username for your own fresh releases
   appleCountry: "ca",
   audiusGenres: ["", "Electronic", "Hip-Hop/Rap", "Alternative"],   // "" = all genres
@@ -151,12 +168,22 @@ export const SOURCES = {
       return out;
     },
   },
+  kexp: {
+    // DJs choose the records, not an algorithm: what moves into heavy rotation is an early "about to break" signal
+    name: "KEXP", kind: "Radio airplay", site: "https://www.kexp.org/playlist/",
+    async fetch() {
+      const plays = [];
+      let url = "https://api.kexp.org/v2/plays/?format=json&limit=200&ordering=-airdate";
+      for (let page = 0; page < 6 && url; page++) { const b = await httpJson(url); plays.push(...arr(b.results)); url = b.next || null; }
+      return kexpSignals(plays);
+    },
+  },
   blogs: {
     name: "Blogs and magazines", kind: "Headlines", site: null,
     async fetch(cfg) {
       if (!parseFeed) throw new Error("feed parser not available");
       const items = [], errors = [];
-      for (const b of cfg.blogs?.length ? cfg.blogs : DEFAULT_BLOGS) {
+      for (const b of blogList(cfg)) {
         try { const f = parseFeed(await httpText(b.url), b.url); for (const it of f.items.slice(0, 40)) items.push({ ...it, feed: b.name }); }
         catch (e) { errors.push(`${b.name}: ${e.message}`); }
       }
@@ -166,6 +193,28 @@ export const SOURCES = {
     },
   },
 };
+
+// ---------- KEXP: plays → one signal per release ----------
+const ROTATION = { Heavy: 1, Medium: 2, Light: 3, "R/N": 4 };
+export function kexpSignals(plays, t = now()) {
+  const by = new Map();
+  for (const p of plays) {
+    if (!p || p.play_type !== "trackplay" || !p.artist) continue;
+    const live = /live on kexp/i.test(p.album || "");
+    const rel = p.release_date ? (t - Date.parse(p.release_date) / 1000) / DAY : null;
+    // new music only: in rotation, a live session, or released in the last year (not the library's old favourites)
+    if (!live && !ROTATION[p.rotation_status] && !(rel != null && rel >= -60 && rel < 365)) continue;
+    const key = live ? "live|" + norm(p.artist) : p.release_group_id || p.release_id || norm(p.artist) + "|" + norm(p.album || p.song || "");
+    const r = by.get(key) || { uid: "kexp:" + key, artist: p.artist, title: live ? "Live on KEXP session" : p.album || p.song, type: live ? "session" : "album",
+      url: p.release_group_id ? `https://musicbrainz.org/release-group/${p.release_group_id}` : "https://www.kexp.org/playlist/",
+      image: p.thumbnail_uri || p.image_uri || null, genres: [], date: p.release_date || null, plays: 0, rot: 9, labels: p.labels || [] };
+    r.plays++; r.rot = Math.min(r.rot, ROTATION[p.rotation_status] || 9); r.image ||= p.thumbnail_uri || p.image_uri || null;
+    by.set(key, r);
+  }
+  const name = (r) => (r.type === "session" ? "Live sessions" : r.rot === 9 ? "New releases" : r.rot === 4 ? "Recently added" : Object.keys(ROTATION)[r.rot - 1] + " rotation");
+  return [...by.values()].sort((a, b) => a.rot - b.rot || b.plays - a.plays)
+    .map(({ plays, rot, labels, ...r }) => ({ ...r, metric: plays, rank: rot < 9 ? rot : null, feed: name({ ...r, rot }) }));
+}
 
 // ---------- artist names from blog headlines ----------
 const VERBS = "announces?|shares?|releases?|drops?|returns?|unveils?|debuts?|premieres?|teases?|details|covers?|signs?|is back|talks?|on (?:their|her|his|the)|interview|reveals?|plots?|confirms?";

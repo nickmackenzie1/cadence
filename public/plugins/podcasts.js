@@ -19,21 +19,28 @@
     const audio = document.createElement('audio'); audio.preload = 'metadata'; audio.id = 'pc-audio'; document.documentElement.appendChild(audio);
     const listeners = new Set(), emit = () => listeners.forEach(f => { try { f(); } catch (e) {} });
     let cur = lsGet('current', null), lastSent = 0, sleepAt = 0, sleepTimer = 0;
-    const savePos = () => { if (!cur) return; cur.position = audio.currentTime || cur.position || 0; lsSet('current', cur); lsSet('pos.' + cur.uuid, cur.position); };
-    const sendPos = played => { if (!cur || !cur.podcast) return; lastSent = Date.now(); post('api/podcasts/progress', { uuid: cur.uuid, podcast: cur.podcast, position: played ? cur.duration || audio.duration || 0 : audio.currentTime, played }); };
+    const savePos = () => { if (!cur || cur.live) return; cur.position = audio.currentTime || cur.position || 0; lsSet('current', cur); lsSet('pos.' + cur.uuid, cur.position); };
+    const sendPos = played => { if (!cur || !cur.podcast || cur.live) return; lastSent = Date.now(); post('api/podcasts/progress', { uuid: cur.uuid, podcast: cur.podcast, position: played ? cur.duration || audio.duration || 0 : audio.currentTime, played }); };
     audio.addEventListener('timeupdate', () => { savePos(); if (Date.now() - lastSent > 30000 && !audio.paused) sendPos(false); emit(); });
     audio.addEventListener('pause', () => { savePos(); sendPos(false); emit(); });
-    audio.addEventListener('play', emit); audio.addEventListener('loadedmetadata', () => { if (cur && !cur.duration) cur.duration = audio.duration; emit(); });
-    audio.addEventListener('ended', () => { sendPos(true); const q = lsGet('queue', []); const next = q.shift(); lsSet('queue', q); if (next) api.play(next); else emit(); });
+    audio.addEventListener('play', emit); audio.addEventListener('error', emit); audio.addEventListener('waiting', emit); audio.addEventListener('playing', emit); audio.addEventListener('loadedmetadata', () => { if (cur && !cur.duration) cur.duration = audio.duration; emit(); });
+    audio.addEventListener('ended', () => { if (cur && cur.live) return emit(); sendPos(true); const q = lsGet('queue', []); const next = q.shift(); lsSet('queue', q); if (next) api.play(next); else emit(); });
     const media = () => { if (!('mediaSession' in navigator) || !cur) return;
-      navigator.mediaSession.metadata = new MediaMetadata({ title: cur.title, artist: cur.podcastTitle, album: 'Podcasts', artwork: cur.art ? [{ src: cur.art, sizes: '200x200', type: 'image/webp' }] : [] });
+      const n = cur.live && cur.now && !cur.now.airbreak ? cur.now : null;
+      navigator.mediaSession.metadata = new MediaMetadata({ title: n ? n.song : cur.title, artist: n ? n.artist + ' · ' + cur.title : cur.podcastTitle, album: cur.live ? 'Radio' : 'Podcasts', artwork: (n && n.art) || cur.art ? [{ src: (n && n.art) || cur.art, sizes: '200x200' }] : [] });
       const h = (a, f) => { try { navigator.mediaSession.setActionHandler(a, f); } catch (e) {} };
-      h('play', () => audio.play()); h('pause', () => audio.pause()); h('seekbackward', () => api.skip(-10)); h('seekforward', () => api.skip(30));
-      h('seekto', d => { audio.currentTime = d.seekTime; }); h('nexttrack', () => audio.dispatchEvent(new Event('ended'))); };
+      h('play', () => api.play()); h('pause', () => audio.pause());
+      // live radio can't seek
+      h('seekbackward', cur.live ? null : () => api.skip(-10)); h('seekforward', cur.live ? null : () => api.skip(30));
+      h('seekto', cur.live ? null : d => { audio.currentTime = d.seekTime; }); h('nexttrack', cur.live ? null : () => audio.dispatchEvent(new Event('ended'))); };
     const api = {
       audio, get current() { return cur; }, on: f => { listeners.add(f); return () => listeners.delete(f); },
       load(e, autoplay) {
         if (!e || !e.url) return; if (cur && cur.uuid !== e.uuid) { savePos(); sendPos(false); }
+        if (e.live) {   // a radio station: no position to restore, always the live edge
+          cur = { ...e, position: 0 }; lsSet('current', cur); audio.src = e.url; audio.playbackRate = 1; media();
+          if (autoplay) audio.play().catch(() => emit()); emit(); return;
+        }
         // resume from whichever is further along: this device, or Pocket Casts (your phone)
         cur = { ...e, position: Math.max(+e.position || 0, +lsGet('pos.' + e.uuid, 0) || 0) }; lsSet('current', cur);
         audio.src = e.url; audio.playbackRate = lsGet('rate', 1);
@@ -41,16 +48,20 @@
         audio.addEventListener('loadedmetadata', seek); media();
         if (autoplay) audio.play().catch(() => {}); emit();
       },
-      play(e) { if (e) this.load(e, true); else if (cur) { if (!audio.src) this.load(cur, true); else audio.play().catch(() => {}); } },
+      play(e) { if (e) this.load(e, true); else if (cur) { if (!audio.src || cur.live) this.load(cur, true); else audio.play().catch(() => {}); } },
+      // radio: what's on now (KEXP), shown in the mini player and on the lock screen
+      setNow(n) { if (!cur || !cur.live) return; cur.now = n || null; lsSet('current', cur); media(); emit(); },
+      get failed() { return !!(audio.error && cur); },
       pause() { audio.pause(); }, toggle() { audio.paused ? this.play() : this.pause(); },
-      skip(d) { if (audio.src) audio.currentTime = Math.max(0, Math.min((audio.duration || 1e9) - 1, audio.currentTime + d)); },
+      skip(d) { if (cur && cur.live) return; if (audio.src) audio.currentTime = Math.max(0, Math.min((audio.duration || 1e9) - 1, audio.currentTime + d)); },
       rate(r) { audio.playbackRate = r; lsSet('rate', r); emit(); },
       sleep(min) { clearTimeout(sleepTimer); sleepAt = min ? Date.now() + min * 60e3 : 0; if (min) sleepTimer = setTimeout(() => { audio.pause(); sleepAt = 0; emit(); }, min * 60e3); emit(); },
       get sleepLeft() { return sleepAt ? Math.max(0, Math.round((sleepAt - Date.now()) / 60e3)) : 0; },
       queue(e) { const q = lsGet('queue', []).filter(x => x.uuid !== e.uuid); q.push(e); lsSet('queue', q); emit(); }, get queued() { return lsGet('queue', []); },
     };
     // a reload doesn't start playing by itself, but the mini player is ready with your place
-    if (cur && cur.url) { audio.src = cur.url; const s = () => { if (cur.position) audio.currentTime = cur.position; audio.removeEventListener('loadedmetadata', s); }; audio.addEventListener('loadedmetadata', s); setTimeout(media, 0); }
+    if (cur && cur.url && cur.live) setTimeout(media, 0);   // a stream would start downloading: wait for Play
+    else if (cur && cur.url) { audio.src = cur.url; const s = () => { if (cur.position) audio.currentTime = cur.position; audio.removeEventListener('loadedmetadata', s); }; audio.addEventListener('loadedmetadata', s); setTimeout(media, 0); }
     addEventListener('pagehide', () => { savePos(); if (cur && !audio.paused) navigator.sendBeacon && navigator.sendBeacon('api/podcasts/progress', new Blob([JSON.stringify({ uuid: cur.uuid, podcast: cur.podcast, position: audio.currentTime })], { type: 'application/json' })); });
     return api;
   })());
@@ -61,6 +72,7 @@
     if (!bar) { bar = document.createElement('div'); bar.id = 'pc-mini'; bar.setAttribute('role', 'region'); bar.setAttribute('aria-label', 'Podcast player'); document.documentElement.appendChild(bar); }
     const draw = () => {
       const c = P.current; bar.hidden = !c; if (!c) return;
+      if (c.live) return drawLive(c);
       if (api.ui.currentRoute() === 'view-podcasts' && bar.dataset.cur !== c.uuid + ':' + P.audio.paused) { bar.dataset.cur = c.uuid + ':' + P.audio.paused; setTimeout(() => api.ui.refresh(), 0); }
       const a = P.audio, d = isFinite(a.duration) && a.duration ? a.duration : c.duration || 0, t = a.currentTime || c.position || 0;
       bar.style.fontFamily = getComputedStyle(document.body).fontFamily;
@@ -71,11 +83,26 @@
         <button class="pc-ib" data-pc="fwd" aria-label="Forward 30 seconds" title="Forward 30 s">${api.ui.icon('rotate-cw')}</button>
         <a class="pc-ib" href="#view-podcasts" aria-label="Open Podcasts" title="Open Podcasts">${api.ui.icon('list-checks')}</a>`;
     };
+    const drawLive = c => {
+      const a = P.audio, n = c.now && !c.now.airbreak ? c.now : null, state = P.failed ? "Can't reach this station right now" : !a.paused && a.readyState < 3 ? 'Tuning in…' : a.paused ? 'Paused' : 'Live';
+      bar.style.fontFamily = getComputedStyle(document.body).fontFamily;
+      const art = (n && n.art) || c.art;
+      bar.innerHTML = `${art ? `<img src="${E(art)}" alt="" onerror="this.style.visibility='hidden'">` : `<i class="pc-noart">${api.ui.icon('radio')}</i>`}
+        <div class="pc-m-t"><b>${E(n ? n.song : c.title)}</b><span>${E(n ? n.artist + ' · ' + c.title : (c.podcastTitle || ''))} · ${state}</span></div>
+        <button class="pc-ib pc-big" data-pc="toggle" aria-label="${a.paused ? 'Play' : 'Pause'}">${api.ui.icon(a.paused ? 'play' : 'pause')}</button>
+        <a class="pc-ib" href="#view-radio" aria-label="Open Radio" title="Open Radio">${api.ui.icon('list-checks')}</a>`;
+      if (api.ui.currentRoute() === 'view-radio' && bar.dataset.cur !== c.uuid + ':' + a.paused) { bar.dataset.cur = c.uuid + ':' + a.paused; setTimeout(() => api.ui.refresh(), 0); }
+    };
     bar.onclick = e => { const b = e.target.closest('[data-pc]'); if (!b) return; ({ back: () => P.skip(-10), fwd: () => P.skip(30), toggle: () => P.toggle() })[b.dataset.pc](); };
     // redraw at most ~4 times a second
     let q = 0; const off = P.on(() => { if (q) return; q = setTimeout(() => { q = 0; draw(); }, 250); }); draw();
     return () => { off(); };
   }
+
+  // Podcasts and Radio share the one bar: whichever is on mounts it, and it goes away when neither is
+  let miniRefs = 0, miniOff = null;
+  P.useMini = api => { if (miniRefs++ === 0) miniOff = mini(api);
+    return () => { if (--miniRefs > 0) return; if (miniOff) miniOff(); miniOff = null; const b = document.getElementById('pc-mini'); if (b) b.hidden = true; }; };
 
   Cadence.registerPlugin({
     id: 'podcasts', name: 'Podcasts', version: '1.0.0', category: 'Media', color: '#f43e37',
@@ -83,8 +110,8 @@
     tagline: 'Your Pocket Casts shows, Up next and your place, with a player that keeps going everywhere.',
     description: 'Syncs with Pocket Casts from the NAS (add POCKETCASTS_EMAIL and POCKETCASTS_PASSWORD to the NAS .env). Resume where your phone left off; pausing here sends your place back. Works in Work and Life, and keeps playing when you switch space, view or tab.',
     setup(api) {
-      const offMini = mini(api);
-      api.on('meeting:start', () => { if (!P.audio.paused) { P.pause(); api.ui.toast('Podcast paused for your meeting'); } });
+      const offMini = P.useMini(api);
+      api.on('meeting:start', () => { if (!P.audio.paused) { const live = P.current && P.current.live; P.pause(); api.ui.toast((live ? 'Radio' : 'Podcast') + ' paused for your meeting'); } });
       let data = null, loading = false, notified = lsGet('seenNew', 0);
       const load = async fresh => { if (loading) return; loading = true; try { data = await (await fetch('api/podcasts' + (fresh ? '?fresh=1' : ''))).json(); } catch { data = { error: 'Pocket Casts sync paused: the NAS didn’t answer' }; } loading = false;
         // one calm note a day for new episodes, never a badge count
@@ -107,7 +134,7 @@
             <pre>POCKETCASTS_EMAIL=you@example.com\nPOCKETCASTS_PASSWORD=your-password</pre>
             <p class="muted">Pocket Casts has no official API, so this uses the one its web player uses. If they change it, sync pauses with a note here and the player keeps working.</p></div></div>`; return;
         }
-        const c = P.current, a = P.audio, all = [...(data.inProgress || []), ...(data.upNext || []), ...(data.newEpisodes || [])], byId = Object.fromEntries(all.map(e => [e.uuid, e]));
+        const c = P.current && !P.current.live ? P.current : null, a = P.audio, all = [...(data.inProgress || []), ...(data.upNext || []), ...(data.newEpisodes || [])], byId = Object.fromEntries(all.map(e => [e.uuid, e]));
         const rates = [1, 1.2, 1.3, 1.5, 1.8, 2];
         el.innerHTML = `<div class="pc">
           <div class="pc-main">

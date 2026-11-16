@@ -495,3 +495,15 @@ Claims checked against the code 2026-11-13 (all real). Planned in 4 groups; do i
 ## Test notes (0.7.3)
 - Kids chores test (more.spec "kids: a child…") failed once under full-suite load with a balance of 1 instead of 2.
   It never reproduced, even under CPU stress. It now checks the row says "2 pts" first, so the next failure shows whether saving or clicking went wrong.
+
+## Shipped 0.8.0 (user, 2026-11-15): underground indie sources + Radio
+- Music Radar: KEXP source (api.kexp.org plays: rotation, new releases, live sessions; weight 3.5). Blogs have tiers:
+  big (Pitchfork, The Fader) count 1.5, small count 3.5. New small blogs: Post-Trash, Rosy Overdrive, Aquarium Drunkard,
+  Obscure Sound, Under the Radar, The Line of Best Fit. Their feed addresses were NOT checked (agent workspace can't
+  reach them): if one shows a warning under Sources, fix its address in Radar settings (name | url | small/big).
+- Radio view (plugins/radio.js, services/radio.js, routes/radio.js): presets resolved via Radio Browser on the NAS
+  (cached a week in data/radio-cache.json), search, your stations (api.storage, per space), KEXP now playing,
+  http streams relayed by the NAS (public addresses only). Shares the Podcasts player and mini bar (P.useMini).
+- Open: !earshot (Canadian campus radio charts) — its robots.txt disallows automated access to /charts, so not
+  scraped. Ask them for a feed, or link to it. NACC chart: page format unchecked; may be JS-rendered.
+- Open: confirm Amherst Island Radio's stream is in Radio Browser (else add it by address in Radio).

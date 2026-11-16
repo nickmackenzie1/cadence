@@ -41,3 +41,19 @@ test('every source parses its format, stores signals, and a failing source is re
   expect(fromHeadline('“Tidal Wave” by Mira Vale')).toMatchObject({ artist: 'Mira Vale', title: 'Tidal Wave' });
   expect(fromHeadline('How Charli xcx Won the Summer')).toBeNull();
 });
+
+test('KEXP: new music in rotation, recent releases and live sessions count; the old library doesn\'t', async () => {
+  const S = await import('../server/services/radar/lib/sources.mjs');
+  const P = o => ({ play_type: 'trackplay', ...o }), t = Date.parse('2026-11-15') / 1000;
+  const out = S.kexpSignals([
+    P({ artist: 'Jay Som', album: 'Belong', release_group_id: 'rg1', rotation_status: 'Heavy', release_date: '2025-10-10' }),
+    P({ artist: 'Jay Som', album: 'Belong', release_group_id: 'rg1', rotation_status: 'Heavy', release_date: '2025-10-10' }),
+    P({ artist: 'Public Enemy', album: 'Fear of a Black Planet', rotation_status: 'Library', release_date: '1990-01-01' }),
+    P({ artist: 'Wednesday', album: 'Bleeds', release_date: '2026-09-01' }),
+    P({ artist: 'Yuma Abe', album: 'Live on KEXP' }), { play_type: 'airbreak' },
+  ], t);
+  expect(out.map(s => [s.artist, s.feed, s.metric])).toEqual([['Jay Som', 'Heavy rotation', 2], ['Wednesday', 'New releases', 1], ['Yuma Abe', 'Live sessions', 1]]);
+  // the old six default blogs get the new small blogs; a list you edited is kept, with tiers filled in where known
+  expect(S.blogList({ blogs: S.DEFAULT_BLOGS.slice(0, 6).map(({ tier, ...b }) => b) }).map(b => b.name)).toContain('Post-Trash');
+  expect(S.blogList({ blogs: [{ name: 'Pitchfork news', url: 'https://pitchfork.com/feed/feed-news/rss' }, { name: 'Mine', url: 'https://x.example/feed' }] }).map(b => b.tier)).toEqual(['big', undefined]);
+});

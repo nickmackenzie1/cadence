@@ -73,7 +73,7 @@ async function sourcesSettings(patch) {
   const { store, srcData } = await load(), cur = srcData.sourcesCfg();
   if (patch) {
     const next = { ...cur, ...patch, on: { ...cur.on, ...(patch.on || {}) } };
-    if (patch.blogs) next.blogs = patch.blogs.filter(b => b && /^https?:\/\//.test(b.url)).map(b => ({ name: String(b.name || new URL(b.url).hostname).slice(0, 60), url: String(b.url).slice(0, 400) })).slice(0, 30);
+    if (patch.blogs) next.blogs = patch.blogs.filter(b => b && /^https?:\/\//.test(b.url)).map(b => ({ name: String(b.name || new URL(b.url).hostname).slice(0, 60), url: String(b.url).slice(0, 400), ...(b.tier === 'big' || b.tier === 'small' ? { tier: b.tier } : {}) })).slice(0, 30);
     if (patch.tags) next.tags = patch.tags.map(t => String(t).trim().toLowerCase()).filter(Boolean).slice(0, 10);
     if (patch.audiusGenres) next.audiusGenres = patch.audiusGenres.map(String).slice(0, 8);
     next.lbUser = String(next.lbUser || '').trim().slice(0, 60); next.appleCountry = String(next.appleCountry || 'ca').toLowerCase().replace(/[^a-z]/g, '').slice(0, 2) || 'ca';

@@ -3,15 +3,19 @@ import { now, DAY } from "./config.mjs";
 import * as store from "./store.mjs";
 import { momentum } from "./trends.mjs";
 import { isArtist, cleanName, cleanGenre } from "./extract.mjs";
-import { SOURCES, DEFAULT_CFG, tagsFor } from "./sources.mjs";
+import { SOURCES, DEFAULT_CFG, tagsFor, blogList } from "./sources.mjs";
 
 // how much one signal from each source counts in the combined score (blogs and Hype Machine are the early-buzz signals)
-const WEIGHT = { reddit: 3, blogs: 3, hypem: 3, audius: 2, bandcamp: 1.5, listenbrainz: 1.5, apple: 1, lastfm: 1 };
+// KEXP is DJs choosing records: the strongest early signal here. Blogs count by tier (see DEFAULT_BLOGS).
+const WEIGHT = { reddit: 3, blogs: 3, hypem: 3, kexp: 3.5, audius: 2, bandcamp: 1.5, listenbrainz: 1.5, apple: 1, lastfm: 1 };
+const TIER_WEIGHT = { big: 1.5, small: 3.5 };
 const CHARTS = new Set(["apple", "audius", "lastfm", "hypem"]);
 export const sourcesCfg = () => { const c = store.getKv("sourcesCfg", {}) || {}; return { ...DEFAULT_CFG, ...c, on: { ...DEFAULT_CFG.on, ...(c.on || {}) } }; };
 
 export function sourcesData(state, snaps) {
   const t = now(), cfg = sourcesCfg();
+  const tierOf = new Map(blogList(cfg).map((b) => [b.name, b.tier]));
+  const weight = (s) => (s.source === "blogs" ? TIER_WEIGHT[tierOf.get(s.feed)] || WEIGHT.blogs : WEIGHT[s.source] || 1);
   if (!store.usingDb()) return { available: false, note: store.storageNote };
   const sig = store.signals({ since: t - 60 * DAY, limit: 20000 });
   const runs = Object.fromEntries(store.sourceRuns().map((r) => [r.source, r]));
@@ -48,7 +52,7 @@ export function sourcesData(state, snaps) {
     a.sources[s.source] = (a.sources[s.source] || 0) + 1; a.n++;
     a.first = Math.min(a.first, s.first_seen); a.last = Math.max(a.last, s.last_seen);
     const rankBonus = s.best_rank ? Math.max(0, (51 - s.best_rank) / 50) : 0;
-    a.score += (WEIGHT[s.source] || 1) * (1 + rankBonus) * Math.pow(0.5, age / 10);
+    a.score += weight(s) * (1 + rankBonus) * Math.pow(0.5, age / 10);
     if (a.titles.length < 3 && s.title && s.title !== s.artist && !a.titles.some((x) => x.title === s.title)) a.titles.push({ title: s.title, url: s.url, source: s.source });
     for (const g0 of String(s.genres || "").split(", ")) { const g = cleanGenre(g0); if (g) a.genres[g] = (a.genres[g] || 0) + 1; }
   }
@@ -87,7 +91,7 @@ export function sourcesData(state, snaps) {
   const movesOnce = []; const once = new Set(); for (const m of movers) { const k = m.source + "|" + m.artist + "|" + m.title; if (!once.has(k)) { once.add(k); movesOnce.push(m); } }
 
   return {
-    available: true, cfg: { ...cfg, tagsUsed: tagsFor(cfg, state) }, list,
+    available: true, cfg: { ...cfg, blogs: blogList(cfg), tagsUsed: tagsFor(cfg, state) }, list,
     combined: combined.slice(0, 60), multi: combined.filter((a) => a.breadth >= 2).length,
     perDay: { labels, series: Object.entries(perDay).map(([id, data]) => ({ id, label: name(id), data })).sort((a, b) => b.data.reduce((x, y) => x + y, 0) - a.data.reduce((x, y) => x + y, 0)) },
     genres: momentum(genreRows, t, "genre").slice(0, 16),

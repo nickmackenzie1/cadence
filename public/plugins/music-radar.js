@@ -61,8 +61,8 @@
     </svg>`;
   }
 
-  const SRC_NAMES = { reddit: 'Reddit', listenbrainz: 'ListenBrainz', apple: 'Apple Music', audius: 'Audius', lastfm: 'Last.fm', bandcamp: 'Bandcamp', hypem: 'Hype Machine', blogs: 'Blogs' };
-  const SRC_COL = { reddit: '#f97316', listenbrainz: '#eb743b', apple: '#ec4899', audius: '#8b5cf6', lastfm: '#ef4444', bandcamp: '#14b8a6', hypem: '#3b82f6', blogs: '#eab308' };
+  const SRC_NAMES = { reddit: 'Reddit', listenbrainz: 'ListenBrainz', apple: 'Apple Music', audius: 'Audius', lastfm: 'Last.fm', bandcamp: 'Bandcamp', hypem: 'Hype Machine', blogs: 'Blogs', kexp: 'KEXP' };
+  const SRC_COL = { reddit: '#f97316', listenbrainz: '#eb743b', apple: '#ec4899', audius: '#8b5cf6', lastfm: '#ef4444', bandcamp: '#14b8a6', hypem: '#3b82f6', blogs: '#eab308', kexp: '#64748b' };
   const srcPill = id => `<span class="mr-src" style="--c:${SRC_COL[id] || '#888'}">${esc(SRC_NAMES[id] || id)}</span>`;
   const day = ts => ts ? new Date(ts * 1000).toLocaleDateString([], { month: 'short', day: 'numeric' }) : '';
   const link = (u, t) => u ? `<a href="${esc(u)}" target="_blank" rel="noopener">${t}</a>` : t;
@@ -112,12 +112,12 @@
       <div class="field"><label>ListenBrainz username (adds releases picked for you)</label><input class="inp" id="mr-lb" value="${E(c.lbUser || '')}" placeholder="optional"></div>
       <div class="field"><label>Apple Music chart country</label><input class="inp" id="mr-cc" value="${E(c.appleCountry || 'ca')}" maxlength="2" style="width:5em"></div>
       <div class="field"><label>Tags for Bandcamp and Last.fm (comma separated)</label><input class="inp" id="mr-tags" value="${E((c.tags || []).join(', '))}" placeholder="${E((c.tagsUsed || []).join(', '))}"><div class="mr-small">Empty uses your taste: genres of picks you liked, then a starter set.</div></div>
-      <div class="field"><label>Blogs and magazines (one per line: name | feed address)</label><textarea class="inp" id="mr-blogs" rows="7" style="font-family:var(--mono);font-size:12px">${E((c.blogs || []).map(b => `${b.name} | ${b.url}`).join('\n'))}</textarea></div>
+      <div class="field"><label>Blogs and magazines (one per line: name | feed address | small or big). Small blogs count for more; big outlets count for less.</label><textarea class="inp" id="mr-blogs" rows="7" style="font-family:var(--mono);font-size:12px">${E((c.blogs || []).map(b => `${b.name} | ${b.url}${b.tier ? ' | ' + b.tier : ''}`).join('\n'))}</textarea></div>
     </div>`, `<button class="btn" data-act="close-modal">Cancel</button><button class="btn primary" id="mr-srcsave">Save</button>`);
     document.getElementById('mr-srcsave').onclick = async () => {
       const q = id => document.getElementById(id);
       const on = {}; document.querySelectorAll('.mr-dlg [data-on]').forEach(b => { on[b.dataset.on] = b.checked; });
-      const blogs = q('mr-blogs').value.split('\n').map(l => l.trim()).filter(Boolean).map(l => { const [a, b] = l.includes('|') ? l.split('|') : ['', l]; return { name: a.trim(), url: (b || '').trim() }; }).filter(b => /^https?:\/\//.test(b.url));
+      const blogs = q('mr-blogs').value.split('\n').map(l => l.trim()).filter(Boolean).map(l => { const [a, b, c] = l.includes('|') ? l.split('|') : ['', l]; const tier = (c || '').trim().toLowerCase(); return { name: a.trim(), url: (b || '').trim(), ...(tier === 'big' || tier === 'small' ? { tier } : {}) }; }).filter(b => /^https?:\/\//.test(b.url));
       await fetch('api/radar/sources', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ on, lbUser: q('mr-lb').value, appleCountry: q('mr-cc').value, tags: q('mr-tags').value.split(',').map(t => t.trim()).filter(Boolean), blogs }) });
       api.ui.close(); api.ui.toast('Sources saved'); window.__radar.load();
     };

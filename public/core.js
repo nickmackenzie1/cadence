@@ -1825,6 +1825,7 @@
    icon('name') gives you a Lucide icon directly (also api.ui.icon). Icons: public/vendor/lucide (ISC). */
   const EMOJI_ICONS = {
     '🎧': 'headphones',
+    '📻': 'radio',
     '✦': 'sparkles',
     '⛺': 'tent',
     '✈': 'plane',
