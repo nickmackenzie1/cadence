@@ -87,7 +87,7 @@
           ${results ? (results.length ? `<div class="rd-list">${results.map((s, i) => card(s, { save: true, i })).join('')}</div>` : `<p class="muted">Nothing found. Try another name or a genre.</p>`) : ''}
           <details class="rd-add"><summary>Add a station by its stream address</summary>
             <form id="rd-addf" class="rd-find"><input class="inp" id="rd-an" placeholder="Name" aria-label="Station name"><input class="inp" id="rd-au" type="url" placeholder="https://…" aria-label="Stream address"><button class="btn" type="submit">Add</button></form></details>
-          ${hist && hist.on && hist.plays ? `<p class="muted rd-foot">${api.ui.icon('history')} Your NAS is keeping KEXP's playlist: ${hist.plays.toLocaleString()} songs since ${day(hist.since)}${hist.backfill === 'running' ? ', still filling in the past year' : ''}. <a href="#view-kexp-history">Open KEXP history</a></p>` : ''}
+          ${hist && hist.on && hist.plays ? `<p class="muted rd-foot">${api.ui.icon('history')} Your NAS is keeping KEXP's playlist: ${hist.plays.toLocaleString()} songs since ${day(hist.since)}${hist.backfill === 'running' ? `, still filling in ${hist.backDays === 'all' ? 'everything back to 2001' : 'the past'}` : ''}. <a href="#view-kexp-history">Open KEXP history</a></p>` : ''}
           <p class="muted rd-foot">Stream addresses come from Radio Browser, a free community directory, looked up by your NAS.</p>
         </div>`;
         const byId = id => stations.find(s => s.id === id) || my.find(s => s.id === id);
@@ -250,7 +250,7 @@
           body = tabs + inner;
         }
         const mb = b => b == null ? '' : ' · ' + (b < 1048576 ? Math.max(1, Math.round(b / 1024)) + ' KB' : (b / 1048576).toFixed(b < 10485760 ? 1 : 0) + ' MB') + ' on your NAS';
-        el.innerHTML = `<div class="rd kx"><p class="muted kx-sum">${hist.plays ? `${n(hist.plays, 'song', 'songs')} saved since ${E(day(hist.since))}${mb(hist.bytes)}${hist.backfill === 'running' ? ` · still filling in ${hist.backDays === 'all' ? 'everything KEXP has' : 'the past ' + (hist.backDays >= 365 ? Math.round(hist.backDays / 365) + (hist.backDays >= 730 ? ' years' : ' year') : hist.backDays + ' days')}` : ''}` : ''}</p>${body}</div>`;
+        el.innerHTML = `<div class="rd kx"><p class="muted kx-sum">${hist.plays ? `${n(hist.plays, 'song', 'songs')} saved since ${E(day(hist.since))}${mb(hist.bytes)}${hist.backfill === 'running' ? ` · still filling in ${hist.backDays === 'all' ? 'everything back to 2001 (a couple of days)' : 'the past ' + (hist.backDays >= 365 ? Math.round(hist.backDays / 365) + (hist.backDays >= 730 ? ' years' : ' year') : hist.backDays + ' days')}` : ''}` : ''}</p>${body}</div>`;
         const root = el.querySelector('.kx');
         root.onclick = e => {
           const b = e.target.closest('[data-k]'); if (!b || b.tagName === 'SUMMARY') return;

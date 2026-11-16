@@ -3,17 +3,19 @@
    this?", show the songs around it and the DJ's comments. Inspired by KSSE (github.com/geluso/kexp_song_search_engine),
    but from KEXP's own public API instead of scraping their pages.
    - New plays: checked every 5 minutes (one request; more only if it fell behind).
-   - The past: filled in slowly in the background, one page (200 plays, about half a day) every 30 s, back
-     KEXP_BACKFILL_DAYS (default 365). Stops on its own; resumes after a restart.
+   - The past: filled in in the background, one page (200 plays, about half a day) every 8 s plus its shows, back
+     KEXP_BACKFILL_DAYS (default: everything, to the end of 2000: ~3.6M plays, ~2 days, ~1–1.5 GB; the user asked
+     for all of it 2026-11-16). Stops on its own; resumes after a restart.
    Off with KEXP_LOG=0. Under CI it's off unless KEXP_LOG=1 (tests point KEXP_API at a fake). */
 const path = require('path');
 const { DATA_DIR } = require('../config');
 
 const API = (process.env.KEXP_API || 'https://api.kexp.org').replace(/\/$/, '');
 const ON = process.env.KEXP_LOG === '1' || (process.env.KEXP_LOG !== '0' && !process.env.CI);
-const EVERY = +process.env.KEXP_LOG_EVERY || 5 * 60e3, STEP = +process.env.KEXP_BACKFILL_EVERY || 30e3;
+const EVERY = +process.env.KEXP_LOG_EVERY || 5 * 60e3, STEP = +process.env.KEXP_BACKFILL_EVERY || 8e3;
 // KEXP_BACKFILL_DAYS=all keeps going until KEXP has nothing older (about 25–50 MB of database per year of plays)
-const BACK_DAYS = /^all$/i.test(process.env.KEXP_BACKFILL_DAYS || '') ? Infinity : process.env.KEXP_BACKFILL_DAYS != null ? +process.env.KEXP_BACKFILL_DAYS : 365;
+const BD = process.env.KEXP_BACKFILL_DAYS;
+const BACK_DAYS = BD == null || BD === '' || /^all$/i.test(BD) ? Infinity : +BD;
 const PAGE = 200;
 
 let db = null, state = { running: false, error: null, lastCheck: 0, backfill: 'waiting' };
@@ -71,9 +73,13 @@ const get = async url => {
 const iso = sec => new Date(sec * 1000).toISOString();
 
 // the show (program + DJs) behind each play: one request per show, newest first, a little at a time
-async function fillShows(max = 12) {
-  const d = open(), ids = d.prepare(`SELECT p.show_id AS id FROM kexp_plays p LEFT JOIN kexp_shows s ON s.id = p.show_id
-    WHERE p.show_id IS NOT NULL AND s.id IS NULL GROUP BY p.show_id ORDER BY MAX(p.airdate) DESC LIMIT ?`).all(max).map(r => r.id);
+// which shows still need a name: the ones given (the page just saved), else those in a recent window (a whole-table
+// scan gets slow with millions of plays), else, once the past is done, anything left anywhere
+async function fillShows(max = 12, { ids: want = null, sinceSec = null } = {}) {
+  const d = open(); let ids;
+  if (want) { const has = d.prepare('SELECT 1 FROM kexp_shows WHERE id = ?'); ids = [...new Set(want)].filter(id => id && !has.get(id)).slice(0, max); }
+  else ids = d.prepare(`SELECT p.show_id AS id FROM kexp_plays p LEFT JOIN kexp_shows s ON s.id = p.show_id
+    WHERE p.show_id IS NOT NULL AND s.id IS NULL ${sinceSec ? 'AND p.airdate >= ' + Math.floor(sinceSec) : ''} GROUP BY p.show_id ORDER BY MAX(p.airdate) DESC LIMIT ?`).all(max).map(r => r.id);
   const ins = d.prepare('INSERT OR REPLACE INTO kexp_shows VALUES (?,?,?,?,?,?,?)');
   for (const id of ids) {
     try {
@@ -108,12 +114,12 @@ async function backfillStep() {
   const d = open(), oldest = (d.prepare('SELECT MIN(airdate) AS t FROM kexp_plays').get() || {}).t;
   if (!oldest) return 'waiting';
   const stopAt = BACK_DAYS === Infinity ? -Infinity : Date.now() / 1000 - BACK_DAYS * 86400;
-  if (oldest <= stopAt || meta('backfill_done')) { meta('backfill_done', 1); return 'done'; }
+  if (oldest <= stopAt || meta('backfill_floor')) { meta('backfill_done', 1); return 'done'; }
   let url = meta('backfill_next');
   // airdate_before is inclusive: ask for one second before our oldest play
   if (!url || meta('backfill_mode') !== 'offset') url = `${API}/v2/plays/?format=json&limit=${PAGE}&ordering=-airdate&airdate_before=${encodeURIComponent(iso(oldest - 1))}`;
   const b = await get(url), list = b.results || [];
-  if (!list.length) { meta('backfill_done', 1); return 'done'; }
+  if (!list.length) { meta('backfill_done', 1); meta('backfill_floor', 1); return 'done'; }   // nothing older at KEXP
   const first = Date.parse(list[0].airdate) / 1000;
   if (meta('backfill_mode') !== 'offset' && first >= oldest) {
     // the date filter didn't work: switch to offset paging, starting about where our history ends
@@ -121,8 +127,8 @@ async function backfillStep() {
     meta('backfill_mode', 'offset'); meta('backfill_next', `${API}/v2/plays/?format=json&limit=${PAGE}&ordering=-airdate&offset=${Math.max(0, have - PAGE)}`);
     return 'running';
   }
-  save(list);
-  if (meta('backfill_mode') === 'offset') { if (b.next) meta('backfill_next', b.next); else { meta('backfill_done', 1); return 'done'; } }
+  save(list); state.pageShows = list.map(p => p.show).filter(Boolean);
+  if (meta('backfill_mode') === 'offset') { if (b.next) meta('backfill_next', b.next); else { meta('backfill_done', 1); meta('backfill_floor', 1); return 'done'; } }
   return 'running';
 }
 
@@ -142,11 +148,11 @@ function status() {
 
 function start() {
   if (!ON || state.running) return; state.running = true;
-  const tickNew = async () => { try { await checkNew(); await fillShows(); } catch (e) { state.error = 'KEXP: ' + e.message; } };
+  const tickNew = async () => { try { await checkNew(); await fillShows(12, { sinceSec: Date.now() / 1000 - 14 * 86400 }); } catch (e) { state.error = 'KEXP: ' + e.message; } };
   const tickBack = async () => {
     if (state.backfill === 'done') return;
     let wait = STEP;
-    try { state.backfill = await backfillStep(); await fillShows(6); state.slow = 0; }
+    try { state.pageShows = null; state.backfill = await backfillStep(); if (state.pageShows) await fillShows(8, { ids: state.pageShows }); state.slow = 0; }
     catch (e) { state.error = 'KEXP history: ' + e.message; if (/HTTP (429|5\d\d)/.test(e.message)) { state.slow = Math.min(6, (state.slow || 0) + 1); wait = STEP * 2 ** state.slow; } }
     // once the past is filled in, keep naming the shows of older plays a few at a time
     if (state.backfill === 'done') { try { if (await fillShows(6)) return void setTimeout(tickBack2, STEP).unref(); } catch {} }

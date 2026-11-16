@@ -138,3 +138,7 @@ Cleaned up 2026-11-16 (0.8.2): items already built were moved out after checking
   Nov 16, 2026", time in the description (7:30 PM / 22:30 / 1700). Feed address now the user's shorter one
   (`show_feed_xml&no_headers=true&barebones_mode=true`); it lists theatre, talks and karaoke too, which land in
   "Everything else nearby" unless an act matches.
+- **0.16.2 (user: "i want to grab all kexp"):** KEXP backfill defaults to everything (`KEXP_BACKFILL_DAYS` still
+  limits it). One page every 8 s (was 30 s) plus that page's shows (~0.5 requests/s, ~2 days for ~3.6M plays,
+  ~1–1.5 GB). "Done" now needs the real floor (`backfill_floor`), so a stop at the old 365-day default resumes.
+  Show names: filled from the page just fetched / last 14 days for live plays, no whole-table scans per tick.
