@@ -37,11 +37,16 @@ export const DEFAULT_BLOGS = [
   // 2026-11-16: Canadian campus radio's review feed (user sent the address)
   { name: "!earshot reviews", url: "https://www.earshot-online.com/reviews/rss.cfm", tier: "small" },
   { name: "Drowned in Sound", url: "https://www.drownedinsound.org/rss/", tier: "small" },   // user sent 2026-11-16
+  // user sent 2026-11-16: Canadian and long-running indie blogs (WordPress feed addresses, unchecked from the agent workspace)
+  { name: "Said the Gramophone", url: "https://www.saidthegramophone.com/feed/", tier: "small" },
+  { name: "Spill Magazine", url: "https://spillmagazine.com/feed/", tier: "small" },
+  { name: "Canadian Beats", url: "https://canadianbeats.ca/feed/", tier: "small" },
+  { name: "EARMILK", url: "https://earmilk.com/feed/" },
 ];
 // a saved list that is just the old six defaults gets the new ones; a list you changed yourself is left alone
 const SIX = ["Pitchfork reviews", "Pitchfork news", "Stereogum", "The Fader", "Gorilla vs. Bear", "Bandcamp Daily"];
 const V080 = [...SIX, "Post-Trash", "Rosy Overdrive", "Aquarium Drunkard", "Obscure Sound", "Under the Radar", "The Line of Best Fit"];
-const OLD_DEFAULT_SETS = [SIX, V080, [...V080, "!earshot reviews"]];
+const OLD_DEFAULT_SETS = [SIX, V080, [...V080, "!earshot reviews"], [...V080, "!earshot reviews", "Drowned in Sound"]];
 export function blogList(cfg) {
   const b = cfg?.blogs;
   if (!b?.length || OLD_DEFAULT_SETS.some((set) => b.length === set.length && b.every((x) => set.includes(x.name)))) return DEFAULT_BLOGS;
