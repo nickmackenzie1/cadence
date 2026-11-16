@@ -9,6 +9,39 @@
   const year = d => d ? String(d).slice(0, 4) : '';
   let current = null;
   window.CadenceArtist = { open(name) { if (!name) return; current = String(name); try { sessionStorage.setItem('cadence.artist', current); } catch (e) {} if (location.hash === '#view-artist') window.dispatchEvent(new Event('cadence-artist')); else location.hash = 'view-artist'; } };
+  // ---- listening: 30-second previews (Deezer, via the NAS) in the shared player, and Want to hear ----
+  const P = () => window.CadencePodcasts;
+  const PV = { queue: [], want: null, wantAt: 0, toast: m => {} };
+  const key = (a, t) => (String(a) + '|' + (t || '')).toLowerCase();
+  const wantList = async (force) => { if (!force && PV.want && Date.now() - PV.wantAt < 30e3) return PV.want; try { PV.want = await (await fetch('api/radar/want')).json(); PV.wantAt = Date.now(); } catch (e) { PV.want = PV.want || []; } return PV.want; };
+  const wantPost = async body => { PV.want = await (await fetch('api/radar/want', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })).json(); PV.wantAt = Date.now(); window.dispatchEvent(new Event('cadence-want')); return PV.want; };
+  const playOne = async (artist, title) => {
+    const p = P(); if (!p) return;
+    let v; try { v = await (await fetch(`api/radar/preview?artist=${encodeURIComponent(artist)}&title=${encodeURIComponent(title || '')}`)).json(); } catch (e) { v = null; }
+    if (!v || !v.found) { PV.toast(`No preview found for ${artist}${title ? ' – ' + title : ''}`); return false; }
+    p.load({ uuid: 'preview:' + key(v.artist, v.title), preview: true, title: v.title, podcastTitle: v.artist, url: v.preview, art: v.cover, link: v.link, from: { artist, title } }, true);
+    return true;
+  };
+  window.CadencePreview = {
+    play: (artist, title) => { PV.queue = []; return playOne(artist, title); },
+    // play a list in order (Want to hear → Play all); skips ones without a preview
+    playAll: async (items) => { PV.queue = items.slice(); while (PV.queue.length) { const n = PV.queue.shift(); if (await playOne(n.artist, n.title)) break; } },
+    want: { peek: () => PV.want || [], list: wantList, has: (a, t) => !!(PV.want || []).find(x => key(x.artist, x.title) === key(a, t)), add: it => wantPost({ add: it }), remove: it => wantPost({ remove: it }) },
+  };
+  const hook = () => { const p = P(); if (!p || p.onPreviewEnded) return;
+    p.onPreviewEnded = async () => { while (PV.queue.length) { const n = PV.queue.shift(); if (await playOne(n.artist, n.title)) return; } };
+    p.hasNextPreview = () => PV.queue.length > 0; };
+  // buttons any page can drop next to a pick: <button data-pv data-a="…" data-t="…"> and <button data-want …>
+  document.addEventListener('click', async e => {
+    const b = e.target.closest('[data-pv],[data-want]'); if (!b) return;
+    e.preventDefault(); e.stopPropagation(); hook();
+    const a = b.dataset.a, t = b.dataset.t || null;
+    if (b.hasAttribute('data-pv')) { b.classList.add('pv-busy'); await window.CadencePreview.play(a, t); b.classList.remove('pv-busy'); }
+    else { const on = window.CadencePreview.want.has(a, t); await (on ? window.CadencePreview.want.remove({ artist: a, title: t }) : window.CadencePreview.want.add({ artist: a, title: t, type: b.dataset.type || null, from: b.dataset.from || null }));
+      PV.toast(on ? 'Removed from Want to hear' : 'Saved to Want to hear'); }
+  }, true);
+  wantList();
+
   // any artist name in the app: <… data-artist="Name">
   document.addEventListener('click', e => {
     const el = e.target.closest('[data-artist]'); if (!el || e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey) return;
@@ -22,6 +55,22 @@
     description: 'Click any artist name in Music Radar, Radio or KEXP history: where they\'re from, their releases with covers, every blog, chart and community talking about them, their KEXP plays and DJs, and links to Bandcamp and their site.',
     setup(api) {
       const G = {};
+      PV.toast = m => api.ui.toast(m); hook();
+      // play + want buttons for one pick (used by Music Radar and this page)
+      window.CadencePreview.buttons = (artist, title, type, from) => { if (!artist) return ''; const on = window.CadencePreview.want.has(artist, title);
+        return `<span class="pv-btns"><button class="pv-b" data-pv data-a="${E(artist)}" data-t="${E(title || '')}" aria-label="Play a preview of ${E(title || artist)}" title="Play a 30-second preview">${api.ui.icon('play')}</button><button class="pv-b${on ? ' on' : ''}" data-want data-a="${E(artist)}" data-t="${E(title || '')}" data-type="${E(type || '')}" data-from="${E(from || '')}" aria-label="${on ? 'Remove from' : 'Save to'} Want to hear" title="${on ? 'In Want to hear' : 'Save to Want to hear'}">${api.ui.icon(on ? 'bookmark-check' : 'bookmark-plus')}</button></span>`; };
+      const onWant = () => { api.ui.refreshWidgets && api.ui.refreshWidgets(); const r = api.ui.currentRoute(); if (r === 'view-radar' || r === 'view-artist' || r === 'view-want') api.ui.refresh(); };
+      window.addEventListener('cadence-want', onWant);
+      // the Want to hear page: everything you saved, to listen through
+      api.views.add({ id: 'want', title: 'Want to hear', icon: '🎧', subtitle: 'Music you saved to listen to', render: el => {
+        const list = PV.want;
+        if (!list) { el.innerHTML = '<p class="muted">Loading…</p>'; wantList(true).then(() => api.ui.refresh()); return; }
+        el.innerHTML = `<div class="wh">${list.length ? `<button class="btn primary" id="wh-all">${api.ui.icon('play')}Play all previews</button>
+          <ul class="wh-l">${list.map(x => `<li>${window.CadencePreview.buttons(x.artist, x.title, x.type, x.from)}<div><a class="ar-link" href="#view-artist" data-artist="${E(x.artist)}"><b>${E(x.artist)}</b></a>${x.title ? ' — ' + E(x.title) : ''}
+            <span class="muted">${x.from ? 'from ' + E(x.from) + ' · ' : ''}saved ${new Date(x.at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</span></div></li>`).join('')}</ul>`
+          : '<p class="muted">Nothing saved yet. Use the bookmark next to any pick in Music Radar or on an artist page.</p>'}</div>`;
+        const all = el.querySelector('#wh-all'); if (all) all.onclick = () => window.CadencePreview.playAll(list);
+      } });
       const load = (name, force) => {
         const k = name.toLowerCase(), c = G[k];
         if (c && !force && (c.busy || Date.now() - c.at < 60e3)) return c.d;
@@ -53,13 +102,16 @@
             <div><h2>${E(d.name)}</h2>${mb && mb.disambiguation ? `<p class="muted">${E(mb.disambiguation)}</p>` : ''}
               ${facts.length ? `<p class="ap-facts">${facts.map(E).join(' · ')}</p>` : ''}
               ${tags.length ? `<div class="ap-tags">${tags.map(t => `<span>${E(t)}</span>`).join('')}</div>` : ''}
+              <div class="ap-links"><button class="btn primary" data-pv data-a="${E(d.name)}">${api.ui.icon('play')}Play a preview</button>${(() => { const on = window.CadencePreview.want.has(d.name, null);
+                return `<button class="btn" data-want data-a="${E(d.name)}" data-type="artist" data-from="artist page">${api.ui.icon(on ? 'bookmark-check' : 'bookmark-plus')}${on ? 'In Want to hear' : 'Save to Want to hear'}</button>`; })()}</div>
               ${links.length ? `<div class="ap-links">${links.map(l => A(l.url, `${api.ui.icon(l.kind === 'website' ? 'globe' : 'external-link')}${E(LINK_NAMES[l.kind] || l.kind)}`, 'btn')).join('')}</div>` : ''}
               ${d.mbPending ? `<p class="muted ap-wait">Looking up releases and links…</p>` : ''}
               ${d.mainstream ? `<p class="muted">Hidden from Music Radar by your mainstream filter.</p>` : ''}</div></header>
 
           <div class="ap-grid">
           ${mb && mb.releases.length ? `<section class="ap-wide"><h3>Releases</h3><div class="ap-rel">${mb.releases.slice(0, 18).map(r => `<a class="ap-r" href="https://musicbrainz.org/release-group/${E(r.id)}" target="_blank" rel="noopener">
-              <span class="ap-cover"><img src="${E(r.cover)}" alt="" loading="lazy" onerror="this.remove()">${api.ui.icon('disc-3')}</span><b>${E(r.title)}</b><span class="muted">${E([year(r.date), r.type].filter(Boolean).join(' · '))}</span></a>`).join('')}</div></section>` : ''}
+              <span class="ap-cover"><img src="${E(r.cover)}" alt="" loading="lazy" onerror="this.remove()">${api.ui.icon('disc-3')}</span><b>${E(r.title)}</b><span class="muted">${E([year(r.date), r.type].filter(Boolean).join(' · '))}</span></a>`).join('')}</div>
+            <p class="ap-relplay">${mb.releases.slice(0, 6).map(r => `<button class="btn" data-pv data-a="${E(d.name)}" data-t="${E(r.title)}">${api.ui.icon('play')}${E(r.title)}</button>`).join('')}</p></section>` : ''}
 
           <section><h3>Where they're showing up</h3>
             ${other.length || d.picks.length ? `<ul class="ap-list">
@@ -100,11 +152,15 @@
         .ap-cover{position:relative;aspect-ratio:1;border-radius:8px;background:var(--accent-soft);display:grid;place-items:center;overflow:hidden;color:var(--accent)} .ap-cover img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
         .ap-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px} .ap-list li{display:grid;grid-template-columns:110px 1fr;gap:10px;font-size:13px}
         .ap-list li>div{display:flex;flex-direction:column;gap:1px;min-width:0} .ap-list .muted{font-size:12px} .ap-src{color:var(--muted);font-size:12px;overflow:hidden;text-overflow:ellipsis}
-        .ap-spark{color:var(--accent);margin-top:2px} .ap-src-note{font-size:12px;margin-top:20px} .ap a{color:inherit}
+        .ap-spark{color:var(--accent);margin-top:2px} .ap-relplay{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px} .ap-relplay .btn{display:inline-flex;gap:4px;align-items:center;font-size:12px;padding:3px 8px}
+        .pv-btns{display:inline-flex;gap:2px;vertical-align:middle} .pv-b{background:none;border:0;padding:3px;border-radius:6px;cursor:pointer;color:var(--muted);display:inline-flex}
+        .pv-b:hover{background:var(--accent-soft);color:var(--accent)} .pv-b.on{color:var(--accent)} .pv-b svg{width:16px;height:16px} .pv-busy{opacity:.4}
+        .wh{max-width:760px} .wh-l{list-style:none;padding:0;margin:14px 0 0;display:flex;flex-direction:column;gap:8px} .wh-l li{display:flex;gap:10px;align-items:flex-start;font-size:14px}
+        .wh-l li>div{display:flex;flex-direction:column} .wh-l .muted{font-size:12px} .wh .btn.primary{display:inline-flex;gap:6px;align-items:center} .ap-src-note{font-size:12px;margin-top:20px} .ap a{color:inherit}
         [data-artist]{cursor:pointer} .ar-link{color:inherit;text-decoration:none;font:inherit;background:none;border:0;padding:0} .ar-link:hover{text-decoration:underline}
         @media (max-width:640px){.ap-head{flex-direction:column} .ap-list li{grid-template-columns:80px 1fr}}`;
       document.head.appendChild(css);
-      return () => { window.removeEventListener('cadence-artist', onOpen); css.remove(); };
+      return () => { window.removeEventListener('cadence-artist', onOpen); window.removeEventListener('cadence-want', onWant); css.remove(); };
     },
   });
 })();

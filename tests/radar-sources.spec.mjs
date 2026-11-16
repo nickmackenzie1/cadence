@@ -67,16 +67,29 @@ test('!earshot National Top 50: rank, artist, album, label and Canadian content 
     [3, 'Fucked Up', 'One Day', 'Merge', 'National Top 50 · Canadian'], [5, 'Daniel Romano', 'Too Hot To Sleep', "You've Changed", 'National Top 50']]);
   expect(S.DEFAULT_BLOGS.some(b => b.name === '!earshot reviews')).toBe(true);
   // a saved list that is exactly the 0.8.0 defaults also gets new defaults
-  const v080 = S.DEFAULT_BLOGS.slice(0, 12).map(({ tier, ...b }) => b);
+  const v080 = S.OLD_DEFAULT_SETS[1].map(name => ({ name, url: 'https://old.example/' + encodeURIComponent(name) }));
   expect(S.blogList({ blogs: v080 }).some(b => b.name === '!earshot reviews')).toBe(true);
   expect(S.blogList({ blogs: v080 }).some(b => b.name === 'Drowned in Sound')).toBe(true);
 });
 
+test('!earshot: the whole chart inside one feed item (table or lines)', async () => {
+  const S = await import('../server/services/radar/lib/sources.mjs');
+  const rows = [...Array(8)].map((_, i) => `<tr><td>${i + 1}</td><td>Band ${i}</td><td>Record ${i}</td><td>Label ${i}</td></tr>`).join('');
+  const xml = `<rss><channel><item><title>!earshot Top 50 for the Week Ending: Tuesday, November 10, 2026</title><description><![CDATA[<table><tr><th>#</th><th>Artist</th><th>Album</th><th>Label</th></tr>${rows}</table>]]></description></item></channel></rss>`;
+  const out = S.earshotChart(S.earshotRows(xml).map(title => ({ title })));
+  expect(out).toHaveLength(8);
+  expect([out[0].rank, out[0].artist, out[0].title, out[0].label]).toEqual([1, 'Band 0', 'Record 0', 'Label 0']);
+  expect(S.earshotRows('<item><description>1. Jay Som - Belong (Polyvinyl)&lt;br&gt;2. Alvvays - Blue Rev (Polyvinyl)</description></item>')).toEqual(['1. Jay Som - Belong (Polyvinyl)', '2. Alvvays - Blue Rev (Polyvinyl)']);
+});
+
 test('every earlier default blog list picks up blogs added since', async () => {
   const S = await import('../server/services/radar/lib/sources.mjs');
-  for (const n of [6, 12, 13, 14, 18]) {
-    const saved = S.DEFAULT_BLOGS.slice(0, n).map(({ tier, ...b }) => b);
-    expect(S.blogList({ blogs: saved }).length, `a saved list of ${n}`).toBe(S.DEFAULT_BLOGS.length);
+  for (const set of S.OLD_DEFAULT_SETS) {
+    const saved = set.map(name => ({ name, url: 'https://old.example/' + encodeURIComponent(name) }));
+    expect(S.blogList({ blogs: saved }).length, `a saved list of ${set.length}`).toBe(S.DEFAULT_BLOGS.length);
   }
+  // feeds that moved follow along in your own list; ones that went away drop out
+  expect(S.blogList({ blogs: [{ name: 'The Fader', url: 'https://www.thefader.com/rss.xml' }, { name: 'Under the Radar', url: 'https://www.undertheradarmag.com/rss.xml' }, { name: 'Mine', url: 'https://x.example/f' }] }).map(b => b.url))
+    .toEqual(['https://www.thefader.com/feed.rss', 'https://x.example/f']);
   expect(S.blogList({ blogs: [{ name: 'Only mine', url: 'https://x.example/feed' }] })).toHaveLength(1);   // your own list is left alone
 });

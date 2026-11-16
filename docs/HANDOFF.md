@@ -92,3 +92,8 @@ Cleaned up 2026-11-16 (0.8.2): items already built were moved out after checking
   Postgres, MySQL, files) by DATABASE_URL with a migration tool; PWA guide, then Capacitor (phone) and Tauri (desktop:
   tray, global quick-add, notifications). Other people's installs default to private/LAN; internet exposure is an
   explicit, documented opt-in. The user's own instance keeps the rules above.
+
+- **(2026-11-16, user)** Radar trends should use every source, not just Lemmy/Mastodon. Who's climbing, hottest genre,
+  most talked about and picks currently come only from the community scan; the all-sources score (blogs, KEXP, earshot,
+  charts, Bandcamp, Hype Machine…) only drives the "All sources combined" table and source trends. Make one combined
+  daily buzz score per artist (and per genre) from all signals and drive the front page from it (fits #98).

@@ -19,12 +19,12 @@
     const audio = document.createElement('audio'); audio.preload = 'metadata'; audio.id = 'pc-audio'; document.documentElement.appendChild(audio);
     const listeners = new Set(), emit = () => listeners.forEach(f => { try { f(); } catch (e) {} });
     let cur = lsGet('current', null), lastSent = 0, sleepAt = 0, sleepTimer = 0;
-    const savePos = () => { if (!cur || cur.live) return; cur.position = audio.currentTime || cur.position || 0; lsSet('current', cur); lsSet('pos.' + cur.uuid, cur.position); };
+    const savePos = () => { if (!cur || cur.live || cur.preview) return; cur.position = audio.currentTime || cur.position || 0; lsSet('current', cur); lsSet('pos.' + cur.uuid, cur.position); };
     const sendPos = played => { if (!cur || !cur.podcast || cur.live) return; lastSent = Date.now(); post('api/podcasts/progress', { uuid: cur.uuid, podcast: cur.podcast, position: played ? cur.duration || audio.duration || 0 : audio.currentTime, played }); };
     audio.addEventListener('timeupdate', () => { savePos(); if (Date.now() - lastSent > 30000 && !audio.paused) sendPos(false); emit(); });
     audio.addEventListener('pause', () => { savePos(); sendPos(false); emit(); });
     audio.addEventListener('play', emit); audio.addEventListener('error', emit); audio.addEventListener('waiting', emit); audio.addEventListener('playing', emit); audio.addEventListener('loadedmetadata', () => { if (cur && !cur.duration) cur.duration = audio.duration; emit(); });
-    audio.addEventListener('ended', () => { if (cur && cur.live) return emit(); sendPos(true); const q = lsGet('queue', []); const next = q.shift(); lsSet('queue', q); if (next) api.play(next); else emit(); });
+    audio.addEventListener('ended', () => { if (cur && cur.live) return emit(); if (cur && cur.preview) { emit(); if (P.onPreviewEnded) P.onPreviewEnded(cur); return; } sendPos(true); const q = lsGet('queue', []); const next = q.shift(); lsSet('queue', q); if (next) api.play(next); else emit(); });
     const media = () => { if (!('mediaSession' in navigator) || !cur) return;
       const n = cur.live && cur.now && !cur.now.airbreak ? cur.now : null;
       navigator.mediaSession.metadata = new MediaMetadata({ title: n ? n.song : cur.title, artist: n ? n.artist + ' · ' + cur.title : cur.podcastTitle, album: cur.live ? 'Radio' : 'Podcasts', artwork: (n && n.art) || cur.art ? [{ src: (n && n.art) || cur.art, sizes: '200x200' }] : [] });
@@ -73,6 +73,7 @@
     const draw = () => {
       const c = P.current; bar.hidden = !c; if (!c) return;
       if (c.live) return drawLive(c);
+      if (c.preview) return drawPreview(c);
       if (api.ui.currentRoute() === 'view-podcasts' && bar.dataset.cur !== c.uuid + ':' + P.audio.paused) { bar.dataset.cur = c.uuid + ':' + P.audio.paused; setTimeout(() => api.ui.refresh(), 0); }
       const a = P.audio, d = isFinite(a.duration) && a.duration ? a.duration : c.duration || 0, t = a.currentTime || c.position || 0;
       bar.style.fontFamily = getComputedStyle(document.body).fontFamily;
@@ -82,6 +83,16 @@
         <button class="pc-ib pc-big" data-pc="toggle" aria-label="${a.paused ? 'Play' : 'Pause'}">${api.ui.icon(a.paused ? 'play' : 'pause')}</button>
         <button class="pc-ib" data-pc="fwd" aria-label="Forward 30 seconds" title="Forward 30 s">${api.ui.icon('rotate-cw')}</button>
         <a class="pc-ib" href="#view-podcasts" aria-label="Open Podcasts" title="Open Podcasts">${api.ui.icon('list-checks')}</a>`;
+    };
+    // a 30-second Music Radar preview: the artist links to their page; "next" plays the next one in Want to hear
+    const drawPreview = c => {
+      const a = P.audio, d = isFinite(a.duration) && a.duration ? a.duration : 30, t = a.currentTime || 0;
+      bar.style.fontFamily = getComputedStyle(document.body).fontFamily;
+      bar.innerHTML = `${c.art ? `<img src="${E(c.art)}" alt="" onerror="this.style.visibility='hidden'">` : `<i class="pc-noart">${api.ui.icon('music')}</i>`}
+        <div class="pc-m-t"><b>${E(c.title)}</b><span><a class="ar-link" href="#view-artist" data-artist="${E(c.podcastTitle)}">${E(c.podcastTitle)}</a> · preview ${fmt(t)} / ${fmt(d)}</span><i class="pc-m-bar"><i style="width:${(t / d * 100).toFixed(2)}%"></i></i></div>
+        <button class="pc-ib pc-big" data-pc="toggle" aria-label="${a.paused ? 'Play' : 'Pause'}">${api.ui.icon(a.paused ? 'play' : 'pause')}</button>
+        ${P.hasNextPreview && P.hasNextPreview() ? `<button class="pc-ib" data-pc="nextpv" aria-label="Next preview" title="Next">${api.ui.icon('skip-forward')}</button>` : ''}
+        ${c.link ? `<a class="pc-ib" href="${E(c.link)}" target="_blank" rel="noopener" aria-label="Full song on Deezer" title="Full song on Deezer">${api.ui.icon('external-link')}</a>` : ''}`;
     };
     const drawLive = c => {
       const a = P.audio, n = c.now && !c.now.airbreak ? c.now : null, state = P.failed ? "Can't reach this station right now" : !a.paused && a.readyState < 3 ? 'Tuning in…' : a.paused ? 'Paused' : 'Live';
@@ -93,7 +104,7 @@
         <a class="pc-ib" href="#view-radio" aria-label="Open Radio" title="Open Radio">${api.ui.icon('list-checks')}</a>`;
       if (api.ui.currentRoute() === 'view-radio' && bar.dataset.cur !== c.uuid + ':' + a.paused) { bar.dataset.cur = c.uuid + ':' + a.paused; setTimeout(() => api.ui.refresh(), 0); }
     };
-    bar.onclick = e => { const b = e.target.closest('[data-pc]'); if (!b) return; ({ back: () => P.skip(-10), fwd: () => P.skip(30), toggle: () => P.toggle() })[b.dataset.pc](); };
+    bar.onclick = e => { const b = e.target.closest('[data-pc]'); if (!b) return; ({ back: () => P.skip(-10), fwd: () => P.skip(30), toggle: () => P.toggle(), nextpv: () => P.onPreviewEnded && P.onPreviewEnded(P.current) })[b.dataset.pc](); };
     // redraw at most ~4 times a second
     let q = 0; const off = P.on(() => { if (q) return; q = setTimeout(() => { q = 0; draw(); }, 250); }); draw();
     return () => { off(); };
@@ -134,7 +145,7 @@
             <pre>POCKETCASTS_EMAIL=you@example.com\nPOCKETCASTS_PASSWORD=your-password</pre>
             <p class="muted">Pocket Casts has no official API, so this uses the one its web player uses. If they change it, sync pauses with a note here and the player keeps working.</p></div></div>`; return;
         }
-        const c = P.current && !P.current.live ? P.current : null, a = P.audio, all = [...(data.inProgress || []), ...(data.upNext || []), ...(data.newEpisodes || [])], byId = Object.fromEntries(all.map(e => [e.uuid, e]));
+        const c = P.current && !P.current.live && !P.current.preview ? P.current : null, a = P.audio, all = [...(data.inProgress || []), ...(data.upNext || []), ...(data.newEpisodes || [])], byId = Object.fromEntries(all.map(e => [e.uuid, e]));
         const rates = [1, 1.2, 1.3, 1.5, 1.8, 2];
         el.innerHTML = `<div class="pc">
           <div class="pc-main">

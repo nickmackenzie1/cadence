@@ -23,7 +23,7 @@ export const DEFAULT_BLOGS = [
   { name: "Pitchfork reviews", url: "https://pitchfork.com/feed/feed-album-reviews/rss", tier: "big" },
   { name: "Pitchfork news", url: "https://pitchfork.com/feed/feed-news/rss", tier: "big" },
   { name: "Stereogum", url: "https://www.stereogum.com/feed/" },
-  { name: "The Fader", url: "https://www.thefader.com/rss.xml", tier: "big" },
+  { name: "The Fader", url: "https://www.thefader.com/feed.rss", tier: "big" },
   { name: "Gorilla vs. Bear", url: "https://www.gorillavsbear.net/feed/", tier: "small" },
   { name: "Bandcamp Daily", url: "https://daily.bandcamp.com/feed", tier: "small" },
   // added 2026-11-15 for underground indie rock. Feed addresses follow each site's platform (WordPress /feed/,
@@ -32,13 +32,11 @@ export const DEFAULT_BLOGS = [
   { name: "Rosy Overdrive", url: "https://rosyoverdrive.com/feed/", tier: "small" },
   { name: "Aquarium Drunkard", url: "https://aquariumdrunkard.com/feed/", tier: "small" },
   { name: "Obscure Sound", url: "https://www.obscuresound.com/feed/", tier: "small" },
-  { name: "Under the Radar", url: "https://www.undertheradarmag.com/rss.xml", tier: "small" },
-  { name: "The Line of Best Fit", url: "https://www.thelineofbestfit.com/feeds/rss", tier: "small" },
+  { name: "The Line of Best Fit", url: "https://bestfitmusic.substack.com/feed", tier: "small" },
   // 2026-11-16: Canadian campus radio's review feed (user sent the address)
   { name: "!earshot reviews", url: "https://www.earshot-online.com/reviews/rss.cfm", tier: "small" },
   { name: "Drowned in Sound", url: "https://www.drownedinsound.org/rss/", tier: "small" },   // user sent 2026-11-16
   // user sent 2026-11-16: Canadian and long-running indie blogs (WordPress feed addresses, unchecked from the agent workspace)
-  { name: "Said the Gramophone", url: "https://www.saidthegramophone.com/feed/", tier: "small" },
   { name: "Spill Magazine", url: "https://spillmagazine.com/feed/", tier: "small" },
   { name: "Canadian Beats", url: "https://canadianbeats.ca/feed/", tier: "small" },
   { name: "EARMILK", url: "https://earmilk.com/feed/" },
@@ -52,10 +50,21 @@ export const DEFAULT_BLOGS = [
 const SIX = ["Pitchfork reviews", "Pitchfork news", "Stereogum", "The Fader", "Gorilla vs. Bear", "Bandcamp Daily"];
 const V080 = [...SIX, "Post-Trash", "Rosy Overdrive", "Aquarium Drunkard", "Obscure Sound", "Under the Radar", "The Line of Best Fit"];
 const V0101 = [...V080, "!earshot reviews", "Drowned in Sound"];
-const OLD_DEFAULT_SETS = [SIX, V080, [...V080, "!earshot reviews"], V0101, [...V0101, "Said the Gramophone", "Spill Magazine", "Canadian Beats", "EARMILK"]];
+const V0110 = [...V0101, "Said the Gramophone", "Spill Magazine", "Canadian Beats", "EARMILK"];
+// the defaults until 0.14.0 (before Under the Radar and Said the Gramophone lost their feeds); built after DEFAULT_BLOGS below
+export const OLD_DEFAULT_SETS = [SIX, V080, [...V080, "!earshot reviews"], V0101, V0110];
+// feeds that moved or went away (checked 2026-11-16): saved lists follow these too. null = no feed any more.
+const MOVED = {
+  "https://www.thefader.com/rss.xml": "https://www.thefader.com/feed.rss",
+  "https://www.thelineofbestfit.com/feeds/rss": "https://bestfitmusic.substack.com/feed",
+  "https://www.undertheradarmag.com/rss.xml": null,       // blocks feed readers (403)
+  "https://www.saidthegramophone.com/feed/": null,        // no feed on the site now
+};
+OLD_DEFAULT_SETS.push([...DEFAULT_BLOGS.map((b) => b.name), "Under the Radar", "Said the Gramophone"]);
 export function blogList(cfg) {
-  const b = cfg?.blogs;
-  if (!b?.length || OLD_DEFAULT_SETS.some((set) => b.length === set.length && b.every((x) => set.includes(x.name)))) return DEFAULT_BLOGS;
+  const b0 = cfg?.blogs, b = b0 && b0.map((x) => (x.url in MOVED ? (MOVED[x.url] ? { ...x, url: MOVED[x.url] } : null) : x)).filter(Boolean);
+  if (b0?.length && OLD_DEFAULT_SETS.some((set) => b0.length === set.length && b0.every((x) => set.includes(x.name)))) return DEFAULT_BLOGS;
+  if (!b?.length) return DEFAULT_BLOGS;
   return b.map((x) => ({ ...x, tier: x.tier || DEFAULT_BLOGS.find((d) => d.url === x.url || d.name === x.name)?.tier }));
 }
 export const DEFAULT_CFG = {
@@ -201,7 +210,9 @@ export const SOURCES = {
     async fetch() {
       if (earshotCache.v && Date.now() - earshotCache.at < 20 * 3600e3) return earshotCache.v;
       if (!parseFeed) throw new Error("feed parser not available");
-      const f = parseFeed(await httpText(EARSHOT_CHART), EARSHOT_CHART), v = earshotChart(f.items);
+      const xml = await httpText(EARSHOT_CHART), f = parseFeed(xml, EARSHOT_CHART);
+      let v = earshotChart(f.items);
+      if (!v.length) v = earshotChart(earshotRows(xml).map((title) => ({ title, link: f.items[0]?.link, date: f.items[0]?.date })));
       if (!v.length) throw new Error(f.items.length ? "couldn't read the chart's format (first item: " + String(f.items[0].title).slice(0, 80) + ")" : "the chart feed was empty");
       earshotCache = { at: Date.now(), v };
       return v;
@@ -224,6 +235,29 @@ export const SOURCES = {
 };
 
 // ---------- !earshot National Top 50 ----------
+// The feed is one item ("!earshot Top 50 for the Week Ending …") whose description holds the whole chart as HTML
+// (table rows, list items or <br> lines). Turn that into one line per album, "rank. Artist - Album (Label)".
+export function earshotRows(xml) {
+  const ent = (t) => t.replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&#39;|&apos;/g, "'").replace(/&nbsp;/g, " ").replace(/&#(\d+);/g, (m, n) => String.fromCodePoint(+n)).replace(/&amp;/g, "&");
+  const item = (String(xml).match(/<item[\s>][\s\S]*?<\/item>/i) || [String(xml)])[0];
+  let html = (item.match(/<(content:encoded|description)[^>]*>([\s\S]*?)<\/\1>/i) || [])[2] || "";
+  html = html.replace(/^\s*<!\[CDATA\[([\s\S]*?)\]\]>\s*$/, "$1");
+  if (!/<[a-z]/i.test(html)) html = ent(html);            // escaped HTML inside <description>
+  const text = (h) => ent(h.replace(/<[^>]+>/g, " ")).replace(/\s+/g, " ").trim();
+  const rows = [];
+  const trs = html.match(/<tr[\s>][\s\S]*?<\/tr>/gi);
+  if (trs && trs.length > 5) {
+    for (const tr of trs) {
+      const cells = (tr.match(/<t[dh][\s>][\s\S]*?<\/t[dh]>/gi) || []).map(text).filter(Boolean);
+      if (cells.length < 2 || !/^\d{1,3}\.?$/.test(cells[0])) continue;     // header rows
+      const [rank, artist, album, label] = [cells[0].replace(".", ""), ...cells.slice(1).filter((c) => !/^(\*|cc|\d{1,3}|-|new|re)$/i.test(c))];
+      if (artist) rows.push(`${rank}. ${artist}${album ? " - " + album : ""}${label ? " (" + label + ")" : ""}`);
+    }
+  } else {
+    for (const part of html.split(/<br\s*\/?>|<\/?(?:li|p|div)[^>]*>|\n/i)) { const t = text(part); if (/^#?\s*\d{1,3}\s*[.):\-–]?\s+\S/.test(t)) rows.push(t); }
+  }
+  return rows;
+}
 const EARSHOT_CHART = "https://www.earshot-online.com/charts/NewTop50Feed.cfm";
 let earshotCache = { at: 0, v: null };
 // The feed's exact layout wasn't visible from the agent workspace, so this reads the common shapes:

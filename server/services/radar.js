@@ -131,6 +131,49 @@ async function artist(name) {
   let kexp = null; try { const K = require('./kexp-log'); if (K.status().on !== false) kexp = K.artist(name); } catch (e) { kexp = null; }
   return A.artistData(name, { kexp });
 }
+// ---- listening: 30-second previews from Deezer (public API, no key) and the Want to hear list ----
+// Preview addresses are signed and expire, so they're fetched when you press play and kept only half an hour.
+const DEEZER = () => (process.env.DEEZER_API || 'https://api.deezer.com').replace(/\/$/, '');
+const previewCache = new Map();
+async function preview({ artist, title }) {
+  artist = String(artist || '').trim().slice(0, 120); title = String(title || '').trim().slice(0, 200);
+  if (!artist) throw Object.assign(new Error('Which artist?'), { code: 400 });
+  const ck = (artist + '|' + title).toLowerCase(), hit = previewCache.get(ck);
+  if (hit && Date.now() - hit.at < 30 * 60e3) return hit.v;
+  const { norm } = await import(pathToFileURL(path.join(__dirname, 'radar', 'lib', 'extract.mjs')).href);
+  const { safeFetch } = require('../lib/net');
+  const get = async u => JSON.parse((process.env.DEEZER_API ? Buffer.from(await (await fetch(u)).arrayBuffer()) : (await safeFetch(u, { headers: { Accept: 'application/json' }, timeout: 8000 })).buf).toString('utf8'));
+  const q = s => `"${s.replace(/"/g, '')}"`, want = norm(artist), same = t => t && t.artist && norm(t.artist.name) === want && t.preview;
+  let track = null;
+  if (title) {
+    for (const field of ['track', 'album']) {   // the pick might be a song or a record
+      const r = await get(`${DEEZER()}/search?limit=10&q=${encodeURIComponent(`artist:${q(artist)} ${field}:${q(title)}`)}`);
+      track = (r.data || []).find(same); if (track) break;
+    }
+  }
+  if (!track) {   // no title, or nothing matched: their most popular track
+    const r = await get(`${DEEZER()}/search/artist?limit=5&q=${encodeURIComponent(artist)}`);
+    const a = (r.data || []).find(x => norm(x.name) === want);
+    if (a) { const top = await get(`${DEEZER()}/artist/${a.id}/top?limit=5`); track = (top.data || []).find(t => t.preview) || null; }
+  }
+  const v = track ? { found: true, preview: track.preview, title: track.title, artist: track.artist.name, album: track.album && track.album.title, cover: track.album && (track.album.cover_medium || track.album.cover) || null, link: track.link || null, exact: !!title && norm(track.title) === norm(title) }
+    : { found: false };
+  previewCache.set(ck, { at: Date.now(), v });
+  return v;
+}
+// Want to hear: a list on the NAS (same in both spaces and on every device)
+async function want(input) {
+  const { store } = await load();
+  let list = store.getKv('wantToHear', []) || [];
+  if (input && input.add && input.add.artist) {
+    const it = { artist: String(input.add.artist).slice(0, 120), title: input.add.title ? String(input.add.title).slice(0, 200) : null, type: input.add.type || null, from: input.add.from ? String(input.add.from).slice(0, 60) : null, at: Date.now() };
+    const k = x => (x.artist + '|' + (x.title || '')).toLowerCase();
+    if (!list.some(x => k(x) === k(it))) list = [it, ...list].slice(0, 300);
+  }
+  if (input && input.remove) { const r = input.remove, k = (r.artist + '|' + (r.title || '')).toLowerCase(); list = list.filter(x => (x.artist + '|' + (x.title || '')).toLowerCase() !== k); }
+  if (input) store.setKv('wantToHear', list);
+  return list;
+}
 async function rss(base) { const { store, rss } = await load(); return rss.buildRss(store.loadState(), 80, base); }
 async function digestFile(name) {
   const f = path.join(DIR, 'digests', path.basename(String(name)));
@@ -140,4 +183,4 @@ async function digestFile(name) {
 }
 async function spotify() { const { spotify } = await load(); return spotify; }
 
-module.exports = { artist, community, sourcesNow, sourcesSettings, raw, settings, status, scan, digestNow, data, feedback, rss, digestFile, spotify };
+module.exports = { artist, preview, want, community, sourcesNow, sourcesSettings, raw, settings, status, scan, digestNow, data, feedback, rss, digestFile, spotify };

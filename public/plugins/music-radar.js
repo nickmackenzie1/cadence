@@ -69,6 +69,7 @@
   const link = (u, t) => u ? `<a href="${esc(u)}" target="_blank" rel="noopener">${t}</a>` : t;
 
   // an artist name that opens their artist page (artist.js)
+  const pv = (artist, title, type, from) => (window.CadencePreview && window.CadencePreview.buttons ? window.CadencePreview.buttons(artist, title, type, from) : '');
   const an = (name, bold = true) => `<a class="ar-link" href="#view-artist" data-artist="${esc(name)}">${bold ? `<b>${esc(name)}</b>` : esc(name)}</a>`;
   // album art (MusicBrainz / Cover Art Archive via the NAS, or the source's own) and "Album · Oct 2025"
   const artImg = x => x.image ? `<img class="mr-art" src="${esc(x.image)}" alt="" loading="lazy" onerror="this.remove()">` : '';
@@ -84,7 +85,7 @@
       const rows = S0.combined.filter(a => !G.multi || a.breadth >= 2), max = Math.max(1, ...rows.map(a => a.score));
       body = `<div class="mr-row" style="margin-bottom:8px"><label class="mr-small"><input type="checkbox" id="mr-multi" ${G.multi ? 'checked' : ''}> Only artists on 2 or more sources (${S0.multi})</label></div>
         ${rows.length ? `<table class="mr-t"><tr><th>Artist</th><th>Where</th><th>Heard</th><th class="n">Score</th></tr>${rows.slice(0, 40).map(a => `<tr>
-          <td><div class="mr-withart">${artImg(a)}<div>${an(a.artist)}${a.genres.length ? ` <span class="mr-small">${esc(a.genres.join(', '))}</span>` : ''}<div class="mr-small">${a.titles.map(x => link(x.url, esc(x.title))).join(' · ')}${relNote(a)}</div></div></div></td>
+          <td><div class="mr-withart">${artImg(a)}<div>${an(a.artist)} ${pv(a.artist, a.titles[0] && a.titles[0].title, null, 'Music Radar')}${a.genres.length ? ` <span class="mr-small">${esc(a.genres.join(', '))}</span>` : ''}<div class="mr-small">${a.titles.map(x => link(x.url, esc(x.title))).join(' · ')}${relNote(a)}</div></div></div></td>
           <td>${Object.keys(a.sources).map(srcPill).join(' ')}</td><td class="mr-small">${esc(day(a.first))}</td>
           <td class="n"><span class="mr-score"><i style="width:${Math.round(a.score / max * 100)}%"></i></span>${Math.round(a.score)}</td></tr>`).join('')}</table>`
           : empty(G.multi ? 'No artist is on two sources yet. Untick the box to see everything.' : 'Nothing collected yet. Press Check sources.')}`;
@@ -95,7 +96,7 @@
       body = `<p class="mr-sub">${esc(cur.kind)} · ${status}${cur.site ? ` · ${link(cur.site, 'Open site')}` : ''}${cur.on ? '' : ' · switched off in Sources'}</p>
         ${cur.feeds.length > 1 ? `<div class="mr-chips">${['', ...cur.feeds].map(f => `<button class="mr-chip ${G.feed === f ? 'on' : ''}" data-feed="${esc(f)}">${esc(f || 'All')}</button>`).join('')}</div>` : ''}
         ${items.length ? `<table class="mr-t"><tr>${cur.chart ? '<th class="n">#</th>' : ''}<th>Artist</th><th>Title</th><th>Where</th><th>${cur.chart ? 'Move' : 'First seen'}</th></tr>${items.slice(0, 80).map(x => `<tr>
-          ${cur.chart ? `<td class="n">${x.rank ?? ''}</td>` : ''}<td><div class="mr-withart">${artImg(x)}${an(x.artist)}</div></td><td>${link(x.url, esc(x.title || ''))}${x.type && x.type !== 'track' && x.type !== 'artist' ? ` <span class="chip">${esc(x.type)}</span>` : ''}${relNote(x)}</td>
+          ${cur.chart ? `<td class="n">${x.rank ?? ''}</td>` : ''}<td><div class="mr-withart">${artImg(x)}${an(x.artist)} ${pv(x.artist, x.title, x.type, x.feed || 'Music Radar')}</div></td><td>${link(x.url, esc(x.title || ''))}${x.type && x.type !== 'track' && x.type !== 'artist' ? ` <span class="chip">${esc(x.type)}</span>` : ''}${relNote(x)}</td>
           <td class="mr-small">${esc(x.feed || '')}</td>
           <td class="mr-small">${cur.chart ? (x.was == null || x.was === x.rank ? (x.seen > 1 ? 'steady' : 'new') : x.was > x.rank ? `up ${x.was - x.rank}` : `down ${x.rank - x.was}`) : esc(day(x.first_seen))}</td></tr>`).join('')}</table>`
           : empty(cur.missing ? 'Add the key on the NAS to use this source.' : 'Nothing from this source yet.')}`;
@@ -174,20 +175,24 @@
             <div class="mr-tile"><b>${D.trackRecord.hitRate == null ? '–' : Math.round(D.trackRecord.hitRate * 100) + '%'}</b><span>Track record (hit rate)</span></div>
           </div>
           <div class="mr-grid">
+            ${(() => { const W = window.CadencePreview && window.CadencePreview.want, list = W ? W.peek() : [];
+              return list.length ? `<section class="mr-card w12 mr-want"><div class="mr-row" style="justify-content:space-between"><div><h3>Want to hear</h3><p class="mr-sub">What you saved, newest first</p></div>
+                <span class="mr-row"><button class="btn" id="mr-wantall">${ic('play')}Play all previews</button><a class="btn" href="#view-want">See all ${list.length}</a></span></div>
+                <ul class="mr-wl">${list.slice(0, 5).map(x => `<li>${pv(x.artist, x.title, x.type, x.from)} ${an(x.artist, true)}${x.title ? ' — ' + esc(x.title) : ''}</li>`).join('')}</ul></section>` : ''; })()}
             <section class="mr-card w8"><h3>Who's climbing</h3><p class="mr-sub">Daily buzz score, last 14 days: the 6 artists buzzing most right now.</p>
               ${D.rise.top.length ? lineChart(D.rise.labels, D.rise.top.map(r => ({ label: r.artist, data: r.series })), { unit: 'buzz' }) : empty('Scan a few times to see trends.')}</section>
             <section class="mr-card w4"><h3>Fastest risers</h3><p class="mr-sub">Buzz now vs a week ago</p>
-              ${risers.length ? `<table class="mr-t"><tr><th>Artist</th><th class="n">Week ago</th><th class="n">Now</th><th></th></tr>${risers.map(r => `<tr><td>${an(r.artist, false)}</td><td class="n">${Math.round(r.weekAgo)}</td><td class="n">${Math.round(r.cur)}</td><td><span class="chip">${STATUS[r.status]}</span></td></tr>`).join('')}</table>` : empty('Nothing rising yet.')}</section>
+              ${risers.length ? `<table class="mr-t"><tr><th>Artist</th><th class="n">Week ago</th><th class="n">Now</th><th></th></tr>${risers.map(r => `<tr><td>${an(r.artist, false)} ${pv(r.artist, null, null, 'Music Radar')}</td><td class="n">${Math.round(r.weekAgo)}</td><td class="n">${Math.round(r.cur)}</td><td><span class="chip">${STATUS[r.status]}</span></td></tr>`).join('')}</table>` : empty('Nothing rising yet.')}</section>
             <section class="mr-card w6"><h3>Genres blowing up</h3><p class="mr-sub">Last 7 days vs the weekly average of the 3 weeks before</p>${changeBars(D.genres)}</section>
             <section class="mr-card w6"><h3>New scenes and buzzwords</h3><p class="mr-sub">Phrases from comments, same comparison</p>${changeBars(D.buzz)}</section>
             <section class="mr-card w6"><h3>Albums and EPs blowing up</h3><p class="mr-sub">Best buzz score in the last 7 days</p>
-              ${D.albums.length ? `<table class="mr-t"><tr><th>Release</th><th>Where</th><th class="n">Score</th></tr>${D.albums.map(a => `<tr><td>${an(a.artist, false)} — <a href="${esc(a.link)}" target="_blank" rel="noopener">${esc(a.album)}</a> <span class="chip">${esc(a.type)}</span></td><td class="mr-small">${esc(a.subs.map(s => s).join(', '))}</td><td class="n">${Math.round(a.score)}</td></tr>`).join('')}</table>` : empty('No album or EP posts in the last week.')}</section>
+              ${D.albums.length ? `<table class="mr-t"><tr><th>Release</th><th>Where</th><th class="n">Score</th></tr>${D.albums.map(a => `<tr><td>${pv(a.artist, a.album, a.type, 'Music Radar')} ${an(a.artist, false)} — <a href="${esc(a.link)}" target="_blank" rel="noopener">${esc(a.album)}</a> <span class="chip">${esc(a.type)}</span></td><td class="mr-small">${esc(a.subs.map(s => s).join(', '))}</td><td class="n">${Math.round(a.score)}</td></tr>`).join('')}</table>` : empty('No album or EP posts in the last week.')}</section>
             <section class="mr-card w6"><h3>Which communities find artists first</h3><p class="mr-sub">How often each sub posted a shared artist first. Early subs count more in scoring.</p>
               ${D.subLead.length ? `<div class="mr-bars">${D.subLead.map(s => `<div class="mr-bar" title="first on ${Math.round(s.firstShare * 100)}% of ${s.samples} shared artists${s.avgLeadHours ? `, ~${Math.round(s.avgLeadHours)}h ahead` : ''}"><span class="mr-bl">${esc(s.sub)}</span><span class="mr-bt"><i class="up" style="left:0;width:${Math.round(s.firstShare * 100)}%"></i></span><span class="mr-bv">${Math.round(s.firstShare * 100)}%</span></div>`).join('')}</div>` : empty('Needs artists that show up in 2+ subreddits.')}</section>
             <section class="mr-card w12"><h3>"Sounds like" map</h3><p class="mr-sub">Comparisons people make in comments. Bigger dot = compared more often. Ringed = artists you liked. Hover a dot for who it's compared with.</p>${graph(D.graph)}</section>
             ${sourcesCard(D.sources, ic, G)}
             <section class="mr-card w8"><h3>Recent picks</h3><p class="mr-sub">Thumbs up and down teach the radar your taste</p>
-              ${D.picks.length ? picks.map(p => `<div class="mr-pick">${artImg(p).replace('mr-art', 'mr-art big')}<div class="mr-pb">${p.artist ? an(p.artist) : ''} — <a href="${esc(p.link)}" target="_blank" rel="noopener">${esc(p.song || 'recommended in comments')}</a>${p.type && p.type !== 'track' ? ` <span class="chip">${esc(p.type)}</span>` : ''}${relNote(p)}
+              ${D.picks.length ? picks.map(p => `<div class="mr-pick">${artImg(p).replace('mr-art', 'mr-art big')}<div class="mr-pb">${p.artist ? an(p.artist) : ''} ${pv(p.artist, p.song, p.type, (p.subs || [])[0] || 'Music Radar')} — <a href="${esc(p.link)}" target="_blank" rel="noopener">${esc(p.song || 'recommended in comments')}</a>${p.type && p.type !== 'track' ? ` <span class="chip">${esc(p.type)}</span>` : ''}${relNote(p)}
                   ${(p.genres || []).slice(0, 3).map(g => `<span class="chip">${esc(g)}</span>`).join(' ')}${(p.alsoOn || []).length ? ` <span class="mr-small">also on</span> ${p.alsoOn.map(srcPill).join(' ')}` : ''}<div class="mr-small">${esc(p.blurb)} · <a href="${esc(p.thread)}" target="_blank" rel="noopener">thread</a></div></div>
                 <div class="mr-fb"><button class="${p.feedback === 1 ? 'on' : ''}" data-fb="${esc(p.id)}" data-v="1" data-cur="${p.feedback}" aria-label="More like this">${ic('thumbs-up')}</button><button class="${p.feedback === -1 ? 'on' : ''}" data-fb="${esc(p.id)}" data-v="-1" data-cur="${p.feedback}" aria-label="Not for me">${ic('thumbs-down')}</button></div></div>`).join('')
                 + (D.picks.length > 15 && !G.all ? `<p><button class="btn" id="mr-all">Show all ${D.picks.length}</button></p>` : '') : empty('No picks yet. Press Scan now, or switch the radar on.')}</section>
@@ -224,6 +229,7 @@
         $('#mr-digest').onclick = async () => { G.st = await post('api/radar/run', { what: 'digest' }); load(); };
         const lg = $('#mr-log'); if (lg) lg.onclick = () => { (window.__dbv = window.__dbv || {}).want = 'sql:radar_jobs'; };
         el.querySelectorAll('[data-fb]').forEach(b => b.onclick = async () => { const v = +b.dataset.v, cur = +b.dataset.cur; await post('api/radar/feedback', { id: b.dataset.fb, v: cur === v ? 0 : v }); load(); });
+        const wa = $('#mr-wantall'); if (wa) wa.onclick = () => window.CadencePreview.playAll(window.CadencePreview.want.peek());
         const cs = $('#mr-comm-save'); if (cs) cs.onclick = async () => {
           G.comm = await post('api/radar/community', { communities: $('#mr-lemmy').value, tags: $('#mr-tags').value,
             mainstream: { on: $('#mr-ms-on').checked, charts: $('#mr-ms-charts').checked, listeners: +$('#mr-ms-l').value, list: $('#mr-ms-list').value } });
@@ -270,6 +276,7 @@
         .mr-bt{position:relative;height:12px;border-radius:3px;background:color-mix(in srgb,var(--text) 5%,transparent)}.mr-bt i{position:absolute;top:0;bottom:0;border-radius:3px}.mr-bt i.up{background:#3b82f6}.mr-bt i.dn{background:#a3a3a3}
         .mr-graph{width:100%;height:auto;display:block}.mr-edge{stroke:var(--line)}.mr-node{fill:#3b82f6;stroke:var(--panel);stroke-width:2}.mr-node.liked{stroke:#f97316;stroke-width:3}.mr-gl{fill:var(--muted);font:11px Inter,system-ui;pointer-events:none}
         .mr-pick{display:flex;gap:10px;padding:10px 0;border-bottom:1px solid var(--line)}
+        .mr-wl{list-style:none;padding:0;margin:6px 0 0;display:flex;flex-direction:column;gap:4px;font-size:14px}
         .mr-ta{width:100%;font:12px/1.4 ui-monospace,monospace;margin:2px 0 8px;resize:vertical} .mr-chk{display:flex;align-items:center;gap:6px;margin:4px 0} .mr-num{width:110px;padding:2px 6px}
         .mr-art{width:36px;height:36px;border-radius:4px;object-fit:cover;flex:none;background:var(--line)} .mr-art.big{width:56px;height:56px;border-radius:6px}
         .mr-withart{display:flex;align-items:center;gap:8px}.mr-pb{flex:1;min-width:0}
