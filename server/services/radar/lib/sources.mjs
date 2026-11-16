@@ -9,7 +9,7 @@
 // Hype Machine (its public JSON). Plain RSS: music blogs and magazines, read for artist names.
 import { createRequire } from "node:module";
 import { httpJson, httpText } from "./http.mjs";
-import { norm, parseTitle } from "./extract.mjs";
+import { norm, parseTitle, isArtist, cleanName } from "./extract.mjs";
 import { hasAI, claude, parseJson } from "./ai.mjs";
 import { now, DAY } from "./config.mjs";
 
@@ -34,16 +34,19 @@ export const DEFAULT_BLOGS = [
   { name: "Obscure Sound", url: "https://www.obscuresound.com/feed/", tier: "small" },
   { name: "Under the Radar", url: "https://www.undertheradarmag.com/rss.xml", tier: "small" },
   { name: "The Line of Best Fit", url: "https://www.thelineofbestfit.com/feeds/rss", tier: "small" },
+  // 2026-11-16: Canadian campus radio's review feed (user sent the address)
+  { name: "!earshot reviews", url: "https://www.earshot-online.com/reviews/rss.cfm", tier: "small" },
 ];
 // a saved list that is just the old six defaults gets the new ones; a list you changed yourself is left alone
-const OLD_DEFAULTS = ["Pitchfork reviews", "Pitchfork news", "Stereogum", "The Fader", "Gorilla vs. Bear", "Bandcamp Daily"];
+const SIX = ["Pitchfork reviews", "Pitchfork news", "Stereogum", "The Fader", "Gorilla vs. Bear", "Bandcamp Daily"];
+const OLD_DEFAULT_SETS = [SIX, [...SIX, "Post-Trash", "Rosy Overdrive", "Aquarium Drunkard", "Obscure Sound", "Under the Radar", "The Line of Best Fit"]];
 export function blogList(cfg) {
   const b = cfg?.blogs;
-  if (!b?.length || (b.length === OLD_DEFAULTS.length && b.every((x) => OLD_DEFAULTS.includes(x.name)))) return DEFAULT_BLOGS;
+  if (!b?.length || OLD_DEFAULT_SETS.some((set) => b.length === set.length && b.every((x) => set.includes(x.name)))) return DEFAULT_BLOGS;
   return b.map((x) => ({ ...x, tier: x.tier || DEFAULT_BLOGS.find((d) => d.url === x.url || d.name === x.name)?.tier }));
 }
 export const DEFAULT_CFG = {
-  on: { listenbrainz: true, apple: true, audius: true, lastfm: true, bandcamp: true, hypem: true, blogs: true, kexp: true },
+  on: { listenbrainz: true, apple: true, audius: true, lastfm: true, bandcamp: true, hypem: true, blogs: true, kexp: true, earshot: true },
   lbUser: "",            // ListenBrainz username for your own fresh releases
   appleCountry: "ca",
   audiusGenres: ["", "Electronic", "Hip-Hop/Rap", "Alternative"],   // "" = all genres
@@ -178,6 +181,19 @@ export const SOURCES = {
       return kexpSignals(plays);
     },
   },
+  earshot: {
+    // !earshot's National Top 50: what Canadian campus and community radio played most this week. Their published
+    // feed (user sent the address 2026-11-16), fetched at most once a day like a feed reader would.
+    name: "!earshot campus radio", kind: "Campus radio chart", site: "https://www.earshot-online.com/charts/",
+    async fetch() {
+      if (earshotCache.v && Date.now() - earshotCache.at < 20 * 3600e3) return earshotCache.v;
+      if (!parseFeed) throw new Error("feed parser not available");
+      const f = parseFeed(await httpText(EARSHOT_CHART), EARSHOT_CHART), v = earshotChart(f.items);
+      if (!v.length) throw new Error(f.items.length ? "couldn't read the chart's format (first item: " + String(f.items[0].title).slice(0, 80) + ")" : "the chart feed was empty");
+      earshotCache = { at: Date.now(), v };
+      return v;
+    },
+  },
   blogs: {
     name: "Blogs and magazines", kind: "Headlines", site: null,
     async fetch(cfg) {
@@ -193,6 +209,39 @@ export const SOURCES = {
     },
   },
 };
+
+// ---------- !earshot National Top 50 ----------
+const EARSHOT_CHART = "https://www.earshot-online.com/charts/NewTop50Feed.cfm";
+let earshotCache = { at: 0, v: null };
+// The feed's exact layout wasn't visible from the agent workspace, so this reads the common shapes:
+// "12. Artist - Album (Label)", "Artist – Album [Label] *", or the artist in the title and "Album (Label)" in the text.
+// A trailing * or "CC" marks Canadian content.
+export function earshotChart(items) {
+  const out = [], seen = new Set();
+  items.forEach((it, i) => {
+    let text = String(it.title || "").replace(/\s+/g, " ").trim();
+    if (!text) return;
+    let rank = i + 1;
+    const r = text.match(/^#?\s*(\d{1,3})\s*[.):\-–]?\s+/); if (r) { rank = +r[1]; text = text.slice(r[0].length); }
+    const canadian = /\s(\*|\(cc\)|cc)$/i.test(text) || /\bcancon\b|canadian content/i.test(it.summary || "");
+    text = text.replace(/\s(\*|\(cc\)|cc)$/i, "").trim();
+    let label = null;
+    const lb = text.match(/\s*[([]([^()[\]]{2,60})[)\]]\s*$/); if (lb) { label = lb[1].trim(); text = text.slice(0, lb.index).trim(); }
+    let artist = text, album = null;
+    const sep = text.match(/\s[-–—]\s|\s?:\s|\s\/\s/);
+    if (sep) { artist = text.slice(0, sep.index).trim(); album = text.slice(sep.index + sep[0].length).trim(); }
+    else if (it.summary && it.summary.length < 200) {
+      let s = it.summary.trim(); const l2 = s.match(/\s*[([]([^()[\]]{2,60})[)\]]\s*$/); if (l2) { label ||= l2[1].trim(); s = s.slice(0, l2.index).trim(); }
+      album = s.replace(/^album:\s*/i, "") || null;
+    }
+    if (!artist || !isArtist(artist)) return;
+    const uid = "earshot:" + norm(artist) + "|" + norm(album || "");
+    if (seen.has(uid)) return; seen.add(uid);
+    out.push({ uid, artist: cleanName(artist) || artist, title: album, type: "album", url: it.link || "https://www.earshot-online.com/charts/",
+      image: it.image || null, genres: [], rank, metric: Math.max(1, 51 - rank), feed: "National Top 50" + (canadian ? " · Canadian" : ""), date: it.date || null, label });
+  });
+  return out.sort((a, b) => a.rank - b.rank);
+}
 
 // ---------- KEXP: plays → one signal per release ----------
 const ROTATION = { Heavy: 1, Medium: 2, Light: 3, "R/N": 4 };

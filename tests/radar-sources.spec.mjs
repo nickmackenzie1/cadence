@@ -57,3 +57,16 @@ test('KEXP: new music in rotation, recent releases and live sessions count; the 
   expect(S.blogList({ blogs: S.DEFAULT_BLOGS.slice(0, 6).map(({ tier, ...b }) => b) }).map(b => b.name)).toContain('Post-Trash');
   expect(S.blogList({ blogs: [{ name: 'Pitchfork news', url: 'https://pitchfork.com/feed/feed-news/rss' }, { name: 'Mine', url: 'https://x.example/feed' }] }).map(b => b.tier)).toEqual(['big', undefined]);
 });
+
+test('!earshot National Top 50: rank, artist, album, label and Canadian content from the usual title shapes', async () => {
+  const S = await import('../server/services/radar/lib/sources.mjs');
+  const out = S.earshotChart([{ title: '1. Jay Som - Belong (Polyvinyl)' }, { title: '2. Alvvays – Blue Rev [Polyvinyl] *' }, { title: '#3 Fucked Up: One Day (Merge) CC' },
+    { title: 'Various Artists - Compilation (Label)' }, { title: 'Daniel Romano', summary: 'Too Hot To Sleep (You\'ve Changed)' }]);
+  expect(out.map(x => [x.rank, x.artist, x.title, x.label, x.feed])).toEqual([
+    [1, 'Jay Som', 'Belong', 'Polyvinyl', 'National Top 50'], [2, 'Alvvays', 'Blue Rev', 'Polyvinyl', 'National Top 50 · Canadian'],
+    [3, 'Fucked Up', 'One Day', 'Merge', 'National Top 50 · Canadian'], [5, 'Daniel Romano', 'Too Hot To Sleep', "You've Changed", 'National Top 50']]);
+  expect(S.DEFAULT_BLOGS.some(b => b.name === '!earshot reviews')).toBe(true);
+  // a saved list that is exactly the 0.8.0 defaults also gets new defaults
+  const v080 = S.DEFAULT_BLOGS.filter(b => b.name !== '!earshot reviews').map(({ tier, ...b }) => b);
+  expect(S.blogList({ blogs: v080 }).some(b => b.name === '!earshot reviews')).toBe(true);
+});
