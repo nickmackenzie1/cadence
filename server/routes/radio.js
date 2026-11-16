@@ -10,6 +10,19 @@ module.exports = async function radioRoutes(req, res, { url, p }) {
   if (p === '/api/radio/stations') return guard(() => radio.stations());
   if (p === '/api/radio/search') return guard(() => radio.search(url.searchParams.get('q')));
   if (p === '/api/radio/kexp-history') return send(res, 200, require('../services/kexp-log').status());
+  if (p === '/api/radio/kexp') {
+    const K = require('../services/kexp-log'), q = Object.fromEntries(url.searchParams), v = q.view;
+    return guard(async () => {
+      if (v === 'top') return K.top(q);
+      if (v === 'search') return K.search(q);
+      if (v === 'artist') return K.artist(q.artist);
+      if (v === 'song') return K.song(q.artist, q.song);
+      if (v === 'around') return K.around(q.id, q.n);
+      if (v === 'recent') return K.recent({ limit: q.limit, comments: q.comments === '1' });
+      if (v === 'new') return K.newArtists(q);
+      throw Object.assign(new Error('unknown view'), { code: 400 });
+    });
+  }
   if (p === '/api/radio/now') return guard(() => radio.nowPlaying(url.searchParams.get('id')));
   if (p === '/api/radio/stream') {
     try { await radio.relay(String(url.searchParams.get('u') || ''), req, res); }

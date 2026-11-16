@@ -1826,6 +1826,7 @@
   const EMOJI_ICONS = {
     '🎧': 'headphones',
     '📻': 'radio',
+    '🎼': 'list-music',
     '✦': 'sparkles',
     '⛺': 'tent',
     '✈': 'plane',
