@@ -495,7 +495,11 @@ test('grammar: Harper underlines problems in task notes, a click fixes one, word
   await expect(page.locator('.task.open')).toHaveCount(1);   // the editor stayed open
   // a made-up name goes in the dictionary and stops being flagged
   const pos = await notes.evaluate(t => t.value.indexOf('Zorblax') + 2);
-  await notes.evaluate((t, p) => { t.setSelectionRange(p, p); t.dispatchEvent(new MouseEvent('click', { bubbles: true })); }, pos);
+  // under load Harper may not have marked the word yet: click it again until the suggestions open
+  await expect(async () => {
+    await notes.evaluate((t, p) => { t.setSelectionRange(p, p); t.dispatchEvent(new MouseEvent('click', { bubbles: true })); }, pos);
+    await expect(page.locator('.hp-pop [data-dict]')).toBeVisible({ timeout: 1500 });
+  }).toPass({ timeout: 30000 });
   await page.click('.hp-pop [data-dict]');
   await expect(page.locator('.hp-mirror mark:not(.hp-fixed)')).toHaveCount(1);   // only "the the" left
   // code boxes are never checked

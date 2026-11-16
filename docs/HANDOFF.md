@@ -517,3 +517,7 @@ Claims checked against the code 2026-11-13 (all real). Planned in 4 groups; do i
   search in Radio ("when did KEXP last play X?"), the songs before and after, DJ comments, top artists this month,
   and "you'd like these" from the neighbours of songs you saved. Check whether the API's airdate filters allow a
   backfill before building one.
+- 0.8.2: started. `server/services/kexp-log.js` saves every KEXP play to `kexp_plays` in cadence.db (new plays every
+  5 min; backfills the past year one page per 30 s; tries airdate_before, else offset pages). Status:
+  /api/radio/kexp-history, shown at the bottom of Radio. Search UI not built yet. Env: KEXP_LOG=0 to turn off,
+  KEXP_BACKFILL_DAYS (default 365). Off under CI unless KEXP_LOG=1.

@@ -16,10 +16,12 @@
     description: 'Indie, college and community stations, with Amherst Island Radio and the Toronto and Kingston campus stations for local. Search thousands more (Radio Browser, no account needed) and save your own. KEXP shows what song is on. Works in Work and Life and keeps playing everywhere.',
     setup(api) {
       const offMini = P.useMini ? P.useMini(api) : () => {};
-      let stations = null, results = null, searching = false, error = null, nowTimer = 0;
+      let stations = null, results = null, searching = false, error = null, nowTimer = 0, hist = null;
       const mine = () => api.storage.get('mine') || [];
       const setMine = list => api.storage.set('mine', list);
-      const load = async () => { try { stations = await getJson('api/radio/stations'); error = null; } catch (e) { error = e.message; stations = stations || []; } refresh(); };
+      const load = async () => { try { stations = await getJson('api/radio/stations'); error = null; } catch (e) { error = e.message; stations = stations || []; }
+        try { hist = await getJson('api/radio/kexp-history'); } catch { hist = null; } refresh(); };
+      const day = iso => new Date(iso).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
       const refresh = () => { if (api.ui.currentRoute() === 'view-radio') api.ui.refresh(); };
 
       const play = s => {
@@ -68,6 +70,7 @@
           ${results ? (results.length ? `<div class="rd-list">${results.map((s, i) => card(s, { save: true, i })).join('')}</div>` : `<p class="muted">Nothing found. Try another name or a genre.</p>`) : ''}
           <details class="rd-add"><summary>Add a station by its stream address</summary>
             <form id="rd-addf" class="rd-find"><input class="inp" id="rd-an" placeholder="Name" aria-label="Station name"><input class="inp" id="rd-au" type="url" placeholder="https://…" aria-label="Stream address"><button class="btn" type="submit">Add</button></form></details>
+          ${hist && hist.on && hist.plays ? `<p class="muted rd-foot">${api.ui.icon('history')} Your NAS is keeping KEXP's playlist: ${hist.plays.toLocaleString()} songs since ${day(hist.since)}${hist.backfill === 'running' ? ', still filling in the past year' : ''}. Searching it is coming next.</p>` : ''}
           <p class="muted rd-foot">Stream addresses come from Radio Browser, a free community directory, looked up by your NAS.</p>
         </div>`;
         const byId = id => stations.find(s => s.id === id) || my.find(s => s.id === id);

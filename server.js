@@ -15,6 +15,7 @@ const { TLS, caFingerprint, sendCA } = require('./server/lib/tls');
 const { handle } = require('./server/app');
 require('./server/services/push');    // starts the reminder push timer
 require('./server/services/feeds');   // starts the feed history checks
+require('./server/services/kexp-log'); // keeps KEXP's play history (Radio)
 
 const { storage, storageNote } = storageInfo();
 const tag = `data=${DATA_DIR}  storage=${storage}${storageNote ? ' (' + storageNote + ')' : ''}  ai=${API_KEY ? 'on' : 'off'}  auth=${PASSWORD ? 'on' : 'off'}`;

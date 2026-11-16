@@ -9,6 +9,7 @@ module.exports = async function radioRoutes(req, res, { url, p }) {
   const guard = async fn => { try { return send(res, 200, await fn()); } catch (e) { return send(res, e.code === 400 ? 400 : 502, { error: e.message }); } };
   if (p === '/api/radio/stations') return guard(() => radio.stations());
   if (p === '/api/radio/search') return guard(() => radio.search(url.searchParams.get('q')));
+  if (p === '/api/radio/kexp-history') return send(res, 200, require('../services/kexp-log').status());
   if (p === '/api/radio/now') return guard(() => radio.nowPlaying(url.searchParams.get('id')));
   if (p === '/api/radio/stream') {
     try { await radio.relay(String(url.searchParams.get('u') || ''), req, res); }

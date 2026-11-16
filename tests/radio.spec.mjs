@@ -31,6 +31,7 @@ test.afterAll(() => { server && server.kill(); fake && fake.close(); rmSync(dir,
 
 const fixtures = async page => {
   await page.route('**/api/radio/stations', r => r.fulfill({ json: STATIONS() }));
+  await page.route('**/api/radio/kexp-history', r => r.fulfill({ json: { on: true, plays: 12345, since: '2025-11-15T00:00:00Z', backfill: 'running' } }));
   await page.route('**/api/radio/now?id=kexp', r => r.fulfill({ json: { artist: 'Jay Som', song: 'Appointments', album: 'Belong', art: null } }));
   await page.route('**/api/radio/search?*', r => r.fulfill({ json: [{ id: 'rb:1', name: 'CFRC 101.9', place: 'Ontario, Canada', about: 'college, indie', url: STREAM() }] }));
 };
@@ -39,6 +40,7 @@ test('play a station: shared mini player, KEXP now playing, pause and resume to 
   await fixtures(page);
   await page.goto(B + '/#view-radio');
   await expect(page.locator('.rd-st')).toHaveCount(3);
+  await expect(page.locator('.rd-foot').first()).toContainText("keeping KEXP's playlist: 12,345 songs since");
   await expect(page.locator('.rd-st', { hasText: 'Quiet Station' })).toContainText("Couldn't find its stream");
   await expect(page.locator('.rd-st', { hasText: 'Quiet Station' }).locator('[data-rd="play"]')).toBeDisabled();
 
