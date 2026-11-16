@@ -36,10 +36,12 @@ export const DEFAULT_BLOGS = [
   { name: "The Line of Best Fit", url: "https://www.thelineofbestfit.com/feeds/rss", tier: "small" },
   // 2026-11-16: Canadian campus radio's review feed (user sent the address)
   { name: "!earshot reviews", url: "https://www.earshot-online.com/reviews/rss.cfm", tier: "small" },
+  { name: "Drowned in Sound", url: "https://www.drownedinsound.org/rss/", tier: "small" },   // user sent 2026-11-16
 ];
 // a saved list that is just the old six defaults gets the new ones; a list you changed yourself is left alone
 const SIX = ["Pitchfork reviews", "Pitchfork news", "Stereogum", "The Fader", "Gorilla vs. Bear", "Bandcamp Daily"];
-const OLD_DEFAULT_SETS = [SIX, [...SIX, "Post-Trash", "Rosy Overdrive", "Aquarium Drunkard", "Obscure Sound", "Under the Radar", "The Line of Best Fit"]];
+const V080 = [...SIX, "Post-Trash", "Rosy Overdrive", "Aquarium Drunkard", "Obscure Sound", "Under the Radar", "The Line of Best Fit"];
+const OLD_DEFAULT_SETS = [SIX, V080, [...V080, "!earshot reviews"]];
 export function blogList(cfg) {
   const b = cfg?.blogs;
   if (!b?.length || OLD_DEFAULT_SETS.some((set) => b.length === set.length && b.every((x) => set.includes(x.name)))) return DEFAULT_BLOGS;

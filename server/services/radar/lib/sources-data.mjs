@@ -3,6 +3,7 @@ import { now, DAY } from "./config.mjs";
 import * as store from "./store.mjs";
 import { momentum } from "./trends.mjs";
 import { isArtist, cleanName, cleanGenre } from "./extract.mjs";
+import { withArt } from "./coverart.mjs";
 import { SOURCES, DEFAULT_CFG, tagsFor, blogList } from "./sources.mjs";
 
 // how much one signal from each source counts in the combined score (blogs and Hype Machine are the early-buzz signals)
@@ -32,6 +33,8 @@ export function sourcesData(state, snaps) {
     const current = rows.filter((r) => r.last_seen === latest);
     const items = (CHARTS.has(id) ? current.sort((a, b) => (a.feed || "").localeCompare(b.feed || "") || (a.rank ?? 999) - (b.rank ?? 999)) : rows.slice(0, 60))
       .slice(0, 120).map((r) => ({ ...r, was: firstRank.get(id + "|" + r.uid) ?? null }));
+    // album art + release date from MusicBrainz where the source didn't bring a picture (only for releases, first 40)
+    withArt(items.filter((r) => r.title && r.type !== "artist" && r.type !== "session").slice(0, 40));
     return { id, name: src.name, kind: src.kind, site: src.site, on: !!cfg.on[id], needs: src.needs || null, missing: !!(src.needs && !process.env[src.needs]),
       run: runs[id] || null, total: rows.length, week: rows.filter((r) => t - r.first_seen < 7 * DAY).length, chart: CHARTS.has(id), items,
       feeds: [...new Set(items.map((r) => r.feed).filter(Boolean))] };
@@ -65,6 +68,7 @@ export function sourcesData(state, snaps) {
     const n = Object.keys(a.sources).length;
     return { ...a, breadth: n, score: +(a.score * (1 + 0.5 * (n - 1))).toFixed(2), genres: Object.entries(a.genres).sort((x, y) => y[1] - x[1]).slice(0, 3).map(([g]) => g) };
   }).sort((a, b) => b.breadth - a.breadth || b.score - a.score);
+  withArt(combined.slice(0, 40), (a) => a.artist, (a) => a.titles[0]?.title);
 
   // ---- trends ----
   const days = 30, labels = [], idx = new Map();

@@ -4,6 +4,7 @@ import { readJsonl } from "./store.mjs";
 import { riseData, momentum, subLeadTimes, soundsLikeGraph } from "./trends.mjs";
 import { tasteModel } from "./taste.mjs";
 import { trackRecord } from "./discover.mjs";
+import { withArt } from "./coverart.mjs";
 import { loadHistory, historyTrends } from "./history.mjs";
 import { spotifyConnected, hasSpotifyApp, playlistUrl } from "./spotify.mjs";
 import { sourcesData } from "./sources-data.mjs";
@@ -33,7 +34,7 @@ export function dashboardData(state) {
     buzz: momentum(readJsonl("terms", t - 28 * DAY), t, "term", 4).slice(0, 20),
     subLead: subLeadTimes(state.artists).filter((s) => s.samples >= 2).slice(0, 15),
     graph: soundsLikeGraph(state.edges, taste.liked),
-    picks: [...state.picks].filter((p) => !p.artist || isArtist(p.artist)).sort((a, b) => b.ts - a.ts).slice(0, 40).map((p) => ({ ...p, feedback: state.feedback[p.id] || 0, alsoOn: sources.alsoOn?.[p.key] || [] })),
+    picks: withArt([...state.picks].filter((p) => !p.artist || isArtist(p.artist)).sort((a, b) => b.ts - a.ts).slice(0, 40).map((p) => ({ ...p, feedback: state.feedback[p.id] || 0, alsoOn: sources.alsoOn?.[p.key] || [] })), (p) => p.artist, (p) => p.song),
     picksThisWeek: state.picks.filter((p) => t - p.ts < 7 * DAY).length,
     artistsTracked: Object.keys(state.artists).length,
     subs: state.subs || DEFAULT_SUBS,

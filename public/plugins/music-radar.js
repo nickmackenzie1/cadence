@@ -67,6 +67,10 @@
   const day = ts => ts ? new Date(ts * 1000).toLocaleDateString([], { month: 'short', day: 'numeric' }) : '';
   const link = (u, t) => u ? `<a href="${esc(u)}" target="_blank" rel="noopener">${t}</a>` : t;
 
+  // album art (MusicBrainz / Cover Art Archive via the NAS, or the source's own) and "Album · Oct 2025"
+  const artImg = x => x.image ? `<img class="mr-art" src="${esc(x.image)}" alt="" loading="lazy" onerror="this.remove()">` : '';
+  const relNote = x => { const r = x.release; if (!r || !r.date) return ''; const d = new Date(r.date.length === 4 ? r.date + '-01-01' : r.date.length === 7 ? r.date + '-01' : r.date);
+    return isNaN(d) ? '' : ` <span class="mr-small">${esc(r.type || 'Release')} · ${esc(d.toLocaleDateString(undefined, r.date.length === 4 ? { year: 'numeric' } : { month: 'short', year: 'numeric' }))}</span>`; };
   // ---- other sources: tabs for combined + each source ----
   function sourcesCard(S0, ic, G) {
     if (!S0 || !S0.available) return `<section class="mr-card w12"><h3>Other sources</h3>${empty(esc((S0 && S0.note) || 'Other sources need the database on the NAS.'))}</section>`;
@@ -77,7 +81,7 @@
       const rows = S0.combined.filter(a => !G.multi || a.breadth >= 2), max = Math.max(1, ...rows.map(a => a.score));
       body = `<div class="mr-row" style="margin-bottom:8px"><label class="mr-small"><input type="checkbox" id="mr-multi" ${G.multi ? 'checked' : ''}> Only artists on 2 or more sources (${S0.multi})</label></div>
         ${rows.length ? `<table class="mr-t"><tr><th>Artist</th><th>Where</th><th>Heard</th><th class="n">Score</th></tr>${rows.slice(0, 40).map(a => `<tr>
-          <td><b>${esc(a.artist)}</b>${a.genres.length ? ` <span class="mr-small">${esc(a.genres.join(', '))}</span>` : ''}<div class="mr-small">${a.titles.map(x => link(x.url, esc(x.title))).join(' · ')}</div></td>
+          <td><div class="mr-withart">${artImg(a)}<div><b>${esc(a.artist)}</b>${a.genres.length ? ` <span class="mr-small">${esc(a.genres.join(', '))}</span>` : ''}<div class="mr-small">${a.titles.map(x => link(x.url, esc(x.title))).join(' · ')}${relNote(a)}</div></div></div></td>
           <td>${Object.keys(a.sources).map(srcPill).join(' ')}</td><td class="mr-small">${esc(day(a.first))}</td>
           <td class="n"><span class="mr-score"><i style="width:${Math.round(a.score / max * 100)}%"></i></span>${Math.round(a.score)}</td></tr>`).join('')}</table>`
           : empty(G.multi ? 'No artist is on two sources yet. Untick the box to see everything.' : 'Nothing collected yet. Press Check sources.')}`;
@@ -88,7 +92,7 @@
       body = `<p class="mr-sub">${esc(cur.kind)} · ${status}${cur.site ? ` · ${link(cur.site, 'Open site')}` : ''}${cur.on ? '' : ' · switched off in Sources'}</p>
         ${cur.feeds.length > 1 ? `<div class="mr-chips">${['', ...cur.feeds].map(f => `<button class="mr-chip ${G.feed === f ? 'on' : ''}" data-feed="${esc(f)}">${esc(f || 'All')}</button>`).join('')}</div>` : ''}
         ${items.length ? `<table class="mr-t"><tr>${cur.chart ? '<th class="n">#</th>' : ''}<th>Artist</th><th>Title</th><th>Where</th><th>${cur.chart ? 'Move' : 'First seen'}</th></tr>${items.slice(0, 80).map(x => `<tr>
-          ${cur.chart ? `<td class="n">${x.rank ?? ''}</td>` : ''}<td><b>${esc(x.artist)}</b></td><td>${link(x.url, esc(x.title || ''))}${x.type && x.type !== 'track' && x.type !== 'artist' ? ` <span class="chip">${esc(x.type)}</span>` : ''}</td>
+          ${cur.chart ? `<td class="n">${x.rank ?? ''}</td>` : ''}<td><div class="mr-withart">${artImg(x)}<b>${esc(x.artist)}</b></div></td><td>${link(x.url, esc(x.title || ''))}${x.type && x.type !== 'track' && x.type !== 'artist' ? ` <span class="chip">${esc(x.type)}</span>` : ''}${relNote(x)}</td>
           <td class="mr-small">${esc(x.feed || '')}</td>
           <td class="mr-small">${cur.chart ? (x.was == null || x.was === x.rank ? (x.seen > 1 ? 'steady' : 'new') : x.was > x.rank ? `up ${x.was - x.rank}` : `down ${x.rank - x.was}`) : esc(day(x.first_seen))}</td></tr>`).join('')}</table>`
           : empty(cur.missing ? 'Add the key on the NAS to use this source.' : 'Nothing from this source yet.')}`;
@@ -183,7 +187,7 @@
             <section class="mr-card w12"><h3>"Sounds like" map</h3><p class="mr-sub">Comparisons people make in comments. Bigger dot = compared more often. Ringed = artists you liked. Hover a dot for who it's compared with.</p>${graph(D.graph)}</section>
             ${sourcesCard(D.sources, ic, G)}
             <section class="mr-card w8"><h3>Recent picks</h3><p class="mr-sub">Thumbs up and down teach the radar your taste</p>
-              ${D.picks.length ? picks.map(p => `<div class="mr-pick"><div class="mr-pb"><a href="${esc(p.link)}" target="_blank" rel="noopener"><b>${esc(p.artist)}</b> — ${esc(p.song || 'recommended in comments')}</a>${p.type && p.type !== 'track' ? ` <span class="chip">${esc(p.type)}</span>` : ''}
+              ${D.picks.length ? picks.map(p => `<div class="mr-pick">${artImg(p).replace('mr-art', 'mr-art big')}<div class="mr-pb"><a href="${esc(p.link)}" target="_blank" rel="noopener"><b>${esc(p.artist)}</b> — ${esc(p.song || 'recommended in comments')}</a>${p.type && p.type !== 'track' ? ` <span class="chip">${esc(p.type)}</span>` : ''}${relNote(p)}
                   ${(p.genres || []).slice(0, 3).map(g => `<span class="chip">${esc(g)}</span>`).join(' ')}${(p.alsoOn || []).length ? ` <span class="mr-small">also on</span> ${p.alsoOn.map(srcPill).join(' ')}` : ''}<div class="mr-small">${esc(p.blurb)} · <a href="${esc(p.thread)}" target="_blank" rel="noopener">thread</a></div></div>
                 <div class="mr-fb"><button class="${p.feedback === 1 ? 'on' : ''}" data-fb="${esc(p.id)}" data-v="1" data-cur="${p.feedback}" aria-label="More like this">${ic('thumbs-up')}</button><button class="${p.feedback === -1 ? 'on' : ''}" data-fb="${esc(p.id)}" data-v="-1" data-cur="${p.feedback}" aria-label="Not for me">${ic('thumbs-down')}</button></div></div>`).join('')
                 + (D.picks.length > 15 && !G.all ? `<p><button class="btn" id="mr-all">Show all ${D.picks.length}</button></p>` : '') : empty('No picks yet. Press Scan now, or switch the radar on.')}</section>
@@ -270,7 +274,9 @@
         .mr-bl{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.mr-bv{text-align:right;color:var(--muted);font-variant-numeric:tabular-nums}
         .mr-bt{position:relative;height:12px;border-radius:3px;background:color-mix(in srgb,var(--text) 5%,transparent)}.mr-bt i{position:absolute;top:0;bottom:0;border-radius:3px}.mr-bt i.up{background:#3b82f6}.mr-bt i.dn{background:#a3a3a3}
         .mr-graph{width:100%;height:auto;display:block}.mr-edge{stroke:var(--line)}.mr-node{fill:#3b82f6;stroke:var(--panel);stroke-width:2}.mr-node.liked{stroke:#f97316;stroke-width:3}.mr-gl{fill:var(--muted);font:11px Inter,system-ui;pointer-events:none}
-        .mr-pick{display:flex;gap:10px;padding:10px 0;border-bottom:1px solid var(--line)}.mr-pb{flex:1;min-width:0}
+        .mr-pick{display:flex;gap:10px;padding:10px 0;border-bottom:1px solid var(--line)}
+        .mr-art{width:36px;height:36px;border-radius:4px;object-fit:cover;flex:none;background:var(--line)} .mr-art.big{width:56px;height:56px;border-radius:6px}
+        .mr-withart{display:flex;align-items:center;gap:8px}.mr-pb{flex:1;min-width:0}
         .mr-fb{display:flex;gap:4px;align-items:flex-start}.mr-fb button{border:1px solid var(--line);background:var(--panel);border-radius:var(--r-m);width:34px;height:32px;display:grid;place-items:center;cursor:pointer;color:var(--muted)}
         .mr-fb button svg{width:15px;height:15px}.mr-fb button.on{border-color:var(--accent);color:var(--accent);background:var(--accent-soft)}
         .mr-chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}.mr-sc{display:inline-flex;align-items:center;gap:2px;border:1px solid var(--line);border-radius:999px;padding:2px 2px 2px 10px;font-size:13px}

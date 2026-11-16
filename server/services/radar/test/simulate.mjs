@@ -3,6 +3,7 @@
 //   RADAR_DATA=/tmp/radar-sim node test/simulate.mjs && RADAR_DATA=/tmp/radar-sim node server.mjs
 import fs from "node:fs";
 import path from "node:path";
+process.env.RADAR_MB ??= "0";   // no MusicBrainz lookups while simulating (they would keep the run waiting on the network)
 if (!process.env.RADAR_DATA) { console.error("Set RADAR_DATA to a scratch folder first."); process.exit(1); }
 fs.rmSync(process.env.RADAR_DATA, { recursive: true, force: true });
 // the radar tables go in their own scratch database unless RADAR_DB says otherwise (never your real cadence.db)

@@ -67,6 +67,7 @@ test('!earshot National Top 50: rank, artist, album, label and Canadian content 
     [3, 'Fucked Up', 'One Day', 'Merge', 'National Top 50 · Canadian'], [5, 'Daniel Romano', 'Too Hot To Sleep', "You've Changed", 'National Top 50']]);
   expect(S.DEFAULT_BLOGS.some(b => b.name === '!earshot reviews')).toBe(true);
   // a saved list that is exactly the 0.8.0 defaults also gets new defaults
-  const v080 = S.DEFAULT_BLOGS.filter(b => b.name !== '!earshot reviews').map(({ tier, ...b }) => b);
+  const v080 = S.DEFAULT_BLOGS.filter(b => !['!earshot reviews', 'Drowned in Sound'].includes(b.name)).map(({ tier, ...b }) => b);
   expect(S.blogList({ blogs: v080 }).some(b => b.name === '!earshot reviews')).toBe(true);
+  expect(S.blogList({ blogs: v080 }).some(b => b.name === 'Drowned in Sound')).toBe(true);
 });
