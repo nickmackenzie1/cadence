@@ -2454,8 +2454,20 @@
         fix(document);
       });
   })();
+  /* Put the cursor in a box a moment after it appears, unless you've already clicked or started typing somewhere
+     else by then (2026-11-16: the late focus used to pull the cursor away mid-typing, so text landed in the wrong box). */
+  function focusLater(get, ms = 30) {
+    const before = document.activeElement;
+    setTimeout(() => {
+      const now = document.activeElement;
+      if (now && now !== before && now !== document.body && now.matches && now.matches('input,textarea,select,[contenteditable="true"]')) return;
+      const el = typeof get === 'function' ? get() : typeof get === 'string' ? document.querySelector(get) : get;
+      if (el && el.focus) el.focus();
+    }, ms);
+  }
   /* shared helpers for plugins (so each plugin doesn't carry its own copy) */
   window.CadenceKit = Object.freeze({
+    focusLater,
     esc: s =>
       String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]),
     css: (id, text) => {
@@ -3777,7 +3789,7 @@
     $('#st-text').onkeydown = e => {
       if (e.key === 'Enter') save2();
     };
-    setTimeout(() => $('#st-text')?.focus(), 30);
+    focusLater(() => $('#st-text'), 30);
   }
   function openTask(id) {
     if (selTask === id) return;
@@ -4163,7 +4175,7 @@
           if (q) q.focus();
           else {
             go('inbox');
-            setTimeout(() => $('#qa') && $('#qa').focus(), 30);
+            focusLater(() => $('#qa'), 30);
           }
         }
       },
@@ -4502,7 +4514,7 @@
       emit('client:update', clone(p));
       done(p.id);
     };
-    setTimeout(() => $('#pj-name')?.focus(), 30);
+    focusLater(() => $('#pj-name'), 30);
     if (c) {
       $('#pj-arch').onclick = () => {
         c.archived = true;
@@ -4640,7 +4652,7 @@
       })
     );
     refresh();
-    setTimeout(() => (c ? $('#cl-domain') : $('#cl-name'))?.focus(), 20);
+    focusLater(() => (c ? $('#cl-domain') : $('#cl-name')), 20);
   }
 
   /* ---------- settings ---------- */

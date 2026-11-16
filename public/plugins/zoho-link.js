@@ -67,7 +67,7 @@ Cadence.registerPlugin({
         `<button class="btn" data-act="close-modal">Cancel</button><button class="btn primary" id="zl-save">Link</button>`);
       const save = () => { const v = document.getElementById('zl-url').value.trim(), z = parse(v); if (!z) { document.getElementById('zl-msg').textContent = 'Paste a full link starting with https://'; return; } api.tasks.update(task.id, { ref: z, zoho: null }); api.ui.close(); api.ui.refresh(); };
       document.getElementById('zl-save').onclick = save; document.getElementById('zl-url').onkeydown = e => { if (e.key === 'Enter') save(); };
-      setTimeout(() => document.getElementById('zl-url')?.focus(), 30);
+      window.CadenceKit.focusLater(() => document.getElementById('zl-url'), 30);
     }
     api.taskActions.add({ label: 'Link a Zoho task, email or page…', run: t => link(t) });
 

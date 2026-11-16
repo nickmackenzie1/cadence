@@ -116,7 +116,7 @@
         const order = [...AISLES.map(a => a[0]), 'Other'].filter(a => groups[a]);
         el.innerHTML = `<div class="kl-add"><input class="inp" id="kl-in" placeholder="Add an item (milk, 2 lemons…)"><button class="btn" id="kl-clr">Clear checked</button><button class="btn primary" id="kl-task">Make a Groceries task</button></div>
           ${order.map(a => `<div class="kl-g"><div class="sect">${esc(a)}</div>${groups[a].sort((x, y) => x.done - y.done).map(x => `<label class="kl-it ${x.done ? 'done' : ''}"><input type="checkbox" data-id="${esc(x.id)}" ${x.done ? 'checked' : ''}><span>${esc(x.name)}</span>${x.from ? `<em>${esc(x.from)}</em>` : ''}</label>`).join('')}</div>`).join('') || '<div class="muted" style="padding:16px 0">The list is empty.</div>'}`;
-        const inp = el.querySelector('#kl-in'); inp.onkeydown = e => { if (e.key === 'Enter' && inp.value.trim()) { addToList(inp.value.split(/,\s*/)); api.ui.refresh(); setTimeout(() => document.getElementById('kl-in') && document.getElementById('kl-in').focus(), 30); } };
+        const inp = el.querySelector('#kl-in'); inp.onkeydown = e => { if (e.key === 'Enter' && inp.value.trim()) { addToList(inp.value.split(/,\s*/)); api.ui.refresh(); window.CadenceKit.focusLater(() => document.getElementById('kl-in'), 30); } };
         el.querySelectorAll('.kl-it input').forEach(c => c.onchange = () => { setList(list().map(x => x.id === c.dataset.id ? { ...x, done: c.checked } : x)); c.closest('.kl-it').classList.toggle('done', c.checked); });
         el.querySelector('#kl-clr').onclick = () => { setList(list().filter(x => !x.done)); api.ui.refresh(); };
         el.querySelector('#kl-task').onclick = () => { const open = list().filter(x => !x.done); if (!open.length) return api.ui.toast('Nothing on the list');
@@ -135,7 +135,7 @@
         el.querySelector('.kw').onclick = () => { if (r) show(r.id); else api.ui.navigate('view-kitchen'); }; } });
       api.commands.add({ title: 'Kitchen: meal plan', run: () => { api.storage.set('tab', 'plan'); api.ui.navigate('view-kitchen'); } });
       api.commands.add({ title: 'Kitchen: shopping list', run: () => { api.storage.set('tab', 'list'); api.ui.navigate('view-kitchen'); } });
-      api.commands.add({ title: 'Add a recipe from a link', run: () => { api.storage.set('tab', 'recipes'); api.ui.navigate('view-kitchen'); setTimeout(() => document.getElementById('kr-url') && document.getElementById('kr-url').focus(), 120); } });
+      api.commands.add({ title: 'Add a recipe from a link', run: () => { api.storage.set('tab', 'recipes'); api.ui.navigate('view-kitchen'); window.CadenceKit.focusLater(() => document.getElementById('kr-url'), 120); } });
       window.__kitchen = { addToList, fromLink, scale, aisleOf, tonight: () => { const e = (plan()[api.util.todayKey()] || {}).dinner, r = e && e.recipe && R(e.recipe); return e ? { name: r ? r.name : e.text, image: r && r.image } : null; }, listCount: () => list().filter(x => !x.done).length };
       css('kt-css', `.kt-tabs{margin-bottom:14px}
         .kp-bar{display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap}.kp-bar .sp{flex:1}.kp-ml{font-size:13px;display:inline-flex;align-items:center;gap:4px;color:var(--muted)}

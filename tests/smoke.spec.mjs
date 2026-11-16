@@ -300,8 +300,9 @@ test('themes screen: search, light/dark, an index that jumps, Adjust tucked away
     const card = page.locator(`.thg-sec .th-card[data-th="${id}"]`);
     await card.scrollIntoViewIfNeeded(); await page.mouse.wheel(0, 1); await page.waitForTimeout(150);
     const y0 = (await card.boundingBox()).y;
-    await card.click(); await page.waitForTimeout(400);
-    expect(Math.abs((await card.boundingBox()).y - y0), id).toBeLessThan(4);
+    await card.click();
+    // the page puts the card back where it was once the new theme has laid out (slower on a busy machine)
+    await expect.poll(async () => Math.abs((await card.boundingBox()).y - y0), { message: id, timeout: 5000 }).toBeLessThan(4);
     await expect(card).toHaveClass(/\bon\b/);
     await expect(page.locator('#thg-now h2')).toHaveText(await page.evaluate(id => CadenceThemes.list().find(t => t.id === id).name, id));
   }

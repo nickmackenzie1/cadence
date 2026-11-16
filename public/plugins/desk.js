@@ -79,7 +79,7 @@ Cadence.registerPlugin({
         api.ui.close(); api.ui.refresh();
       };
       const rm = document.getElementById('dk-rm'); if (rm) rm.onclick = () => { api.tasks.update(id, { ticket: null, tags: (t.tags || []).filter(x => !['desk', 'zoho-support', 'support'].includes(x)) }); api.ui.close(); api.ui.refresh(); };
-      setTimeout(() => document.getElementById('dk-no')?.focus(), 30);
+      window.CadenceKit.focusLater(() => document.getElementById('dk-no'), 30);
     }
     D.edit = edit;
     api.taskActions.add({ label: 'Support ticket…', run: t => edit(t.id) });

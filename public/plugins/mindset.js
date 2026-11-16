@@ -102,7 +102,7 @@
         document.getElementById('fy-ok').onclick = () => done(document.getElementById('fy-n').value.trim());
         document.getElementById('fy-skip').onclick = () => done('');
         document.getElementById('fy-undo').onclick = () => { asking = false; api.ui.close(); due.set(t.id, prev); api.tasks.update(t.id, { dueDate: prev }); api.ui.toast('Kept the original date'); };
-        setTimeout(() => document.getElementById('fy-n') && document.getElementById('fy-n').focus(), 50);
+        window.CadenceKit.focusLater(() => document.getElementById('fy-n'), 50);
       });
       const pending = t => { const e = (t.excuses || []).slice(-1)[0]; return e && !e.judged && t.dueDate && t.dueDate <= api.util.todayKey() ? e : null; };
       api.chips.add((t, preview) => { if (preview || t.done) return ''; const e = pending(t); return e ? `<span class="chip fy-chip" title="Past you said: ${esc(e.note)}">${api.ui.icon('message-circle')}Past you left a note</span>` : ''; });

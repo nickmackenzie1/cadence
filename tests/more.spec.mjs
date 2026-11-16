@@ -179,6 +179,8 @@ test('desk toys: aquarium fish from focus, invoice radar, desk plant grows, week
 
 test('games: roulette picks a task and locks, rival keeps score, quests unlock steps, bucket list sorts by years left', async ({ page }) => {
   const errs = await open(page);
+  // reduced motion: the wheel stops at once instead of a 4 s spin (a busy test machine could run that timer very late)
+  await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.evaluate(() => { for (const t of ['Alpha', 'Beta', 'Gamma']) window.T.tasks.add({ title: t }); window.__roulette.spin(); });
   await page.click('#rl-go');
   await expect(page.locator('#rl-res b')).not.toBeEmpty({ timeout: 8000 });

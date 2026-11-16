@@ -73,7 +73,7 @@
         urlIn.addEventListener('input', show); lab.addEventListener('input', () => auto = false);
         lab.addEventListener('keydown', e => { if (e.key === 'Enter') $('#lk-save').click(); });
         urlIn.addEventListener('keydown', e => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey || !urlIn.value.includes('\n') && !e.shiftKey)) { e.preventDefault(); $('#lk-save').click(); } });
-        show(); setTimeout(() => urlIn.focus(), 20);
+        show(); window.CadenceKit.focusLater(urlIn, 20);
         $('#lk-save').onclick = () => {
           const lines = urlIn.value.split(/\s*\n\s*/).map(s => s.trim()).filter(Boolean); if (!lines.length) return;
           const links = (api.clients.get(c.id).links || []).slice();

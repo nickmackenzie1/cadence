@@ -91,7 +91,7 @@
 
       /* ================= 3. radial menu ================= */
       const ITEMS = () => [
-        { ic: 'plus', label: 'Add task', run: () => { api.ui.navigate('today'); setTimeout(() => document.getElementById('qa') && document.getElementById('qa').focus(), 80); } },
+        { ic: 'plus', label: 'Add task', run: () => { api.ui.navigate('today'); window.CadenceKit.focusLater(() => document.getElementById('qa'), 80); } },
         { ic: 'sun', label: 'Today', run: () => api.ui.navigate('today') },
         { ic: 'calendar', label: 'Upcoming', run: () => api.ui.navigate('upcoming') },
         { ic: 'hourglass', label: 'Waiting', run: () => api.ui.navigate('waiting') },

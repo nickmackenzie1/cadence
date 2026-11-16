@@ -151,8 +151,11 @@ test('links on tasks: Zoho Projects, Gmail and plain links become cards', async 
   expect(by('gmail')).toMatchObject({ title: 'Reply to Sam', z: { kind: 'Email' } });
   expect(by('web')).toMatchObject({ title: 'Read the guide', z: { host: 'example.com' } });
   await expect(page.locator('.task a.chip.zl-chip[href*="mail.google.com"]')).toBeVisible();
-  await page.locator('.dp:not(.out)').waitFor({ timeout: 3000 }).catch(() => {}); await page.waitForTimeout(100);
-  await page.keyboard.press('Escape');   // the 'pick a date?' calendar after a dateless quick add
+  // each dateless quick add offers a calendar a moment later: wait for the last one's, close it, and make sure it's gone
+  // (waiting for any calendar let a late one open on top of the task we click next)
+  await expect(page.locator('.dp:not(.out)')).toContainText('Read the guide', { timeout: 10000 });
+  await page.keyboard.press('Escape');
+  await expect(page.locator('.dp')).toHaveCount(0);
   await page.click('#view .task .t-title >> text=Reply to Sam');
   await expect(page.locator('.task.open .zl-card')).toContainText('Gmail email');
   await expect(page.locator('.task.open .zl-card a.btn')).toHaveAttribute('href', /mail\.google\.com/);

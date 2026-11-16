@@ -21,7 +21,7 @@
       `${extraBtns}<button class="btn primary" id="lk-ok">Save</button>`);
     document.getElementById('lk-ok').onclick = () => { const out = { ...v }; for (const x of fields) { const el = document.getElementById('lk-' + x.k); out[x.k] = x.type === 'check' ? el.checked : x.type === 'number' ? (el.value === '' ? null : +el.value) : el.value.trim(); }
       const req = fields.find(x => x.req && !out[x.k]); if (req) return document.getElementById('lk-' + req.k).focus(); api.ui.close(); onSave(out); };
-    setTimeout(() => { const first = document.querySelector('.lk-form input,.lk-form textarea'); first && first.focus(); }, 30);
+    window.CadenceKit.focusLater(() => document.querySelector('.lk-form input,.lk-form textarea'), 30);
   }
   // an area in the Life space (created if missing)
   // which area things like "Family" or "Money" go in: asked once (an existing area, a new one, or none), remembered

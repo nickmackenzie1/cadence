@@ -74,7 +74,7 @@
         api.island.show({ icon: '❤️', color: '#e11d48', title: 'A little thing', sub: KIND[Math.floor(Math.random() * KIND.length)], log: false, ms: 9000 }); }, 25000);
       window.__partner = { remind, nextOcc };
       api.views.add({ id: 'partner', title: 'Partner', icon: '❤️', subtitle: 'Mental load, date night, gift ideas, weekly check-in', render: view });
-      api.commands.add({ title: 'Save a gift idea', run: () => { api.storage.set('tab', 'gifts'); api.ui.navigate('view-partner'); setTimeout(() => document.getElementById('pt-gift') && document.getElementById('pt-gift').focus(), 100); } });
+      api.commands.add({ title: 'Save a gift idea', run: () => { api.storage.set('tab', 'gifts'); api.ui.navigate('view-partner'); window.CadenceKit.focusLater(() => document.getElementById('pt-gift'), 100); } });
       K.css('pt-css', `.pt-agenda{display:grid;grid-template-columns:1fr 1fr;gap:8px}.pt-agenda label{font-size:13px;color:var(--muted);display:flex;flex-direction:column;gap:4px}`);
     },
   });
