@@ -33,6 +33,7 @@ module.exports = async function radarRoutes(req, res, { url, p }) {
   }
   if (p === '/api/radar/artist') { const d = await radar.artist(url.searchParams.get('name')); return d ? send(res, 200, d) : send(res, 400, { error: 'Which artist?' }); }
   if (p === '/api/radar/preview') { try { return send(res, 200, await radar.preview(Object.fromEntries(url.searchParams))); } catch (e) { return send(res, e.code === 400 ? 400 : 502, { error: e.message }); } }
+  if (p === '/api/radar/stg') return send(res, 200, await radar.stg(req.method === 'POST' ? { ...(await body()), year: url.searchParams.get('year') } : { year: url.searchParams.get('year') }));
   if (p === '/api/radar/want') return send(res, 200, await radar.want(req.method === 'POST' ? await body() : null));
   if (p === '/api/radar/community') return send(res, 200, await radar.community(req.method === 'POST' ? await body() : null));
   if (p === '/api/radar/feed.xml' && req.method === 'GET') return send(res, 200, await radar.rss(baseOf(req)), 'application/rss+xml; charset=utf-8');

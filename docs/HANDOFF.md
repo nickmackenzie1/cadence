@@ -97,3 +97,8 @@ Cleaned up 2026-11-16 (0.8.2): items already built were moved out after checking
   most talked about and picks currently come only from the community scan; the all-sources score (blogs, KEXP, earshot,
   charts, Bandcamp, Hype Machine…) only drives the "All sources combined" table and source trends. Make one combined
   daily buzz score per artist (and per genre) from all signals and drive the front page from it (fits #98).
+- **(2026-11-16, user)** Said the Gramophone's yearly best-of lists (2005 onward): top songs, albums of the year and
+  the artists he keeps coming back to. Shipped in 0.14.1 (`radar/lib/stg.mjs`, page `#view-stg`, artist-page section).
+  Only the 2023 page layout was checked (from a copy the user sent); 2005-2007 use older page names and may read
+  differently: the page lists any year that didn't read. Feeds: Under the Radar `/site/rss` (from the user) and
+  Said the Gramophone via `feeds.feedburner.com/saidthegramophone/stg` (linked in the blog's footer).

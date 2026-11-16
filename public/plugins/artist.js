@@ -61,6 +61,39 @@
         return `<span class="pv-btns"><button class="pv-b" data-pv data-a="${E(artist)}" data-t="${E(title || '')}" aria-label="Play a preview of ${E(title || artist)}" title="Play a 30-second preview">${api.ui.icon('play')}</button><button class="pv-b${on ? ' on' : ''}" data-want data-a="${E(artist)}" data-t="${E(title || '')}" data-type="${E(type || '')}" data-from="${E(from || '')}" aria-label="${on ? 'Remove from' : 'Save to'} Want to hear" title="${on ? 'In Want to hear' : 'Save to Want to hear'}">${api.ui.icon(on ? 'bookmark-check' : 'bookmark-plus')}</button></span>`; };
       const onWant = () => { api.ui.refreshWidgets && api.ui.refreshWidgets(); const r = api.ui.currentRoute(); if (r === 'view-radar' || r === 'view-artist' || r === 'view-want') api.ui.refresh(); };
       window.addEventListener('cadence-want', onWant);
+      // Said the Gramophone: Sean's 100 favourite songs and favourite albums of every year since 2005, read from the blog
+      const SG = { d: null, year: null, tab: 'artists', at: 0 };
+      const sgLoad = async (year) => { try { SG.d = await (await fetch('api/radar/stg' + (year ? '?year=' + year : ''))).json(); SG.at = Date.now(); } catch (e) { SG.d = SG.d || { err: true }; }
+        if (api.ui.currentRoute() === 'view-stg') api.ui.refresh();
+        if (SG.d && SG.d.status && SG.d.status.running) setTimeout(() => api.ui.currentRoute() === 'view-stg' && sgLoad(SG.year), 8000); };
+      api.views.add({ id: 'stg', title: 'Said the Gramophone', icon: '🎼', subtitle: 'Best songs and albums of every year, from the blog', render: el => {
+        const d = SG.d;
+        if (!d || Date.now() - SG.at > 60e3) { sgLoad(SG.year); if (!d) { el.innerHTML = '<p class="muted">Loading…</p>'; return; } }
+        if (d.err) { el.innerHTML = '<p class="muted">The NAS didn\'t answer. Try again in a moment.</p>'; return; }
+        const st = d.status, errs = Object.entries(st.errors || {});
+        const head = `<p class="muted">${st.years.length ? `${st.years.length} years, ${st.songs.toLocaleString()} songs and ${st.albums} albums of the year` : 'Nothing read yet'}${st.running ? ' · reading the archive now, a page every few seconds…' : ''}
+          ${!st.running ? ` · <button class="linkish" id="sg-again">Look again</button>` : ''}</p>
+          ${!d.on && !st.years.length ? '<p class="muted">Reading the archive is switched off on this NAS (STG=0).</p>' : ''}
+          ${errs.length ? `<details class="sg-err"><summary>${errs.length} year${errs.length === 1 ? '' : 's'} didn't read</summary><ul>${errs.map(([y, m]) => `<li>${y}: ${E(m)}</li>`).join('')}</ul></details>` : ''}`;
+        const tabs = `<div class="sg-tabs"><button class="sg-c${SG.tab === 'artists' ? ' on' : ''}" data-sgt="artists">Most-loved artists</button>${d.years.map(y => `<button class="sg-c${SG.tab === 'year' && d.year === y ? ' on' : ''}" data-sgy="${y}">${y}</button>`).join('')}</div>`;
+        let body = '';
+        if (SG.tab === 'artists') {
+          body = d.artists.length ? `<p class="muted">Artists who keep coming back: how many years they made his lists (songs or albums), and their best spot.</p>
+            <ul class="sg-l">${d.artists.map(a => `<li><span class="sg-n">${a.n}</span><div><a class="ar-link" href="#view-artist" data-artist="${E(a.artist)}"><b>${E(a.artist)}</b></a>
+              <span class="muted">${a.years.join(', ')}${a.best ? ` · best #${a.best}` : ''}${a.albums.length ? ` · ${a.albums.length} album${a.albums.length === 1 ? '' : 's'} of the year` : ''}</span></div>${window.CadencePreview.buttons(a.artist, (a.songs[0] || {}).title, null, 'Said the Gramophone')}</li>`).join('')}</ul>` : '<p class="muted">Once a few years are read, the artists he loves year after year show up here.</p>';
+        } else if (d.list) {
+          const L = d.list;
+          body = `<p class="muted"><a href="${E(L.url)}" target="_blank" rel="noopener">Read the ${d.year} post</a> · <button class="linkish" id="sg-all">${api.ui.icon('play')}Play previews in order</button></p>
+            ${L.albums.length ? `<h3>Favourite albums of ${d.year}</h3><ul class="sg-l">${L.albums.map(a => `<li>${window.CadencePreview.buttons(a.artist, a.title, 'album', 'Said the Gramophone ' + d.year)}<div><a class="ar-link" href="#view-artist" data-artist="${E(a.artist)}"><b>${E(a.artist)}</b></a> — ${E(a.title)}</div></li>`).join('')}</ul>` : ''}
+            <h3>Best songs of ${d.year}</h3><ol class="sg-l sg-songs">${L.songs.map(x => `<li><span class="sg-n">${x.rank}</span>${window.CadencePreview.buttons(x.artist, x.title, 'song', 'Said the Gramophone ' + d.year)}<div><a class="ar-link" href="#view-artist" data-artist="${E(x.artist)}"><b>${E(x.artist)}</b></a> — ${E(x.title)}</div></li>`).join('')}</ol>`;
+        }
+        el.innerHTML = `<div class="sg">${head}${tabs}${body}</div>`;
+        el.querySelectorAll('[data-sgy]').forEach(b => b.onclick = () => { SG.tab = 'year'; SG.year = +b.dataset.sgy; SG.at = 0; sgLoad(SG.year); });
+        el.querySelectorAll('[data-sgt]').forEach(b => b.onclick = () => { SG.tab = 'artists'; api.ui.refresh(); });
+        const again = el.querySelector('#sg-again'); if (again) again.onclick = async () => { await fetch('api/radar/stg', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ refresh: 'missing' }) }); api.ui.toast('Looking through the archive again'); setTimeout(() => sgLoad(SG.year), 1500); };
+        const all = el.querySelector('#sg-all'); if (all) all.onclick = () => window.CadencePreview.playAll(d.list.songs.map(x => ({ artist: x.artist, title: x.title })));
+      } });
+
       // the Want to hear page: everything you saved, to listen through
       api.views.add({ id: 'want', title: 'Want to hear', icon: '🎧', subtitle: 'Music you saved to listen to', render: el => {
         const list = PV.want;
@@ -124,6 +157,8 @@
               return `<li><span class="ap-src">${E(m.sourceName)}</span><div>${E(m.feed || '')}${m.title ? ' · ' + E(m.title) : ''}<span class="muted">now #${m.rank}${m.best && m.best !== m.rank ? `, best #${m.best}` : ''}${run.length > 1 ? ` · #${first} → #${lastR} over ${run.length} checks` : ''}</span>
                 ${run.length > 1 ? spark(run) : ''}</div></li>`; }).join('')}</ul>` : '<p class="muted">Not on any chart Cadence follows.</p>'}</section>
 
+          ${d.stg && d.stg.length ? `<section><h3>On Said the Gramophone's best-of lists</h3><ul class="ap-list">${d.stg.map(x => `<li><span class="ap-src">${x.year}</span><div>${x.kind === 'song' ? `#${x.rank} song: ` : 'Album of the year: '}${A(x.url, E(x.title))}</div>${window.CadencePreview.buttons(d.name, x.title, x.kind, "Said the Gramophone " + x.year)}</li>`).join('')}</ul></section>` : ''}
+
           <section><h3>On KEXP</h3>
             ${k ? `<p>${k.plays.toLocaleString()} play${k.plays === 1 ? '' : 's'} · first ${new Date(k.first).toLocaleDateString(undefined, { month: 'short', year: 'numeric' })} · last ${new Date(k.last).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</p>
               <ul class="ap-list">${k.songs.slice(0, 6).map(s => `<li><span class="ap-src">${s.plays}×</span><div>${E(s.song)}<span class="muted">${E(s.album || '')}</span></div></li>`).join('')}</ul>
@@ -155,6 +190,10 @@
         .ap-spark{color:var(--accent);margin-top:2px} .ap-relplay{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px} .ap-relplay .btn{display:inline-flex;gap:4px;align-items:center;font-size:12px;padding:3px 8px}
         .pv-btns{display:inline-flex;gap:2px;vertical-align:middle} .pv-b{background:none;border:0;padding:3px;border-radius:6px;cursor:pointer;color:var(--muted);display:inline-flex}
         .pv-b:hover{background:var(--accent-soft);color:var(--accent)} .pv-b.on{color:var(--accent)} .pv-b svg{width:16px;height:16px} .pv-busy{opacity:.4}
+        .sg{max-width:820px} .sg-tabs{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0 14px} .sg-c{border:1px solid var(--line);background:var(--panel);color:var(--muted);border-radius:999px;padding:3px 10px;font-size:13px;cursor:pointer} .sg-c.on{border-color:var(--accent);color:var(--accent);background:var(--accent-soft)} .sg-l{list-style:none;padding:0;margin:6px 0 18px;display:flex;flex-direction:column;gap:6px}
+        .sg-l li{display:flex;gap:10px;align-items:flex-start;font-size:14px} .sg-l li>div{flex:1;min-width:0;display:flex;flex-direction:column} .sg-l .muted{font-size:12px}
+        .sg-n{min-width:2.2em;text-align:right;color:var(--muted);font-variant-numeric:tabular-nums} .sg-songs li>div{flex-direction:row;flex-wrap:wrap;gap:0 4px}
+        .sg-err{font-size:13px;color:var(--muted);margin:6px 0} .linkish{background:none;border:0;padding:0;color:var(--accent);cursor:pointer;font:inherit;display:inline-flex;gap:3px;align-items:center} .linkish svg{width:13px;height:13px}
         .wh{max-width:760px} .wh-l{list-style:none;padding:0;margin:14px 0 0;display:flex;flex-direction:column;gap:8px} .wh-l li{display:flex;gap:10px;align-items:flex-start;font-size:14px}
         .wh-l li>div{display:flex;flex-direction:column} .wh-l .muted{font-size:12px} .wh .btn.primary{display:inline-flex;gap:6px;align-items:center} .ap-src-note{font-size:12px;margin-top:20px} .ap a{color:inherit}
         [data-artist]{cursor:pointer} .ar-link{color:inherit;text-decoration:none;font:inherit;background:none;border:0;padding:0} .ar-link:hover{text-decoration:underline}

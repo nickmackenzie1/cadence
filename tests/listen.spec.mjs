@@ -64,8 +64,10 @@ test('play from a pick, save to Want to hear, play all', async ({ page }) => {
   await expect(pick.locator('[data-want]')).toHaveClass(/on/);
 
   // play all: when one ends, the next starts
+  const before = await page.evaluate(() => window.CadencePodcasts.current.uuid);
   await page.click('#mr-wantall');
-  await expect.poll(() => page.evaluate(() => window.CadencePodcasts.current && window.CadencePodcasts.current.from && window.CadencePodcasts.current.uuid)).toBeTruthy();
+  // the newest save plays first, so the player moves off the preview that was already playing
+  await expect.poll(() => page.evaluate(() => window.CadencePodcasts.current.uuid)).not.toBe(before);
   const first = await page.evaluate(() => window.CadencePodcasts.current.uuid);
   await expect(page.locator('#pc-mini [data-pc="nextpv"]')).toHaveCount(1);
   await page.evaluate(() => window.CadencePodcasts.audio.dispatchEvent(new Event('ended')));

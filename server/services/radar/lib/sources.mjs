@@ -32,6 +32,8 @@ export const DEFAULT_BLOGS = [
   { name: "Rosy Overdrive", url: "https://rosyoverdrive.com/feed/", tier: "small" },
   { name: "Aquarium Drunkard", url: "https://aquariumdrunkard.com/feed/", tier: "small" },
   { name: "Obscure Sound", url: "https://www.obscuresound.com/feed/", tier: "small" },
+  { name: "Under the Radar", url: "https://www.undertheradarmag.com/site/rss", tier: "small" },
+  { name: "Said the Gramophone", url: "https://feeds.feedburner.com/saidthegramophone/stg", tier: "small" },
   { name: "The Line of Best Fit", url: "https://bestfitmusic.substack.com/feed", tier: "small" },
   // 2026-11-16: Canadian campus radio's review feed (user sent the address)
   { name: "!earshot reviews", url: "https://www.earshot-online.com/reviews/rss.cfm", tier: "small" },
@@ -57,10 +59,10 @@ export const OLD_DEFAULT_SETS = [SIX, V080, [...V080, "!earshot reviews"], V0101
 const MOVED = {
   "https://www.thefader.com/rss.xml": "https://www.thefader.com/feed.rss",
   "https://www.thelineofbestfit.com/feeds/rss": "https://bestfitmusic.substack.com/feed",
-  "https://www.undertheradarmag.com/rss.xml": null,       // blocks feed readers (403)
-  "https://www.saidthegramophone.com/feed/": null,        // no feed on the site now
+  "https://www.undertheradarmag.com/rss.xml": "https://www.undertheradarmag.com/site/rss",   // address from the user
+  "https://www.saidthegramophone.com/feed/": "https://feeds.feedburner.com/saidthegramophone/stg",   // the feed linked in the blog's footer
 };
-OLD_DEFAULT_SETS.push([...DEFAULT_BLOGS.map((b) => b.name), "Under the Radar", "Said the Gramophone"]);
+OLD_DEFAULT_SETS.push(DEFAULT_BLOGS.filter((b) => b.name !== "Under the Radar" && b.name !== "Said the Gramophone").map((b) => b.name));   // 0.14.0, briefly without them
 export function blogList(cfg) {
   const b0 = cfg?.blogs, b = b0 && b0.map((x) => (x.url in MOVED ? (MOVED[x.url] ? { ...x, url: MOVED[x.url] } : null) : x)).filter(Boolean);
   if (b0?.length && OLD_DEFAULT_SETS.some((set) => b0.length === set.length && b0.every((x) => set.includes(x.name)))) return DEFAULT_BLOGS;

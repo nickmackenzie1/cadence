@@ -179,6 +179,7 @@
               return list.length ? `<section class="mr-card w12 mr-want"><div class="mr-row" style="justify-content:space-between"><div><h3>Want to hear</h3><p class="mr-sub">What you saved, newest first</p></div>
                 <span class="mr-row"><button class="btn" id="mr-wantall">${ic('play')}Play all previews</button><a class="btn" href="#view-want">See all ${list.length}</a></span></div>
                 <ul class="mr-wl">${list.slice(0, 5).map(x => `<li>${pv(x.artist, x.title, x.type, x.from)} ${an(x.artist, true)}${x.title ? ' — ' + esc(x.title) : ''}</li>`).join('')}</ul></section>` : ''; })()}
+            <section class="mr-card w12"><div class="mr-row" style="justify-content:space-between"><div><h3>Said the Gramophone, every year</h3><p class="mr-sub">A Montreal blog's 100 favourite songs and best albums of each year since 2005, and the artists it keeps coming back to</p></div><a class="btn" href="#view-stg">Open</a></div></section>
             <section class="mr-card w8"><h3>Who's climbing</h3><p class="mr-sub">Daily buzz score, last 14 days: the 6 artists buzzing most right now.</p>
               ${D.rise.top.length ? lineChart(D.rise.labels, D.rise.top.map(r => ({ label: r.artist, data: r.series })), { unit: 'buzz' }) : empty('Scan a few times to see trends.')}</section>
             <section class="mr-card w4"><h3>Fastest risers</h3><p class="mr-sub">Buzz now vs a week ago</p>

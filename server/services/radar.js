@@ -129,7 +129,23 @@ async function community(input) {
 async function artist(name) {
   const A = await import(pathToFileURL(path.join(__dirname, 'radar', 'lib', 'artist.mjs')).href);
   let kexp = null; try { const K = require('./kexp-log'); if (K.status().on !== false) kexp = K.artist(name); } catch (e) { kexp = null; }
-  return A.artistData(name, { kexp });
+  const d = A.artistData(name, { kexp });
+  if (d) try { d.stg = (await stgLib()).stgFor(d.name).concat(d.name !== name ? (await stgLib()).stgFor(name) : []).filter((x, i, l) => l.findIndex(y => y.year === x.year && y.kind === x.kind && y.title === x.title) === i); } catch (e) { d.stg = []; }
+  return d;
+}
+// ---- Said the Gramophone's yearly best-of lists: read once in the background (a page every few seconds), then the
+// newest year is looked for again daily around December/January. STG=0 turns it off; off under CI unless STG=1.
+const stgLib = () => import(pathToFileURL(path.join(__dirname, 'radar', 'lib', 'stg.mjs')).href);
+const STG_ON = process.env.STG === '1' || (process.env.STG !== '0' && !process.env.CI);
+if (STG_ON) {
+  const run = () => stgLib().then(S => S.stgImport()).catch(e => console.error('stg import', e.message));
+  setTimeout(run, Number(process.env.STG_DELAY_MS || 90e3)).unref();
+  setInterval(run, 24 * 3600e3).unref();
+}
+async function stg({ year, refresh } = {}) {
+  const S = await stgLib();
+  if (refresh) S.stgImport({ force: refresh === 'all' }).catch(e => console.error('stg import', e.message));
+  return { ...S.stgData(year ? Number(year) : null), on: STG_ON };
 }
 // ---- listening: 30-second previews from Deezer (public API, no key) and the Want to hear list ----
 // Preview addresses are signed and expire, so they're fetched when you press play and kept only half an hour.
@@ -183,4 +199,4 @@ async function digestFile(name) {
 }
 async function spotify() { const { spotify } = await load(); return spotify; }
 
-module.exports = { artist, preview, want, community, sourcesNow, sourcesSettings, raw, settings, status, scan, digestNow, data, feedback, rss, digestFile, spotify };
+module.exports = { artist, stg, preview, want, community, sourcesNow, sourcesSettings, raw, settings, status, scan, digestNow, data, feedback, rss, digestFile, spotify };

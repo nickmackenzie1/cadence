@@ -88,8 +88,8 @@ test('every earlier default blog list picks up blogs added since', async () => {
     const saved = set.map(name => ({ name, url: 'https://old.example/' + encodeURIComponent(name) }));
     expect(S.blogList({ blogs: saved }).length, `a saved list of ${set.length}`).toBe(S.DEFAULT_BLOGS.length);
   }
-  // feeds that moved follow along in your own list; ones that went away drop out
+  // feeds that moved follow along in your own list
   expect(S.blogList({ blogs: [{ name: 'The Fader', url: 'https://www.thefader.com/rss.xml' }, { name: 'Under the Radar', url: 'https://www.undertheradarmag.com/rss.xml' }, { name: 'Mine', url: 'https://x.example/f' }] }).map(b => b.url))
-    .toEqual(['https://www.thefader.com/feed.rss', 'https://x.example/f']);
+    .toEqual(['https://www.thefader.com/feed.rss', 'https://www.undertheradarmag.com/site/rss', 'https://x.example/f']);
   expect(S.blogList({ blogs: [{ name: 'Only mine', url: 'https://x.example/feed' }] })).toHaveLength(1);   // your own list is left alone
 });
