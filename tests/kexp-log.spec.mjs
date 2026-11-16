@@ -14,14 +14,14 @@ const NOW = Date.now(), PLAYS = [];
 for (let i = 0; i < 10 * 24 * 15; i++) {
   const t = NOW - i * 4 * 60e3, id = 10_000_000 - i;
   PLAYS.push(i % 10 === 5 ? { id, play_type: 'airbreak', airdate: new Date(t).toISOString() }
-    : { id, play_type: 'trackplay', airdate: new Date(t).toISOString(), artist: 'Artist ' + (i % 37), song: 'Song ' + i, album: 'Album', labels: ['Sub Pop'], rotation_status: i % 3 ? null : 'Heavy', comment: i === 0 ? 'Playing Thursday at the Crocodile' : '', show: 100 + Math.floor(i / 45) });
+    : { id, play_type: 'trackplay', airdate: new Date(t).toISOString(), artist: i % 50 === 3 ? '(Various Artists) The English Beat' : i % 50 === 4 ? 'Various Artists' : 'Artist ' + (i % 37), song: 'Song ' + i, album: 'Album', labels: ['Sub Pop'], rotation_status: i % 3 ? null : 'Heavy', comment: i === 0 ? 'Playing Thursday at the Crocodile' : '', show: 100 + Math.floor(i / 45) });
 }
 function fakeKexp(honourDates) {
   return http.createServer((req, res) => {
     const sm = req.url.match(/^\/v2\/shows\/(\d+)\//);
     if (sm) { res.writeHead(200, { 'Content-Type': 'application/json' }); return res.end(JSON.stringify({ id: +sm[1], program_name: 'Show ' + sm[1], program_tags: 'Eclectic', host_names: ['DJ ' + sm[1]], start_time: new Date().toISOString() })); }
     const u = new URL(req.url, 'http://x'), limit = +u.searchParams.get('limit') || 20, off = +u.searchParams.get('offset') || 0, before = u.searchParams.get('airdate_before');
-    let list = PLAYS; if (honourDates && before) list = list.filter(p => Date.parse(p.airdate) < Date.parse(before));
+    let list = PLAYS; if (honourDates && before) list = list.filter(p => Date.parse(p.airdate) <= Date.parse(before));   // inclusive, like the real API
     const page = list.slice(off, off + limit), more = off + limit < list.length;
     const next = more ? `http://localhost:${res.socket.localPort}/v2/plays/?format=json&limit=${limit}&ordering=-airdate&offset=${off + limit}${honourDates && before ? '&airdate_before=' + encodeURIComponent(before) : ''}` : null;
     res.writeHead(200, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ next, results: page }));
@@ -44,6 +44,9 @@ for (const honour of [true, false]) {
       let s;
       await expect.poll(async () => (s = await (await fetch(B + '/api/radio/kexp-history')).json()).backfill, { timeout: 30000 }).toBe('done');
       expect(s.on).toBe(true);
+      expect(s.mode).toBe(honour ? 'date' : 'offset');                          // KEXP's inclusive airdate_before isn't mistaken for "ignored"
+      const tops = (await (await fetch(B + '/api/radio/kexp?view=top&by=artist&period=all&limit=200')).json()).map(a => a.artist);
+      expect(tops).toContain('The English Beat'); expect(tops).not.toContain('Various Artists'); expect(tops.some(a => /^\(Various/.test(a))).toBe(false);
       expect(Date.parse(s.latest)).toBeGreaterThan(NOW - 60e3);
       expect(Date.parse(s.since)).toBeLessThanOrEqual(NOW - 3 * 864e5);           // reached the 3-day limit…
       expect(Date.parse(s.since)).toBeGreaterThan(NOW - 5 * 864e5);               // …and stopped soon after

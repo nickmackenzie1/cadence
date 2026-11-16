@@ -110,3 +110,8 @@ Cleaned up 2026-11-16 (0.8.2): items already built were moved out after checking
   Top 90 + genre lists ranked, "Adds" (just added to rotation) as unranked mentions. Parser written from a text
   description of the page, not its HTML: if the Sources card says it couldn't read the format, look at the page markup.
   Skipped the 2017 all-time countdown (one-off, airplay-ranked; KEXP history already has all-time tops from plays).
+- **0.14.4 (from kexp.fyi's build write-up, sent by the user):** KEXP's `airdate_before` is inclusive. Our backfill
+  asked for "before oldest play", got it back, and switched itself to offset paging. Now asks for one second earlier;
+  a one-time migration undoes the offset switch. "(Various Artists) X" credits become X; bare Various Artists credits
+  stay out of top-artist/album lists. 429/5xx back off. All-time/yearly tops cached 30 min (full archive ≈ 3.6M
+  plays back to 2000-12-31 per kexp.fyi). Ideas from that site for later: monthly/yearly winners per DJ and show.
