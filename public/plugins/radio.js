@@ -114,9 +114,12 @@
       const rowArtist = r => `<li class="kx-row" data-k="artist" data-a="${E(r.artist)}">${art(r.image)}<div class="rd-t"><b>${E(r.artist)}</b><span class="muted">${n(r.plays, 'play', 'plays')}${r.songs ? ' · ' + n(r.songs, 'song', 'songs') : ''} · last ${ago(r.last)}</span></div><span class="kx-n">${(+r.plays).toLocaleString()}</span></li>`;
       const rowSong = r => `<li class="kx-row" data-k="song" data-a="${E(r.artist)}" data-s="${E(r.song)}">${art(r.image)}<div class="rd-t"><b>${E(r.song)}</b><span class="muted">${E(r.artist)} · ${n(r.plays, 'play', 'plays')} · last ${ago(r.last)}</span></div><span class="kx-n">${(+r.plays).toLocaleString()}</span></li>`;
       const rowAlbum = r => `<li class="kx-row" data-k="artist" data-a="${E(r.artist)}">${art(r.image)}<div class="rd-t"><b>${E(r.album)}</b><span class="muted">${E(r.artist)}${r.label ? ' · ' + E(r.label) : ''} · last ${ago(r.last)}</span></div><span class="kx-n">${(+r.plays).toLocaleString()}</span></li>`;
+      const rowShow = r => `<li class="kx-row" data-k="program" data-v="${E(r.program)}">${art(r.image)}<div class="rd-t"><b>${E(r.program)}</b><span class="muted">${n(r.shows, 'show', 'shows')} · last ${ago(r.last)}</span></div><span class="kx-n">${(+r.plays).toLocaleString()}</span></li>`;
+      const rowDj = r => `<li class="kx-row" data-k="dj" data-v="${E(String(r.hosts).split(', ')[0])}"><div class="rd-t"><b>${E(r.hosts)}</b><span class="muted">${E(r.programs || '')} · ${n(r.shows, 'show', 'shows')} · last ${ago(r.last)}</span></div><span class="kx-n">${(+r.plays).toLocaleString()}</span></li>`;
       const rowPlay = (p, hl) => `<li class="kx-play${hl ? ' hl' : ''}"><span class="kx-when">${E(when(p.at))}</span>
         <div class="rd-t"><b><button class="kx-link" data-k="song" data-a="${E(p.artist)}" data-s="${E(p.song || '')}">${E(p.song || '(untitled)')}</button></b>
           <span class="muted">${aBtn(p.artist)}${p.album ? ' · ' + E(p.album) : ''}${p.label ? ' · ' + E(p.label) : ''}${p.rotation ? ' · ' + E(p.rotation) + ' rotation' : ''}${p.live ? ' · live in studio' : ''}${p.local ? ' · local' : ''}${p.request ? ' · request' : ''}</span>
+          ${p.show ? `<span class="muted kx-show">on <button class="kx-link" data-k="program" data-v="${E(p.show.program)}">${E(p.show.program)}</button>${p.show.hosts ? ' with ' + p.show.hosts.split(', ').map(h => `<button class="kx-link" data-k="dj" data-v="${E(h)}">${E(h)}</button>`).join(', ') : ''}</span>` : ''}
           ${p.comment ? `<details class="kx-c"><summary>DJ comment</summary><p>${E(p.comment)}</p></details>` : ''}</div>
         ${hl ? '' : `<button class="pc-ib" data-k="around" data-id="${p.id}" aria-label="Songs around this play" title="Songs around this play">${api.ui.icon('list-music')}</button>`}</li>`;
       const list = (rows, fn, empty) => !rows ? '<p class="muted">Loading…</p>' : rows.error ? `<p class="pc-note">${api.ui.icon('refresh-cw')}${E(rows.error)}</p>` : rows.length ? `<ul class="kx-list">${rows.map(fn).join('')}</ul>` : `<p class="muted">${empty}</p>`;
@@ -141,6 +144,16 @@
           return `${back}<div class="kx-head">${art(s.plays[0] && s.plays[0].image, true)}<div><h3>${E(s.song)}</h3><p class="muted">${aBtn(s.artist)}${s.album ? ' · ' + E(s.album) : ''} · ${n(s.plays.length, 'play', 'plays')}</p></div></div>
             ${list(s.plays, p => rowPlay(p), '')}`;
         }
+        if (d.type === 'program' || d.type === 'dj') {
+          const r = kget(`view=onair&${d.type}=${enc(d.name)}`);
+          if (!r) return back + '<p class="muted">Loading…</p>';
+          if (r.error) return back + `<p class="muted">Nothing saved for ${E(d.name)} yet.</p>`;
+          const who = d.type === 'program' ? (r.hosts ? 'with ' + r.hosts.split(',').map(h => h.trim()).filter((h, i, a) => a.indexOf(h) === i).slice(0, 6).map(h => `<button class="kx-link" data-k="dj" data-v="${E(h)}">${E(h)}</button>`).join(', ') : '')
+            : 'on ' + String(r.programs || '').split(',').slice(0, 6).map(x => `<button class="kx-link" data-k="program" data-v="${E(x)}">${E(x)}</button>`).join(', ');
+          return `${back}<div class="kx-head">${art(r.image, true)}<div><h3>${E(d.name)}</h3><p class="muted">${who}</p><p class="muted">${n(r.plays, 'play', 'plays')} across ${n(r.shows, 'show', 'shows')} · last ${E(when(r.last))}${r.tags ? ' · ' + E(r.tags) : ''}</p></div></div>
+            <div class="kx-two"><div><h4 class="rd-h">Artists they play most</h4>${list(r.artists, rowArtist, '')}</div><div><h4 class="rd-h">Songs they play most</h4>${list(r.songs, rowSong, '')}</div></div>
+            <h4 class="rd-h">Recent plays</h4>${list(r.recent, p => rowPlay(p), '')}`;
+        }
         if (d.type === 'around') {
           const r = kget('view=around&n=8&id=' + d.id);
           if (!r) return back + '<p class="muted">Loading…</p>';
@@ -163,8 +176,8 @@
           let inner = '';
           if (K.tab === 'top') {
             const rows = kget(`view=top&by=${K.by}&period=${K.period}&limit=100`);
-            inner = `<div class="kx-bar">${chips('by', K.by, [['artist', 'Artists'], ['song', 'Songs'], ['album', 'Albums']])}${chips('period', K.period, [['week', 'Week'], ['month', 'Month'], ['year', 'Year'], ['all', 'All time']])}</div>
-              ${list(rows, K.by === 'song' ? rowSong : K.by === 'album' ? rowAlbum : rowArtist, 'Nothing played in this period yet.')}`;
+            inner = `<div class="kx-bar">${chips('by', K.by, [['artist', 'Artists'], ['song', 'Songs'], ['album', 'Albums'], ['show', 'Shows'], ['dj', 'DJs']])}${chips('period', K.period, [['week', 'Week'], ['month', 'Month'], ['year', 'Year'], ['all', 'All time']])}</div>
+              ${list(rows, K.by === 'song' ? rowSong : K.by === 'album' ? rowAlbum : K.by === 'show' ? rowShow : K.by === 'dj' ? rowDj : rowArtist, K.by === 'show' || K.by === 'dj' ? 'Show names are still being filled in. Check back in a few minutes.' : 'Nothing played in this period yet.')}`;
           } else if (K.tab === 'recent') {
             const c = api.storage.get('kComments') === true;
             inner = `<label class="kx-tog"><input type="checkbox" id="kx-com" ${c ? 'checked' : ''}> Only plays with a DJ comment</label>${list(kget('view=recent&limit=100' + (c ? '&comments=1' : '')), p => rowPlay(p), 'Nothing yet.')}`;
@@ -180,7 +193,7 @@
           }
           body = tabs + inner;
         }
-        el.innerHTML = `<div class="rd kx"><p class="muted kx-sum">${hist.plays ? `${n(hist.plays, 'song', 'songs')} saved since ${E(day(hist.since))}${hist.backfill === 'running' ? ' · still filling in the past year' : ''}` : ''}</p>${body}</div>`;
+        el.innerHTML = `<div class="rd kx"><p class="muted kx-sum">${hist.plays ? `${n(hist.plays, 'song', 'songs')} saved since ${E(day(hist.since))}${hist.backfill === 'running' ? ` · still filling in ${hist.backDays === 'all' ? 'everything KEXP has' : 'the past ' + (hist.backDays >= 365 ? Math.round(hist.backDays / 365) + (hist.backDays >= 730 ? ' years' : ' year') : hist.backDays + ' days')}` : ''}` : ''}</p>${body}</div>`;
         const root = el.querySelector('.kx');
         root.onclick = e => {
           const b = e.target.closest('[data-k]'); if (!b || b.tagName === 'SUMMARY') return;
@@ -190,6 +203,7 @@
           else if (k === 'artist') go({ type: 'artist', artist: b.dataset.a });
           else if (k === 'song' && b.dataset.s) go({ type: 'song', artist: b.dataset.a, song: b.dataset.s });
           else if (k === 'around') go({ type: 'around', id: b.dataset.id });
+          else if (k === 'program' || k === 'dj') { if (b.dataset.v) go({ type: k, name: b.dataset.v }); }
           else if (k === 'back') go((K.stack || []).pop() || null, true);
         };
         const f = root.querySelector('#kx-f'); if (f) f.onsubmit = e => { e.preventDefault(); K.q = root.querySelector('#kx-q').value.trim(); api.ui.refresh(); };
@@ -240,6 +254,7 @@
     .kx-back{align-self:flex-start;display:inline-flex;gap:6px;align-items:center}
     .kx-bars{display:flex;align-items:flex-end;gap:2px;height:48px;padding:4px 0} .kx-bars span{flex:1;max-width:18px;background:var(--accent);opacity:.7;border-radius:2px 2px 0 0}
     .kx-tog{font-size:13px;display:flex;gap:6px;align-items:center}
+    .kx-show{font-size:12px} .kx-two{display:grid;grid-template-columns:1fr 1fr;gap:16px} @media (max-width:800px){.kx-two{grid-template-columns:1fr}}
     @media (max-width:640px){.kx-when{width:92px;white-space:normal}}
     @media (max-width:640px){.rd-list{grid-template-columns:1fr}}`;
   document.head.appendChild(css);

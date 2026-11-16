@@ -14,10 +14,12 @@ const NOW = Date.now(), PLAYS = [];
 for (let i = 0; i < 10 * 24 * 15; i++) {
   const t = NOW - i * 4 * 60e3, id = 10_000_000 - i;
   PLAYS.push(i % 10 === 5 ? { id, play_type: 'airbreak', airdate: new Date(t).toISOString() }
-    : { id, play_type: 'trackplay', airdate: new Date(t).toISOString(), artist: 'Artist ' + (i % 37), song: 'Song ' + i, album: 'Album', labels: ['Sub Pop'], rotation_status: i % 3 ? null : 'Heavy', comment: i === 0 ? 'Playing Thursday at the Crocodile' : '', show: 1 });
+    : { id, play_type: 'trackplay', airdate: new Date(t).toISOString(), artist: 'Artist ' + (i % 37), song: 'Song ' + i, album: 'Album', labels: ['Sub Pop'], rotation_status: i % 3 ? null : 'Heavy', comment: i === 0 ? 'Playing Thursday at the Crocodile' : '', show: 100 + Math.floor(i / 45) });
 }
 function fakeKexp(honourDates) {
   return http.createServer((req, res) => {
+    const sm = req.url.match(/^\/v2\/shows\/(\d+)\//);
+    if (sm) { res.writeHead(200, { 'Content-Type': 'application/json' }); return res.end(JSON.stringify({ id: +sm[1], program_name: 'Show ' + sm[1], program_tags: 'Eclectic', host_names: ['DJ ' + sm[1]], start_time: new Date().toISOString() })); }
     const u = new URL(req.url, 'http://x'), limit = +u.searchParams.get('limit') || 20, off = +u.searchParams.get('offset') || 0, before = u.searchParams.get('airdate_before');
     let list = PLAYS; if (honourDates && before) list = list.filter(p => Date.parse(p.airdate) < Date.parse(before));
     const page = list.slice(off, off + limit), more = off + limit < list.length;
@@ -48,6 +50,10 @@ for (const honour of [true, false]) {
       // songs only: 9 of every 10, roughly 3 days and a page
       expect(s.plays).toBeGreaterThan(3 * 24 * 15 * 0.9 * 0.95);
       expect(s.plays).toBeLessThan(5 * 24 * 15 * 0.9);
+      // the shows behind the plays get their names (program + DJ), newest first
+      await expect.poll(async () => (await (await fetch(B + '/api/radio/kexp-history')).json()).shows, { timeout: 30000 }).toBeGreaterThan(5);
+      const r = await (await fetch(B + '/api/radio/kexp?view=recent&limit=1')).json();
+      expect(r[0].show).toEqual(expect.objectContaining({ program: 'Show 100', hosts: 'DJ 100' }));
     } finally { stop(); }
   });
 }

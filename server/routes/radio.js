@@ -20,6 +20,7 @@ module.exports = async function radioRoutes(req, res, { url, p }) {
       if (v === 'around') return K.around(q.id, q.n);
       if (v === 'recent') return K.recent({ limit: q.limit, comments: q.comments === '1' });
       if (v === 'new') return K.newArtists(q);
+      if (v === 'onair') return K.onAir(q);
       throw Object.assign(new Error('unknown view'), { code: 400 });
     });
   }

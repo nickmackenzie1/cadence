@@ -12,7 +12,8 @@ const { DATA_DIR } = require('../config');
 const API = (process.env.KEXP_API || 'https://api.kexp.org').replace(/\/$/, '');
 const ON = process.env.KEXP_LOG === '1' || (process.env.KEXP_LOG !== '0' && !process.env.CI);
 const EVERY = +process.env.KEXP_LOG_EVERY || 5 * 60e3, STEP = +process.env.KEXP_BACKFILL_EVERY || 30e3;
-const BACK_DAYS = process.env.KEXP_BACKFILL_DAYS != null ? +process.env.KEXP_BACKFILL_DAYS : 365;
+// KEXP_BACKFILL_DAYS=all keeps going until KEXP has nothing older (about 25–50 MB of database per year of plays)
+const BACK_DAYS = /^all$/i.test(process.env.KEXP_BACKFILL_DAYS || '') ? Infinity : process.env.KEXP_BACKFILL_DAYS != null ? +process.env.KEXP_BACKFILL_DAYS : 365;
 const PAGE = 200;
 
 let db = null, state = { running: false, error: null, lastCheck: 0, backfill: 'waiting' };
@@ -26,7 +27,9 @@ function open() {
       rotation TEXT, comment TEXT, live INTEGER, local INTEGER, request INTEGER, image TEXT, show_id INTEGER);
     CREATE INDEX IF NOT EXISTS kexp_plays_air ON kexp_plays(airdate);
     CREATE INDEX IF NOT EXISTS kexp_plays_artist ON kexp_plays(artist COLLATE NOCASE);
-    CREATE TABLE IF NOT EXISTS kexp_meta (k TEXT PRIMARY KEY, v TEXT);`);
+    CREATE TABLE IF NOT EXISTS kexp_meta (k TEXT PRIMARY KEY, v TEXT);
+    CREATE TABLE IF NOT EXISTS kexp_shows (id INTEGER PRIMARY KEY, program TEXT, tags TEXT, hosts TEXT, start INTEGER, tagline TEXT, image TEXT);
+    CREATE INDEX IF NOT EXISTS kexp_plays_show ON kexp_plays(show_id);`);
   return db;
 }
 const meta = (k, v) => { const d = open(); if (v === undefined) return (d.prepare('SELECT v FROM kexp_meta WHERE k = ?').get(k) || {}).v; d.prepare('INSERT OR REPLACE INTO kexp_meta (k, v) VALUES (?, ?)').run(k, String(v)); };
@@ -53,6 +56,24 @@ const get = async url => {
 };
 const iso = sec => new Date(sec * 1000).toISOString();
 
+// the show (program + DJs) behind each play: one request per show, newest first, a little at a time
+async function fillShows(max = 12) {
+  const d = open(), ids = d.prepare(`SELECT p.show_id AS id FROM kexp_plays p LEFT JOIN kexp_shows s ON s.id = p.show_id
+    WHERE p.show_id IS NOT NULL AND s.id IS NULL GROUP BY p.show_id ORDER BY MAX(p.airdate) DESC LIMIT ?`).all(max).map(r => r.id);
+  const ins = d.prepare('INSERT OR REPLACE INTO kexp_shows VALUES (?,?,?,?,?,?,?)');
+  for (const id of ids) {
+    try {
+      const sh = await get(`${API}/v2/shows/${id}/?format=json`);
+      const t = Date.parse(sh.start_time);
+      ins.run(id, sh.program_name || null, sh.program_tags || null, (sh.host_names || []).join(', ') || null, isFinite(t) ? Math.round(t / 1000) : null,
+        sh.tagline ? String(sh.tagline).slice(0, 1000) : null, sh.program_image_uri || sh.image_uri || null);
+      showCache.delete(id);
+    } catch (e) { if (/HTTP 404/.test(e.message)) ins.run(id, null, null, null, null, null, null); else throw e; }
+    await new Promise(r => setTimeout(r, 300).unref());
+  }
+  return ids.length;
+}
+
 // newest plays; keeps paging back (up to 10 pages) until it reaches what's already saved
 async function checkNew() {
   const d = open(), newest = (d.prepare('SELECT MAX(airdate) AS t FROM kexp_plays').get() || {}).t || 0;
@@ -72,7 +93,7 @@ async function checkNew() {
 async function backfillStep() {
   const d = open(), oldest = (d.prepare('SELECT MIN(airdate) AS t FROM kexp_plays').get() || {}).t;
   if (!oldest) return 'waiting';
-  const stopAt = Date.now() / 1000 - BACK_DAYS * 86400;
+  const stopAt = BACK_DAYS === Infinity ? -Infinity : Date.now() / 1000 - BACK_DAYS * 86400;
   if (oldest <= stopAt || meta('backfill_done')) { meta('backfill_done', 1); return 'done'; }
   let url = meta('backfill_next');
   if (!url || meta('backfill_mode') !== 'offset') url = `${API}/v2/plays/?format=json&limit=${PAGE}&ordering=-airdate&airdate_before=${encodeURIComponent(iso(oldest))}`;
@@ -94,18 +115,22 @@ function status() {
   if (!ON) return { on: false };
   try {
     const d = open(), r = d.prepare('SELECT COUNT(*) AS n, MIN(airdate) AS since, MAX(airdate) AS latest FROM kexp_plays').get();
-    return { on: true, plays: r.n, since: r.since ? iso(r.since) : null, latest: r.latest ? iso(r.latest) : null, backfill: state.backfill, error: state.error, backDays: BACK_DAYS };
+    return { on: true, plays: r.n, since: r.since ? iso(r.since) : null, latest: r.latest ? iso(r.latest) : null, backfill: state.backfill, error: state.error, backDays: BACK_DAYS === Infinity ? 'all' : BACK_DAYS,
+      shows: (d.prepare('SELECT COUNT(*) AS n FROM kexp_shows').get() || {}).n || 0 };
   } catch (e) { return { on: true, error: e.message }; }
 }
 
 function start() {
   if (!ON || state.running) return; state.running = true;
-  const tickNew = async () => { try { await checkNew(); } catch (e) { state.error = 'KEXP: ' + e.message; } };
+  const tickNew = async () => { try { await checkNew(); await fillShows(); } catch (e) { state.error = 'KEXP: ' + e.message; } };
   const tickBack = async () => {
     if (state.backfill === 'done') return;
-    try { state.backfill = await backfillStep(); } catch (e) { state.error = 'KEXP history: ' + e.message; }
+    try { state.backfill = await backfillStep(); await fillShows(6); } catch (e) { state.error = 'KEXP history: ' + e.message; }
+    // once the past is filled in, keep naming the shows of older plays a few at a time
+    if (state.backfill === 'done') { try { if (await fillShows(6)) return void setTimeout(tickBack2, STEP).unref(); } catch {} }
     if (state.backfill !== 'done') setTimeout(tickBack, STEP).unref();
   };
+  const tickBack2 = async () => { try { if (await fillShows(6)) setTimeout(tickBack2, STEP).unref(); } catch {} };
   setTimeout(async () => { await tickNew(); setInterval(tickNew, EVERY).unref(); setTimeout(tickBack, STEP).unref(); }, +process.env.KEXP_LOG_DELAY || 15e3).unref();
 }
 
@@ -113,7 +138,9 @@ function start() {
 const PERIODS = { week: 7, month: 30, year: 365, all: null };
 const since = period => { const d = PERIODS[period] !== undefined ? PERIODS[period] : 30; return d == null ? 0 : Math.round(Date.now() / 1000) - d * 86400; };
 const like = q => '%' + String(q || '').trim().replace(/[\\%_]/g, c => '\\' + c) + '%';
-const play = r => ({ id: r.id, at: iso(r.airdate), artist: r.artist, song: r.song, album: r.album, label: r.label, release: r.release_date,
+const showCache = new Map();
+const showOf = id => { if (!id) return null; if (!showCache.has(id)) { const s = open().prepare('SELECT program, hosts, tags FROM kexp_shows WHERE id = ?').get(id); showCache.set(id, s && s.program ? { id, program: s.program, hosts: s.hosts, tags: s.tags } : null); } return showCache.get(id); };
+const play = r => ({ id: r.id, at: iso(r.airdate), show: showOf(r.show_id), artist: r.artist, song: r.song, album: r.album, label: r.label, release: r.release_date,
   rotation: r.rotation, comment: r.comment || null, live: !!r.live, local: !!r.local, request: !!r.request, image: r.image });
 const lim = (n, d, max) => Math.max(1, Math.min(max, +n || d));
 
@@ -121,6 +148,10 @@ function top({ by = 'artist', period = 'month', limit = 50 } = {}) {
   const d = open(), t = since(period), n = lim(limit, 50, 200);
   if (by === 'song') return d.prepare(`SELECT MIN(artist) AS artist, MIN(song) AS song, COUNT(*) AS plays, MAX(airdate) AS last, MAX(image) AS image FROM kexp_plays
     WHERE airdate >= ? AND song IS NOT NULL GROUP BY artist COLLATE NOCASE, song COLLATE NOCASE ORDER BY plays DESC, last DESC LIMIT ?`).all(t, n).map(r => ({ ...r, last: iso(r.last) }));
+  if (by === 'show') return d.prepare(`SELECT s.program AS program, COUNT(*) AS plays, COUNT(DISTINCT p.show_id) AS shows, MAX(p.airdate) AS last, MAX(s.image) AS image FROM kexp_plays p JOIN kexp_shows s ON s.id = p.show_id
+    WHERE p.airdate >= ? AND s.program IS NOT NULL GROUP BY s.program ORDER BY plays DESC LIMIT ?`).all(t, n).map(r => ({ ...r, last: iso(r.last) }));
+  if (by === 'dj') return d.prepare(`SELECT s.hosts AS hosts, COUNT(*) AS plays, COUNT(DISTINCT p.show_id) AS shows, MAX(p.airdate) AS last, GROUP_CONCAT(DISTINCT s.program) AS programs FROM kexp_plays p JOIN kexp_shows s ON s.id = p.show_id
+    WHERE p.airdate >= ? AND s.hosts IS NOT NULL GROUP BY s.hosts ORDER BY plays DESC LIMIT ?`).all(t, n).map(r => ({ ...r, last: iso(r.last) }));
   if (by === 'album') return d.prepare(`SELECT MIN(artist) AS artist, MIN(album) AS album, MAX(label) AS label, COUNT(*) AS plays, MAX(airdate) AS last, MAX(image) AS image FROM kexp_plays
     WHERE airdate >= ? AND album IS NOT NULL AND album NOT LIKE '%live on kexp%' GROUP BY artist COLLATE NOCASE, album COLLATE NOCASE ORDER BY plays DESC, last DESC LIMIT ?`).all(t, n).map(r => ({ ...r, last: iso(r.last) }));
   return d.prepare(`SELECT MIN(artist) AS artist, COUNT(*) AS plays, COUNT(DISTINCT song) AS songs, MAX(airdate) AS last, MAX(image) AS image FROM kexp_plays
@@ -147,6 +178,20 @@ function artist(name) {
   const name0 = (d.prepare('SELECT MIN(artist) AS artist FROM kexp_plays WHERE artist = ? COLLATE NOCASE').get(a) || {}).artist || a;
   return { artist: name0, plays: sum.plays, first: iso(sum.first), last: iso(sum.last), image: sum.image, songs, months, recent: plays };
 }
+// one program (e.g. "The Morning Show") or one DJ: what they play most, and their recent plays
+function onAir({ program, dj, period = 'all' } = {}) {
+  const d = open(), t = since(period), W = program ? 's.program = ?' : "(', ' || s.hosts || ', ') LIKE ? ESCAPE '\\'", v = program ? String(program) : like(', ' + String(dj || '') + ', ').replace(/^%|%$/g, '%');
+  const sum = d.prepare(`SELECT COUNT(*) AS plays, COUNT(DISTINCT p.show_id) AS shows, MIN(p.airdate) AS first, MAX(p.airdate) AS last, GROUP_CONCAT(DISTINCT s.hosts) AS hosts, GROUP_CONCAT(DISTINCT s.program) AS programs, MAX(s.image) AS image, MAX(s.tags) AS tags
+    FROM kexp_plays p JOIN kexp_shows s ON s.id = p.show_id WHERE ${W} AND p.airdate >= ?`).get(v, t);
+  if (!sum.plays) return null;
+  const artists = d.prepare(`SELECT MIN(p.artist) AS artist, COUNT(*) AS plays, MAX(p.airdate) AS last FROM kexp_plays p JOIN kexp_shows s ON s.id = p.show_id
+    WHERE ${W} AND p.airdate >= ? AND p.artist IS NOT NULL GROUP BY p.artist COLLATE NOCASE ORDER BY plays DESC, last DESC LIMIT 30`).all(v, t).map(r => ({ ...r, last: iso(r.last) }));
+  const songs = d.prepare(`SELECT MIN(p.artist) AS artist, MIN(p.song) AS song, COUNT(*) AS plays, MAX(p.airdate) AS last FROM kexp_plays p JOIN kexp_shows s ON s.id = p.show_id
+    WHERE ${W} AND p.airdate >= ? AND p.song IS NOT NULL GROUP BY p.artist COLLATE NOCASE, p.song COLLATE NOCASE ORDER BY plays DESC, last DESC LIMIT 30`).all(v, t).map(r => ({ ...r, last: iso(r.last) }));
+  const recent = d.prepare(`SELECT p.* FROM kexp_plays p JOIN kexp_shows s ON s.id = p.show_id WHERE ${W} ORDER BY p.airdate DESC LIMIT 60`).all(v).map(play);
+  return { program: program || null, dj: dj || null, ...sum, first: iso(sum.first), last: iso(sum.last), artists, songs, recent };
+}
+
 function song(artistName, title) {
   const d = open();
   const plays = d.prepare('SELECT * FROM kexp_plays WHERE artist = ? COLLATE NOCASE AND song = ? COLLATE NOCASE ORDER BY airdate DESC LIMIT 500').all(String(artistName || ''), String(title || '')).map(play);
@@ -174,4 +219,4 @@ function newArtists({ days = 14, limit = 50 } = {}) {
 }
 
 start();
-module.exports = { status, checkNew, backfillStep, row, start, top, search, artist, song, around, recent, newArtists, open };
+module.exports = { status, checkNew, backfillStep, fillShows, row, start, top, search, artist, song, around, recent, newArtists, onAir, open };

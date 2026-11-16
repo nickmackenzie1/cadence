@@ -19,12 +19,14 @@ test.beforeAll(async () => {
   const K = createRequire(import.meta.url)('../server/services/kexp-log.js');
   const d = K.open(), ins = d.prepare('INSERT INTO kexp_plays VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)'), now = Date.now();
   let id = 1;
-  const P = (minsAgo, artist, song, album, extra = {}) => ins.run(...K.row({ id: id++, play_type: 'trackplay', airdate: new Date(now - minsAgo * 60e3).toISOString(), artist, song, album, labels: ['Polyvinyl'], ...extra }));
+  const P = (minsAgo, artist, song, album, extra = {}) => ins.run(...K.row({ id: id++, play_type: 'trackplay', airdate: new Date(now - minsAgo * 60e3).toISOString(), artist, song, album, labels: ['Polyvinyl'], show: 7, ...extra }));
+  d.prepare('INSERT INTO kexp_shows VALUES (?,?,?,?,?,?,?)').run(7, 'The Morning Show', 'Eclectic', 'John Richards', 0, null, null);
+  d.prepare('INSERT INTO kexp_shows VALUES (?,?,?,?,?,?,?)').run(8, 'Audioasis', 'Local', 'Sharlese Metcalf', 0, null, null);
   // two months back so "New to KEXP" has something to compare with
   P(60 * 24 * 50, 'Old Favourite', 'Classic', 'Back Catalogue');
   P(60 * 24 * 40, 'Jay Som', 'Float', 'Belong');
   for (let i = 0; i < 5; i++) P(60 * 24 * i + 30, 'Jay Som', 'Appointments', 'Belong', { rotation_status: 'Heavy', comment: i === 0 ? 'Playing the Crocodile on Thursday' : '' });
-  P(25, 'Wednesday', 'Bleeds', 'Bleeds');
+  P(25, 'Wednesday', 'Bleeds', 'Bleeds', { show: 8 });
   P(20, 'Brand New Band', 'First Single', 'Demo', { is_local: true });
   P(15, 'Brand New Band', 'Second Single', 'Demo');
   delete process.env.KEXP_LOG;
@@ -76,6 +78,21 @@ test('KEXP history: top artists and songs, an artist, a song, the songs around a
   await page.click('.kx-chip[data-v="new"]');
   await expect(page.locator('.kx-row', { hasText: 'Brand New Band' })).toHaveCount(1);
   await expect(page.locator('.kx-row', { hasText: 'Jay Som' })).toHaveCount(0);
+
+  // shows and DJs: each play says where it was played; program and DJ pages; Top by show / DJ
+  await page.click('.kx-chip[data-v="recent"]'); await page.locator('#kx-com').uncheck();
+  await expect(page.locator('.kx-play', { hasText: 'Bleeds' })).toContainText('on Audioasis with Sharlese Metcalf');
+  await page.locator('.kx-play', { hasText: 'Bleeds' }).locator('[data-k="dj"]').click();
+  await expect(page.locator('.kx-head h3')).toHaveText('Sharlese Metcalf');
+  await expect(page.locator('.kx-head')).toContainText('on Audioasis');
+  await expect(page.locator('.kx-two .kx-row').first()).toContainText('Wednesday');
+  await page.locator('.kx-head [data-k="program"]').click();
+  await expect(page.locator('.kx-head h3')).toHaveText('Audioasis');
+  await page.click('[data-k="back"]'); await page.click('[data-k="back"]');
+  await page.click('.kx-chip[data-v="top"]'); await page.click('.kx-chip[data-v="show"]');
+  await expect(page.locator('.kx-row').first()).toContainText('The Morning Show');
+  await page.click('.kx-chip[data-v="dj"]');
+  await expect(page.locator('.kx-row').first()).toContainText('John Richards');
 
   // search: by artist, by song, every play
   await page.click('.kx-chip[data-v="search"]');
