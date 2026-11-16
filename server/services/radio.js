@@ -92,8 +92,8 @@ async function stations() {
 
 // KEXP: what's on right now (cached 20 s so every open tab doesn't ask)
 let kexpNow = { at: 0, v: null };
-async function nowPlaying(id) {
-  if (id !== 'kexp') return null;
+async function nowPlaying(id, u) {
+  if (id !== 'kexp') return id ? stationNow(String(id), u) : null;
   if (Date.now() - kexpNow.at < 20000) return kexpNow.v;
   const r = await safeFetch('https://api.kexp.org/v2/plays/?format=json&limit=1', {}, 256 * 1024);
   const p = (JSON.parse(r.buf.toString('utf8')).results || [])[0] || null;
@@ -103,29 +103,131 @@ async function nowPlaying(id) {
   return kexpNow.v;
 }
 
+// ---- now playing for any station: the song title carried inside the stream (ICY / SHOUTcast metadata) ----
+// Ask with "Icy-MetaData: 1"; the server says how many audio bytes come between titles (icy-metaint); read that much,
+// then one length byte (×16) and "StreamTitle='Artist - Song';". About 8–64 KB per look, then hang up.
+function parseIcy(block) {
+  const raw = block.toString('utf8').includes('\uFFFD') ? block.toString('latin1') : block.toString('utf8');
+  const m = raw.match(/StreamTitle='([\s\S]*?)';/); if (!m) return null;
+  const t = m[1].replace(/\0+$/, '').trim(); return t || null;
+}
+function splitTitle(t) {
+  if (!t) return null;
+  const m = t.match(/^(.{1,150}?)\s+[-–—]\s+(.{1,250})$/);
+  return m ? { artist: m[1].trim(), song: m[2].trim(), raw: t } : { artist: null, song: t, raw: t };
+}
+async function icyTitle(url) {
+  const { res, req } = await openStream(url, { 'Icy-MetaData': '1' });
+  return readIcy(res, req);
+}
+// the part that reads a response (separate so tests can hand it a local stream)
+function readIcy(res, req) {
+  const every = +res.headers['icy-metaint'];
+  if (!every || every > 512 * 1024) { req.destroy(); return { none: true }; }
+  return new Promise((done, fail) => {
+    let buf = Buffer.alloc(0); const stop = (v, e) => { clearTimeout(timer); try { req.destroy(); } catch {} e ? fail(e) : done(v); };
+    const timer = setTimeout(() => stop(null, new Error('the station took too long to send a title')), 12000);
+    res.on('data', c => {
+      buf = Buffer.concat([buf, c]);
+      if (buf.length <= every) return;
+      const len = buf[every] * 16;
+      if (len === 0) return stop({ title: null });                 // nothing this time: the station isn't sending a title now
+      if (buf.length >= every + 1 + len) stop({ title: parseIcy(buf.subarray(every + 1, every + 1 + len)) });
+    });
+    res.on('error', e => stop(null, e)); res.on('end', () => stop({ title: null }));
+  });
+}
+
+// what each station played: saved when the title changes (cadence.db, table radio_plays)
+let hdb = null;
+function hist() {
+  if (hdb) return hdb;
+  const { DatabaseSync } = require('node:sqlite');
+  hdb = new DatabaseSync(path.join(DATA, 'cadence.db'));
+  hdb.exec('PRAGMA busy_timeout=5000');
+  hdb.exec(`CREATE TABLE IF NOT EXISTS radio_plays (id INTEGER PRIMARY KEY AUTOINCREMENT, station TEXT NOT NULL, at INTEGER NOT NULL, artist TEXT, song TEXT, raw TEXT);
+    CREATE INDEX IF NOT EXISTS radio_plays_station ON radio_plays(station, at);
+    CREATE TABLE IF NOT EXISTS radio_follow (station TEXT PRIMARY KEY, name TEXT, url TEXT, since INTEGER);`);
+  return hdb;
+}
+function remember(station, n) {
+  if (!n || !n.raw) return;
+  try {
+    const d = hist(), last = d.prepare('SELECT raw FROM radio_plays WHERE station = ? ORDER BY at DESC, id DESC LIMIT 1').get(station);
+    if (!last || last.raw !== n.raw) d.prepare('INSERT INTO radio_plays (station, at, artist, song, raw) VALUES (?, ?, ?, ?, ?)').run(station, Math.round(Date.now() / 1000), n.artist, n.song, n.raw);
+  } catch (e) { console.warn('radio history', e.message); }
+}
+// station id → its stream: a preset (looked up), or a saved station whose address the page sends along
+async function streamFor(id, u) {
+  const p = PRESETS.find(x => x.id === id);
+  if (p) { const r = await resolve(p); return r.url || null; }
+  if (u && /^https?:\/\//i.test(u)) return String(u).slice(0, 2000);
+  try { const f = hist().prepare('SELECT url FROM radio_follow WHERE station = ?').get(id); return f ? f.url : null; } catch { return null; }
+}
+const nowCache = new Map(), nowInflight = new Map();
+async function stationNow(id, u) {
+  const c = nowCache.get(id); if (c && Date.now() - c.at < 20000) return c.v;
+  if (nowInflight.has(id)) return nowInflight.get(id);
+  const job = (async () => {
+    const url = await streamFor(id, u); if (!url) return null;
+    let v;
+    try { const r = await icyTitle(url); v = r.none ? { none: true } : r.title ? { ...splitTitle(r.title), at: new Date().toISOString() } : { quiet: true }; }
+    catch (e) { v = { error: e.message.slice(0, 120) }; }
+    if (v && v.raw) remember(id, v);
+    nowCache.set(id, { at: Date.now(), v }); return v;
+  })().finally(() => nowInflight.delete(id));
+  nowInflight.set(id, job); return job;
+}
+function history(id, limit = 50) {
+  const n = Math.max(1, Math.min(500, +limit || 50));
+  let list = [];
+  if (id === 'kexp') { try { list = require('./kexp-log').recent({ limit: n }).map(p => ({ at: p.at, artist: p.artist, song: p.song, album: p.album })); } catch { list = []; } }
+  else list = hist().prepare('SELECT at, artist, song, raw FROM radio_plays WHERE station = ? ORDER BY at DESC, id DESC LIMIT ?').all(String(id), n).map(r => ({ ...r, at: new Date(r.at * 1000).toISOString() }));
+  const f = id === 'kexp' ? null : hist().prepare('SELECT since FROM radio_follow WHERE station = ?').get(String(id));
+  return { station: id, follow: id === 'kexp' ? 'kexp' : !!f, since: f ? new Date(f.since * 1000).toISOString() : null, plays: list };
+}
+// "Keep a history": the NAS looks every couple of minutes, even when nobody is listening
+function follow({ id, name, url, on }) {
+  if (!id || id === 'kexp') throw Object.assign(new Error('Which station?'), { code: 400 });
+  const d = hist();
+  if (on) d.prepare('INSERT OR REPLACE INTO radio_follow (station, name, url, since) VALUES (?, ?, ?, COALESCE((SELECT since FROM radio_follow WHERE station = ?), ?))')
+    .run(String(id), String(name || id).slice(0, 120), url && /^https?:\/\//i.test(url) ? String(url).slice(0, 2000) : null, String(id), Math.round(Date.now() / 1000));
+  else d.prepare('DELETE FROM radio_follow WHERE station = ?').run(String(id));
+  return history(id, 20);
+}
+const FOLLOW_EVERY = +process.env.RADIO_FOLLOW_EVERY || 120e3;
+if (process.env.RADIO_HISTORY === '1' || (!process.env.CI && process.env.RADIO_HISTORY !== '0')) {
+  const tick = async () => { try { for (const f of hist().prepare('SELECT station, url FROM radio_follow').all()) await stationNow(f.station, f.url).catch(() => {}); } catch (e) { console.warn('radio follow', e.message); } };
+  setTimeout(() => { tick(); setInterval(tick, FOLLOW_EVERY).unref(); }, +process.env.RADIO_FOLLOW_DELAY || 30000).unref();
+}
+
 // ---- relay an http:// stream (only public addresses; follows a few redirects; .pls/.m3u resolved to their first entry) ----
 const PLAYLIST = /(audio\/x-scpls|audio\/x-mpegurl|audio\/mpegurl|application\/pls)/i;
-function open(url, hops = 0) {
+function open(url, hops = 0, extra = {}) {
   return new Promise((resolveP, reject) => {
     const u = new URL(url), mod = u.protocol === 'https:' ? https : http;
-    const req = mod.request(u, { method: 'GET', lookup: guardedLookup, agent: false, headers: { 'User-Agent': 'Cadence/1', Accept: '*/*' }, timeout: 10000 }, res => {
-      if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location && hops < 4) { res.resume(); return open(new URL(res.headers.location, url).href, hops + 1).then(resolveP, reject); }
+    const req = mod.request(u, { method: 'GET', lookup: guardedLookup, agent: false, headers: { 'User-Agent': 'Cadence/1', Accept: '*/*', ...extra }, timeout: 10000 }, res => {
+      if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location && hops < 4) { res.resume(); return open(new URL(res.headers.location, url).href, hops + 1, extra).then(resolveP, reject); }
       resolveP({ res, req });
     });
     req.on('timeout', () => req.destroy(new Error('timeout'))); req.on('error', reject); req.end();
   });
 }
-async function relay(url, clientReq, clientRes) {
+// open a stream address (public addresses only); a playlist file (.pls/.m3u) opens its first stream instead
+async function openStream(url, extra = {}) {
   if (!/^https?:\/\//i.test(url)) throw Object.assign(new Error('not a stream address'), { code: 400 });
   await assertPublic(url);
-  let { res, req } = await open(url);
-  // a playlist file (.pls/.m3u): play its first stream instead
-  if (PLAYLIST.test(res.headers['content-type'] || '') || /\.(pls|m3u)$/i.test(new URL(url).pathname)) {
+  let { res, req } = await open(url, 0, extra);
+  if (PLAYLIST.test(res.headers['content-type'] || '') || /\.(pls|m3u8?)$/i.test(new URL(url).pathname)) {
     let text = ''; for await (const c of res) { text += c; if (text.length > 64 * 1024) break; } req.destroy();
     const first = (text.match(/(?:^|\n)\s*(?:File\d+=)?(https?:\/\/[^\s]+)/i) || [])[1];
     if (!first) throw Object.assign(new Error('empty playlist'), { code: 502 });
-    await assertPublic(first); ({ res, req } = await open(first));
+    await assertPublic(first); ({ res, req } = await open(first, 0, extra));
   }
+  return { res, req };
+}
+async function relay(url, clientReq, clientRes) {
+  let { res, req } = await openStream(url);
   const type = String(res.headers['content-type'] || '');
   if (res.statusCode !== 200 || !/^(audio\/|application\/ogg|application\/octet-stream|video\/mp2t)/i.test(type)) { req.destroy(); throw Object.assign(new Error('not an audio stream (' + (res.statusCode || '?') + ' ' + type + ')'), { code: 502 }); }
   clientRes.writeHead(200, { 'Content-Type': type, 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' });
@@ -137,4 +239,4 @@ async function relay(url, clientReq, clientRes) {
 // look the presets up shortly after the NAS starts, so the first visit to Radio doesn't wait
 if (!process.env.CI && process.env.RADIO_WARM !== '0') setTimeout(() => { stations().catch(() => {}); }, 20000).unref();
 
-module.exports = { PRESETS, stations, search, nowPlaying, relay, resolve, shape, best };
+module.exports = { PRESETS, stations, search, nowPlaying, history, follow, relay, resolve, shape, best, parseIcy, splitTitle, readIcy };

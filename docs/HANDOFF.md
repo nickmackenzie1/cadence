@@ -115,3 +115,8 @@ Cleaned up 2026-11-16 (0.8.2): items already built were moved out after checking
   a one-time migration undoes the offset switch. "(Various Artists) X" credits become X; bare Various Artists credits
   stay out of top-artist/album lists. 429/5xx back off. All-time/yearly tops cached 30 min (full archive ≈ 3.6M
   plays back to 2000-12-31 per kexp.fyi). Ideas from that site for later: monthly/yearly winners per DJ and show.
+- **0.15.0 (music list #3):** now playing + history for every station. `services/radio.js`: `icyTitle`/`readIcy`
+  (Icy-MetaData, reads one metadata block, ~8–64 KB, 20 s cache), `radio_plays` saved on title change, `radio_follow`
+  ("Keep a history": checked every 2 min, `RADIO_FOLLOW_EVERY`; `RADIO_HISTORY=0` off; off under CI). Routes
+  `/api/radio/now?id&u`, `/api/radio/history`, POST `/api/radio/follow`. Page: song + preview/save buttons for any
+  station, "Played earlier", hidden view `radio-station`. Not checked against real stations (workspace can't reach them).

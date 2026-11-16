@@ -99,7 +99,7 @@
       bar.style.fontFamily = getComputedStyle(document.body).fontFamily;
       const art = (n && n.art) || c.art;
       bar.innerHTML = `${art ? `<img src="${E(art)}" alt="" onerror="this.style.visibility='hidden'">` : `<i class="pc-noart">${api.ui.icon('radio')}</i>`}
-        <div class="pc-m-t"><b>${E(n ? n.song : c.title)}</b><span>${E(n ? n.artist + ' · ' + c.title : (c.podcastTitle || ''))} · ${state}</span></div>
+        <div class="pc-m-t"><b>${E(n ? n.song : c.title)}</b><span>${E(n ? [n.artist, c.title].filter(Boolean).join(' · ') : (c.podcastTitle || ''))} · ${state}</span></div>
         <button class="pc-ib pc-big" data-pc="toggle" aria-label="${a.paused ? 'Play' : 'Pause'}">${api.ui.icon(a.paused ? 'play' : 'pause')}</button>
         <a class="pc-ib" href="#view-radio" aria-label="Open Radio" title="Open Radio">${api.ui.icon('list-checks')}</a>`;
       if (api.ui.currentRoute() === 'view-radio' && bar.dataset.cur !== c.uuid + ':' + a.paused) { bar.dataset.cur = c.uuid + ':' + a.paused; setTimeout(() => api.ui.refresh(), 0); }

@@ -28,21 +28,28 @@
 
       const play = s => {
         if (!s.url) return api.ui.toast("Couldn't find a stream for " + s.name);
-        P.load({ uuid: 'radio:' + s.id, live: true, station: s.id, now: null, title: s.name, podcastTitle: s.place || 'Live radio', url: playable(s.url), art: s.art || null }, true);
-        pollNow();
+        P.load({ uuid: 'radio:' + s.id, live: true, station: s.id, src: s.url, now: null, title: s.name, podcastTitle: s.place || 'Live radio', url: playable(s.url), art: s.art || null }, true);
+        noTitles = false; earlier = null; pollNow();
       };
-      // KEXP: what's on now, every 30 s while it's the station that's playing
+      // what's on now, every 30 s while a station is playing: KEXP from its playlist, the others from the song title
+      // inside the stream (most stations send one; some only send the show or nothing at all)
+      let noTitles = false, earlier = null;
+      const nowUrl = c => 'api/radio/now?id=' + encodeURIComponent(c.station) + (c.station !== 'kexp' && c.src ? '&u=' + encodeURIComponent(c.src) : '');
       const pollNow = async () => {
         clearTimeout(nowTimer); const c = P.current;
-        if (!c || !c.live || c.station !== 'kexp') return;
-        try { P.setNow(await getJson('api/radio/now?id=kexp')); } catch (e) { /* the stream keeps playing without it */ }
+        if (!c || !c.live || !c.station) return;
+        let v = null; try { v = await getJson(nowUrl(c)); } catch (e) { /* the stream keeps playing without it */ }
+        if (P.current !== c) return;
+        if (v && v.none) { noTitles = true; P.setNow(null); refresh(); return; }   // this station never sends titles: stop asking
+        if (v && (v.song || v.airbreak)) { P.setNow(v); loadEarlier(c.station); }
         if (!P.audio.paused) nowTimer = setTimeout(pollNow, 30000);
       };
+      const loadEarlier = async id => { try { const h = await getJson('api/radio/history?id=' + encodeURIComponent(id) + '&limit=12'); if (P.current && P.current.station === id) { earlier = h; refresh(); } } catch {} };
       // the Radio page redraws when the song changes (the mini player does its own)
       let nowKey = '';
       const offNow = P.on(() => { const c = P.current, k = c && c.live && c.now ? (c.now.song || '') + '|' + (c.now.artist || '') + '|' + !!c.now.airbreak : '';
         if (k !== nowKey) { nowKey = k; if (api.ui.currentRoute() === 'view-radio') api.ui.refresh(); } });
-      const offPlay = P.on(() => { const c = P.current; if (c && c.live && c.station === 'kexp' && !P.audio.paused && !nowTimer) pollNow(); if (P.audio.paused) { clearTimeout(nowTimer); nowTimer = 0; } });
+      const offPlay = P.on(() => { const c = P.current; if (c && c.live && c.station && !noTitles && !P.audio.paused && !nowTimer) pollNow(); if (P.audio.paused) { clearTimeout(nowTimer); nowTimer = 0; } });
 
       const card = (s, opts = {}) => {
         const c = P.current, on = c && c.live && c.uuid === 'radio:' + s.id, playing = on && !P.audio.paused;
@@ -52,6 +59,7 @@
             ${s.pending ? `<span class="muted rd-miss">Looking up its stream…</span>` : s.missing ? `<span class="muted rd-miss">Couldn't find its stream. Add it by address below if you know it.</span>` : ''}</div>
           <div class="rd-act">
             ${s.home ? `<a class="pc-ib" href="${E(s.home)}" target="_blank" rel="noopener" aria-label="${E(s.name)} website" title="Website">${api.ui.icon('external-link')}</a>` : ''}
+            ${s.url && !opts.save ? `<a class="pc-ib" href="#view-radio-station" data-rd="hist" data-id="${E(s.id)}" aria-label="What ${E(s.name)} played" title="What it played">${api.ui.icon('history')}</a>` : ''}
             ${opts.save ? `<button class="pc-ib" data-rd="save" data-i="${opts.i}" aria-label="Save ${E(s.name)}" title="Save to your stations">${api.ui.icon('plus')}</button>` : ''}
             ${opts.remove ? `<button class="pc-ib" data-rd="remove" data-id="${E(s.id)}" aria-label="Remove ${E(s.name)}" title="Remove">${api.ui.icon('x')}</button>` : ''}
             <button class="pc-ib pc-big" data-rd="${playing ? 'pause' : 'play'}" data-id="${E(s.id)}" ${opts.save ? `data-i="${opts.i}"` : ''} aria-label="${playing ? 'Pause' : 'Play'} ${E(s.name)}" ${s.url ? '' : 'disabled'}>${api.ui.icon(playing ? 'pause' : 'play')}</button>
@@ -65,8 +73,11 @@
         el.innerHTML = `<div class="rd">
           ${live ? `<div class="pc-card rd-now">${(n && n.art) || live.art ? `<img src="${E((n && n.art) || live.art)}" alt="" onerror="this.style.visibility='hidden'">` : `<i class="rd-noart big">${api.ui.icon('radio')}</i>`}
             <div class="rd-t"><span class="muted">${P.failed ? "Can't reach this station right now" : P.audio.paused ? 'Paused' : 'Live'}${live.now && live.now.airbreak ? ' · DJ talking' : ''}</span>
-              <b>${E(n ? n.song : live.title)}</b><span class="muted">${n ? `<a class="ar-link" href="#view-artist" data-artist="${E(n.artist)}">${E(n.artist)}</a>${n.album ? ' · ' + E(n.album) : ''} · ${E(live.title)}` : E(live.podcastTitle)}</span></div>
+              <b>${E(n ? n.song : live.title)}</b><span class="muted">${n ? `${n.artist ? `<a class="ar-link" href="#view-artist" data-artist="${E(n.artist)}">${E(n.artist)}</a> · ` : ''}${n.album ? E(n.album) + ' · ' : ''}${E(live.title)}` : E(live.podcastTitle)}${noTitles && live.station !== 'kexp' ? ' · this station doesn\'t share song titles' : ''}</span>
+              ${n && n.artist && window.CadencePreview && window.CadencePreview.buttons ? window.CadencePreview.buttons(n.artist, n.song, 'song', live.title) : ''}</div>
             <button class="pc-ib pc-big" data-rd="${P.audio.paused ? 'resume' : 'pause'}" aria-label="${P.audio.paused ? 'Play' : 'Pause'}">${api.ui.icon(P.audio.paused ? 'play' : 'pause')}</button></div>` : ''}
+          ${live && earlier && earlier.plays.length > 1 ? `<details class="rd-earlier" ${api.storage.get('earlierOpen') ? 'open' : ''}><summary>Played earlier on ${E(live.title)}</summary>${playList(earlier.plays.slice(1, 12))}
+            <a href="#view-radio-station" data-rd="hist" data-id="${E(live.station)}">Everything it played</a></details>` : ''}
           ${error ? `<p class="pc-note">${api.ui.icon('refresh-cw')}Couldn't load stations from the NAS: ${E(error)}</p>` : ''}
           ${my.length ? `<h3 class="rd-h">Your stations</h3><div class="rd-list">${my.map(s => card(s, { remove: true })).join('')}</div>` : ''}
           <h3 class="rd-h">Stations</h3><div class="rd-list">${stations.map(s => card(s)).join('')}</div>
@@ -88,6 +99,7 @@
           else if (act === 'resume') P.play();
           else if (act === 'save' && s) { if (!my.some(x => x.id === s.id)) setMine([...my, s]); api.ui.toast('Saved ' + s.name); refresh(); }
           else if (act === 'remove') { setMine(my.filter(x => x.id !== b.dataset.id)); refresh(); }
+          else if (act === 'hist') { const st = byId(b.dataset.id) || (P.current && { id: P.current.station, name: P.current.title, url: P.current.src }); if (st) openStation(st); }
         };
         el.querySelector('#rd-find').onsubmit = async e => {
           e.preventDefault(); const q = el.querySelector('#rd-q').value.trim(); if (q.length < 2) return;
@@ -101,6 +113,27 @@
           setMine([...my, { id: 'mine:' + Date.now().toString(36), name: name || new URL(url).hostname, place: 'Added by you', url }]); refresh();
         };
       } });
+      // ---------------- one station: what it played (saved by the NAS) and "Keep a history" ----------------
+      const ST = { s: null, d: null };
+      const playList = plays => `<ul class="rd-pl">${plays.map(x => `<li><span class="muted">${new Date(x.at).toLocaleString(undefined, { weekday: 'short', hour: 'numeric', minute: '2-digit' })}</span>
+        <div>${x.artist ? `<a class="ar-link" href="#view-artist" data-artist="${E(x.artist)}"><b>${E(x.artist)}</b></a> — ` : ''}${E(x.song || x.raw || '')}</div>
+        ${x.artist && window.CadencePreview && window.CadencePreview.buttons ? window.CadencePreview.buttons(x.artist, x.song, 'song', 'radio') : ''}</li>`).join('')}</ul>`;
+      const openStation = async s => { ST.s = s; ST.d = null; if (api.ui.currentRoute() !== 'view-radio-station') location.hash = 'view-radio-station'; else api.ui.refresh();
+        try { ST.d = await getJson('api/radio/history?id=' + encodeURIComponent(s.id) + '&limit=200'); } catch (e) { ST.d = { error: e.message, plays: [] }; } if (api.ui.currentRoute() === 'view-radio-station') api.ui.refresh(); };
+      api.views.add({ id: 'radio-station', title: 'Station history', icon: '📻', hidden: true, render: el => {
+        const s = ST.s, d = ST.d;
+        if (!s) { el.innerHTML = '<p class="muted">Pick a station on the <a href="#view-radio">Radio</a> page.</p>'; return; }
+        el.innerHTML = `<div class="rd"><p><a href="#view-radio">${api.ui.icon('arrow-left')}Radio</a></p><h2 class="rd-h">${E(s.name)}</h2>
+          ${!d ? '<p class="muted">Loading…</p>' : d.error ? `<p class="muted">Couldn't load it: ${E(d.error)}</p>` : `
+          ${d.follow === 'kexp' ? `<p class="muted">KEXP's full playlist is kept on your NAS. <a href="#view-kexp-history">Open KEXP history</a></p>`
+            : `<label class="rd-follow"><input type="checkbox" id="rd-follow" ${d.follow ? 'checked' : ''}> Keep a history, even when you're not listening
+               <span class="muted">${d.follow ? 'Your NAS checks the song every couple of minutes' + (d.since ? ' (since ' + day(d.since) + ')' : '') + '.' : 'Otherwise songs are saved only while you listen.'}</span></label>`}
+          ${d.plays.length ? playList(d.plays) : '<p class="muted">Nothing saved yet. Songs show up here once you listen, or turn on Keep a history.</p>'}`}</div>`;
+        const f = el.querySelector('#rd-follow');
+        if (f) f.onchange = async () => { try { const r = await fetch('api/radio/follow', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: s.id, name: s.name, url: s.url, on: f.checked }) });
+          ST.d = await r.json(); api.ui.toast(f.checked ? 'Keeping a history of ' + s.name : 'Stopped keeping a history'); } catch { api.ui.toast("Couldn't reach the NAS"); } api.ui.refresh(); };
+      } });
+
       // ---------------- KEXP history: every play the NAS has saved, grouped and counted (no AI) ----------------
       const K = { tab: api.storage.get('kTab') || 'top', by: api.storage.get('kBy') || 'artist', period: api.storage.get('kPeriod') || 'month', q: '', group: 'artist', detail: null, cache: {} };
       const kget = (qs, key = qs) => {
@@ -245,6 +278,10 @@
     .rd-find{display:flex;gap:6px;flex-wrap:wrap} .rd-find .inp{flex:1;min-width:160px}
     .rd-add summary{cursor:pointer;color:var(--muted);font-size:13px} .rd-add form{margin-top:8px}
     .rd-foot{font-size:12px}
+    .rd-earlier{margin:4px 0 14px;font-size:14px}.rd-earlier summary{cursor:pointer;color:var(--muted)}
+    .rd-pl{list-style:none;padding:0;margin:8px 0;display:flex;flex-direction:column;gap:6px}.rd-pl li{display:flex;gap:10px;align-items:baseline;font-size:14px}
+    .rd-pl li>span.muted{min-width:7.5em;font-size:12px}.rd-pl li>div{flex:1;min-width:0}
+    .rd-follow{display:flex;flex-wrap:wrap;gap:4px 8px;align-items:center;margin:6px 0 14px}.rd-follow .muted{flex-basis:100%;font-size:12px;margin-left:24px}
     .kx-sum{margin:0 0 4px}
     .kx-chips{display:flex;flex-wrap:wrap;gap:4px} .kx-bar{display:flex;flex-wrap:wrap;gap:12px;justify-content:space-between}
     .kx-chip{border:1px solid var(--line);background:var(--card);color:var(--text);border-radius:999px;padding:4px 12px;font:inherit;font-size:13px;cursor:pointer}
