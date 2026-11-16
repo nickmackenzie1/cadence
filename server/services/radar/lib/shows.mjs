@@ -46,7 +46,7 @@ async function ticketmaster(cfg) {
 }
 
 // ---- Kingston Live (kingstonlive.ca, volunteer-run listings for Kingston; feed address from the user, no key) ----
-const KL_FEED = () => process.env.KINGSTONLIVE_FEED || "https://www.kingstonlive.ca/show_feed_xml&no_headers=true&barebones_mode=true&attendance_mode=dual&cat=1&ll_887d58=0&ll_shows=0&no_limit_shows=true&month_limit=8&year_limit=2026";
+const KL_FEED = () => process.env.KINGSTONLIVE_FEED || "https://www.kingstonlive.ca/show_feed_xml&no_headers=true&barebones_mode=true";
 const KINGSTON = { lat: 44.2312, lon: -76.486 };
 const ENT = { amp: "&", quot: '"', apos: "'", lt: "<", gt: ">", nbsp: " ", rsquo: "’", lsquo: "‘", ndash: "–", mdash: "—", eacute: "é" };
 const dec = (t) => String(t).replace(/^\s*<!\[CDATA\[([\s\S]*?)\]\]>\s*$/, "$1").replace(/&#x([0-9a-f]+);/gi, (m, h) => String.fromCodePoint(parseInt(h, 16))).replace(/&#(\d+);/g, (m, n) => String.fromCodePoint(+n)).replace(/&([a-z]+);/gi, (m, n) => ENT[n.toLowerCase()] ?? m);
@@ -70,6 +70,25 @@ export function kingstonLive(xml) {
     const pick = (...ks) => { for (const k of ks) if (f[k]) return f[k]; return null; };
     const title = pick("title", "name", "show_title", "event_name", "headline", "summary");
     if (!title) continue;
+    // Kingston Live's own layout (seen 2026-11-16): "Series: Act, Act @ Venue - Nov 16, 2026", time in the description
+    // ("7:30 PM doors at 6:30 PM", "22:30", "1700"). Its listings cover the Kingston area (Wolfe Island, Gananoque…).
+    const kl = title.match(/^(.+?)\s+@\s+(.+?)\s+-\s+([A-Z][a-z]{2,8})\.?\s+(\d{1,2}),\s+(\d{4})\s*$/);
+    if (kl) {
+      const M = { jan: 1, feb: 2, mar: 3, apr: 4, may: 5, jun: 6, jul: 7, aug: 8, sep: 9, oct: 10, nov: 11, dec: 12 }, mo = M[kl[3].slice(0, 3).toLowerCase()];
+      const head = kl[1], colon = head.indexOf(": "), series = colon > 0 ? head.slice(0, colon) : null, actsTxt = colon > 0 ? head.slice(colon + 2) : head;
+      const acts = actsTxt.split(/\s*,\s*/).map((x) => x.trim()).filter((x) => x.length > 1 && x.length < 80).slice(0, 8);
+      const desc = pick("description") || "";
+      const t12 = desc.match(/\b(\d{1,2}):(\d{2})\s*(AM|PM)\b/i), t24 = desc.match(/\b(\d{1,2}):(\d{2})\b/), t4 = desc.match(/(?:^|\s)(\d{2})(\d{2})(?:\s|$)/);
+      let time = null;
+      if (t12) { let h = +t12[1]; if (/pm/i.test(t12[3]) && h < 12) h += 12; if (/am/i.test(t12[3]) && h === 12) h = 0; time = String(h).padStart(2, "0") + ":" + t12[2]; }
+      else if (t24) time = t24[1].padStart(2, "0") + ":" + t24[2];
+      else if (t4 && +t4[1] < 24) time = t4[1] + ":" + t4[2];
+      const blurb = desc.replace(/\s*\d{1,2}(:\d{2})?\s*(AM|PM)?(\s*-\s*\d{1,2}(:\d{2})?\s*(AM|PM)?)?(\s*doors at.*)?\s*$/i, "").trim();
+      const link = pick("link") || "";
+      out.push({ id: "kl:" + (pick("id") || title), artists: acts.length ? acts : [actsTxt], title: series ? head : null, date: mo ? `${kl[5]}-${String(mo).padStart(2, "0")}-${kl[4].padStart(2, "0")}` : null, time,
+        venue: kl[2], city: "Kingston area", url: /^https?:\/\//i.test(link) ? link : null, km: null, genre: null, price: null, note: blurb && blurb.length > 2 ? blurb.slice(0, 160) : null, from: "Kingston Live" });
+      continue;
+    }
     const when = pick("date", "start_date", "startdate", "show_date", "event_date", "start", "datetime", "dtstart", "pubdate", "when") || "";
     let date = null, time = pick("time", "start_time", "starttime", "doors");
     const iso = when.match(/(\d{4})-(\d{2})-(\d{2})(?:[ t](\d{2}):(\d{2}))?/i);
@@ -142,7 +161,7 @@ export async function shows(interest = [], { force = false } = {}) {
   const today = new Date().toISOString().slice(0, 10), seen = new Set(), all = [];
   for (const e of list.sort((a, b) => String(a.date).localeCompare(String(b.date)))) {
     if (e.date && e.date < today) continue;
-    const key = norm(e.artists[0] || e.title) + "|" + e.date;
+    const key = norm(e.artists[0] || e.title) + "|" + e.date + "|" + String(e.time || "").slice(0, 2);   // a matinee and an evening show both stay
     if (seen.has(key)) continue; seen.add(key);
     const hit = e.artists.map((a) => why.get(norm(a))).find(Boolean);
     all.push(hit ? { ...e, match: hit } : e);

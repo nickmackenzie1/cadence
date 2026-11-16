@@ -132,3 +132,20 @@ test('KEXP weekly charts: Top 90 and genre lists ranked, Adds as this week\'s me
   expect(v[0].date).toBe('Week of Nov. 6 - Nov. 12');
   expect(S.DEFAULT_CFG.on.kexpchart).toBe(true);
 });
+
+test('Kingston Live feed: acts, venue, date and time out of its titles and descriptions', async () => {
+  const S = await import('../server/services/radar/lib/shows.mjs');
+  const xml = `<rss version="2.0"><channel><description/><link/>
+    <item><ID>920444</ID><title>Dan Mangan, Jenn Grant @ The Spire - Nov 16, 2026</title><link>https://kingstonlive.ca/show/920444/view</link><description>Presented by Flying V Productions. 7:30 PM doors at 6:30 PM </description></item>
+    <item><ID>1</ID><title>Jazz Sessions: Spencer Evans @ La Vida Bistrobar and Social - Nov 19, 2026</title><link>https://kingstonlive.ca/show/1/view</link><description>The perfect venue for live music. 7:00 PM - 9:00 PM </description></item>
+    <item><ID>2</ID><title>The Gertrudes, Hollow Body @ The Toucan - Nov 29, 2026</title><link>https://kingstonlive.ca/show/2/view</link><description>&amp;nbsp; 1700 </description></item>
+    <item><ID>3</ID><title>The Oreoz @ The Merchant Tap House - Dec 02, 2026</title><link>https://kingstonlive.ca/show/3/view</link><description>A dynamic party band. 22:30 </description></item>
+  </channel></rss>`;
+  const v = S.kingstonLive(xml);
+  expect(v.map(e => [e.artists, e.venue, e.date, e.time])).toEqual([
+    [['Dan Mangan', 'Jenn Grant'], 'The Spire', '2026-11-16', '19:30'], [['Spencer Evans'], 'La Vida Bistrobar and Social', '2026-11-19', '19:00'],
+    [['The Gertrudes', 'Hollow Body'], 'The Toucan', '2026-11-29', '17:00'], [['The Oreoz'], 'The Merchant Tap House', '2026-12-02', '22:30']]);
+  expect(v[0].note).toBe('Presented by Flying V Productions.');
+  expect(v[1].title).toBe('Jazz Sessions: Spencer Evans');
+  expect(v[0].url).toBe('https://kingstonlive.ca/show/920444/view');
+});

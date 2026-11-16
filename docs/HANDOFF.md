@@ -134,3 +134,7 @@ Cleaned up 2026-11-16 (0.8.2): items already built were moved out after checking
     Kingston Live's feed format wasn't visible from the agent workspace: the reader is generic; if the page says it
     couldn't read it, get the feed text from the user.
   - Rename brainstorm sent; user hasn't picked yet (shortlist: Almanac, Hearth, Porchlight, Stella).
+- **0.16.1:** Kingston Live reader fitted to the real feed (user sent it): RSS items, title "Series: Act, Act @ Venue -
+  Nov 16, 2026", time in the description (7:30 PM / 22:30 / 1700). Feed address now the user's shorter one
+  (`show_feed_xml&no_headers=true&barebones_mode=true`); it lists theatre, talks and karaoke too, which land in
+  "Everything else nearby" unless an act matches.

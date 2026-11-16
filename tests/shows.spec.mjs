@@ -21,9 +21,12 @@ test.beforeAll(async () => {
     const u = new URL(req.url, 'http://x'), j = o => { res.writeHead(200, { 'Content-Type': 'application/json' }); res.end(JSON.stringify(o)); };
     if (u.pathname === '/discovery/v2/events.json') { tmAsked.push(Object.fromEntries(u.searchParams));
       return j({ _embedded: { events: [tmEvent('a', ['Jay Som', 'Opener'], day(10)), tmEvent('b', ['Random Band'], day(5)), tmEvent('c', ['Jay Som'], day(-3))] }, page: { totalPages: 1 } }); }
-    if (u.pathname === '/kingstonlive') { res.writeHead(200, { 'Content-Type': 'text/xml' });
-      return res.end(`<shows><show id="9"><title>Jay Som</title><date>${day(10)}</date><time>8:00 pm</time><venue>The Grad Club</venue></show>
-        <show id="10"><title><![CDATA[The Local Band, Friends &amp; Co]]></title><date>${day(2)}</date><time>9:30 pm</time><venue>The Mansion</venue><price>PWYC</price></show></shows>`); }
+    if (u.pathname === '/kingstonlive') { res.writeHead(200, { 'Content-Type': 'text/xml' });   // the real feed's layout (sent by the user, 2026-11-16)
+      const md = d => new Date(d + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' });
+      return res.end(`<rss version="2.0"><channel><description/><link/>
+        <item><ID>9</ID><title>Jay Som @ The Grad Club - ${md(day(10))}</title><link>https://kingstonlive.ca/show/9/view</link><description>Presented by Flying V Productions. 8:00 PM doors at 7:00 PM </description></item>
+        <item><ID>10</ID><title>Wind Down Wednesdays: The Local Band, Friends &amp; Co @ The Mansion - ${md(day(2))}</title><link>https://kingstonlive.ca/show/10/view</link><description>Live 1 hr acoustics every Wednesday. 21:30 </description></item>
+      </channel></rss>`); }
     const m = u.pathname.match(/^\/artists\/(.+)\/events$/);
     if (m) { const a = decodeURIComponent(m[1]);
       if (a === 'Alvvays') return j([{ id: 'x1', datetime: day(20) + 'T19:30:00', lineup: ['Alvvays'], url: 'https://bit.example/x1', venue: { name: "Ale House", city: 'Kingston', region: 'ON', ...KINGSTON } },
@@ -55,7 +58,9 @@ test('shows near home: artists you care about first, with why; far and past show
   await expect(page.locator('.sh-more li')).toHaveCount(2);             // Random Band, and the Kingston Live listing (Jay Som there twice counts once)
   await expect(page.locator('.sh-more')).toContainText('Random Band');
   await expect(page.locator('.sh-more li').first()).toContainText('The Local Band');
-  await expect(page.locator('.sh-more li').first()).toContainText('The Mansion · Kingston, ON · 13 km away · PWYC');
+  await expect(page.locator('.sh-more li').first()).toContainText('The Mansion · Kingston area · 13 km away');
+  await expect(page.locator('.sh-more li').first()).toContainText('Wind Down Wednesdays');
+  await expect(page.locator('.sh-more li').first()).toContainText('9:30');
   expect(tmAsked[0]).toEqual(expect.objectContaining({ latlong: '44.2234,-76.6533', radius: '100', unit: 'km', classificationName: 'music' }));
   // a wider circle is remembered and asked for
   await page.selectOption('#sh-km', '300');
