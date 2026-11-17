@@ -218,3 +218,20 @@ Cleaned up 2026-11-16 (0.8.2): items already built were moved out after checking
   stations), from `heardFor` in radar.js (10 min cache). Artist page points to STG / KEXP when no blog mentions them.
 - KEXP backfill: 1,000 plays a page every 1.5 s (KEXP_BACKFILL_PAGE / KEXP_BACKFILL_EVERY); backs off on 429/5xx.
 - Idea: winamp2-js / Webamp (MIT code) to load real Winamp .wsz skins the user brings.
+
+### Logos everywhere they make sense, and TheAudioDB (2026-11-16)
+- User: "apply logos where it makes sense … its just displaying it" (non-profit personal project). `api.ui.logo(site, {img,
+  size, cls})` / `CadenceKit.logo`: the site's icon via `api/favicon`, or a thing's own logo image via the new
+  `api/logo?u=` (NAS fetches public images only, 4 MB max, kept in data/favicons as `u-<sha1>.img`), falling back to the
+  site's icon, then to nothing. The browser never contacts the station or site itself.
+- `site` on views (title, music tabs, all-views list), widgets (dashboard header and library) and plugins (tile).
+  Given to: Said the Gramophone, KEXP history, Podcasts (Pocket Casts), Zoho Desk/status/tags/links, Harper; Daily
+  widgets (Wikipedia, xkcd, Lichess, Hacker News), Your shows (TVmaze), Client news (Google News). Weather/Outside
+  keep their weather icons.
+- Logos added in: Radio station cards, now playing, the player and station history (station's own logo, else its site);
+  Music Radar source tabs, blog chips and columns, risers, albums, movers, Sources dialog; artist page mentions,
+  charts, links, section headings; Shows sources and Details links; Following news; Daily headings and each Hacker News
+  story's site; Feeds shelves, settings and stats; task links to Zoho/Gmail/Outlook; meetings' join service; calendars.
+- TheAudioDB (`radar/lib/audiodb.mjs`, free key 123 or AUDIODB_KEY; 2.1 s between requests; by MusicBrainz ID, else
+  name; kept 30 days, misses 7): band logo (on a dark tile), photo, banner or fan art, biography (About), members,
+  label, genre/style/mood, extra links; "MusicBrainz and TheAudioDB side by side" marks where they disagree.

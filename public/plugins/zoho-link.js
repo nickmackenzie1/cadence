@@ -3,7 +3,7 @@
    Zoho and Google refuse to be framed inside other sites, so it's a card, not an iframe. Stored as task.ref.
    Desk ticket links belong to the Desk tickets plugin. */
 Cadence.registerPlugin({
-  id: 'zoho-link', name: 'Links on tasks', version: '1.1.0', category: 'Clients', spaces: ['work', 'life'],
+  id: 'zoho-link', site: 'zoho.com', name: 'Links on tasks', version: '1.1.0', category: 'Clients', spaces: ['work', 'life'],
   description: 'Paste a Zoho Projects task, a CRM/Books/Creator record, a Gmail or Outlook email, or any web link into a task and it shows as a clean card with an Open button. Works in quick add: "Reply to Sam https://mail.google.com/mail/u/0/#inbox/…".',
   tagline: 'Zoho tasks, emails and links on your tasks', color: '#e42527',
   icon: '<path d="M10 14a4 4 0 0 0 5.66 0l3-3a4 4 0 0 0-5.66-5.66l-1 1"/><path d="M14 10a4 4 0 0 0-5.66 0l-3 3a4 4 0 0 0 5.66 5.66l1-1"/>',
@@ -34,7 +34,8 @@ Cadence.registerPlugin({
     }
     const ICONS = { zoho: '<rect x="3" y="3" width="8" height="8" rx="2"/><rect x="13" y="3" width="8" height="8" rx="2"/><rect x="3" y="13" width="8" height="8" rx="2"/><rect x="13" y="13" width="8" height="8" rx="2"/>',
       mail: '<rect x="3" y="5" width="18" height="14" rx="2.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M4 7l8 6 8-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>' };
-    const mark = (app, z) => app === 'web' && z ? `<span class="zl-mark zl-web"><img src="${E(api.ui.faviconUrl(z.host))}" alt="" onerror="this.remove()"></span>` : `<span class="zl-mark zl-${E(app)}"><svg viewBox="0 0 24 24">${app === 'gmail' || app === 'outlook' ? ICONS.mail : ICONS.zoho}</svg></span>`;
+    // the linked app's real logo (Zoho Desk, CRM, Gmail, Outlook…), over the drawn mark in case it can't load
+    const mark = (app, z) => app === 'web' && z ? `<span class="zl-mark zl-web"><img src="${E(api.ui.faviconUrl(z.host))}" alt="" onerror="this.remove()"></span>` : `<span class="zl-mark zl-${E(app)}"><svg viewBox="0 0 24 24">${app === 'gmail' || app === 'outlook' ? ICONS.mail : ICONS.zoho}</svg>${z && z.url ? api.ui.logo(z.url, { size: 15 }) : ''}</span>`;
     const refOf = t => t.ref || t.zoho || null;
     const label = z => z.app === 'web' ? z.host : `${z.appName} ${z.kind.toLowerCase()}`;
 
@@ -73,7 +74,7 @@ Cadence.registerPlugin({
 
     if (!document.getElementById('zl-css')) { const st = document.createElement('style'); st.id = 'zl-css'; st.textContent = `
       .zl-mark{display:inline-grid;place-items:center;width:15px;height:15px;border-radius:4px;background:#e42527;color:#fff;flex:none}
-      .zl-mark svg{width:11px;height:11px;fill:currentColor;stroke:none}
+      .zl-mark svg{width:11px;height:11px;fill:currentColor;stroke:none} .zl-mark{position:relative} .zl-mark .cx-logo{position:absolute;inset:0;width:100%;height:100%;margin:0;background:#fff;border-radius:inherit;padding:1px}
       .zl-mark.zl-gmail{background:#d93025}.zl-mark.zl-outlook{background:#0a64c2}.zl-mark.zl-web{background:var(--hover);overflow:hidden}.zl-mark img{width:100%;height:100%;object-fit:contain}
       a.chip.zl-chip{text-decoration:none;color:inherit;cursor:pointer}a.chip.zl-chip:hover{border-color:var(--accent);color:var(--accent)}
       .zl-mark.zl-crm{background:#0a6ed1}.zl-mark.zl-books{background:#1f9d63}.zl-mark.zl-creator{background:#7a3fc4}.zl-mark.zl-projects,.zl-mark.zl-sprints{background:#e42527}

@@ -2,7 +2,7 @@
    (StatusIQ RSS, fetched by the NAS so nothing leaves your browser). A light in the sidebar,
    the full board on click, and an Island alert when something you watch goes down or recovers. */
 Cadence.registerPlugin({
-  id: 'zoho-status', spaces: ['work'], name: 'Zoho status', version: '1.0.0', category: 'Integrations',
+  id: 'zoho-status', site: 'zoho.com', spaces: ['work'], name: 'Zoho status', version: '1.0.0', category: 'Integrations',
   description: 'Watches Zoho\'s public status page (Canada data centre by default) and shows a status light in the sidebar. Click it for every Zoho service. Pick the apps you care about and get an Island alert the moment one goes down, and again when it\'s back. Also available as a dashboard widget.',
   tagline: 'Is Zoho up? A light in the sidebar', color: '#e42527',
   icon: '<path d="M3 12h4l2-5 4 10 2-5h6"/>',
@@ -83,7 +83,7 @@ Cadence.registerPlugin({
       el.innerHTML = `<div class="zs-row" title="Zoho status · updated ${Z.at ? new Date(Z.at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : 'never'}"><i class="zs-dot ${s.level}"></i><b>Zoho</b><span>${E(s.text)}</span></div>`;
       el.firstChild.onclick = () => board();
     } });
-    api.widgets.add({ id: 'board', title: 'Zoho status', icon: '◉', size: 'm', render: el => {
+    api.widgets.add({ id: 'board', site: 'zoho.com', title: 'Zoho status', icon: '◉', size: 'm', render: el => {
       const s = summary(), w = new Set(watched());
       const list = Z.items.filter(x => w.has(x.name)).sort((a, b) => (a.level === 'ok') - (b.level === 'ok'));
       el.innerHTML = `<div class="zs-w"><h4><i class="zs-dot ${s.level}"></i>${E(s.text)}</h4><div class="zs-board">${list.map(x => `<div class="zs-svc ${x.level !== 'ok' ? 'bad' : ''}"><i class="zs-dot ${x.level}"></i><span class="n">${E(x.name)}</span><span class="s">${x.level === 'ok' ? 'OK' : E(x.status)}</span></div>`).join('') || '<span class="muted">Loading…</span>'}</div></div>`;

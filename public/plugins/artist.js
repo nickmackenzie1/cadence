@@ -4,7 +4,7 @@
 (() => {
   const E = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const A = (u, t, cls = '') => `<a ${cls ? `class="${cls}" ` : ''}href="${E(u)}" target="_blank" rel="noopener">${t}</a>`;
-  const LINK_NAMES = { bandcamp: 'Bandcamp', website: 'Website', wikipedia: 'Wikipedia', instagram: 'Instagram', youtube: 'YouTube', spotify: 'Spotify', apple: 'Apple Music', soundcloud: 'SoundCloud', bluesky: 'Bluesky', mastodon: 'Mastodon' };
+  const LINK_NAMES = { bandcamp: 'Bandcamp', website: 'Website', wikipedia: 'Wikipedia', instagram: 'Instagram', youtube: 'YouTube', spotify: 'Spotify', apple: 'Apple Music', soundcloud: 'SoundCloud', bluesky: 'Bluesky', mastodon: 'Mastodon', facebook: 'Facebook', twitter: 'X (Twitter)', lastfm: 'Last.fm' };
   const day = ts => new Date(ts * 1000).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
   const year = d => d ? String(d).slice(0, 4) : '';
   let current = null;
@@ -89,7 +89,7 @@
       const sgLoad = async (year) => { try { SG.d = await (await fetch('api/radar/stg' + (year ? '?year=' + year : ''))).json(); SG.at = Date.now(); } catch (e) { SG.d = SG.d || { err: true }; }
         if (api.ui.currentRoute() === 'view-stg') api.ui.refresh();
         if (SG.d && SG.d.status && SG.d.status.running) setTimeout(() => api.ui.currentRoute() === 'view-stg' && sgLoad(SG.year), 8000); };
-      api.views.add({ id: 'stg', group: 'music', order: 50, title: 'Said the Gramophone', icon: '🎼', subtitle: 'Best songs and albums of every year, from the blog', render: el => {
+      api.views.add({ id: 'stg', group: 'music', order: 50, site: 'saidthegramophone.com', title: 'Said the Gramophone', icon: '🎼', subtitle: 'Best songs and albums of every year, from the blog', render: el => {
         const d = SG.d;
         if (!d || Date.now() - SG.at > 60e3) { sgLoad(SG.year); if (!d) { el.innerHTML = '<p class="muted">Loading…</p>'; return; } }
         if (d.err) { el.innerHTML = '<p class="muted">The NAS didn\'t answer. Try again in a moment.</p>'; return; }
@@ -128,7 +128,7 @@
         return x.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: x.getFullYear() === new Date().getFullYear() ? undefined : 'numeric' }) + (t ? ' · ' + x.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' }) : ''); };
       const showRow = (e, full) => `<li><span class="sh-d">${E(dateLabel(e.date, e.time))}</span>${full && e.match ? window.CadencePreview.buttons(e.match.name, null, 'artist', 'Shows') : ''}<div>
           <span class="sh-a">${e.artists.map((a, i) => `<a class="ar-link" href="#view-artist" data-artist="${E(a)}">${i ? E(a) : `<b>${E(a)}</b>`}</a>`).join(', ')}${e.title && e.title !== e.artists.join(', ') ? ` <span class="muted">· ${E(e.title.split(': ')[0])}</span>` : ''}</span>
-          <span class="muted">${E([e.venue, e.city, e.km != null ? e.km + ' km away' : null, e.price].filter(Boolean).join(' · '))}${e.url ? ` · <a href="${E(e.url)}" target="_blank" rel="noopener">Details</a>` : ''}</span>
+          <span class="muted">${E([e.venue, e.city, e.km != null ? e.km + ' km away' : null, e.price].filter(Boolean).join(' · '))}${e.url ? ` · <a href="${E(e.url)}" target="_blank" rel="noopener">${api.ui.logo(e.url, { size: 12 })}Details</a>` : ''}</span>
           ${e.note ? `<span class="muted sh-note">${E(e.note)}</span>` : ''}
           ${(e.heard || []).map(h => `<span class="sh-heard">${api.ui.icon('message-square-quote')}${e.artists.length > 1 ? `${E(h.artist)}: ` : ''}${E(h.where.join(' · '))}</span>`).join('')}
           ${full && e.match ? `<span class="sh-why">${E(e.match.why)}</span>` : ''}</div></li>`;
@@ -141,8 +141,8 @@
         const noKey = d.note === 'needs a key';
         const setup = `<details class="sh-set" ${noKey ? 'open' : ''}><summary>Where the shows come from</summary>
           <p class="muted">Kingston Live needs nothing. The other two are free, each with its own key in the NAS <code>.env</code> (the NAS picks up a changed .env on its next update check):</p>
-          <ul><li>${k.kingstonlive ? api.ui.icon('circle-check') : api.ui.icon('circle')}<div><b>Kingston Live</b>: the volunteer-run listings for Kingston${k.kingstonlive ? ' (used when Kingston is inside your circle)' : ' (turned off with KINGSTONLIVE=0)'}</div></li><li>${k.ticketmaster ? api.ui.icon('circle-check') : api.ui.icon('circle')}<div><b>Ticketmaster</b>: every concert near you. Sign up at <a href="https://developer.ticketmaster.com" target="_blank" rel="noopener">developer.ticketmaster.com</a>, open My Apps, copy the Consumer Key, and add <code>TICKETMASTER_API_KEY=…</code></div></li>
-            <li>${k.bandsintown ? api.ui.icon('circle-check') : api.ui.icon('circle')}<div><b>Bandsintown</b>: tour dates for the artists you care about, including smaller venues. Bandsintown gives app IDs on request; add <code>BANDSINTOWN_APP_ID=…</code></div></li></ul></details>`;
+          <ul><li>${k.kingstonlive ? api.ui.icon('circle-check') : api.ui.icon('circle')}<div><b>${api.ui.logo('kingstonlive.ca')}Kingston Live</b>: the volunteer-run listings for Kingston${k.kingstonlive ? ' (used when Kingston is inside your circle)' : ' (turned off with KINGSTONLIVE=0)'}</div></li><li>${k.ticketmaster ? api.ui.icon('circle-check') : api.ui.icon('circle')}<div><b>${api.ui.logo('ticketmaster.ca')}Ticketmaster</b>: every concert near you. Sign up at <a href="https://developer.ticketmaster.com" target="_blank" rel="noopener">developer.ticketmaster.com</a>, open My Apps, copy the Consumer Key, and add <code>TICKETMASTER_API_KEY=…</code></div></li>
+            <li>${k.bandsintown ? api.ui.icon('circle-check') : api.ui.icon('circle')}<div><b>${api.ui.logo('bandsintown.com')}Bandsintown</b>: tour dates for the artists you care about, including smaller venues. Bandsintown gives app IDs on request; add <code>BANDSINTOWN_APP_ID=…</code></div></li></ul></details>`;
         el.innerHTML = `<div class="sg sh">
           <div class="sh-bar"><label>Around ${E(c.place)}, within <select class="inp" id="sh-km">${dist.map(([v, l]) => `<option value="${v}" ${c.radiusKm === v ? 'selected' : ''}>${l}</option>`).join('')}${dist.some(x => x[0] === c.radiusKm) ? '' : `<option selected value="${c.radiusKm}">${c.radiusKm} km</option>`}</select></label>
             ${!noKey ? `<button class="linkish" id="sh-again">${api.ui.icon('refresh-cw')}Check again</button>` : ''}</div>
@@ -150,7 +150,7 @@
           ${(d.errors || []).map(x => `<p class="muted" title="${E(x)}">${E(x.split(':')[0])} couldn't be reached just now. It'll try again on the next check.</p>`).join('')}
           <h3>By artists you care about</h3>
           ${d.matches.length ? `<ul class="sh-l">${d.matches.map(e => showRow(e, true)).join('')}</ul>` : '<p class="muted">Nobody from your lists is playing nearby right now. Shows by artists in Want to hear, climbing on Radar, played a lot on KEXP, or that you look up will show here.</p>'}
-          ${(d.local || []).length ? `<h3>Kingston Live</h3><ul class="sh-l sh-kl">${d.local.map(e => showRow(e, false)).join('')}</ul>` : ''}
+          ${(d.local || []).length ? `<h3>${api.ui.logo('kingstonlive.ca')}Kingston Live</h3><ul class="sh-l sh-kl">${d.local.map(e => showRow(e, false)).join('')}</ul>` : ''}
           ${d.nearby.length ? `<details class="sh-more"><summary>Everything else nearby (${d.nearby.length})</summary><ul class="sh-l">${d.nearby.map(e => showRow(e, false)).join('')}</ul></details>` : ''}
           ${setup}`}</div>`;
         const km = el.querySelector('#sh-km'); if (km) km.onchange = () => { SH.d = null; api.ui.refresh(); shLoad({ settings: { radiusKm: +km.value } }); };
@@ -166,7 +166,7 @@
           ${(() => { const F = window.CadenceFollow.peek(); if (!F.follows.length) return '<h3>Following</h3><p class="muted">Follow an artist from their page to hear when they turn up: a blog post, a release, a chart, KEXP or a station playing them, a show nearby. Following someone also keeps them off your mainstream list.</p>';
             const by = {}; for (const n of F.news) (by[n.key] ||= []).push(n);
             return `<div class="fw-head"><h3>Following</h3>${F.news.length ? '<button class="linkish" id="fw-seen">Mark everything as seen</button>' : ''}</div><ul class="fw-l">${F.follows.map(f => `<li><div class="fw-n"><a class="ar-link" href="#view-artist" data-artist="${E(f.name)}"><b>${E(f.name)}</b></a>
-              <button class="linkish fw-x" data-unfollow="${E(f.name)}">Unfollow</button></div>${(by[f.key] || []).length ? `<ul class="fw-news">${by[f.key].slice(0, 6).map(n => `<li>${n.url ? `<a href="${E(n.url)}" target="_blank" rel="noopener">${E(n.text)}</a>` : E(n.text)}</li>`).join('')}${by[f.key].length > 6 ? `<li class="muted">and ${by[f.key].length - 6} more</li>` : ''}</ul>` : '<span class="muted">Nothing new since you last looked</span>'}</li>`).join('')}</ul>`; })()}
+              <button class="linkish fw-x" data-unfollow="${E(f.name)}">Unfollow</button></div>${(by[f.key] || []).length ? `<ul class="fw-news">${by[f.key].slice(0, 6).map(n => `<li>${n.url ? `<a href="${E(n.url)}" target="_blank" rel="noopener">${api.ui.logo(n.url, { size: 13 })}${E(n.text)}</a>` : E(n.text)}</li>`).join('')}${by[f.key].length > 6 ? `<li class="muted">and ${by[f.key].length - 6} more</li>` : ''}</ul>` : '<span class="muted">Nothing new since you last looked</span>'}</li>`).join('')}</ul>`; })()}
           <h3>Looked at lately</h3>${recent.length ? chips(recent) : '<p class="muted">Artists you open from Radar, Radio or KEXP history show up here.</p>'}
           ${saved.length ? `<h3>From Want to hear</h3>${chips(saved)}` : ''}
           ${recent.length ? '<p><button class="linkish" id="ar-clear">Clear the list</button></p>' : ''}</div>`;
@@ -214,7 +214,7 @@
           .then(d => {
             G[k] = { d, at: Date.now(), tries: tries + 1 }; if (d && !d.error) KEEP.put(k, d);
             // the NAS answered from its copy and is rebuilding: pick the new one up shortly (a few times at most)
-            if (d && (d.refreshing || d.mbPending) && tries < 4) { G[k].tries = tries + 1; again(name, k, d.refreshing ? 2500 : 4000); }
+            if (d && (d.refreshing || d.mbPending || d.adbPending) && tries < 6) { G[k].tries = tries + 1; again(name, k, d.refreshing ? 2500 : 5000); }
           }, e => { G[k] = { d: (c && c.d) || (G[k] && G[k].d) || { error: e.message }, at: Date.now() }; })
           .then(() => { if (api.ui.currentRoute() === 'view-artist') api.ui.refresh(); });
         return G[k].d;
@@ -229,32 +229,53 @@
         const d = load(current);
         if (!d) { el.innerHTML = `<div class="ap"><h2>${E(current)}</h2><p class="muted">Gathering everything…</p></div>`; return; }
         if (d.error) { el.innerHTML = `<div class="ap"><h2>${E(current)}</h2><p class="muted">Couldn't load this artist right now.</p></div>`; return; }
-        const mb = d.mb, k = d.kexp;
-        const facts = [mb && mb.type, mb && (mb.from || mb.country), mb && mb.since && `since ${year(mb.since)}${mb.ended ? ' (ended)' : ''}`, d.radar && d.radar.listeners && `${d.radar.listeners.toLocaleString()} Last.fm listeners`].filter(Boolean);
-        const tags = [...new Set([...(d.genres || []), ...((mb && mb.tags) || [])].map(t => t.toLowerCase()))].slice(0, 10);
-        const links = (mb && mb.links) || [];
+        const mb = d.mb, k = d.kexp, ad = d.adb;
+        // images from TheAudioDB go through the NAS (kept there), like every other logo
+        const kept = u => (u ? 'api/logo?u=' + encodeURIComponent(u) : '');
+        const formed = (mb && mb.since && year(mb.since)) || (ad && (ad.formed || ad.born)) || null;
+        const facts = [mb && mb.type, (mb && (mb.from || mb.country)) || (ad && ad.country), formed && `since ${formed}${(mb && mb.ended) || (ad && ad.disbanded) ? ' (ended)' : ''}`,
+          ad && ad.members > 1 && `${ad.members} members`, ad && ad.label, d.radar && d.radar.listeners && `${d.radar.listeners.toLocaleString()} Last.fm listeners`].filter(Boolean);
+        const tags = [...new Set([...(d.genres || []), ...((mb && mb.tags) || []), ...(ad ? [ad.genre, ad.style, ad.mood].filter(Boolean) : [])].map(t => t.toLowerCase()))].slice(0, 12);
+        // links: MusicBrainz first, then anything TheAudioDB adds on a site MusicBrainz didn't list
+        const host = u => { try { return new URL(u).hostname.replace(/^www\./, ''); } catch (e) { return ''; } };
+        const links = [...((mb && mb.links) || [])]; for (const l of (ad && ad.links) || []) if (!links.some(x => host(x.url) === host(l.url))) links.push(l);
+        // the two databases side by side, marking where they disagree
+        const cmpRows = mb && ad ? [
+          ['Formed', mb.since ? year(mb.since) : null, ad.formed || ad.born],
+          ['From', mb.from || mb.country, ad.country],
+          ['Kind', mb.type, ad.members > 1 ? `Group of ${ad.members}` : ad.members === 1 || ad.gender ? 'Person' : null],
+          ['Genre', (mb.tags || []).slice(0, 3).join(', '), [ad.genre, ad.style].filter(Boolean).join(', ')],
+          ['Label', null, ad.label]].filter(x => x[1] || x[2]) : [];
+        const differs = (a, b) => { if (!a || !b) return false; const A = String(a).toLowerCase(), B = String(b).toLowerCase(); return !(A.includes(B) || B.includes(A) || A.split(/[ ,]+/).some(w => w.length > 3 && B.includes(w))); };
         const charts = d.mentions.filter(m => m.rank != null), other = d.mentions.filter(m => m.rank == null);
-        const art = d.art || (mb && mb.releases[0] && mb.releases[0].cover);
+        const art = (ad && ad.photo && kept(ad.photo)) || d.art || (mb && mb.releases[0] && mb.releases[0].cover);
         el.innerHTML = `<div class="ap">
-          <header class="ap-head">${art ? `<img class="ap-img" src="${E(art)}" alt="" onerror="this.remove()">` : `<i class="ap-img ap-noimg">${api.ui.icon('user')}</i>`}
-            <div><h2>${E(d.name)}</h2>${mb && mb.disambiguation ? `<p class="muted">${E(mb.disambiguation)}</p>` : ''}
+          ${ad && ad.banner ? `<img class="ap-banner" src="${E(kept(ad.banner))}" alt="" onerror="this.remove()">` : ''}
+          <header class="ap-head${ad && ad.fanart && !ad.banner ? ' ap-fan' : ''}"${ad && ad.fanart && !ad.banner ? ` style="--fan:url('${E(kept(ad.fanart))}')"` : ''}>${art ? `<img class="ap-img" src="${E(art)}" alt="" onerror="this.remove()">` : `<i class="ap-img ap-noimg">${api.ui.icon('user')}</i>`}
+            <div>${ad && ad.logo ? `<span class="ap-logo"><img src="${E(kept(ad.logo))}" alt="${E(d.name)} logo" onerror="this.parentNode.remove()"></span>` : ''}<h2>${E(d.name)}</h2>${mb && mb.disambiguation ? `<p class="muted">${E(mb.disambiguation)}</p>` : ''}
               ${facts.length ? `<p class="ap-facts">${facts.map(E).join(' · ')}</p>` : ''}
               ${tags.length ? `<div class="ap-tags">${tags.map(t => `<span>${E(t)}</span>`).join('')}</div>` : ''}
               <div class="ap-links">${(() => { const f = window.CadenceFollow.has(d.name); return `<button class="btn${f ? '' : ' primary'}" data-follow="${E(d.name)}" aria-pressed="${f}">${api.ui.icon(f ? 'user-check' : 'user-plus')}${f ? 'Following' : 'Follow'}</button>`; })()}<button class="btn" data-pv data-a="${E(d.name)}">${api.ui.icon('play')}Play a preview</button>${(() => { const on = window.CadencePreview.want.has(d.name, null);
                 return `<button class="btn" data-want data-a="${E(d.name)}" data-type="artist" data-from="artist page">${api.ui.icon(on ? 'bookmark-check' : 'bookmark-plus')}${on ? 'In Want to hear' : 'Save to Want to hear'}</button>`; })()}</div>
-              ${links.length ? `<div class="ap-links">${links.map(l => A(l.url, `${api.ui.icon(l.kind === 'website' ? 'globe' : 'external-link')}${E(LINK_NAMES[l.kind] || l.kind)}`, 'btn')).join('')}</div>` : ''}
-              ${d.mbPending ? `<p class="muted ap-wait">Looking up releases and links…</p>` : ''}
+              ${links.length ? `<div class="ap-links">${links.map(l => A(l.url, `${api.ui.logo(l.url, { size: 15 }) || api.ui.icon(l.kind === 'website' ? 'globe' : 'external-link')}${E(LINK_NAMES[l.kind] || l.kind)}`, 'btn')).join('')}</div>` : ''}
+              ${d.mbPending || d.adbPending ? `<p class="muted ap-wait">Looking up ${d.mbPending ? 'releases and links' : 'photos, logo and biography'}…</p>` : ''}
               ${d.mainstream ? `<p class="muted">Hidden from Music Radar by your mainstream filter.</p>` : ''}</div></header>
 
           <div class="ap-grid">
-          ${mb && mb.releases.length ? `<section class="ap-wide"><h3>Releases</h3><div class="ap-rel">${mb.releases.slice(0, 18).map(r => `<a class="ap-r" href="https://musicbrainz.org/release-group/${E(r.id)}" target="_blank" rel="noopener">
+          ${ad && ad.bio ? `<section class="ap-wide ap-about"><h3>${api.ui.logo('theaudiodb.com')}About</h3>${(() => { const b = ad.bio, cut = b.length > 700 ? b.slice(0, 700).replace(/\s+\S*$/, '') : b;
+            return `<p>${E(cut).replace(/\n+/g, '</p><p>')}${cut !== b ? '…' : ''}</p>${cut !== b ? `<details><summary>Read the rest</summary><p>${E(b.slice(cut.length)).replace(/\n+/g, '</p><p>')}</p></details>` : ''}`; })()}
+            <p class="muted ap-credit">From ${A(ad.page, 'TheAudioDB')}</p></section>` : ''}
+          ${mb && mb.releases.length ? `<section class="ap-wide"><h3>${api.ui.logo('musicbrainz.org')}Releases</h3><div class="ap-rel">${mb.releases.slice(0, 18).map(r => `<a class="ap-r" href="https://musicbrainz.org/release-group/${E(r.id)}" target="_blank" rel="noopener">
               <span class="ap-cover"><img src="${E(r.cover)}" alt="" loading="lazy" onerror="this.remove()">${api.ui.icon('disc-3')}</span><b>${E(r.title)}</b><span class="muted">${E([year(r.date), r.type].filter(Boolean).join(' · '))}</span></a>`).join('')}</div>
             <p class="ap-relplay">${mb.releases.slice(0, 6).map(r => `<button class="btn" data-pv data-a="${E(d.name)}" data-t="${E(r.title)}">${api.ui.icon('play')}${E(r.title)}</button>`).join('')}</p></section>` : ''}
 
+          ${cmpRows.length ? `<section class="ap-cmp"><h3>MusicBrainz and TheAudioDB side by side</h3><table><tr><th></th><th>${api.ui.logo('musicbrainz.org', { size: 13 })}MusicBrainz</th><th>${api.ui.logo('theaudiodb.com', { size: 13 })}TheAudioDB</th></tr>
+            ${cmpRows.map(([l, a, b]) => `<tr class="${differs(a, b) ? 'diff' : ''}"><th>${E(l)}</th><td>${a ? E(a) : '<span class="muted">not listed</span>'}</td><td>${b ? E(b) : '<span class="muted">not listed</span>'}</td></tr>`).join('')}</table>
+            ${cmpRows.some(([, a, b]) => differs(a, b)) ? '<p class="muted">Highlighted rows: the two disagree.</p>' : '<p class="muted">They agree wherever both have an answer.</p>'}</section>` : ''}
           <section><h3>Where they're showing up</h3>
             ${other.length || d.picks.length ? `<ul class="ap-list">
-              ${other.slice(0, 30).map(m => `<li><span class="ap-src">${E(m.feed || m.sourceName)}</span><div>${m.url ? A(m.url, E(m.title || d.name)) : E(m.title || d.name)}<span class="muted">${E(m.sourceName)}${m.tier === 'small' ? ' · small blog' : ''} · ${day(m.first)}${m.seen > 1 ? ` · seen ${m.seen} times` : ''}</span></div></li>`).join('')}
-              ${d.picks.map(p => `<li><span class="ap-src">${E((p.subs || []).slice(0, 2).join(', ') || 'Communities')}</span><div>${p.link ? A(p.link, E(p.song || 'recommended')) : E(p.song || 'recommended')}<span class="muted">Lemmy & Mastodon · ${day(p.ts)}${p.thread ? ' · ' + A(p.thread, 'discussion') : ''}</span></div></li>`).join('')}
+              ${other.slice(0, 30).map(m => `<li><span class="ap-src">${api.ui.logo(m.url || '', { size: 14 })}${E(m.feed || m.sourceName)}</span><div>${m.url ? A(m.url, E(m.title || d.name)) : E(m.title || d.name)}<span class="muted">${E(m.sourceName)}${m.tier === 'small' ? ' · small blog' : ''} · ${day(m.first)}${m.seen > 1 ? ` · seen ${m.seen} times` : ''}</span></div></li>`).join('')}
+              ${d.picks.map(p => `<li><span class="ap-src">${api.ui.logo(p.link || p.thread || '', { size: 14 })}${E((p.subs || []).slice(0, 2).join(', ') || 'Communities')}</span><div>${p.link ? A(p.link, E(p.song || 'recommended')) : E(p.song || 'recommended')}<span class="muted">Lemmy & Mastodon · ${day(p.ts)}${p.thread ? ' · ' + A(p.thread, 'discussion') : ''}</span></div></li>`).join('')}
             </ul>` : `<p class="muted">${(() => {
               const also = [d.stg && d.stg.length ? "Said the Gramophone's best-of lists" : null, k && k.plays ? `KEXP (${k.plays.toLocaleString()} plays)` : null].filter(Boolean);
               return also.length ? `No blog, chart or community has mentioned them lately. They do turn up on ${E(also.join(' and '))}, further down.` : 'No blog, chart or community has mentioned them yet.';
@@ -262,12 +283,12 @@
 
           <section><h3>Charts</h3>
             ${charts.length ? `<ul class="ap-list">${charts.map(m => { const run = (m.run || []).map(x => x.rank); const first = run[0], lastR = run[run.length - 1];
-              return `<li><span class="ap-src">${E(m.sourceName)}</span><div>${E(m.feed || '')}${m.title ? ' · ' + E(m.title) : ''}<span class="muted">now #${m.rank}${m.best && m.best !== m.rank ? `, best #${m.best}` : ''}${run.length > 1 ? ` · #${first} → #${lastR} over ${run.length} checks` : ''}</span>
+              return `<li><span class="ap-src">${api.ui.logo(m.url || '', { size: 14 })}${E(m.sourceName)}</span><div>${E(m.feed || '')}${m.title ? ' · ' + E(m.title) : ''}<span class="muted">now #${m.rank}${m.best && m.best !== m.rank ? `, best #${m.best}` : ''}${run.length > 1 ? ` · #${first} → #${lastR} over ${run.length} checks` : ''}</span>
                 ${run.length > 1 ? spark(run) : ''}</div></li>`; }).join('')}</ul>` : '<p class="muted">Not on any chart Cadence follows.</p>'}</section>
 
-          ${d.stg && d.stg.length ? `<section><h3>On Said the Gramophone's best-of lists</h3><ul class="ap-list ap-stg">${d.stg.map(x => `<li><span class="ap-src">${x.year}</span><div><span>${x.kind === 'song' ? `#${x.rank} song: ` : 'Album of the year: '}${A(x.url, E(x.title))}</span></div>${window.CadencePreview.buttons(d.name, x.title, x.kind, "Said the Gramophone " + x.year)}</li>`).join('')}</ul></section>` : ''}
+          ${d.stg && d.stg.length ? `<section><h3>${api.ui.logo('saidthegramophone.com')}On Said the Gramophone's best-of lists</h3><ul class="ap-list ap-stg">${d.stg.map(x => `<li><span class="ap-src">${x.year}</span><div><span>${x.kind === 'song' ? `#${x.rank} song: ` : 'Album of the year: '}${A(x.url, E(x.title))}</span></div>${window.CadencePreview.buttons(d.name, x.title, x.kind, "Said the Gramophone " + x.year)}</li>`).join('')}</ul></section>` : ''}
 
-          <section><h3>On KEXP</h3>
+          <section><h3>${api.ui.logo('kexp.org')}On KEXP</h3>
             ${k ? `<p>${k.plays.toLocaleString()} play${k.plays === 1 ? '' : 's'} · first ${new Date(k.first).toLocaleDateString(undefined, { month: 'short', year: 'numeric' })} · last ${new Date(k.last).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</p>
               <ul class="ap-list">${k.songs.slice(0, 6).map(s => `<li><span class="ap-src">${s.plays}×</span><div>${E(s.song)}<span class="muted">${E(s.album || '')}</span></div></li>`).join('')}</ul>
               ${k.djs && k.djs.length ? `<h4>Who plays them</h4><ul class="ap-list">${k.djs.slice(0, 5).map(x => `<li><span class="ap-src">${x.plays}×</span><div>${E(x.hosts)}<span class="muted">${E(x.program || '')}</span></div></li>`).join('')}</ul>` : ''}
@@ -295,6 +316,13 @@
         .ap-cover{position:relative;aspect-ratio:1;border-radius:var(--r-m);background:var(--accent-soft);display:grid;place-items:center;overflow:hidden;color:var(--accent)} .ap-cover img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
         .ap-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px} .ap-list li{display:grid;grid-template-columns:110px 1fr;gap:10px;font-size:13px}
         .ap-list li>div{display:flex;flex-direction:column;gap:1px;min-width:0} .ap-list .muted{font-size:12px}
+        .ap .cx-logo,.sh .cx-logo,.sg .cx-logo{vertical-align:-2px} .ap-src .cx-logo{margin-right:5px} .ap-links .btn .cx-logo{margin:0}
+        .ap-banner{display:block;width:100%;max-height:150px;object-fit:cover;border-radius:var(--r-l);margin:0 0 14px}
+        .ap-head.ap-fan{position:relative;isolation:isolate;padding:14px;border-radius:var(--r-l);overflow:hidden} .ap-head.ap-fan::before{content:'';position:absolute;inset:0;z-index:-1;background:var(--fan) center/cover;opacity:.16}
+        .ap-logo{display:inline-block;background:#18181c;border-radius:var(--r-m);padding:6px 10px;margin-bottom:6px} .ap-logo img{display:block;max-height:46px;max-width:240px;object-fit:contain}
+        .ap-about p{margin:0 0 8px;font-size:14px;line-height:1.55;max-width:75ch} .ap-about details summary{cursor:pointer;color:var(--muted);font-size:13px;margin-bottom:6px} .ap-credit{font-size:12px}
+        .ap-cmp table{width:100%;border-collapse:collapse;font-size:13px} .ap-cmp th,.ap-cmp td{text-align:left;padding:5px 8px;border-bottom:1px solid var(--line);vertical-align:top} .ap-cmp tr>th:first-child{color:var(--muted);font-weight:500;width:70px}
+        .ap-cmp tr.diff td{background:color-mix(in srgb,var(--warn,#d4a72c) 14%,transparent)} .ap-cmp p{font-size:12px;margin:6px 0 0}
         .ap-list.ap-stg li{grid-template-columns:48px 1fr auto;align-items:center} .ap-list.ap-stg li>div{display:block} .ap-src{color:var(--muted);font-size:12px;overflow:hidden;text-overflow:ellipsis}
         .ap-spark{color:var(--accent);margin-top:2px} .ap-relplay{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px} .ap-relplay .btn{display:inline-flex;gap:4px;align-items:center;font-size:12px;padding:3px 8px}
         .pv-btns{display:inline-flex;gap:2px;vertical-align:middle} .pv-b{background:none;border:0;padding:3px;border-radius:var(--r-s);cursor:pointer;color:var(--muted);display:inline-flex}

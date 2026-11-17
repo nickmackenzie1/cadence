@@ -28,7 +28,7 @@
 
       const play = s => {
         if (!s.url) return api.ui.toast("Couldn't find a stream for " + s.name);
-        P.load({ uuid: 'radio:' + s.id, live: true, station: s.id, src: s.url, now: null, title: s.name, podcastTitle: s.place || 'Live radio', url: playable(s.url), art: s.art || null }, true);
+        P.load({ uuid: 'radio:' + s.id, live: true, station: s.id, src: s.url, now: null, title: s.name, podcastTitle: s.place || 'Live radio', url: playable(s.url), art: s.art || null, home: s.home || null }, true);
         noTitles = false; earlier = null; pollNow();
       };
       // what's on now, every 30 s while a station is playing: KEXP from its playlist, the others from the song title
@@ -51,10 +51,12 @@
         if (k !== nowKey) { nowKey = k; if (api.ui.currentRoute() === 'view-radio') api.ui.refresh(); } });
       const offPlay = P.on(() => { const c = P.current; if (c && c.live && c.station && !noTitles && !P.audio.paused && !nowTimer) pollNow(); if (P.audio.paused) { clearTimeout(nowTimer); nowTimer = 0; } });
 
+      // a station's own logo (kept by the NAS), else its website's icon, else the radio icon underneath
+      const stLogo = (s, size, big) => `<span class="rd-lg${big ? ' big' : ''}" style="--s:${size}px"><i class="rd-noart">${api.ui.icon('radio')}</i>${s.art || s.home ? api.ui.logo(s.home, { img: s.art, size }) : ''}</span>`;
       const card = (s, opts = {}) => {
         const c = P.current, on = c && c.live && c.uuid === 'radio:' + s.id, playing = on && !P.audio.paused;
         return `<div class="rd-st${on ? ' on' : ''}">
-          ${s.art ? `<img src="${E(s.art)}" alt="" loading="lazy" onerror="this.replaceWith(Object.assign(document.createElement('i'),{className:'rd-noart'}))">` : `<i class="rd-noart">${api.ui.icon('radio')}</i>`}
+          ${stLogo(s, 40)}
           <div class="rd-t"><b>${E(s.name)}</b><span class="muted">${E([s.place, s.about].filter(Boolean).join(' · '))}</span>
             ${s.pending ? `<span class="muted rd-miss">Looking up its stream…</span>` : s.missing ? `<span class="muted rd-miss">Couldn't find its stream. Add it by address below if you know it.</span>` : ''}</div>
           <div class="rd-act">
@@ -71,7 +73,7 @@
         const c = P.current, live = c && c.live ? c : null, n = live && live.now && !live.now.airbreak ? live.now : null;
         const my = mine();
         el.innerHTML = `<div class="rd">
-          ${live ? `<div class="pc-card rd-now">${(n && n.art) || live.art ? `<img src="${E((n && n.art) || live.art)}" alt="" onerror="this.style.visibility='hidden'">` : `<i class="rd-noart big">${api.ui.icon('radio')}</i>`}
+          ${live ? `<div class="pc-card rd-now">${n && n.art ? `<img src="${E(n.art)}" alt="" onerror="this.style.visibility='hidden'">` : stLogo({ art: live.art, home: live.home }, 72, true)}
             <div class="rd-t"><span class="muted">${P.failed ? "Can't reach this station right now" : P.audio.paused ? 'Paused' : 'Live'}${live.now && live.now.airbreak ? ' · DJ talking' : ''}</span>
               <b>${E(n ? n.song : live.title)}</b><span class="muted">${n ? `${n.artist ? `<a class="ar-link" href="#view-artist" data-artist="${E(n.artist)}">${E(n.artist)}</a> · ` : ''}${n.album ? E(n.album) + ' · ' : ''}${E(live.title)}` : E(live.podcastTitle)}${noTitles && live.station !== 'kexp' ? ' · this station doesn\'t share song titles' : ''}</span>
               ${n && n.artist && window.CadencePreview && window.CadencePreview.buttons ? window.CadencePreview.buttons(n.artist, n.song, 'song', live.title) : ''}</div>
@@ -123,7 +125,7 @@
       api.views.add({ id: 'radio-station', group: 'music', order: 99, title: 'Station history', icon: '📻', hidden: true, render: el => {
         const s = ST.s, d = ST.d;
         if (!s) { el.innerHTML = '<p class="muted">Pick a station on the <a href="#view-radio">Radio</a> page.</p>'; return; }
-        el.innerHTML = `<div class="rd"><p><a href="#view-radio">${api.ui.icon('arrow-left')}Radio</a></p><h2 class="rd-h">${E(s.name)}</h2>
+        el.innerHTML = `<div class="rd"><p><a href="#view-radio">${api.ui.icon('arrow-left')}Radio</a></p><h2 class="rd-h rd-hl">${s.art || s.home ? stLogo(s, 34) : ''}${E(s.name)}</h2>
           ${!d ? '<p class="muted">Loading…</p>' : d.error ? `<p class="muted">Couldn't load it: ${E(d.error)}</p>` : `
           ${d.follow === 'kexp' ? `<p class="muted">KEXP's full playlist is kept on your NAS. <a href="#view-kexp-history">Open KEXP history</a></p>`
             : `<label class="rd-follow"><input type="checkbox" id="rd-follow" ${d.follow ? 'checked' : ''}> Keep a history, even when you're not listening
@@ -217,7 +219,7 @@
 
       // the artist page's "Every KEXP play" opens this view on that artist
       window.CadenceKexpHistory = { artist: name => { K.detail = { type: 'artist', artist: name }; K.stack = []; K.away = false; api.ui.navigate('view-kexp-history'); } };
-      api.views.add({ id: 'kexp-history', group: 'music', order: 30, title: 'KEXP history', icon: '🎼', subtitle: 'Every song KEXP plays, kept on your NAS', wide: true, render: el => {
+      api.views.add({ id: 'kexp-history', site: 'kexp.org', group: 'music', order: 30, title: 'KEXP history', icon: '🎼', subtitle: 'Every song KEXP plays, kept on your NAS', wide: true, render: el => {
         if (K.away) { K.away = false; K.cache = {}; hist = null; }
         if (!hist) { el.innerHTML = '<div class="rd"><p class="muted">Loading…</p></div>'; getJson('api/radio/kexp-history').then(h => { hist = h; }, () => { hist = { on: false }; }).then(() => api.ui.refresh()); return; }
         let body;
@@ -281,6 +283,9 @@
     .rd-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:8px}
     .rd-st{display:flex;align-items:center;gap:10px;padding:8px 10px;border:1px solid var(--line);border-radius:var(--radius,10px);background:var(--card)}
     .rd-st.on{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent) inset}
+    .rd-hl{display:flex;align-items:center;gap:10px}
+    .rd-lg{position:relative;width:var(--s);height:var(--s);flex:none;display:block} .rd-lg .rd-noart{width:100%;height:100%}
+    .rd-lg .cx-logo{position:absolute;inset:0;width:100%;height:100%;margin:0;object-fit:contain;background:#fff;border-radius:var(--r-m);padding:3px;box-shadow:inset 0 0 0 1px var(--line)}
     .rd-st img,.rd-noart{width:40px;height:40px;border-radius:var(--r-m);flex:none;object-fit:cover;display:grid;place-items:center;background:var(--accent-soft);color:var(--accent)}
     .rd-t{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
     .rd-t b,.rd-t span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}

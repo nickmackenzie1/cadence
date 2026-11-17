@@ -64,7 +64,14 @@
 
   const SRC_NAMES = { community: 'Lemmy & Mastodon', listenbrainz: 'ListenBrainz', apple: 'Apple Music', audius: 'Audius', lastfm: 'Last.fm', bandcamp: 'Bandcamp', hypem: 'Hype Machine', blogs: 'Blogs', kexp: 'KEXP', kexpchart: 'KEXP charts', earshot: '!earshot' };
   const SRC_COL = { community: '#6364ff', listenbrainz: '#eb743b', apple: '#ec4899', audius: '#8b5cf6', lastfm: '#ef4444', bandcamp: '#14b8a6', hypem: '#3b82f6', blogs: '#eab308', kexp: '#64748b', kexpchart: '#475569', earshot: '#0d9488' };
-  const srcPill = id => `<span class="mr-src" style="--c:${SRC_COL[id] || '#888'}">${esc(SRC_NAMES[id] || id)}</span>`;
+  // logos next to each source (user, 2026-11-16): the source's own site, or for blogs the blog's site
+  const SRC_SITE = { community: 'joinmastodon.org', listenbrainz: 'listenbrainz.org', apple: 'music.apple.com', audius: 'audius.co', lastfm: 'last.fm', bandcamp: 'bandcamp.com', hypem: 'hypem.com', kexp: 'kexp.org', kexpchart: 'kexp.org', earshot: 'earshot-online.com' };
+  let BLOG_SITE = {};
+  const srcLogo = (id, feed) => { const K = window.CadenceKit; if (!K || !K.logo) return ''; const site = id === 'blogs' ? BLOG_SITE[feed] : SRC_SITE[id]; return site ? K.logo(site, { size: 14 }) : ''; };
+  const learnSites = S0 => { if (!S0) return; for (const b of (S0.cfg && S0.cfg.blogs) || []) BLOG_SITE[b.name] = b.url; for (const x of S0.list || []) if (x.site && !SRC_SITE[x.id]) SRC_SITE[x.id] = x.site; };
+  // a source given by its display name ("Apple Music", "Pitchfork", "r/indieheads"…)
+  const nameLogo = n => { const id = Object.keys(SRC_NAMES).find(k => SRC_NAMES[k] === n); const K = window.CadenceKit; if (!K || !K.logo) return ''; const site = id ? SRC_SITE[id] : BLOG_SITE[n]; return site ? K.logo(site, { size: 13 }) : ''; };
+  const srcPill = id => `<span class="mr-src" style="--c:${SRC_COL[id] || '#888'}">${srcLogo(id)}${esc(SRC_NAMES[id] || id)}</span>`;
   const day = ts => ts ? new Date(ts * 1000).toLocaleDateString([], { month: 'short', day: 'numeric' }) : '';
   const link = (u, t) => u ? `<a href="${esc(u)}" target="_blank" rel="noopener">${t}</a>` : t;
 
@@ -77,6 +84,8 @@
     return isNaN(d) ? '' : ` <span class="mr-small">${esc(r.type || 'Release')} · ${esc(d.toLocaleDateString(undefined, r.date.length === 4 ? { year: 'numeric' } : { month: 'short', year: 'numeric' }))}</span>`; };
   // ---- other sources: tabs for combined + each source ----
   function sourcesCard(S0, ic, G) {
+    BLOG_SITE = {}; for (const b of (S0.cfg && S0.cfg.blogs) || []) BLOG_SITE[b.name] = b.url;
+    for (const x of S0.list) if (x.site && !SRC_SITE[x.id]) SRC_SITE[x.id] = x.site;
     if (!S0 || !S0.available) return `<section class="mr-card w12"><h3>Other sources</h3>${empty(esc((S0 && S0.note) || 'Other sources need the database on the NAS.'))}</section>`;
     const tabs = [['all', 'Combined']].concat(S0.list.map(x => [x.id, x.name]));
     const cur = S0.list.find(x => x.id === G.src);
@@ -94,20 +103,20 @@
       const status = cur.missing ? `Needs <code>${esc(cur.needs)}</code> in the NAS .env.` : !run ? 'Not checked yet.'
         : `Checked ${esc(ago(run.ts * 1000))}: ${run.n} found, ${run.fresh} new.` + (run.error ? ` <span class="mr-warn">${esc(run.error)}</span>` : '');
       body = `<p class="mr-sub">${esc(cur.kind)} · ${status}${cur.site ? ` · ${link(cur.site, 'Open site')}` : ''}${cur.on ? '' : ' · switched off in Sources'}</p>
-        ${cur.feeds.length > 1 ? `<div class="mr-chips">${['', ...cur.feeds].map(f => `<button class="mr-chip ${G.feed === f ? 'on' : ''}" data-feed="${esc(f)}">${esc(f || 'All')}</button>`).join('')}</div>` : ''}
+        ${cur.feeds.length > 1 ? `<div class="mr-chips">${['', ...cur.feeds].map(f => `<button class="mr-chip ${G.feed === f ? 'on' : ''}" data-feed="${esc(f)}">${f && cur.id === 'blogs' ? srcLogo('blogs', f) : ''}${esc(f || 'All')}</button>`).join('')}</div>` : ''}
         ${items.length ? `<table class="mr-t"><tr>${cur.chart ? '<th class="n">#</th>' : ''}<th>Artist</th><th>Title</th><th>Where</th><th>${cur.chart ? 'Move' : 'First seen'}</th></tr>${items.slice(0, 80).map(x => `<tr>
           ${cur.chart ? `<td class="n">${x.rank ?? ''}</td>` : ''}<td><div class="mr-withart">${artImg(x)}${an(x.artist)} ${pv(x.artist, x.title, x.type, x.feed || 'Music Radar')}</div></td><td>${link(x.url, esc(x.title || ''))}${x.type && x.type !== 'track' && x.type !== 'artist' ? ` <span class="chip">${esc(x.type)}</span>` : ''}${relNote(x)}</td>
-          <td class="mr-small">${esc(x.feed || '')}</td>
+          <td class="mr-small">${cur.id === 'blogs' ? srcLogo('blogs', x.feed) : ''}${esc(x.feed || '')}</td>
           <td class="mr-small">${cur.chart ? (x.was == null || x.was === x.rank ? (x.seen > 1 ? 'steady' : 'new') : x.was > x.rank ? `up ${x.was - x.rank}` : `down ${x.rank - x.was}`) : esc(day(x.first_seen))}</td></tr>`).join('')}</table>`
           : empty(cur.missing ? 'Add the key on the NAS to use this source.' : 'Nothing from this source yet.')}`;
     }
     return `<section class="mr-card w12" id="mr-sources"><div class="mr-row" style="justify-content:space-between"><div><h3>Other sources</h3><p class="mr-sub">Blogs, charts, radio, new releases and streaming trends, next to the communities</p></div>
         <span class="mr-row"><button class="btn" id="mr-srcnow">${ic('refresh-cw')}Check sources</button><button class="btn" id="mr-srcset">${ic('settings')}Sources</button></span></div>
-      <div class="seg mr-tabs" id="mr-srctabs">${tabs.map(([id, n]) => { const x = S0.list.find(y => y.id === id); return `<button data-src="${id}" class="${G.src === id || (id === 'all' && !cur) ? 'on' : ''}">${esc(n)}${x ? ` <span class="mr-n${x.run && !x.run.ok ? ' bad' : ''}">${x.total}</span>` : ''}</button>`; }).join('')}</div>
+      <div class="seg mr-tabs" id="mr-srctabs">${tabs.map(([id, n]) => { const x = S0.list.find(y => y.id === id); return `<button data-src="${id}" class="${G.src === id || (id === 'all' && !cur) ? 'on' : ''}">${id === 'all' ? '' : srcLogo(id)}${esc(n)}${x ? ` <span class="mr-n${x.run && !x.run.ok ? ' bad' : ''}">${x.total}</span>` : ''}</button>`; }).join('')}</div>
       ${body}</section>
       <section class="mr-card w8"><h3>New finds per day, by source</h3><p class="mr-sub">Artists, songs and records each source turned up, last 30 days</p>${lineChart(S0.perDay.labels, S0.perDay.series.map(x => ({ label: x.label, data: x.data })), { h: 220, unit: 'finds' })}</section>
       <section class="mr-card w4"><h3>Climbing the charts</h3><p class="mr-sub">Up 5 or more places in two weeks</p>
-        ${S0.movers.length ? `<table class="mr-t">${S0.movers.slice(0, 8).map(m => `<tr><td>${link(m.url, `<b>${esc(m.artist)}</b>`)}<div class="mr-small">${esc(m.title || '')} · ${esc(SRC_NAMES[m.source])} ${esc(m.feed || '')}</div></td><td class="n" style="white-space:nowrap">${m.was} → ${m.now}</td></tr>`).join('')}</table>` : empty('No big moves yet.')}
+        ${S0.movers.length ? `<table class="mr-t">${S0.movers.slice(0, 8).map(m => `<tr><td>${link(m.url, `<b>${esc(m.artist)}</b>`)}<div class="mr-small">${esc(m.title || '')} · ${srcLogo(m.source, m.feed)}${esc(SRC_NAMES[m.source])} ${esc(m.feed || '')}</div></td><td class="n" style="white-space:nowrap">${m.was} → ${m.now}</td></tr>`).join('')}</table>` : empty('No big moves yet.')}
         <h4>Crossed over</h4><p class="mr-sub">Community picks that later showed up on the Apple chart</p>
         ${S0.crossover.length ? `<table class="mr-t">${S0.crossover.map(c => `<tr><td>${an(c.artist)} ${c.url ? link(c.url, 'chart') : ''}<div class="mr-small">picked ${esc(day(c.picked))}, charted ${esc(day(c.charted))}</div></td><td class="n">#${c.rank}</td></tr>`).join('')}</table>` : empty('None yet.')}</section>
       <section class="mr-card w12"><h3>Genres across sources</h3><p class="mr-sub">Tags from every source except the communities: last 7 days vs the weekly average of the 3 weeks before</p>${changeBars(S0.genres)}</section>`;
@@ -116,7 +125,7 @@
     const c = S0.cfg, E = esc;
     api.ui.modal('Sources', `<div class="mr-dlg">
       <p class="mr-small">Checked after every scan, or with Check sources. Each one is free; Last.fm uses the key on the NAS.</p>
-      ${S0.list.map(x => `<label class="mr-srcrow"><input type="checkbox" data-on="${x.id}" ${c.on[x.id] ? 'checked' : ''}> <b>${E(x.name)}</b> <span class="mr-small">${E(x.kind)}${x.missing ? ' · needs ' + E(x.needs) : ''}</span></label>`).join('')}
+      ${S0.list.map(x => `<label class="mr-srcrow"><input type="checkbox" data-on="${x.id}" ${c.on[x.id] ? 'checked' : ''}> ${srcLogo(x.id)}<b>${E(x.name)}</b> <span class="mr-small">${E(x.kind)}${x.missing ? ' · needs ' + E(x.needs) : ''}</span></label>`).join('')}
       <div class="field"><label>ListenBrainz username (adds releases picked for you)</label><input class="inp" id="mr-lb" value="${E(c.lbUser || '')}" placeholder="optional"></div>
       <div class="field"><label>Apple Music chart country</label><input class="inp" id="mr-cc" value="${E(c.appleCountry || 'ca')}" maxlength="2" style="width:5em"></div>
       <div class="field"><label>Tags for Bandcamp and Last.fm (comma separated)</label><input class="inp" id="mr-tags" value="${E((c.tags || []).join(', '))}" placeholder="${E((c.tagsUsed || []).join(', '))}"><div class="mr-small">Empty uses your taste: genres of picks you liked, then a starter set.</div></div>
@@ -159,6 +168,7 @@
         if (!G.d || !G.st) { el.innerHTML = empty('Loading…'); load(); return; }
         const D = G.d, S = G.st, ic = n => api.ui.icon(n);
         const hot = D.genres.find(g => g.change != null && g.change > 0) || D.genres[0];
+        learnSites(D.sources);
         const risers = D.rise.risers.filter(r => r.delta > 0).slice(0, 10);
         const picks = G.all ? D.picks : D.picks.slice(0, 15);
         const keys = S.keys, setupRow = (on, name, what) => `<li class="${on ? 'on' : ''}">${ic(on ? 'circle-check' : 'circle')}<code>${name}</code> ${what}</li>`;
@@ -189,9 +199,9 @@
               ${D.rise.top.length ? lineChart(D.rise.labels, D.rise.top.map(r => ({ label: r.artist, data: r.series })), { unit: 'buzz' }) : empty('Scan a few times to see trends.')}</section>
             <section class="mr-card w4"><h3>Fastest risers</h3><p class="mr-sub">Buzz now vs a week ago${D.allSources ? ', and where it came from this week' : ''}</p>
               ${risers.length ? `<table class="mr-t mr-rise"><tr><th>Artist</th><th class="n">Week ago</th><th class="n">Now</th></tr>${risers.map(r => { const where = (r.sources || []).slice(0, 2).join(', ') + ((r.sources || []).length > 2 ? ` and ${r.sources.length - 2} more` : ''), st = r.status === 'new' ? STATUS.new : '';   // only "new" is worth saying in a list of risers
-                return `<tr><td><div class="mr-rn">${pv(r.artist, null, null, 'Music Radar')}${an(r.artist, false)}</div>${st || where ? `<div class="mr-small mr-src" title="${esc((r.sources || []).join(', '))}">${esc([st && st[0].toUpperCase() + st.slice(1), where].filter(Boolean).join(', from '))}</div>` : ''}</td><td class="n">${Math.round(r.weekAgo)}</td><td class="n">${Math.round(r.cur)}</td></tr>`; }).join('')}</table>` : empty('Nothing rising yet.')}</section>
+                return `<tr><td><div class="mr-rn">${pv(r.artist, null, null, 'Music Radar')}${an(r.artist, false)}</div>${st || where ? `<div class="mr-small mr-src" title="${esc((r.sources || []).join(', '))}">${(r.sources || []).slice(0, 2).map(nameLogo).join('')}${esc([st && st[0].toUpperCase() + st.slice(1), where].filter(Boolean).join(', from '))}</div>` : ''}</td><td class="n">${Math.round(r.weekAgo)}</td><td class="n">${Math.round(r.cur)}</td></tr>`; }).join('')}</table>` : empty('Nothing rising yet.')}</section>
             <section class="mr-card w6"><h3>Albums and EPs blowing up</h3><p class="mr-sub">${D.allSources ? 'Reviews, KEXP, campus radio, Bandcamp and community posts in the last 7 days' : 'Best buzz score in the last 7 days'}</p>
-              ${D.albums.length ? `<table class="mr-t"><tr><th>Release</th><th>Where</th><th class="n">Score</th></tr>${D.albums.map(a => `<tr><td>${pv(a.artist, a.album, a.type, 'Music Radar')} ${an(a.artist, false)} — ${a.link ? `<a href="${esc(a.link)}" target="_blank" rel="noopener">${esc(a.album)}</a>` : esc(a.album)}${a.type && a.type !== 'album' ? ` <span class="chip">${esc(a.type.toUpperCase() === 'EP' ? 'EP' : a.type)}</span>` : ''}</td><td class="mr-small">${esc((a.subs || []).join(', '))}</td><td class="n">${Math.round(a.score)}</td></tr>`).join('')}</table>` : empty('No albums or EPs mentioned in the last week.')}</section>
+              ${D.albums.length ? `<table class="mr-t"><tr><th>Release</th><th>Where</th><th class="n">Score</th></tr>${D.albums.map(a => `<tr><td>${pv(a.artist, a.album, a.type, 'Music Radar')} ${an(a.artist, false)} — ${a.link ? `<a href="${esc(a.link)}" target="_blank" rel="noopener">${esc(a.album)}</a>` : esc(a.album)}${a.type && a.type !== 'album' ? ` <span class="chip">${esc(a.type.toUpperCase() === 'EP' ? 'EP' : a.type)}</span>` : ''}</td><td class="mr-small">${(a.subs || []).map(x => nameLogo(x) + esc(x)).join(', ')}</td><td class="n">${Math.round(a.score)}</td></tr>`).join('')}</table>` : empty('No albums or EPs mentioned in the last week.')}</section>
             <section class="mr-card w6"><h3>Genres blowing up</h3><p class="mr-sub">${D.allSources ? 'Every source: l' : 'L'}ast 7 days vs the weekly average of the 3 weeks before</p>${changeBars(D.genres)}</section>
             <section class="mr-card w12"><h3>Recent picks</h3><p class="mr-sub">Thumbs up and down teach the radar your taste</p>
               ${D.picks.length ? picks.map(p => `<div class="mr-pick">${artImg(p).replace('mr-art', 'mr-art big')}<div class="mr-pb">${p.artist ? an(p.artist) : ''} ${pv(p.artist, p.song, p.type, (p.subs || [])[0] || 'Music Radar')} — <a href="${esc(p.link)}" target="_blank" rel="noopener">${esc(p.song || 'recommended in comments')}</a>${p.type && p.type !== 'track' ? ` <span class="chip">${esc(p.type)}</span>` : ''}${relNote(p)}
@@ -301,6 +311,7 @@
         .mr-more>summary::-webkit-details-marker{display:none}.mr-more>summary b::before{content:'+ ';color:var(--muted)}.mr-more[open]>summary b::before{content:'– '}.mr-more>.mr-grid{margin-top:10px}
         .mr-src{display:block;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
         .mr-rise{table-layout:fixed;width:100%} .mr-rise td:first-child{overflow:hidden} .mr-rise th:not(:first-child),.mr-rise td:not(:first-child){width:4.2em}
+        .mr-src .cx-logo,.mr-small .cx-logo,.mr-chip .cx-logo{margin-right:4px;vertical-align:-2px} .mr-tabs .cx-logo{margin-right:5px;vertical-align:-2px}
         .mr-rn{display:flex;align-items:center;gap:4px;white-space:nowrap;overflow:hidden} .mr-rn .ar-link{overflow:hidden;text-overflow:ellipsis} .mr-rise .mr-src{padding-left:2px}
         .mr-wl{list-style:none;padding:0;margin:6px 0 0;display:flex;flex-direction:column;gap:4px;font-size:14px}
         .mr-ta{width:100%;font:12px/1.4 ui-monospace,monospace;margin:2px 0 8px;resize:vertical} .mr-chk{display:flex;align-items:center;gap:6px;margin:4px 0} .mr-num{width:110px;padding:2px 6px}

@@ -5,7 +5,7 @@
    A ticket opened with Zoho is something you're waiting on: it starts as "following up", with a check-back date.
    No Desk API yet (it needs OAuth and a token on the NAS); statuses are yours to move. Completing the task closes the ticket. */
 Cadence.registerPlugin({
-  id: 'desk', name: 'Support tickets', version: '1.1.0', category: 'Clients', spaces: ['work'],
+  id: 'desk', site: 'desk.zoho.com', name: 'Support tickets', version: '1.1.0', category: 'Clients', spaces: ['work'],
   description: 'Track support tickets as first-class work: ones you open with Zoho partner support on a client\'s behalf, and ones in your own Zoho Desk. Ticket number, status, priority and age against an SLA; a board, chips on every ticket task, a widget. Type "zs 12345" or "tkt 4821" in quick add.',
   tagline: 'Zoho support and Desk tickets, tracked', color: '#0f9d58',
   icon: '<path d="M4 7.5A1.5 1.5 0 0 1 5.5 6h13A1.5 1.5 0 0 1 20 7.5V10a2 2 0 0 0 0 4v2.5a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 16.5V14a2 2 0 0 0 0-4z"/><path d="M14 6v12" stroke-dasharray="2 2"/>',
@@ -132,11 +132,11 @@ Cadence.registerPlugin({
       const s = document.getElementById('dk-save'), old = s.onclick; s.onclick = () => { const v = document.getElementById('dk-title').value.trim(); if (v) api.tasks.update(id, { title: v }); old(); };
       const x = document.querySelector('#modal [data-act=close-modal]'); if (x) x.addEventListener('click', () => { const t = api.tasks.get(id); if (t && t.title === 'New ticket' && !t.ticket.no) api.tasks.remove(id); }); }, 40); }
 
-    api.views.add({ id: 'tickets', title: 'Tickets', icon: '🎫', subtitle: 'Zoho tickets for clients and your own Desk tickets, oldest first', render: el => board(el) });
+    api.views.add({ id: 'tickets', site: 'desk.zoho.com', title: 'Tickets', icon: '🎫', subtitle: 'Zoho tickets for clients and your own Desk tickets, oldest first', render: el => board(el) });
     api.on('render', e => { const w = document.querySelector('#view'); if (w) w.classList.toggle('dk-wide', !!(e && e.route === 'view-tickets')); });
     api.commands.add({ title: 'Open Desk tickets', hint: 'Desk tickets', run: () => api.ui.navigate('view-tickets') });
     api.clientActions.add({ label: '🎫 Tickets', primary: true, run: c => { filter = c.id; api.ui.navigate('view-tickets'); } });
-    api.widgets.add({ id: 'open', title: 'Open tickets', icon: '🎫', size: 'm', spaces: ['work'], description: 'Desk tickets still open, past-SLA first.', render: el => {
+    api.widgets.add({ id: 'open', site: 'desk.zoho.com', title: 'Open tickets', icon: '🎫', size: 'm', spaces: ['work'], description: 'Desk tickets still open, past-SLA first.', render: el => {
       const xs = tickets(t => !t.done).sort((a, b) => (sla(b.ticket) === 'breach') - (sla(a.ticket) === 'breach') || a.ticket.opened - b.ticket.opened).slice(0, 8);
       el.innerHTML = xs.length ? `<div class="dw-list">${xs.map(t => `<div class="dw-row" data-open="${E(t.id)}"><span class="dk-no sm">${E(label(t.ticket))}</span><span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${E(t.title)}</span><em class="dk-age ${sla(t.ticket)}">${ageDays(t.ticket)}d</em></div>`).join('')}</div>` : '<div class="dw-empty">No open tickets.</div>';
       el.querySelectorAll('[data-open]').forEach(r => r.onclick = () => edit(r.dataset.open));

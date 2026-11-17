@@ -1275,6 +1275,14 @@
       .filter(x => !/^(inc|corp|llc|ltd|the|&)$/i.test(x));
     return ((w[0] || '?')[0] + (w.length > 1 ? w[1][0] : (w[0] || '')[1] || '')).toUpperCase();
   };
+  const logoDomain = x => { if (!x) return ''; let h = String(x).trim(); try { if (/^[a-z]+:\/\//i.test(h)) h = new URL(h).hostname; } catch (e) { return ''; } return h.replace(/^www\./i, '').toLowerCase().replace(/[^a-z0-9.-]/g, ''); };
+  const logoHtml = (site, o = {}) => {
+    const d = logoDomain(site), fav = d && /\./.test(d) ? faviconUrl(d) : '';
+    const own = o.img && /^https?:\/\//i.test(o.img) ? (Store.server ? 'api/logo?u=' + encodeURIComponent(o.img) : o.img) : '';
+    const src = own || fav; if (!src) return '';
+    const sz = +o.size || 16;
+    return `<img class="cx-logo${o.cls ? ' ' + esc(o.cls) : ''}" src="${esc(src)}" ${own && fav ? `data-fb="${esc(fav)}" ` : ''}alt="" width="${sz}" height="${sz}" loading="lazy" decoding="async" onerror="if(this.dataset.fb){this.src=this.dataset.fb;this.dataset.fb=''}else this.remove()">`;
+  };
   const faviconUrl = (d, v) =>
     Store.server
       ? 'api/favicon?d=' + encodeURIComponent(d) + (v ? '&v=' + v : '')
@@ -2359,6 +2367,7 @@
             spaces: w.spaces,
             title: w.title,
             icon: w.icon,
+            site: w.site,
             size: w.size,
             description: w.description || '',
             fields: w.fields || [],
@@ -2420,6 +2429,10 @@
         refreshWidgets: () => renderWidgets(),
         pointer: () => ({ ...lastPointer }),
         faviconUrl: (d, v) => faviconUrl(d, v),
+        /* a site's or service's logo, shown small next to its name (user, 2026-11-16: logos wherever they make sense).
+           site: a domain or any address on it; opts.img: the thing's own logo image (fetched and kept by the NAS),
+           falling back to the site's icon; opts.size in px (16). Gone quietly if neither exists. */
+        logo: (site, opts = {}) => logoHtml(site, opts),
         avatar: (c, size) => avatar(c, size),
         navigate: r => go(r),
         refresh: () => render(),
@@ -2581,6 +2594,7 @@
   window.CadenceKit = Object.freeze({
     focusLater,
     icon: n => icon(n),
+    logo: (site, o) => logoHtml(site, o),
     esc: s =>
       String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]),
     css: (id, text) => {
@@ -3299,7 +3313,7 @@
         // music pages share one set of tabs (Music home)
         const mtabs = pv.group === 'music' ? Reg.views.filter(x => x.group === 'music' && !x.hidden).sort((a, b) => (a.order ?? 50) - (b.order ?? 50)) : [];
         if (mtabs.includes(pv) && S.settings.musicTab !== pv.id) { S.settings.musicTab = pv.id; persistLocal(); }
-        v.innerHTML = `<div class="head"><div><h1>${pv.group === 'music' && !pv.hidden ? 'Music' : esc(pv.title)}</h1>${pv.subtitle ? `<div class="sub">${esc(pv.subtitle)}</div>` : ''}</div></div>${mtabs.length ? `<nav class="ins-tabs mus-tabs" aria-label="Music">${mtabs.map(x => `<a href="#view-${esc(x.id)}" class="${x === pv ? 'on' : ''}"${x === pv ? ' aria-current="page"' : ''}>${esc(x.title)}</a>`).join('')}</nav>` : ''}<div id="pv"></div>`;
+        v.innerHTML = `<div class="head"><div><h1>${pv.group === 'music' && !pv.hidden ? 'Music' : (pv.site ? logoHtml(pv.site, { size: 28, cls: 'h1-logo' }) : '') + esc(pv.title)}</h1>${pv.subtitle ? `<div class="sub">${esc(pv.subtitle)}</div>` : ''}</div></div>${mtabs.length ? `<nav class="ins-tabs mus-tabs" aria-label="Music">${mtabs.map(x => `<a href="#view-${esc(x.id)}" class="${x === pv ? 'on' : ''}"${x === pv ? ' aria-current="page"' : ''}>${x.site ? logoHtml(x.site, { size: 14 }) : ''}${esc(x.title)}</a>`).join('')}</nav>` : ''}<div id="pv"></div>`;
         try {
           pv.render($('#pv'), makeApi(pv.pid));
         } catch (e) {
@@ -4238,7 +4252,7 @@
             `<div class="av-g"><div class="av-h">${esc(g)}</div><div class="av-l">${vs
               .map(v => {
                 const on = viewPins(loose).includes(v.id);
-                return `<div class="av-it"><a href="#view-${esc(v.id)}" data-av-go><span class="ic">${esc(v.icon || '◇')}</span><span><b>${esc(v.title)}</b>${v.subtitle ? `<small>${esc(v.subtitle)}</small>` : ''}</span></a><button class="av-pin ${on ? 'on' : ''}" data-av-pin="${esc(v.id)}" aria-pressed="${on}" aria-label="${on ? 'Unpin' : 'Pin'} ${esc(v.title)} in the sidebar" title="${on ? 'Unpin from' : 'Pin to'} the sidebar">${icon('pin')}</button></div>`;
+                return `<div class="av-it"><a href="#view-${esc(v.id)}" data-av-go><span class="ic">${v.site ? logoHtml(v.site, { size: 18 }) || esc(v.icon || '◇') : esc(v.icon || '◇')}</span><span><b>${esc(v.title)}</b>${v.subtitle ? `<small>${esc(v.subtitle)}</small>` : ''}</span></a><button class="av-pin ${on ? 'on' : ''}" data-av-pin="${esc(v.id)}" aria-pressed="${on}" aria-label="${on ? 'Unpin' : 'Pin'} ${esc(v.title)} in the sidebar" title="${on ? 'Unpin from' : 'Pin to'} the sidebar">${icon('pin')}</button></div>`;
               })
               .join('')}</div></div>`
         )
@@ -4888,7 +4902,9 @@
           : ic.trim().startsWith('<')
             ? `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${ic}</svg>`
             : `<span>${esc(ic)}</span>`;
-    return `<span class="pl-ic" style="--pc:${esc(col)};width:${size}px;height:${size}px;border-radius:${Math.round(size * 0.28)}px">${inner}</span>`;
+    // a plugin built around one service shows that service's logo, over its own icon (seen again if the logo can't load)
+    const lg = d.site ? logoHtml(d.site, { size: Math.round(size * 0.62) }) : '';
+    return `<span class="pl-ic${lg ? ' has-site' : ''}" style="--pc:${esc(col)};width:${size}px;height:${size}px;border-radius:${Math.round(size * 0.28)}px">${inner}${lg}</span>`;
   }
   function openSettings(tab) {
     if (tab) settingsTab = tab;

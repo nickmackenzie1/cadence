@@ -182,7 +182,7 @@
       bar.style.fontFamily = getComputedStyle(document.body).fontFamily;
       if (c.live) {
         const n = c.now && !c.now.airbreak ? c.now : null, state = P.failed ? "Can't reach this station right now" : !a.paused && a.readyState < 3 ? 'Tuning in…' : a.paused ? 'Paused' : 'Live';
-        L.innerHTML = `${art((n && n.art) || c.art, 'radio')}<div class="pc-m-t"><b>${E(n ? n.song : c.title)}</b><span>${n && n.artist ? `<a class="ar-link" href="#view-artist" data-artist="${E(n.artist)}">${E(n.artist)}</a> · ` : ''}${E(n ? c.title : c.podcastTitle || '')}</span></div>`;
+        L.innerHTML = `${n && n.art ? art(n.art, 'radio') : `<span class="pc-lg"><i class="pc-noart">${api.ui.icon('radio')}</i>${c.art || c.home ? api.ui.logo(c.home, { img: c.art, size: 42 }) : ''}</span>`}<div class="pc-m-t"><b>${E(n ? n.song : c.title)}</b><span>${n && n.artist ? `<a class="ar-link" href="#view-artist" data-artist="${E(n.artist)}">${E(n.artist)}</a> · ` : ''}${E(n ? c.title : c.podcastTitle || '')}</span></div>`;
         R.innerHTML = `${play(a)}<span class="pc-m-time${!a.paused && !P.failed ? ' live' : ''}">${E(state)}</span><a class="pc-ib" href="#view-radio" aria-label="Open Radio" title="Open Radio">${api.ui.icon('radio')}</a>`;
         if (api.ui.currentRoute() === 'view-radio' && bar.dataset.cur !== c.uuid + ':' + a.paused) { bar.dataset.cur = c.uuid + ':' + a.paused; setTimeout(() => api.ui.refresh(), 0); }
       } else if (c.preview) {
@@ -223,7 +223,7 @@
   Cadence.registerPlugin({
     settings(api) { const k = SK(); window.LifeKit.form(api, 'Podcasts', [{ k: 'skin', label: 'Player look', type: 'select', opts: [['calm', 'Calm (matches your theme)'], ['classic', 'Classic (Winamp-inspired)']] }, { k: 'b', label: 'Back button skips', type: 'select', opts: [5, 10, 15, 30].map(x => [String(x), x + ' seconds']) }, { k: 'f', label: 'Forward button skips', type: 'select', opts: [10, 15, 30, 45, 60].map(x => [String(x), x + ' seconds']) }],
       { skin: skin(), b: String(k.b), f: String(k.f) }, o => { lsSet('skin', o.skin); lsSet('skipBack', +o.b); lsSet('skipFwd', +o.f); P.emit && P.emit(); api.ui.refresh(); }); },
-    id: 'podcasts', name: 'Podcasts', version: '1.0.0', category: 'Media', color: '#f43e37',
+    id: 'podcasts', site: 'pocketcasts.com', name: 'Podcasts', version: '1.0.0', category: 'Media', color: '#f43e37',
     icon: '<path d="M16.85 18.58a9 9 0 1 0-9.7 0"/><path d="M8 14a5 5 0 1 1 8 0"/><circle cx="12" cy="11" r="1"/><path d="M13 17a1 1 0 1 0-2 0l.5 4.5a.5.5 0 1 0 1 0Z"/>',
     tagline: 'Your Pocket Casts shows, Up next and your place, with a player that keeps going everywhere.',
     description: 'Syncs with Pocket Casts from the NAS (add POCKETCASTS_EMAIL and POCKETCASTS_PASSWORD to the NAS .env). Resume where your phone left off; pausing here sends your place back. Works in Work and Life, and keeps playing when you switch space, view or tab.',
@@ -244,7 +244,7 @@
       const epRow = (e, acts) => `<div class="pc-ep" data-uuid="${E(e.uuid)}">${e.art ? `<img src="${E(e.art)}" alt="" loading="lazy" onerror="this.style.visibility='hidden'">` : ''}
         <div class="pc-ep-t"><b>${E(e.title)}</b><span>${E(e.podcastTitle)}${e.duration ? ' · ' + (e.position ? fmt(left(e)) + ' left' : fmt(e.duration)) : ''}</span></div>
         <div class="pc-ep-a">${acts.map(([k, ic, l]) => `<button class="btn sm" data-act-pc="${k}" title="${E(l)}">${api.ui.icon(ic)}<span>${E(l)}</span></button>`).join('')}</div></div>`;
-      api.views.add({ id: 'podcasts', title: 'Podcasts', icon: '🎧', subtitle: 'Pocket Casts, on your NAS', wide: true, render: el => {
+      api.views.add({ id: 'podcasts', site: 'pocketcasts.com', title: 'Podcasts', icon: '🎧', subtitle: 'Pocket Casts, on your NAS', wide: true, render: el => {
         if (!data) { el.innerHTML = `<div class="pc"><p class="muted">Loading your shows…</p></div>`; return; }
         if (data.configured === false) {
           el.innerHTML = `<div class="pc"><div class="pc-card pc-setup"><h3>Connect Pocket Casts</h3>
@@ -302,6 +302,7 @@
     .pc-m-l{flex:1;min-width:0;display:flex;align-items:center;gap:10px}
     #pc-mini img,#pc-mini .pc-noart{width:42px;height:42px;border-radius:var(--r-m,8px);flex:none;object-fit:cover;display:grid;place-items:center;background:var(--accent-soft);color:var(--accent)}
     #pc-mini .pc-noart svg{width:18px;height:18px}
+    .pc-lg{position:relative;width:42px;height:42px;flex:none} .pc-lg .cx-logo{position:absolute;inset:0;width:100%;height:100%;margin:0;object-fit:contain;background:#fff;border-radius:var(--r-m,8px);padding:3px}
     .pc-m-t{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px} .pc-m-t b,.pc-m-t span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis} .pc-m-t b{font-size:13px;font-weight:600} .pc-m-t span{font-size:12px;color:var(--muted)}
     .pc-m-t .ar-link{color:inherit}
     .pc-m-r{display:flex;align-items:center;gap:2px;flex:none}

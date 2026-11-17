@@ -111,6 +111,7 @@ Cadence.registerPlugin({
       st.textContent = `
         .db-top{display:flex;align-items:center;gap:8px;margin:-8px 0 18px;flex-wrap:wrap}
         .db-tabs{display:flex;gap:2px;flex-wrap:wrap;border-bottom:1px solid var(--line);flex:1;min-width:0}
+        .db-h .ic .cx-logo,.db-w i .cx-logo{margin:0;vertical-align:middle}
         .db-tabs button{padding:8px 12px;font-weight:600;font-size:13px;color:var(--muted);border-bottom:2px solid transparent;margin-bottom:-1px;transition:color .15s,border-color .15s}
         .db-tabs button:hover{color:var(--text)}
         .db-tabs button.on{color:var(--text);border-color:var(--accent)}
@@ -202,7 +203,7 @@ Cadence.registerPlugin({
     function itemHTML(it) {
       const m = meta(it.key), bare = /:(spacer|text|note|stats)$/.test(it.key);
       return `<div class="db-item ${bare ? 'bare' : ''}" data-iid="${E(it.iid)}" style="grid-column:${it.x + 1}/span ${it.w};grid-row:${it.y + 1}/span ${it.h};--h:${it.h}">
-        <div class="db-h">${/:(spacer|text|note|stats)$/.test(it.key) ? '' : `<span class="ic">${m && window.LUCIDE && window.LUCIDE[m.icon] ? api.ui.icon(m.icon) : E(m ? m.icon || '◇' : '?')}</span>${E(it.cfg && it.cfg.title || (m ? m.title : 'Missing widget'))}`}<span class="tools">${m && m.fields && m.fields.length ? '<button data-t="cfg" title="Settings">⚙</button>' : ''}<button data-t="dup" title="Duplicate">⧉</button><button data-t="del" title="Remove">✕</button></span></div>
+        <div class="db-h">${/:(spacer|text|note|stats)$/.test(it.key) ? '' : `<span class="ic">${m && m.site ? api.ui.logo(m.site, { size: 16 }) || api.ui.icon(m.icon) : m && window.LUCIDE && window.LUCIDE[m.icon] ? api.ui.icon(m.icon) : E(m ? m.icon || '◇' : '?')}</span>${E(it.cfg && it.cfg.title || (m ? m.title : 'Missing widget'))}`}<span class="tools">${m && m.fields && m.fields.length ? '<button data-t="cfg" title="Settings">⚙</button>' : ''}<button data-t="dup" title="Duplicate">⧉</button><button data-t="del" title="Remove">✕</button></span></div>
         <div class="db-b"></div><span class="db-rs" data-t="rs"></span></div>`;
     }
     function drawItems(gridEl, page) {
@@ -306,7 +307,7 @@ Cadence.registerPlugin({
       const list = box.querySelector('.db-libl');
       const draw = q => {
         const ws = api.widgets.list().filter(w => (!w.spaces || w.spaces.includes(api.space())) && (!q || (w.title + ' ' + w.description).toLowerCase().includes(q)));
-        list.innerHTML = ws.map(w => `<div class="db-w" draggable="true" data-k="${E(w.key)}" style="--wc:${E(w.color || '#0ea5a4')}"><i>${window.LUCIDE && window.LUCIDE[w.icon] ? api.ui.icon(w.icon) : E(w.icon || '◇')}</i><div><b>${E(w.title)}</b><span>${E(w.description || '')}</span><small>${E(w.pid === 'dashboard' ? 'Built in' : 'from ' + w.pid)}</small></div></div>`).join('');
+        list.innerHTML = ws.map(w => `<div class="db-w" draggable="true" data-k="${E(w.key)}" style="--wc:${E(w.color || '#0ea5a4')}"><i>${w.site ? api.ui.logo(w.site, { size: 18 }) || api.ui.icon(w.icon) : window.LUCIDE && window.LUCIDE[w.icon] ? api.ui.icon(w.icon) : E(w.icon || '◇')}</i><div><b>${E(w.title)}</b><span>${E(w.description || '')}</span><small>${E(w.pid === 'dashboard' ? 'Built in' : 'from ' + w.pid)}</small></div></div>`).join('');
         list.querySelectorAll('.db-w').forEach(n => {
           n.onclick = () => add(n.dataset.k);
           n.ondragstart = e => { D.dragKey = n.dataset.k; const m = meta(n.dataset.k); D.dragSize = SIZES[m.size] || SIZES.m; e.dataTransfer.setData('text/plain', n.dataset.k); e.dataTransfer.effectAllowed = 'copy'; };

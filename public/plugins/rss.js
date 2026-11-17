@@ -396,7 +396,7 @@
         const anchor = document.querySelector('#view .glance') || document.querySelector('#view .head'); if (!anchor || document.querySelector('#view .rs-shelf')) return;
         list.slice().reverse().forEach(f => {
           const sh = document.createElement('div'); sh.className = 'rs-shelf';
-          sh.innerHTML = `<div class="rs-shelf-h">${f.style === 'records' ? '<span class="vin spin" style="width:14px;height:14px"><span class="lab"></span></span>' : ''}${E(f.title || 'Feed')}<a href="#view-feeds">All ›</a></div><div class="muted" style="font-size:12px;padding:0 4px">Loading…</div>`;
+          sh.innerHTML = `<div class="rs-shelf-h">${f.style === 'records' ? '<span class="vin spin" style="width:14px;height:14px"><span class="lab"></span></span>' : api.ui.logo(f.url, { size: 14 })}${E(f.title || 'Feed')}<a href="#view-feeds">All ›</a></div><div class="muted" style="font-size:12px;padding:0 4px">Loading…</div>`;
           anchor.after(sh);
           load(f).then(d => { sh.lastElementChild.outerHTML = itemsHtml(f, d, 14); }).catch(e => { sh.lastElementChild.textContent = e.message; });
         });
@@ -425,7 +425,7 @@
           ${!mine.length ? '<div class="empty sm"><b>No history yet</b>Open your feeds once and the NAS starts keeping track.</div>' : `
           <div class="fs-sum"><div><b>${sum}</b><span>new items in ${o.days} days</span></div><div><b>${(sum / o.days).toFixed(1)}</b><span>a day on average</span></div><div><b>${sum ? new Date(days[best] + 'T12:00').toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' }) : '—'}</b><span>busiest day (${tot[best] || 0})</span></div></div>
           <svg class="fs-chart" viewBox="0 -4 ${W} ${H + 22}" preserveAspectRatio="none">${[.25, .5, .75].map(k => `<line x1="0" x2="${W}" y1="${H - k * (H - 16)}" y2="${H - k * (H - 16)}"/>`).join('')}${bars}${labels}</svg>
-          <div class="fs-leg">${per.map(p => `<span><i style="background:${p.c}"></i>${E(p.f.title || p.s.title || p.f.url)} <em>${p.v.reduce((a, b) => a + b, 0)}</em>${p.s.lastPublished ? ` <small>last ${E(ago(new Date(p.s.lastPublished).toISOString()))}</small>` : ''}</span>`).join('')}</div>
+          <div class="fs-leg">${per.map(p => `<span><i style="background:${p.c}"></i>${api.ui.logo(p.f.url, { size: 13 })}${E(p.f.title || p.s.title || p.f.url)} <em>${p.v.reduce((a, b) => a + b, 0)}</em>${p.s.lastPublished ? ` <small>last ${E(ago(new Date(p.s.lastPublished).toISOString()))}</small>` : ''}</span>`).join('')}</div>
           <div class="fs-pat"><div><h4>Which days they post</h4>${mini(wd, i => DN[i])}</div><div><h4>What time of day</h4>${mini(hr, i => (i % 12 || 12) + (i < 12 ? 'a' : 'p'))}</div></div>
           ${o.by === 'seen' ? `<p class="muted" style="font-size:12px">“When it showed up” counts from the first time the NAS checked each feed (${per.filter(p => p.s.since).map(p => E(p.f.title || '') + ' since ' + new Date(p.s.since).toLocaleDateString()).join(', ') || 'just now'}).</p>` : ''}`}`;
         el.querySelectorAll('[data-fd]').forEach(b => b.onclick = () => { api.storage.set('statsOpt', { ...o, days: +b.dataset.fd }); statsView(el); });
@@ -450,7 +450,7 @@
         const list = feeds().map(f => ({ ...f }));
         const draw = () => {
           api.ui.modal('Feeds', `
-            <div>${list.map((f, i) => `<div class="rs-feedcfg" data-i="${i}"><div class="nm"><b>${E(f.title || 'Untitled')}</b><small>${E(f.url)}</small></div>
+            <div>${list.map((f, i) => `<div class="rs-feedcfg" data-i="${i}"><div class="nm"><b>${api.ui.logo(f.url, { size: 14 })}${E(f.title || 'Untitled')}</b><small>${E(f.url)}</small></div>
               <select class="inp" data-k="placement">${[['sidebar', 'Sidebar'], ['home', 'Home shelf'], ['view', 'Feeds view only']].map(([v, l]) => `<option value="${v}" ${f.placement === v ? 'selected' : ''}>${l}</option>`).join('')}</select>
               <select class="inp" data-k="style">${[['records', 'Records'], ['cards', 'Cards'], ['list', 'List'], ['podcast', 'Podcast'], ['news', 'News'], ['films', 'Film diary']].map(([v, l]) => `<option value="${v}" ${f.style === v ? 'selected' : ''}>${l}</option>`).join('')}</select>
               ${f.style === 'records' ? `<select class="inp" data-k="show" title="Which items to show">${[['vinyl', 'Vinyl only'], ['used', 'Used vinyl'], ['new', 'New vinyl'], ['all', 'Everything (incl. CDs)']].map(([v, l]) => `<option value="${v}" ${showOf(f) === v ? 'selected' : ''}>${l}</option>`).join('')}</select>` : ''}

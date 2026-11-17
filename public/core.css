@@ -748,3 +748,8 @@ a.btn.primary{color:#fff}
 /* design pass (2026-11-16): links in empty states and checkboxes / radios follow the theme instead of browser blue */
 .empty a:not(.btn){color:var(--accent);text-decoration:none}.empty a:not(.btn):hover{text-decoration:underline}
 input[type=checkbox],input[type=radio],input[type=range],progress{accent-color:var(--accent)}
+
+/* logos next to names (api.ui.logo) */
+.cx-logo{display:inline-block;flex:none;object-fit:contain;border-radius:3px;vertical-align:-3px;margin-right:6px}
+.cx-logo.h1-logo{vertical-align:-4px;margin-right:10px;border-radius:6px} .mus-tabs .cx-logo{vertical-align:-2px;margin-right:5px} .av-it .ic .cx-logo{margin:0;vertical-align:middle}
+.pl-ic.has-site{position:relative} .pl-ic.has-site .cx-logo{position:absolute;inset:0;width:100%;height:100%;margin:0;padding:18%;background:#fff;border-radius:inherit;object-fit:contain;box-shadow:inset 0 0 0 1px rgba(0,0,0,.08)}

@@ -142,7 +142,7 @@ async function artist(name, { fresh = false } = {}) {
   };
   if (!kept) return rebuild();
   const age = Date.now() - kept.at;
-  if (age > PAGE_FRESH || kept.d.mbPending) rebuild().catch(e => console.error('artist page', e.message));
+  if (age > PAGE_FRESH || kept.d.mbPending || kept.d.adbPending) rebuild().catch(e => console.error('artist page', e.message));
   return { ...kept.d, cachedAt: kept.at, refreshing: building.has(key) };
 }
 // keep recently opened pages warm: hourly, one page every few seconds

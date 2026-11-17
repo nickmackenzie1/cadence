@@ -100,7 +100,7 @@ Return JSON: {"what": "2 sentences on what they do and for whom", "glance": {"si
     }
     api.on('render', ({ route }) => { if (!route || !route.startsWith('client-')) return; const c = api.clients.get(route.slice(7)); if (c && c.kind !== 'project') mount(c); });
     api.clientActions.add({ label: 'Research with AI', run: async (c) => { try { await research(c); api.ui.refresh(); } catch (e) { api.ui.toast(e.message); } } });
-    api.widgets.add({ id: 'news', title: 'Client news', icon: 'newspaper', size: 'm', spaces: ['work'], description: 'Latest headlines about your clients.', render: el => {
+    api.widgets.add({ id: 'news', site: 'news.google.com', title: 'Client news', icon: 'newspaper', size: 'm', spaces: ['work'], description: 'Latest headlines about your clients.', render: el => {
       const last = api.storage.get('last') || {}, rows = [];
       for (const c of api.clients.list()) for (const it of (last[c.id] || []).slice(0, 2)) rows.push({ c, it });
       rows.sort((a, b) => Date.parse(b.it.date || 0) - Date.parse(a.it.date || 0));

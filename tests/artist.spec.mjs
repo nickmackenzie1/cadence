@@ -32,10 +32,16 @@ test.beforeAll(async () => {
       relations: [{ type: 'bandcamp', url: { resource: 'https://glasslantern.bandcamp.com/' } }, { type: 'official homepage', url: { resource: 'http://glasslantern.example' } }],
       'release-groups': [{ id: 'rg1', title: 'Night Swim', 'first-release-date': '2025-09-01', 'primary-type': 'Album', 'secondary-types': [] },
         { id: 'rg2', title: 'Live at the Horseshoe', 'first-release-date': '2024-01-01', 'primary-type': 'Album', 'secondary-types': ['Live'] }] });
+    // a fake TheAudioDB (found by MusicBrainz ID): logo, photo, banner, biography, and a formed year that disagrees
+    if (req.url.startsWith('/adb/123/artist-mb.php?i=mb-gl')) return j({ artists: [{ idArtist: '901', strArtist: 'Glass Lantern', strMusicBrainzID: 'mb-gl', intFormedYear: '2018', strCountry: 'Toronto, Canada',
+      strGenre: 'Shoegaze', strStyle: 'Rock/Pop', strMood: 'Dreamy', strLabel: 'Arts & Crafts', intMembers: '4', strFacebook: 'www.facebook.com/glasslantern',
+      strBiographyEN: 'Glass Lantern are a four-piece from Toronto.\n\nThey met at a laundromat and started playing loud, slow songs together in a garage behind a bakery. ' + 'Their first record came out on a small label. '.repeat(30),
+      strArtistLogo: 'https://r2.theaudiodb.com/images/media/artist/logo/gl.png', strArtistThumb: 'https://r2.theaudiodb.com/images/media/artist/thumb/gl.jpg', strArtistBanner: 'https://r2.theaudiodb.com/images/media/artist/banner/gl.jpg' }] });
+    if (req.url.startsWith('/adb/')) return j({ artists: null });
     res.writeHead(404); res.end();
   }).listen(MB);
   server = spawn(process.execPath, ['--disable-warning=ExperimentalWarning', 'server.js'], { env: { ...env, PORT: String(PORT), TLS_DIR: join(dir, 'x'),
-    RADAR_MB: '1', RADAR_MB_API: `http://localhost:${MB}`, RADAR_CAA_API: `http://localhost:${MB}`, RADAR_MB_GAP: '20', KEXP_LOG: '1', KEXP_API: 'http://127.0.0.1:9', KEXP_LOG_DELAY: '99999999', RADIO_WARM: '0' }, stdio: 'ignore' });
+    RADAR_MB: '1', RADAR_MB_API: `http://localhost:${MB}`, AUDIODB: '1', AUDIODB_API: `http://localhost:${MB}/adb`, AUDIODB_GAP: '20', RADAR_CAA_API: `http://localhost:${MB}`, RADAR_MB_GAP: '20', KEXP_LOG: '1', KEXP_API: 'http://127.0.0.1:9', KEXP_LOG_DELAY: '99999999', RADIO_WARM: '0' }, stdio: 'ignore' });
   for (let i = 0; i < 150; i++) { try { if ((await fetch(B + '/api/health')).ok) return; } catch {} await new Promise(r => setTimeout(r, 100)); }
 });
 test.afterAll(() => { server && server.kill(); mb && mb.close(); rmSync(dir, { recursive: true, force: true }); });
@@ -96,6 +102,28 @@ test('artist pages are kept: instant from the NAS copy and this browser, updated
   await page.reload();
   await page.evaluate(() => window.CadenceArtist.open('Glass Lantern'));
   await expect(page.locator('section', { hasText: 'On KEXP' })).toContainText(`${before + 1} plays`, { timeout: 2000 });
+});
+
+test('TheAudioDB adds the logo, photo, banner and biography, and is compared with MusicBrainz', async ({ page }) => {
+  await page.route(/\/api\/(logo|favicon)\?/, r => r.fulfill({ status: 200, contentType: 'image/png', body: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==', 'base64') }));
+  // both lookups run in the background; ask for a fresh build until TheAudioDB's part is in
+  await expect.poll(async () => !!(await fetch(B + '/api/radar/artist?fresh=1&name=Glass%20Lantern').then(r => r.json())).adb, { timeout: 20000 }).toBe(true);
+  await page.goto(B + '/');
+  await page.evaluate(() => window.CadenceArtist.open('Glass Lantern'));
+  await expect(page.locator('.ap-logo img')).toHaveAttribute('src', /api\/logo\?u=.*logo%2Fgl\.png/);
+  await expect(page.locator('.ap-banner')).toHaveAttribute('src', /banner%2Fgl\.jpg/);
+  await expect(page.locator('.ap-img')).toHaveAttribute('src', /thumb%2Fgl\.jpg/);   // the band photo, not a cover
+  await expect(page.locator('.ap-about')).toContainText('four-piece from Toronto');
+  await expect(page.locator('.ap-about details summary')).toHaveText('Read the rest');
+  await expect(page.locator('.ap-facts')).toContainText('4 members');
+  await expect(page.locator('.ap-facts')).toContainText('Arts & Crafts');
+  await expect(page.locator('.ap-links a', { hasText: 'Facebook' })).toHaveAttribute('href', 'https://www.facebook.com/glasslantern');
+  const cmp = page.locator('.ap-cmp');
+  await expect(cmp.locator('tr', { hasText: 'Formed' })).toHaveClass(/diff/);          // 2019 vs 2018
+  await expect(cmp.locator('tr', { hasText: 'From' })).not.toHaveClass(/diff/);        // Toronto vs Toronto, Canada
+  await expect(cmp.locator('tr', { hasText: 'Label' })).toContainText('not listed');
+  await expect(cmp).toBeVisible(); await page.waitForTimeout(500);
+  await page.screenshot({ path: 'test-results/artist-adb.png', fullPage: true });
 });
 
 test('an artist nobody knows still gets a calm page', async ({ page }) => {

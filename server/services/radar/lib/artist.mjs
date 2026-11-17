@@ -5,6 +5,7 @@ import { now, DAY } from "./config.mjs";
 import { signalsFor, chartPointsFor, artistRecord, picksForArtist } from "./store.mjs";
 import { norm, isArtist } from "./extract.mjs";
 import { artistInfo, artFor } from "./coverart.mjs";
+import { audiodbFor } from "./audiodb.mjs";
 import { SOURCES, blogList } from "./sources.mjs";
 import { sourcesCfg } from "./sources-data.mjs";
 import { isMainstream } from "./mainstream.mjs";
@@ -33,6 +34,7 @@ export function artistData(name, { kexp = null } = {}) {
     rank: s.rank, best: s.best_rank, image: s.image, run: runs[s.source + "|" + s.uid] || null }));
 
   const mb = artistInfo(name);
+  const adb = audiodbFor(name, mb.info?.mbid || null);
   const genres = new Map();
   for (const [g, n] of Object.entries(a?.genres || {})) genres.set(g, (genres.get(g) || 0) + n);
   for (const s of sig) for (const g of String(s.genres || "").split(", ").filter(Boolean)) genres.set(g, (genres.get(g) || 0) + 1);
@@ -46,6 +48,6 @@ export function artistData(name, { kexp = null } = {}) {
     radar: a ? { listeners: a.listeners ?? null, firstSeen: Math.min(...Object.values(a.firstSeen || {}), Infinity) || null, communities: Object.keys(a.firstSeen || {}) } : null,
     genres: [...genres.entries()].sort((x, y) => y[1] - x[1]).slice(0, 8).map(([g]) => g),
     picks, mentions, sources: [...new Set(mentions.map((m) => m.sourceName))],
-    mb: mb.info, mbPending: mb.pending, art, kexp,
+    mb: mb.info, mbPending: mb.pending, adb: adb.info, adbPending: adb.pending, art, kexp,
   };
 }

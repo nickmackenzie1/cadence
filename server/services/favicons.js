@@ -34,4 +34,21 @@ async function getIcon(domain) {
   return inflight.get(domain);
 }
 
-module.exports = { fetchIcon, getIcon, inflight, sniff };
+// A logo at a known address (a radio station's own logo, say), fetched by the NAS and kept, so the browser never asks
+// the station's server directly. Public addresses only, images only, 4 MB at most (band banners and fan art); a miss is remembered for a day.
+const crypto = require('crypto');
+async function getImage(u) {
+  if (!/^https?:\/\//i.test(u) || u.length > 1500) return null;
+  const id = 'u-' + crypto.createHash('sha1').update(u).digest('hex').slice(0, 24), file = path.join(ICON_DIR, id + '.img'), none = path.join(ICON_DIR, id + '.none');
+  if (fs.existsSync(file)) return fs.readFileSync(file);
+  if (fs.existsSync(none) && Date.now() - fs.statSync(none).mtimeMs < 864e5) return null;
+  if (!inflight.has(id)) inflight.set(id, (async () => {
+    let buf = null;
+    try { const { safeFetch } = require('../lib/net'); const r = await safeFetch(u, { headers: { Accept: 'image/*' }, timeout: 10000 }, 4 * 1024 * 1024); if (r.buf && r.buf.length >= 60 && sniff(r.buf)) buf = r.buf; } catch {}
+    try { if (buf) fs.writeFileSync(file, buf); else fs.writeFileSync(none, ''); } catch {}
+    inflight.delete(id); return buf;
+  })());
+  return inflight.get(id);
+}
+
+module.exports = { fetchIcon, getIcon, getImage, inflight, sniff };

@@ -7,7 +7,7 @@ const { NEXT, readBody, send } = require('../lib/http');
 const { DOMAIN_RE, safeFetch } = require('../lib/net');
 const { callClaude } = require('../services/ai');
 const { companyInfo, decode } = require('../services/company');
-const { getIcon, sniff } = require('../services/favicons');
+const { getIcon, getImage, sniff } = require('../services/favicons');
 
 let imgCache = null;   // recently fetched images, in memory
 
@@ -25,6 +25,14 @@ module.exports = async function lookupRoutes(req, res, { url, p }) {
     const d = String(url.searchParams.get('d') || '').toLowerCase();
     if (!DOMAIN_RE.test(d)) return send(res, 400, { error: 'Bad domain' });
     const buf = await getIcon(d);
+    if (!buf) { res.writeHead(404, { 'Cache-Control': 'max-age=3600' }); return res.end(); }
+    res.writeHead(200, { 'Content-Type': sniff(buf), 'Cache-Control': 'private, max-age=604800', 'X-Content-Type-Options': 'nosniff', 'Content-Security-Policy': "default-src 'none'; style-src 'unsafe-inline'" });
+    return res.end(buf);
+  }
+
+  // a logo image at a given address, kept on the NAS (radio stations' own logos and the like)
+  if (p === '/api/logo') {
+    const buf = await getImage(String(url.searchParams.get('u') || ''));
     if (!buf) { res.writeHead(404, { 'Cache-Control': 'max-age=3600' }); return res.end(); }
     res.writeHead(200, { 'Content-Type': sniff(buf), 'Cache-Control': 'private, max-age=604800', 'X-Content-Type-Options': 'nosniff', 'Content-Security-Policy': "default-src 'none'; style-src 'unsafe-inline'" });
     return res.end(buf);

@@ -116,7 +116,7 @@
         el.querySelector('.hb-g').onclick = () => api.ui.navigate('view-home-bits'); } });
       api.widgets.add({ id: 'dinner-ideas', title: 'Dinner ideas', icon: 'utensils', size: 'm', description: 'Three ideas for dinner.', render: el => {
         el.innerHTML = mealCards(true); const b = el.querySelector('[data-hb="more"]'); if (b) b.onclick = loadMeals; } });
-      api.widgets.add({ id: 'tv-soon', title: 'Your shows', icon: 'tv', size: 'm', description: 'New episodes of the shows you watch.', render: el => { el.innerHTML = nas() ? tvList(7) : '<p class="muted">Needs the NAS.</p>'; } });
+      api.widgets.add({ id: 'tv-soon', site: 'tvmaze.com', title: 'Your shows', icon: 'tv', size: 'm', description: 'New episodes of the shows you watch.', render: el => { el.innerHTML = nas() ? tvList(7) : '<p class="muted">Needs the NAS.</p>'; } });
 
       api.views.add({ id: 'home-bits', title: 'Home helpers', icon: '🧺', subtitle: 'Dinner ideas, garbage night, barcodes and your shows', wide: true, render: el => {
         const c = gcfg(), l = garbageLine();

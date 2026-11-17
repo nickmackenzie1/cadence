@@ -30,7 +30,7 @@
   const KIND_CLASS = k => (/spell/i.test(k) ? 'spell' : /style|readab|wordch|redund|repet/i.test(k) ? 'style' : 'grammar');
 
   Cadence.registerPlugin({
-    id: 'harper', name: 'Grammar (Harper)', version: '1.0.0', category: 'Productivity', spaces: ['work', 'life'],
+    id: 'harper', site: 'writewithharper.com', name: 'Grammar (Harper)', version: '1.0.0', category: 'Productivity', spaces: ['work', 'life'],
     description: 'A private grammar and spelling checker (Harper, by Automattic) that runs entirely in your browser. Underlines problems as you write (quick add, meeting notes, task notes and titles), fixes clear slips as you type (Backspace undoes), with one-click fixes, a personal dictionary and your choice of English.',
     tagline: 'Grammar checking that never leaves your browser', color: '#2563eb',
     icon: '<path d="m4 7 4 10 4-10"/><path d="M14 15h6"/><path d="M14 11h6"/><path d="m15 19 2 2 4-4"/>',

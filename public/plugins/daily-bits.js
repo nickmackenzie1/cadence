@@ -33,20 +33,21 @@
         return `<div class="dy-c"><div class="dy-board" data-h="${h}"><button class="btn" data-play-chess>${api.ui.icon('crown')}Play today's puzzle here</button></div>
           ${v ? `<p class="muted">Rated ${v.rating}${v.themes.length ? ' · ' + E(v.themes.slice(0, 3).join(', ').replace(/([a-z])([A-Z])/g, '$1 $2').toLowerCase()) : ''} · ${A(v.url, 'Open on Lichess')}</p>` : ''}</div>`; };
       const news = (n = 6) => { const v = get('hn', 'api/daily/hn', 15 * 60e3); if (!v) return wait(v);
-        return `<ol class="dy-hn">${v.slice(0, n).map(s => `<li>${A(s.url, E(s.title))}<span class="muted">${s.score} points · ${A(s.discuss, s.comments + ' comments')}</span></li>`).join('')}</ol>`; };
+        return `<ol class="dy-hn">${v.slice(0, n).map(s => `<li>${A(s.url, api.ui.logo(s.url, { size: 13 }) + E(s.title))}<span class="muted">${s.score} points · ${A(s.discuss, s.comments + ' comments')}</span></li>`).join('')}</ol>`; };
 
       const wireChess = el => el.querySelectorAll('[data-play-chess]').forEach(b => b.onclick = () => {
         const box = b.closest('.dy-board'); box.innerHTML = `<iframe src="https://lichess.org/training/frame?theme=brown&bg=auto" title="Lichess daily puzzle" style="height:${box.dataset.h}px"></iframe>`; });
       const card = fn => el => { el.innerHTML = nas() ? fn() : '<p class="muted">Needs the NAS.</p>'; wireChess(el); };
-      api.widgets.add({ id: 'on-this-day', title: 'On this day', icon: 'calendar', size: 'm', description: 'What happened on today\'s date (Wikipedia).', render: card(() => otd(3)) });
-      api.widgets.add({ id: 'xkcd', title: 'xkcd', icon: 'smile', size: 'm', description: 'The latest xkcd comic.', render: card(comic) });
-      api.widgets.add({ id: 'chess', title: 'Chess puzzle', icon: 'crown', size: 'm', description: 'The Lichess daily puzzle, playable here.', render: card(() => chess(260)) });
-      api.widgets.add({ id: 'hn', title: 'Hacker News', icon: 'newspaper', size: 'm', description: 'Top stories on Hacker News.', render: card(() => news(6)) });
+      api.widgets.add({ id: 'on-this-day', site: 'wikipedia.org', title: 'On this day', icon: 'calendar', size: 'm', description: 'What happened on today\'s date (Wikipedia).', render: card(() => otd(3)) });
+      api.widgets.add({ id: 'xkcd', site: 'xkcd.com', title: 'xkcd', icon: 'smile', size: 'm', description: 'The latest xkcd comic.', render: card(comic) });
+      api.widgets.add({ id: 'chess', site: 'lichess.org', title: 'Chess puzzle', icon: 'crown', size: 'm', description: 'The Lichess daily puzzle, playable here.', render: card(() => chess(260)) });
+      api.widgets.add({ id: 'hn', site: 'news.ycombinator.com', title: 'Hacker News', icon: 'newspaper', size: 'm', description: 'Top stories on Hacker News.', render: card(() => news(6)) });
 
       api.views.add({ id: 'daily', title: 'Daily', icon: '🗓', subtitle: 'On this day, xkcd, a chess puzzle and Hacker News', wide: true, render: el => {
         if (!nas()) { el.innerHTML = '<p class="muted">Daily needs the NAS.</p>'; return; }
-        el.innerHTML = `<div class="dy-grid"><section><h3>On this day</h3>${otd(8)}</section><section><h3>xkcd</h3>${comic()}</section>
-          <section><h3>Chess puzzle</h3>${chess(380)}</section><section><h3>Hacker News</h3>${news(12)}</section></div>`;
+        const lg = d => api.ui.logo(d, { size: 16 });
+        el.innerHTML = `<div class="dy-grid"><section><h3>${lg('wikipedia.org')}On this day</h3>${otd(8)}</section><section><h3>${lg('xkcd.com')}xkcd</h3>${comic()}</section>
+          <section><h3>${lg('lichess.org')}Chess puzzle</h3>${chess(380)}</section><section><h3>${lg('news.ycombinator.com')}Hacker News</h3>${news(12)}</section></div>`;
         wireChess(el);
       } });
 
@@ -55,7 +56,7 @@
         .dy-x{margin:0} .dy-x img{max-width:100%;height:auto;display:block;margin:0 auto 6px;background:#fff;border-radius:4px} .dy-x figcaption{font-size:13px} .dy-x details{font-size:12px;color:var(--muted)}
         .dy-c iframe{width:100%;max-width:400px;border:0;border-radius:var(--r-s);display:block} .dy-board .btn{display:inline-flex;gap:6px;align-items:center} .dy-c p{font-size:12px;margin:6px 0 0}
         .dy-hn{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:6px;font-size:13px} .dy-hn li span{display:block;font-size:12px}
-        .dy-hn a,.dy-otd a{color:inherit} .dy-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:18px;max-width:1200px} .dy-grid h3{margin:0 0 8px;font-size:15px}`;
+        .dy-hn a,.dy-otd a{color:inherit} .dy-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:18px;max-width:1200px} .dy-grid h3{margin:0 0 8px;font-size:15px} .dy-hn .cx-logo{vertical-align:-2px;margin-right:5px} .dy-grid h3 .cx-logo{vertical-align:-2px;margin-right:7px}`;
       document.head.appendChild(css);
       return () => css.remove();
     },
