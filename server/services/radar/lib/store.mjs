@@ -262,6 +262,15 @@ export function pagesToRefresh(olderThan, limit = 20) {
   return db.prepare("SELECT key, json_extract(json, '$.name') AS name FROM radar_artist_pages WHERE at < ? ORDER BY at LIMIT ?").all(Date.now() - olderThan, limit);
 }
 
+// ---- what you listened to (user, 2026-11-16: Radar learns your taste; Your year in music) ----
+// one row per song heard: kind = preview | live (a station) | kexp; secs = how long it played; skipped = stopped early
+function listensTable() { db.exec("CREATE TABLE IF NOT EXISTS radar_listens (id INTEGER PRIMARY KEY AUTOINCREMENT, ts INTEGER NOT NULL, artist TEXT, artist_key TEXT, title TEXT, kind TEXT, station TEXT, secs INTEGER, skipped INTEGER); CREATE INDEX IF NOT EXISTS radar_listens_ts ON radar_listens(ts); CREATE INDEX IF NOT EXISTS radar_listens_key ON radar_listens(artist_key)"); }
+export function addListen(r) {
+  if (!open()) return; listensTable();
+  db.prepare("INSERT INTO radar_listens (ts, artist, artist_key, title, kind, station, secs, skipped) VALUES (?, ?, ?, ?, ?, ?, ?, ?)").run(r.ts, r.artist, r.artist_key, r.title ?? null, r.kind, r.station ?? null, r.secs | 0, r.skipped ? 1 : 0);
+}
+export function listensSince(ts, limit = 20000) { if (!open()) return []; listensTable(); return db.prepare("SELECT ts, artist, artist_key, title, kind, station, secs, skipped FROM radar_listens WHERE ts >= ? ORDER BY ts DESC LIMIT ?").all(ts, limit); }
+
 // ---- read-only table access for the Database view ----
 export function tables() {
   if (!open()) return null;

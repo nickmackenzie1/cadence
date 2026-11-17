@@ -243,3 +243,20 @@ Cleaned up 2026-11-16 (0.8.2): items already built were moved out after checking
   Older full-size backups age out over the 30 days. Database view says what backups leave out; its lock emoji is a Lucide icon.
 - KEXP's older playlists list DJ talk as a track by "AIRBREAK": skipped when saving, existing rows deleted once
   (`kexp_meta.fix_airbreak`).
+
+### Music Radar learns your taste; Friday mix; Out this week; Called it; Bandcamp (2026-11-16)
+- User asked for all nine Radar ideas. Listen log `radar_listens` (POST /api/radar/listen from artist.js: one line per
+  preview or song heard live; preview stopped under 8 s = skip). `radar/lib/foryou.mjs`: taste from follows (+5), Want to
+  hear (+3), thumbs (±3), previews played/skipped, songs heard live; genre weights (catch-all genres skipped, UMBRELLA now
+  exported from sources-data); co-mentions ("mentioned alongside X"). For you card at the top of Radar with reasons.
+- Not for me (`notForMe` in radar_kv; /api/radar/nfm): artists and genres join the hide set; a source or one blog
+  (`blog:<name>`) gets weight 0. Buttons on For you rows, artist pages, source panel; "See or undo" dialog.
+- `radar/lib/extras.mjs`: Friday mix (weeks start Friday, kept 12 weeks, groups For you / New from people you follow /
+  Climbing fast / Wildcards; /api/radar/mix, "Make a new one", past weeks), Out this week (MusicBrainz release groups +
+  sources' release dates for followed and saved artists; /api/radar/releases; release-day island note), Called it
+  (first early sighting vs first Apple chart and KEXP heavy rotation via kexp-log.heavyFirst; card + artist page line).
+- Friday mix tab (order 12), island note Fridays after 7am. Bandcamp: "Buy on Bandcamp" (their page from MusicBrainz) or
+  "Find on Bandcamp" (search) on artist pages; Bandcamp link on every mix row.
+- Sounds-like graph names were "undefined" for edges read from SQLite (no aName/bName): names looked up now.
+- Artist page: no logo tile when there's a banner; placeholder layout while loading; banner/releases placeholders while
+  TheAudioDB / MusicBrainz are pending; banner and photo keep fixed shapes.

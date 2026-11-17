@@ -102,6 +102,31 @@ async function raw(name, offset = 0, limit = 50) {
   return r;
 }
 async function data() { const { store, data } = await load(); return data.dashboardData(store.loadState()); }
+// what you listened to (the player sends one line per song heard; nothing about you leaves the NAS)
+const fyLib = () => import(pathToFileURL(path.join(__dirname, 'radar', 'lib', 'foryou.mjs')).href);
+async function listen(b = {}) {
+  const { store } = await load(), { norm } = await import(pathToFileURL(path.join(__dirname, 'radar', 'lib', 'extract.mjs')).href);
+  const artist = String(b.artist || '').trim().slice(0, 120), kind = ['preview', 'live', 'kexp'].includes(b.kind) ? b.kind : null;
+  const secs = Math.max(0, Math.min(3 * 3600, Math.round(+b.secs || 0)));
+  if (!artist || !kind || secs < 1) return { ok: false };
+  store.addListen({ ts: Math.floor(Date.now() / 1000), artist, artist_key: norm(artist), title: b.title ? String(b.title).slice(0, 200) : null, kind, station: b.station ? String(b.station).slice(0, 80) : null, secs, skipped: !!b.skipped });
+  return { ok: true };
+}
+async function notForMe(b) {
+  const F = await fyLib();
+  if (b && b.type) F.setNfm(String(b.type), b.value, b.on !== false);
+  return F.nfmCfg();
+}
+// Friday mix, Out this week, Called it (radar/lib/extras.mjs)
+const exLib = () => import(pathToFileURL(path.join(__dirname, 'radar', 'lib', 'extras.mjs')).href);
+const kexpHeavy = () => { try { const K = require('./kexp-log'); return K.status().on === false ? () => null : n => K.heavyFirst(n); } catch (e) { return () => null; } };
+async function releases() { return (await exLib()).releases(); }
+async function mix({ week, again } = {}) {
+  const X = await exLib();
+  if (week && week !== X.mixWeek()) return X.pastMix(String(week)) || { error: 'No mix that week' };
+  return X.fridayMix(await data(), { again: !!again, rel: X.releases() });
+}
+async function calledIt() { const { store } = await load(); return (await exLib()).calledIt(store.loadState(), { kexpHeavy: kexpHeavy() }); }
 async function feedback(id, v) {
   const { store } = await load(); const state = store.loadState();
   if (!state.picks.some(p => p.id === id)) return false;
@@ -160,6 +185,7 @@ async function buildArtist(name) {
   let kexp = null; try { const K = require('./kexp-log'); if (K.status().on !== false) kexp = K.artist(name); } catch (e) { kexp = null; }
   const d = A.artistData(name, { kexp });
   if (d) try { d.stg = (await stgLib()).stgFor(d.name).concat(d.name !== name ? (await stgLib()).stgFor(name) : []).filter((x, i, l) => l.findIndex(y => y.year === x.year && y.kind === x.kind && y.title === x.title) === i); } catch (e) { d.stg = []; }
+  if (d) try { const { store } = await load(); d.called = (await exLib()).calledItFor({ artists: { [d.key]: store.artistRecord(d.key) || {} } }, d.name, { kexpHeavy: kexpHeavy() }); } catch (e) { d.called = null; }
   return d;
 }
 // ---- Said the Gramophone's yearly best-of lists: read once in the background (a page every few seconds), then the
@@ -319,4 +345,4 @@ async function digestFile(name) {
 }
 async function spotify() { const { spotify } = await load(); return spotify; }
 
-module.exports = { artist, stg, shows, follow, preview, want, community, sourcesNow, sourcesSettings, raw, settings, status, scan, digestNow, data, feedback, rss, digestFile, spotify };
+module.exports = { releases, mix, calledIt, listen, notForMe, artist, stg, shows, follow, preview, want, community, sourcesNow, sourcesSettings, raw, settings, status, scan, digestNow, data, feedback, rss, digestFile, spotify };

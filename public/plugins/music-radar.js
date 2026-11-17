@@ -102,7 +102,8 @@
       const run = cur.run, items = cur.items.filter(x => !G.feed || x.feed === G.feed);
       const status = cur.missing ? `Needs <code>${esc(cur.needs)}</code> in the NAS .env.` : !run ? 'Not checked yet.'
         : `Checked ${esc(ago(run.ts * 1000))}: ${run.n} found, ${run.fresh} new.` + (run.error ? ` <span class="mr-warn">${esc(run.error)}</span>` : '');
-      body = `<p class="mr-sub">${esc(cur.kind)} · ${status}${cur.site ? ` · ${link(cur.site, 'Open site')}` : ''}${cur.on ? '' : ' · switched off in Sources'}</p>
+      body = `<p class="mr-sub">${esc(cur.kind)} · ${status}${cur.site ? ` · ${link(cur.site, 'Open site')}` : ''}${cur.on ? '' : ' · switched off in Sources'}
+          · <button class="linkish" data-nfm-type="source" data-nfm-value="${esc(cur.id === 'blogs' && G.feed ? 'blog:' + G.feed : cur.id)}">${ic('eye-off')}Not for me${cur.id === 'blogs' && G.feed ? ': ' + esc(G.feed) : ''}</button></p>
         ${cur.feeds.length > 1 ? `<div class="mr-chips">${['', ...cur.feeds].map(f => `<button class="mr-chip ${G.feed === f ? 'on' : ''}" data-feed="${esc(f)}">${f && cur.id === 'blogs' ? srcLogo('blogs', f) : ''}${esc(f || 'All')}</button>`).join('')}</div>` : ''}
         ${items.length ? `<table class="mr-t"><tr>${cur.chart ? '<th class="n">#</th>' : ''}<th>Artist</th><th>Title</th><th>Where</th><th>${cur.chart ? 'Move' : 'First seen'}</th></tr>${items.slice(0, 80).map(x => `<tr>
           ${cur.chart ? `<td class="n">${x.rank ?? ''}</td>` : ''}<td><div class="mr-withart">${artImg(x)}${an(x.artist)} ${pv(x.artist, x.title, x.type, x.feed || 'Music Radar')}</div></td><td>${link(x.url, esc(x.title || ''))}${x.type && x.type !== 'track' && x.type !== 'artist' ? ` <span class="chip">${esc(x.type)}</span>` : ''}${relNote(x)}</td>
@@ -120,6 +121,19 @@
         <h4>Crossed over</h4><p class="mr-sub">Community picks that later showed up on the Apple chart</p>
         ${S0.crossover.length ? `<table class="mr-t">${S0.crossover.map(c => `<tr><td>${an(c.artist)} ${c.url ? link(c.url, 'chart') : ''}<div class="mr-small">picked ${esc(day(c.picked))}, charted ${esc(day(c.charted))}</div></td><td class="n">#${c.rank}</td></tr>`).join('')}</table>` : empty('None yet.')}</section>
       <section class="mr-card w12"><h3>Genres across sources</h3><p class="mr-sub">Tags from every source except the communities: last 7 days vs the weekly average of the 3 weeks before</p>${changeBars(S0.genres)}</section>`;
+  }
+  // everything you've said "Not for me" to, with undo, and a way to add a genre by name
+  function nfmDialog(api, N) {
+    const row = (type, v, label) => `<li><span>${esc(label || v)}</span><button class="btn ghost" data-nfm-type="${type}" data-nfm-value="${esc(v)}" data-nfm-off="1">Undo</button></li>`;
+    const srcName = v => v.startsWith('blog:') ? v.slice(5) : SRC_NAMES[v] || v;
+    api.ui.modal('Not for me', `<div class="mr-dlg mr-nfmd">
+      <p class="mr-small">Hidden everywhere in Music Radar, and For you learns from it. Undo any of them here.</p>
+      <h4>Artists</h4>${N.artists.length ? `<ul>${N.artists.map(v => row('artist', v)).join('')}</ul>` : '<p class="mr-small">None</p>'}
+      <h4>Genres</h4>${N.genres.length ? `<ul>${N.genres.map(v => row('genre', v)).join('')}</ul>` : '<p class="mr-small">None</p>'}
+      <div class="row"><input class="inp" id="mr-nfm-g" placeholder="Add a genre, e.g. edm"><button class="btn" id="mr-nfm-gadd">Hide genre</button></div>
+      <h4>Sources</h4>${N.sources.length ? `<ul>${N.sources.map(v => row('source', v, srcName(v))).join('')}</ul>` : '<p class="mr-small">None. Use Not for me on a source under Other sources.</p>'}
+    </div>`, `<button class="btn" data-act="close-modal">Done</button>`);
+    const g = document.getElementById('mr-nfm-gadd'); if (g) g.onclick = () => { const v = document.getElementById('mr-nfm-g').value.trim(); if (v) window.CadenceNfm.set('genre', v, true).then(() => api.ui.close()); };
   }
   function sourcesDialog(api, S0) {
     const c = S0.cfg, E = esc;
@@ -153,11 +167,12 @@
       const openSettings = () => { G.more.settings = true; api.storage.set('more', G.more); if (api.ui.currentRoute() === 'view-radar') api.ui.refresh(); };
       window.removeEventListener('cadence-radar-settings', window.__radarSettingsHook); window.__radarSettingsHook = openSettings;   // one listener, however often plugins rebuild
       window.addEventListener('cadence-radar-settings', openSettings);
+      window.addEventListener('cadence-radar-reload', () => load());
       const get = async u => { const r = await fetch(u, { cache: 'no-store' }); if (!r.ok) throw new Error(r.status); return r.json(); };
       const post = async (u, b) => { const r = await fetch(u, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(b || {}) }); return r.json(); };
       async function load() {
         if (api.system().mode !== 'nas') return;
-        try { [G.st, G.d, G.comm] = await Promise.all([get('api/radar/status'), get('api/radar/data'), get('api/radar/community').catch(() => G.comm || null)]); } catch (e) { G.err = e.message; }
+        try { [G.st, G.d, G.comm, G.rel, G.called] = await Promise.all([get('api/radar/status'), get('api/radar/data'), get('api/radar/community').catch(() => G.comm || null), get('api/radar/releases').catch(() => null), get('api/radar/calledit').catch(() => null)]); } catch (e) { G.err = e.message; }
         if (api.ui.currentRoute() === 'view-radar') api.ui.refresh();
         clearTimeout(G.poll); if (G.st && G.st.job) G.poll = setTimeout(load, 3000);   // a scan is running: check back
       }
@@ -191,6 +206,21 @@
             <div class="mr-tile"><b>${D.trackRecord.hitRate == null ? '–' : Math.round(D.trackRecord.hitRate * 100) + '%'}</b><span>Track record (hit rate)</span></div>
           </div>
           <div class="mr-grid">
+            ${(() => { const F = D.forYou || { list: [] }, N = D.notForMe || { artists: [], genres: [], sources: [] }, hid = N.artists.length + N.genres.length + N.sources.length;
+              const nfm = (type, value, label) => `<button class="linkish mr-nfm" data-nfm-type="${type}" data-nfm-value="${esc(value)}" title="Not for me: hide ${esc(label || value)} and learn from it">${ic('eye-off')}<span>Not for me</span></button>`;
+              return `<section class="mr-card w12 mr-fy"><div class="mr-row" style="justify-content:space-between"><div><h3>For you</h3><p class="mr-sub">What Radar is buzzing about, ranked by what you follow, save, play and skip${F.genres && F.genres.length ? `. Your sound lately: ${esc(F.genres.slice(0, 4).map(g => g.genre).join(', '))}` : ''}</p></div>
+                ${F.list.length ? `<button class="btn" id="mr-fyall">${ic('play')}Play all previews</button>` : ''}</div>
+                ${F.list.length ? `<ul class="mr-fyl">${F.list.map(x => `<li>${pv(x.artist, x.title, x.type, 'For you')}<div class="mr-fyt">${an(x.artist)}${x.title ? ` <span class="mr-small">${esc(x.title)}</span>` : ''}<span class="mr-why">${esc(x.why[0].toUpperCase() + x.why.slice(1))}</span></div>${nfm('artist', x.artist)}</li>`).join('')}</ul>` : empty(esc(F.note || 'Nothing new for you right now. Check back after the next scan.'))}
+                ${hid ? `<p class="mr-small">Not for me: ${[N.artists.length && `${N.artists.length} artist${N.artists.length === 1 ? '' : 's'}`, N.genres.length && `${N.genres.length} genre${N.genres.length === 1 ? '' : 's'}`, N.sources.length && `${N.sources.length} source${N.sources.length === 1 ? '' : 's'}`].filter(Boolean).join(', ')} hidden. <button class="linkish" id="mr-nfm-manage">See or undo</button></p>` : ''}</section>`; })()}
+            ${(() => { const R = G.rel; if (!R) return '';
+              const dd = x => new Date(x + 'T12:00:00').toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
+              const row = x => `<li>${pv(x.artist, x.title, x.type, 'Out this week')}<div class="mr-fyt"><span>${an(x.artist)} — ${esc(x.title)}${x.type && x.type !== 'album' ? ` <span class="chip">${esc(x.type === 'ep' ? 'EP' : x.type)}</span>` : ''}</span><span class="mr-small">${x.date === R.today ? '<b>Out today</b>' : x.date < R.today ? 'Out ' + esc(dd(x.date)) : esc(dd(x.date))} · ${esc(x.why)}</span></div></li>`;
+              return `<section class="mr-card w6"><h3>${ic('calendar-days')}Out this week</h3><p class="mr-sub">New releases from artists you follow or saved: the last 7 days and the next week</p>
+                ${R.thisWeek.length ? `<ul class="mr-fyl mr-one">${R.thisWeek.map(row).join('')}</ul>` : empty(R.pending ? 'Looking up release dates for the artists you follow…' : 'Nothing from your artists this week.')}
+                ${R.soon.length ? `<h4>Coming up</h4><ul class="mr-fyl mr-one">${R.soon.slice(0, 6).map(row).join('')}</ul>` : ''}</section>`; })()}
+            ${(() => { const C = G.called; if (!C) return '';
+              return `<section class="mr-card w6"><h3>${ic('trophy')}Called it</h3><p class="mr-sub">How early Radar spotted artists before the Apple chart or KEXP's heavy rotation${C.median ? `: ${C.median} days early, typically, across ${C.count}` : ''}</p>
+                ${C.list.length ? `<table class="mr-t">${C.list.map(x => `<tr><td>${an(x.artist)}<div class="mr-small">Spotted ${esc(new Date(x.spotted + 'T12:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }))} on ${esc(x.via)}</div></td><td class="mr-small">${x.milestones.map(m => `${m.days} days before ${esc(m.what)}`).join('<br>')}</td></tr>`).join('')}</table>` : empty('Nobody yet. Once someone Radar found early reaches the Apple chart or KEXP heavy rotation, they show up here.')}</section>`; })()}
             ${(() => { const W = window.CadencePreview && window.CadencePreview.want, list = W ? W.peek() : [];
               return list.length ? `<section class="mr-card w12 mr-want"><div class="mr-row" style="justify-content:space-between"><div><h3>Want to hear</h3><p class="mr-sub">What you saved, newest first</p></div>
                 <span class="mr-row"><button class="btn" id="mr-wantall">${ic('play')}Play all previews</button><a class="btn" href="#view-want">See all ${list.length}</a></span></div>
@@ -260,6 +290,8 @@
         $('#mr-digest').onclick = async () => { G.st = await post('api/radar/run', { what: 'digest' }); load(); };
         const lg = $('#mr-log'); if (lg) lg.onclick = () => { (window.__dbv = window.__dbv || {}).want = 'sql:radar_jobs'; };
         el.querySelectorAll('[data-fb]').forEach(b => b.onclick = async () => { const v = +b.dataset.v, cur = +b.dataset.cur; await post('api/radar/feedback', { id: b.dataset.fb, v: cur === v ? 0 : v }); load(); });
+        const fa = $('#mr-fyall'); if (fa) fa.onclick = () => window.CadencePreview.playAll((D.forYou.list || []).map(x => ({ artist: x.artist, title: x.title })));
+        const nm = $('#mr-nfm-manage'); if (nm) nm.onclick = () => nfmDialog(api, D.notForMe);
         const wa = $('#mr-wantall'); if (wa) wa.onclick = () => window.CadencePreview.playAll(window.CadencePreview.want.peek());
         const cs = $('#mr-comm-save'); if (cs) cs.onclick = async () => {
           G.comm = await post('api/radar/community', { communities: $('#mr-lemmy').value, tags: $('#mr-tags').value,
@@ -312,6 +344,12 @@
         .mr-src{display:block;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
         .mr-rise{table-layout:fixed;width:100%} .mr-rise td:first-child{overflow:hidden} .mr-rise th:not(:first-child),.mr-rise td:not(:first-child){width:4.2em}
         .mr-src .cx-logo,.mr-small .cx-logo,.mr-chip .cx-logo{margin-right:4px;vertical-align:-2px} .mr-tabs .cx-logo{margin-right:5px;vertical-align:-2px}
+        .mr-fyl.mr-one{grid-template-columns:1fr} .mr-card h3 svg{width:16px;height:16px;vertical-align:-2px;margin-right:6px;color:var(--muted)}
+        .mr-fyl{list-style:none;margin:6px 0 4px;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:8px 18px}
+        .mr-fyl li{display:flex;align-items:center;gap:8px;min-width:0} .mr-fyt{flex:1;min-width:0;display:flex;flex-direction:column} .mr-fyt .ar-link{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+        .mr-why{font-size:12px;color:var(--accent)} .mr-nfm{display:inline-flex;align-items:center;gap:4px;color:var(--muted);font-size:12px;opacity:.55} .mr-fyl li:hover .mr-nfm,.mr-nfm:focus-visible{opacity:1}
+        .mr-nfm svg,.mr-sub .linkish svg{width:13px;height:13px} .mr-nfm span{white-space:nowrap}
+        .mr-nfmd ul{list-style:none;padding:0;margin:4px 0 10px} .mr-nfmd li{display:flex;justify-content:space-between;align-items:center;padding:3px 0;border-bottom:1px solid var(--line)} .mr-nfmd h4{margin:12px 0 2px}
         .mr-rn{display:flex;align-items:center;gap:4px;white-space:nowrap;overflow:hidden} .mr-rn .ar-link{overflow:hidden;text-overflow:ellipsis} .mr-rise .mr-src{padding-left:2px}
         .mr-wl{list-style:none;padding:0;margin:6px 0 0;display:flex;flex-direction:column;gap:4px;font-size:14px}
         .mr-ta{width:100%;font:12px/1.4 ui-monospace,monospace;margin:2px 0 8px;resize:vertical} .mr-chk{display:flex;align-items:center;gap:6px;margin:4px 0} .mr-num{width:110px;padding:2px 6px}

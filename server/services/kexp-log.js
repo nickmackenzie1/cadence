@@ -306,4 +306,6 @@ function newArtists({ days = 14, limit = 50 } = {}) {
 start();
 // how many times KEXP has played someone (cheap: the artist index), for "where they've turned up"
 function playCount(name) { try { return open().prepare('SELECT COUNT(*) AS n FROM kexp_plays WHERE artist = ? COLLATE NOCASE').get(String(name || '')).n; } catch (e) { return 0; } }
-module.exports = { playCount, winners, playsSince, status, checkNew, backfillStep, fillShows, row, start, top, search, artist, song, around, recent, newArtists, onAir, open };
+// when KEXP first put someone in heavy rotation (unix seconds), for Music Radar's "Called it"
+function heavyFirst(name) { try { const r = open().prepare("SELECT MIN(airdate) AS t FROM kexp_plays WHERE artist = ? COLLATE NOCASE AND rotation = 'Heavy'").get(String(name || '')); return r && r.t ? r.t : null; } catch (e) { return null; } }
+module.exports = { heavyFirst, playCount, winners, playsSince, status, checkNew, backfillStep, fillShows, row, start, top, search, artist, song, around, recent, newArtists, onAir, open };

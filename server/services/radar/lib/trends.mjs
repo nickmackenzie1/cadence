@@ -79,11 +79,14 @@ export function subWeights(artists) {
   return w;
 }
 
-export function soundsLikeGraph(edges, liked = new Set(), maxEdges = 120) {
+// nameOf: a display name for a key. Edges read back from the database carry keys only (no aName/bName), which
+// showed as "undefined" in the graph; title-cased keys are the last resort.
+const titled = (k) => String(k || "").replace(/\b\w/g, (c) => c.toUpperCase());
+export function soundsLikeGraph(edges, liked = new Set(), maxEdges = 120, nameOf = () => null) {
   const top = Object.values(edges).sort((a, b) => b.n - a.n).slice(0, maxEdges);
   const nodes = new Map();
   for (const e of top) for (const [k, name] of [[e.a, e.aName], [e.b, e.bName]]) {
-    const n = nodes.get(k) || { id: k, name, degree: 0, liked: liked.has(k) };
+    const n = nodes.get(k) || { id: k, name: name || nameOf(k) || titled(k), degree: 0, liked: liked.has(k) };
     n.degree += e.n; nodes.set(k, n);
   }
   return { nodes: [...nodes.values()], links: top.map((e) => ({ source: e.a, target: e.b, n: e.n })) };

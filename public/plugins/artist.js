@@ -37,11 +37,53 @@
     playAll: async (items) => { PV.queue = items.slice(); while (PV.queue.length) { const n = PV.queue.shift(); if (await playOne(n.artist, n.title)) break; } },
     want: { peek: () => PV.want || [], list: wantList, has: (a, t) => !!(PV.want || []).find(x => key(x.artist, x.title) === key(a, t)), add: it => wantPost({ add: it }), remove: it => wantPost({ remove: it }) },
   };
+  // ---- what you listen to, for Radar's "For you" and Your year in music (user, 2026-11-16) ----
+  // One line per song: a preview (stopped in its first 8 seconds = a skip), or a song heard live on a station.
+  // Counted only while it's actually playing; sent to the NAS when the song changes or the page closes.
+  const LST = { id: null, it: null, secs: 0, tick: 0 };
+  const listenOf = c => {
+    if (!c) return null;
+    if (c.preview) return { id: 'pv|' + c.podcastTitle + '|' + c.title, kind: 'preview', artist: c.podcastTitle, title: c.title };
+    if (c.live && c.now && c.now.artist && !c.now.airbreak) return { id: 'lv|' + c.station + '|' + c.now.artist + '|' + c.now.song, kind: c.station === 'kexp' ? 'kexp' : 'live', artist: c.now.artist, title: c.now.song, station: c.title };
+    return null;
+  };
+  const sendListen = (it, secs, beacon) => {
+    if (!it || secs < 1) return;
+    const b = JSON.stringify({ ...it, id: undefined, secs, skipped: it.kind === 'preview' && secs < 8 });
+    if (beacon && navigator.sendBeacon) navigator.sendBeacon('api/radar/listen', new Blob([b], { type: 'application/json' }));
+    else fetch('api/radar/listen', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: b }).catch(() => {});
+  };
+  const listenTick = () => {
+    const p = P(); if (!p) return;
+    const it = listenOf(p.current), id = it ? it.id : null;
+    if (id !== LST.id) { sendListen(LST.it, LST.secs); LST.id = id; LST.it = it; LST.secs = 0; }
+    if (it && !p.audio.paused && p.audio.readyState >= 2) LST.secs++;
+  };
+  setInterval(listenTick, 1000);
+  addEventListener('pagehide', () => { sendListen(LST.it, LST.secs, true); LST.secs = 0; });
   const hook = () => { const p = P(); if (!p || p.onPreviewEnded) return;
     p.onPreviewEnded = async () => { while (PV.queue.length) { const n = PV.queue.shift(); if (await playOne(n.artist, n.title)) return; } };
     p.hasNextPreview = () => PV.queue.length > 0; };
+  let toast = () => {};
+  // "Not for me" anywhere: <button data-nfm-type="artist|genre|source" data-nfm-value="…"> (data-nfm-off undoes it)
+  window.CadenceNfm = {
+    list: null,
+    async set(type, value, on) {
+      const r = await fetch('api/radar/nfm', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type, value, on }) });
+      this.list = await r.json(); window.dispatchEvent(new Event('cadence-radar-reload')); return this.list;
+    },
+    has(type, v) { const l = this.list && this.list[type + 's']; return !!l && l.some(x => x.toLowerCase() === String(v).toLowerCase()); },
+    async load() { try { this.list = await (await fetch('api/radar/nfm')).json(); } catch (e) {} return this.list; }
+  };
   // buttons any page can drop next to a pick: <button data-pv data-a="…" data-t="…"> and <button data-want …>
   document.addEventListener('click', async e => {
+    const nb = e.target.closest('[data-nfm-type]');
+    if (nb) { e.preventDefault(); e.stopPropagation(); const off = !!nb.dataset.nfmOff, v = nb.dataset.nfmValue, t = nb.dataset.nfmType;
+      await window.CadenceNfm.set(t, v, !off);
+      const label = t === 'source' ? (v.startsWith('blog:') ? v.slice(5) : v) : v;
+      toast(off ? `Showing ${label} again` : `Hidden: ${label}. Undo under Music Radar, For you.`);
+      if (nb.closest('.modal')) { const li = nb.closest('li'); if (li) li.remove(); }
+      return; }
     const fb = e.target.closest('[data-follow]');
     if (fb) { e.preventDefault(); e.stopPropagation(); const n = fb.dataset.follow, on = window.CadenceFollow.has(n);
       await (on ? window.CadenceFollow.remove(n) : window.CadenceFollow.add(n)); PV.toast(on ? 'Stopped following ' + n : 'Following ' + n + '. You\'ll get a note when they turn up.'); return; }
@@ -66,6 +108,9 @@
     tagline: 'Everything about an artist on one page.',
     description: 'Click any artist name in Music Radar, Radio or KEXP history: where they\'re from, their releases with covers, every blog, chart and community talking about them, their KEXP plays and DJs, and links to Bandcamp and their site.',
     setup(api) {
+      toast = m => api.ui.toast(m);
+      if (api.system().mode === 'nas') window.CadenceNfm.load();
+      window.addEventListener('cadence-radar-reload', () => { if (api.ui.currentRoute() === 'view-artist') api.ui.refresh(); });
       const G = {};
       PV.toast = m => api.ui.toast(m); hook();
       // play + want buttons for one pick (used by Music Radar and this page)
@@ -84,6 +129,24 @@
         api.island.notify({ icon: 'mic-vocal', title: n.artist + ': ' + n.text, sub: more ? `and ${more} more about artists you follow` : 'An artist you follow', actions: [{ label: 'See', run: () => api.ui.navigate('view-artists') }] });
       };
       const fwT1 = setTimeout(noteFollow, 20000), fwT2 = setInterval(noteFollow, 30 * 60e3);
+
+      // calm notes: your Friday mix is ready (Fridays, once), and release day for artists you follow or saved (once each)
+      const told = (k, v) => { let l = []; try { l = JSON.parse(localStorage.getItem(k) || '[]'); } catch (e) {} if (l.includes(v)) return true; localStorage.setItem(k, JSON.stringify([...l, v].slice(-300))); return false; };
+      const noteMusic = async () => {
+        if (api.system().mode !== 'nas' || !api.island || !api.island.notify) return;
+        const now = new Date();
+        if (now.getDay() === 5 && now.getHours() >= 7) {
+          const wk = `${now.getFullYear()}-${now.getMonth() + 1}-${now.getDate()}`;
+          if (!told('cadence.mixNoted', wk)) api.island.notify({ icon: 'disc-3', title: 'Your Friday mix is ready', sub: 'New picks for you, and new music from people you follow', actions: [{ label: 'Listen', run: () => api.ui.navigate('view-mix') }] });
+        }
+        try {
+          const R = await (await fetch('api/radar/releases')).json(), today = R.today;
+          for (const x of (R.thisWeek || []).filter(x => x.date === today)) if (!told('cadence.releaseNoted', x.artist + '|' + x.title)) {
+            api.island.notify({ icon: 'calendar-days', title: `Out today: ${x.title}`, sub: `${x.artist}, ${x.why}`, actions: [{ label: 'Play a preview', run: () => window.CadencePreview.play(x.artist, x.title) }] }); break;
+          }
+        } catch (e) {}
+      };
+      const msT1 = setTimeout(noteMusic, 35000), msT2 = setInterval(noteMusic, 60 * 60e3);
       // Said the Gramophone: Sean's 100 favourite songs and favourite albums of every year since 2005, read from the blog
       const SG = { d: null, year: null, tab: 'artists', at: 0 };
       const sgLoad = async (year) => { try { SG.d = await (await fetch('api/radar/stg' + (year ? '?year=' + year : ''))).json(); SG.at = Date.now(); } catch (e) { SG.d = SG.d || { err: true }; }
@@ -179,6 +242,38 @@
       } });
 
       // the Want to hear page: everything you saved, to listen through
+      // ---- Friday mix: a new set of previews every Friday (user, 2026-11-16) ----
+      const MX = { d: null, at: 0, week: null };
+      const mxLoad = async (opts = {}) => {
+        try { MX.d = opts.again ? await (await fetch('api/radar/mix', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ again: true }) })).json()
+          : await (await fetch('api/radar/mix' + (opts.week ? '?week=' + encodeURIComponent(opts.week) : ''))).json(); } catch (e) { MX.d = { error: e.message }; }
+        if (!opts.week && MX.d && MX.d.weeks) MX.weeks = MX.d.weeks;
+        MX.at = Date.now(); if (api.ui.currentRoute() === 'view-mix') api.ui.refresh();
+      };
+      const bcUrl = a => 'https://bandcamp.com/search?q=' + encodeURIComponent(a) + '&item_type=b';
+      const GROUPS = [['foryou', 'For you'], ['follow', 'New from people you follow'], ['rising', 'Climbing fast'], ['wild', 'Wildcards']];
+      api.views.add({ id: 'mix', group: 'music', order: 12, title: 'Friday mix', icon: '💿', subtitle: 'A new set of previews every Friday, picked for you', render: el => {
+        if (api.system().mode !== 'nas') { el.innerHTML = '<p class="muted">The Friday mix needs the NAS.</p>'; return; }
+        const d = MX.d;
+        if (!d || (!MX.week && Date.now() - MX.at > 10 * 60e3)) { if (!d) { el.innerHTML = '<p class="muted">Putting this week\'s mix together…</p>'; mxLoad(); return; } mxLoad(); }
+        if (d.error) { el.innerHTML = `<p class="muted">Couldn't make the mix: ${E(d.error)}</p>`; return; }
+        const day = w => new Date(w + 'T12:00:00').toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
+        const items = d.items || [];
+        el.innerHTML = `<div class="mx">
+          <div class="mx-head"><div><h2>Week of ${E(day(d.week))}</h2><p class="muted">${items.length} picks: for you, new from people you follow, climbing fast, and a few wildcards</p></div>
+            <div class="mx-act">${items.length ? `<button class="btn primary" id="mx-all">${api.ui.icon('play')}Play all</button><button class="btn" id="mx-save">${api.ui.icon('bookmark-plus')}Save all to Want to hear</button>` : ''}
+              ${!MX.week ? `<button class="btn ghost" id="mx-again">${api.ui.icon('refresh-cw')}Make a new one</button>` : ''}
+              ${(MX.weeks || []).length > 1 ? `<select class="inp" id="mx-week">${MX.weeks.map(w => `<option value="${E(w)}" ${w === d.week ? 'selected' : ''}>${E(day(w))}</option>`).join('')}</select>` : ''}</div></div>
+          ${items.length ? GROUPS.map(([g, label]) => { const l = items.filter(x => x.group === g); return l.length ? `<h3>${label}</h3><ol class="mx-l">${l.map(x => `<li>${window.CadencePreview.buttons(x.artist, x.title, x.type, 'Friday mix')}
+              <div class="mx-t"><span><a class="ar-link" href="#view-artist" data-artist="${E(x.artist)}"><b>${E(x.artist)}</b></a>${x.title ? ' — ' + E(x.title) : ''}</span><span class="muted">${E(x.why)}</span></div>
+              <a class="mx-bc" href="${E(bcUrl(x.artist))}" target="_blank" rel="noopener" title="Find ${E(x.artist)} on Bandcamp">${api.ui.logo('bandcamp.com', { size: 14 })}Bandcamp</a></li>`).join('')}</ol>` : ''; }).join('')
+            : '<p class="muted">Nothing to put in it yet. Follow a few artists or let Music Radar run a couple of scans.</p>'}</div>`;
+        const all = el.querySelector('#mx-all'); if (all) all.onclick = () => window.CadencePreview.playAll(items.map(x => ({ artist: x.artist, title: x.title })));
+        const sv = el.querySelector('#mx-save'); if (sv) sv.onclick = async () => { for (const x of items) if (!window.CadencePreview.want.has(x.artist, x.title)) await window.CadencePreview.want.add({ artist: x.artist, title: x.title, type: x.type, from: 'Friday mix' }); api.ui.toast(`Saved ${items.length} to Want to hear`); api.ui.refresh(); };
+        const ag = el.querySelector('#mx-again'); if (ag) ag.onclick = () => { api.ui.toast('Making a new mix'); mxLoad({ again: true }); };
+        const wk = el.querySelector('#mx-week'); if (wk) wk.onchange = () => { const w = wk.value; MX.week = w === MX.weeks[0] ? null : w; MX.d = null; mxLoad(MX.week ? { week: w } : {}); };
+      } });
+
       api.views.add({ id: 'want', group: 'music', order: 40, title: 'Want to hear', icon: '🎧', subtitle: 'Music you saved to listen to', render: el => {
         const list = PV.want;
         if (!list) { el.innerHTML = '<p class="muted">Loading…</p>'; wantList(true).then(() => api.ui.refresh()); return; }
@@ -227,7 +322,8 @@
         if (!current) { el.innerHTML = '<p class="muted">Pick an artist from Music Radar, Radio or KEXP history.</p>'; return; }
         if (api.system().mode !== 'nas') { el.innerHTML = '<p class="muted">Artist pages need the NAS.</p>'; return; }
         const d = load(current);
-        if (!d) { el.innerHTML = `<div class="ap"><h2>${E(current)}</h2><p class="muted">Gathering everything…</p></div>`; return; }
+        if (!d) { el.innerHTML = `<div class="ap" aria-busy="true"><header class="ap-head"><i class="ap-img sk"></i><div class="ap-skh"><h2>${E(current)}</h2><i class="sk sk-l" style="width:46%"></i><i class="sk sk-l" style="width:62%"></i><i class="sk sk-b"></i></div></header>
+          <div class="ap-grid">${[0, 1, 2].map(() => `<section><i class="sk sk-l" style="width:40%;height:16px"></i>${[80, 64, 72, 58].map(w => `<i class="sk sk-l" style="width:${w}%"></i>`).join('')}</section>`).join('')}</div></div>`; return; }
         if (d.error) { el.innerHTML = `<div class="ap"><h2>${E(current)}</h2><p class="muted">Couldn't load this artist right now.</p></div>`; return; }
         const mb = d.mb, k = d.kexp, ad = d.adb;
         // images from TheAudioDB go through the NAS (kept there), like every other logo
@@ -250,14 +346,17 @@
         const charts = d.mentions.filter(m => m.rank != null), other = d.mentions.filter(m => m.rank == null);
         const art = (ad && ad.photo && kept(ad.photo)) || d.art || (mb && mb.releases[0] && mb.releases[0].cover);
         el.innerHTML = `<div class="ap">
-          ${ad && ad.banner ? `<img class="ap-banner" src="${E(kept(ad.banner))}" alt="" onerror="this.remove()">` : ''}
-          <header class="ap-head${ad && ad.fanart && !ad.banner ? ' ap-fan' : ''}"${ad && ad.fanart && !ad.banner ? ` style="--fan:url('${E(kept(ad.fanart))}')"` : ''}>${art ? `<img class="ap-img" src="${E(art)}" alt="" onerror="this.remove()">` : `<i class="ap-img ap-noimg">${api.ui.icon('user')}</i>`}
-            <div>${ad && ad.logo ? `<span class="ap-logo"><img src="${E(kept(ad.logo))}" alt="${E(d.name)} logo" onerror="this.parentNode.remove()"></span>` : ''}<h2>${E(d.name)}</h2>${mb && mb.disambiguation ? `<p class="muted">${E(mb.disambiguation)}</p>` : ''}
+          ${ad && ad.banner ? `<img class="ap-banner" src="${E(kept(ad.banner))}" alt="" width="1000" height="185" onerror="this.remove()">` : !ad && d.adbPending ? '<i class="ap-banner sk" aria-hidden="true"></i>' : ''}
+          <header class="ap-head${ad && ad.fanart && !ad.banner ? ' ap-fan' : ''}"${ad && ad.fanart && !ad.banner ? ` style="--fan:url('${E(kept(ad.fanart))}')"` : ''}>${art ? `<img class="ap-img" src="${E(art)}" alt="" width="150" height="150" onerror="this.replaceWith(Object.assign(document.createElement('i'),{className:'ap-img ap-noimg'}))">` : !ad && d.adbPending ? '<i class="ap-img sk"></i>' : `<i class="ap-img ap-noimg">${api.ui.icon('user')}</i>`}
+            <div>${ad && ad.logo && !ad.banner ? `<span class="ap-logo"><img src="${E(kept(ad.logo))}" alt="${E(d.name)} logo" onerror="this.parentNode.remove()"></span>` : ''}<h2>${E(d.name)}</h2>${mb && mb.disambiguation ? `<p class="muted">${E(mb.disambiguation)}</p>` : ''}
               ${facts.length ? `<p class="ap-facts">${facts.map(E).join(' · ')}</p>` : ''}
+              ${d.called && d.called.lead > 0 ? `<p class="ap-called">${api.ui.icon('trophy')}Radar spotted them on ${E(d.called.via)}, ${d.called.milestones.map(m => `${m.days} days before ${E(m.what)}`).join(' and ')}</p>` : ''}
               ${tags.length ? `<div class="ap-tags">${tags.map(t => `<span>${E(t)}</span>`).join('')}</div>` : ''}
               <div class="ap-links">${(() => { const f = window.CadenceFollow.has(d.name); return `<button class="btn${f ? '' : ' primary'}" data-follow="${E(d.name)}" aria-pressed="${f}">${api.ui.icon(f ? 'user-check' : 'user-plus')}${f ? 'Following' : 'Follow'}</button>`; })()}<button class="btn" data-pv data-a="${E(d.name)}">${api.ui.icon('play')}Play a preview</button>${(() => { const on = window.CadencePreview.want.has(d.name, null);
-                return `<button class="btn" data-want data-a="${E(d.name)}" data-type="artist" data-from="artist page">${api.ui.icon(on ? 'bookmark-check' : 'bookmark-plus')}${on ? 'In Want to hear' : 'Save to Want to hear'}</button>`; })()}</div>
-              ${links.length ? `<div class="ap-links">${links.map(l => A(l.url, `${api.ui.logo(l.url, { size: 15 }) || api.ui.icon(l.kind === 'website' ? 'globe' : 'external-link')}${E(LINK_NAMES[l.kind] || l.kind)}`, 'btn')).join('')}</div>` : ''}
+                return `<button class="btn" data-want data-a="${E(d.name)}" data-type="artist" data-from="artist page">${api.ui.icon(on ? 'bookmark-check' : 'bookmark-plus')}${on ? 'In Want to hear' : 'Save to Want to hear'}</button>`; })()}${(() => { const no = window.CadenceNfm.has('artist', d.name);
+                return `<button class="btn ghost" data-nfm-type="artist" data-nfm-value="${E(d.name)}"${no ? ' data-nfm-off="1"' : ''} aria-pressed="${no}" title="${no ? 'Show them in Music Radar again' : 'Hide them in Music Radar, and For you learns from it'}">${api.ui.icon(no ? 'eye' : 'eye-off')}${no ? 'Not for me (undo)' : 'Not for me'}</button>`; })()}</div>
+              ${(() => { const bc = links.find(l => /bandcamp\.com/.test(l.url)); return `<div class="ap-links"><a class="btn" href="${E(bc ? bc.url : 'https://bandcamp.com/search?q=' + encodeURIComponent(d.name) + '&item_type=b')}" target="_blank" rel="noopener">${api.ui.logo('bandcamp.com', { size: 15 })}${bc ? 'Buy on Bandcamp' : 'Find on Bandcamp'}</a></div>`; })()}
+              ${links.some(l => !/bandcamp\.com/.test(l.url)) ? `<div class="ap-links">${links.filter(l => !/bandcamp\.com/.test(l.url)).map(l => A(l.url, `${api.ui.logo(l.url, { size: 15 }) || api.ui.icon(l.kind === 'website' ? 'globe' : 'external-link')}${E(LINK_NAMES[l.kind] || l.kind)}`, 'btn')).join('')}</div>` : ''}
               ${d.mbPending || d.adbPending ? `<p class="muted ap-wait">Looking up ${d.mbPending ? 'releases and links' : 'photos, logo and biography'}…</p>` : ''}
               ${d.mainstream ? `<p class="muted">Hidden from Music Radar by your mainstream filter.</p>` : ''}</div></header>
 
@@ -265,6 +364,7 @@
           ${ad && ad.bio ? `<section class="ap-wide ap-about"><h3>${api.ui.logo('theaudiodb.com')}About</h3>${(() => { const b = ad.bio, cut = b.length > 700 ? b.slice(0, 700).replace(/\s+\S*$/, '') : b;
             return `<p>${E(cut).replace(/\n+/g, '</p><p>')}${cut !== b ? '…' : ''}</p>${cut !== b ? `<details><summary>Read the rest</summary><p>${E(b.slice(cut.length)).replace(/\n+/g, '</p><p>')}</p></details>` : ''}`; })()}
             <p class="muted ap-credit">From ${A(ad.page, 'TheAudioDB')}</p></section>` : ''}
+          ${!mb && d.mbPending ? `<section class="ap-wide" aria-busy="true"><h3>${api.ui.logo('musicbrainz.org')}Releases</h3><div class="ap-rel">${'<span class="ap-r"><i class="ap-cover sk"></i><i class="sk sk-l" style="width:80%"></i><i class="sk sk-l" style="width:50%"></i></span>'.repeat(6)}</div></section>` : ''}
           ${mb && mb.releases.length ? `<section class="ap-wide"><h3>${api.ui.logo('musicbrainz.org')}Releases</h3><div class="ap-rel">${mb.releases.slice(0, 18).map(r => `<a class="ap-r" href="https://musicbrainz.org/release-group/${E(r.id)}" target="_blank" rel="noopener">
               <span class="ap-cover"><img src="${E(r.cover)}" alt="" loading="lazy" onerror="this.remove()">${api.ui.icon('disc-3')}</span><b>${E(r.title)}</b><span class="muted">${E([year(r.date), r.type].filter(Boolean).join(' · '))}</span></a>`).join('')}</div>
             <p class="ap-relplay">${mb.releases.slice(0, 6).map(r => `<button class="btn" data-pv data-a="${E(d.name)}" data-t="${E(r.title)}">${api.ui.icon('play')}${E(r.title)}</button>`).join('')}</p></section>` : ''}
@@ -317,7 +417,16 @@
         .ap-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px} .ap-list li{display:grid;grid-template-columns:110px 1fr;gap:10px;font-size:13px}
         .ap-list li>div{display:flex;flex-direction:column;gap:1px;min-width:0} .ap-list .muted{font-size:12px}
         .ap .cx-logo,.sh .cx-logo,.sg .cx-logo{vertical-align:-2px} .ap-src .cx-logo{margin-right:5px} .ap-links .btn .cx-logo{margin:0}
-        .ap-banner{display:block;width:100%;max-height:150px;object-fit:cover;border-radius:var(--r-l);margin:0 0 14px}
+        .mx-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap} .mx-head h2{margin:0} .mx-act{display:flex;gap:8px;flex-wrap:wrap;align-items:center} .mx-act .inp{width:auto}
+        .mx-l{list-style:none;padding:0;margin:6px 0 16px;display:flex;flex-direction:column;gap:8px} .mx-l li{display:flex;align-items:center;gap:10px;font-size:14px}
+        .mx-t{flex:1;min-width:0;display:flex;flex-direction:column} .mx-t .muted{font-size:12px} .mx-bc{font-size:12px;color:var(--muted);white-space:nowrap} .mx h3{margin:14px 0 4px;font-size:15px}
+        .ap-called{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--accent);margin:2px 0 6px} .ap-called svg{width:14px;height:14px;flex:none}
+        .ap-banner{display:block;width:100%;height:auto;aspect-ratio:1000/185;max-height:200px;object-fit:cover;border-radius:var(--r-l);margin:0 0 14px}
+        /* placeholders while parts are still on their way (user, 2026-11-16: parts coming in were jarring) */
+        .sk{display:block;background:linear-gradient(90deg,var(--hover) 0%,color-mix(in srgb,var(--line) 70%,var(--hover)) 50%,var(--hover) 100%);background-size:200% 100%;animation:ap-sk 1.6s ease-in-out infinite;border-radius:var(--r-s)}
+        .sk-l{height:11px;margin:9px 0} .sk-b{height:30px;width:280px;max-width:100%;margin-top:14px;border-radius:var(--r-m)} .ap-skh{flex:1;min-width:0} .ap-skh h2{margin:0 0 4px}
+        i.ap-banner.sk{height:auto} .ap-r .sk.ap-cover{border-radius:var(--r-m)}
+        @keyframes ap-sk{from{background-position:100% 0}to{background-position:-100% 0}} @media (prefers-reduced-motion:reduce){.sk{animation:none}}
         .ap-head.ap-fan{position:relative;isolation:isolate;padding:14px;border-radius:var(--r-l);overflow:hidden} .ap-head.ap-fan::before{content:'';position:absolute;inset:0;z-index:-1;background:var(--fan) center/cover;opacity:.16}
         .ap-logo{display:inline-block;background:#18181c;border-radius:var(--r-m);padding:6px 10px;margin-bottom:6px} .ap-logo img{display:block;max-height:46px;max-width:240px;object-fit:contain}
         .ap-about p{margin:0 0 8px;font-size:14px;line-height:1.55;max-width:75ch} .ap-about details summary{cursor:pointer;color:var(--muted);font-size:13px;margin-bottom:6px} .ap-credit{font-size:12px}
@@ -346,7 +455,7 @@
         [data-artist]{cursor:pointer} .ar-link{color:inherit;text-decoration:none;font:inherit;background:none;border:0;padding:0} .ar-link:hover{text-decoration:underline}
         @media (max-width:640px){.ap-head{flex-direction:column} .ap-list li{grid-template-columns:80px 1fr}}`;
       document.head.appendChild(css);
-      return () => { window.removeEventListener('cadence-artist', onOpen); window.removeEventListener('cadence-want', onWant); window.removeEventListener('cadence-follow', onWant); clearTimeout(fwT1); clearInterval(fwT2); css.remove(); };
+      return () => { window.removeEventListener('cadence-artist', onOpen); window.removeEventListener('cadence-want', onWant); window.removeEventListener('cadence-follow', onWant); clearTimeout(fwT1); clearInterval(fwT2); clearTimeout(msT1); clearInterval(msT2); css.remove(); };
     },
   });
 })();

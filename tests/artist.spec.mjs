@@ -110,7 +110,7 @@ test('TheAudioDB adds the logo, photo, banner and biography, and is compared wit
   await expect.poll(async () => !!(await fetch(B + '/api/radar/artist?fresh=1&name=Glass%20Lantern').then(r => r.json())).adb, { timeout: 20000 }).toBe(true);
   await page.goto(B + '/');
   await page.evaluate(() => window.CadenceArtist.open('Glass Lantern'));
-  await expect(page.locator('.ap-logo img')).toHaveAttribute('src', /api\/logo\?u=.*logo%2Fgl\.png/);
+  await expect(page.locator('.ap-logo')).toHaveCount(0);                     // the banner already shows the name: no logo tile
   await expect(page.locator('.ap-banner')).toHaveAttribute('src', /banner%2Fgl\.jpg/);
   await expect(page.locator('.ap-img')).toHaveAttribute('src', /thumb%2Fgl\.jpg/);   // the band photo, not a cover
   await expect(page.locator('.ap-about')).toContainText('four-piece from Toronto');
@@ -124,6 +124,17 @@ test('TheAudioDB adds the logo, photo, banner and biography, and is compared wit
   await expect(cmp.locator('tr', { hasText: 'Label' })).toContainText('not listed');
   await expect(cmp).toBeVisible(); await page.waitForTimeout(500);
   await page.screenshot({ path: 'test-results/artist-adb.png', fullPage: true });
+});
+
+test('while an artist page is on its way, a calm placeholder holds its shape', async ({ page }) => {
+  await page.goto(B + '/');
+  await page.evaluate(() => indexedDB.deleteDatabase('cadence-artists'));
+  await page.route(/api\/radar\/artist\?/, async r => { await new Promise(f => setTimeout(f, 1500)); r.continue().catch(() => {}); });
+  await page.reload();
+  await page.evaluate(() => window.CadenceArtist.open('Someone Slow To Load'));
+  await expect(page.locator('.ap[aria-busy=true] .ap-img.sk')).toBeVisible();
+  await expect(page.locator('.ap .ap-head h2')).toHaveText('Someone Slow To Load');
+  await expect(page.locator('.ap[aria-busy=true]')).toHaveCount(0, { timeout: 8000 });   // then the real page
 });
 
 test('an artist nobody knows still gets a calm page', async ({ page }) => {
@@ -140,7 +151,7 @@ test('Music home: one tile, tabs on every music page, and it reopens the tab you
   await page.evaluate(() => { location.hash = 'music'; });
   await expect(page).toHaveURL(/#view-(radar|radio|kexp-history|want|shows|stg|artists)$/);   // the last music tab (settings sync, so another test may have chosen one)
   const tabs = page.locator('.mus-tabs a');
-  await expect(tabs).toHaveText(['Music Radar', 'Radio', 'KEXP history', 'Want to hear', 'Shows', 'Said the Gramophone', 'Artists']);
+  await expect(tabs).toHaveText(['Music Radar', 'Friday mix', 'Radio', 'KEXP history', 'Want to hear', 'Shows', 'Said the Gramophone', 'Artists']);
   await expect(page.locator('#view h1')).toHaveText('Music');
   await tabs.filter({ hasText: 'Radio' }).first().click();
   await expect(page).toHaveURL(/#view-radio$/);
@@ -155,7 +166,7 @@ test('Music home: one tile, tabs on every music page, and it reopens the tab you
   await page.locator('.mus-tabs a', { hasText: 'Artists' }).click();
   await page.fill('#ar-q', 'Glass Lantern'); await page.click('#ar-find button');
   await expect(page).toHaveURL(/#view-artist$/);
-  await expect(page.locator('.mus-tabs a')).toHaveCount(7);         // tabs stay on top of an artist page…
+  await expect(page.locator('.mus-tabs a')).toHaveCount(8);         // tabs stay on top of an artist page…
   await expect(page.locator('.mus-tabs a.on')).toHaveCount(0);      // …with none of them chosen
   await page.evaluate(() => { location.hash = 'view-artists'; });
   await expect(page.locator('.ar-chip', { hasText: 'Glass Lantern' })).toHaveCount(1);
