@@ -301,3 +301,16 @@ Cleaned up 2026-11-16 (0.8.2): items already built were moved out after checking
 - Daily database backup runs in a worker thread (`lib/backup-worker.js` + `lib/backup-copy.js`).
 - Log: "slow: GET /path took Xs" for requests over 2 s; "! stuck for Xs while serving …" when the app is blocked 3 s+.
 - New indexes: radar_signals(last_seen), radar_chart_points(ts), radar_picks(artist COLLATE NOCASE).
+
+### Database support: tuning, a reader thread, the KEXP artist summary (2026-11-17, 0.25.0)
+- `lib/sqlite-tune.js` on every connection (tasks 16 MB cache / 128 MB mmap, Radar 32/256, KEXP 32/256, Radio 8/64):
+  busy_timeout, synchronous=NORMAL (WAL), cache_size, mmap_size, temp_store=MEMORY, `optimize` with analysis_limit
+  at open and hourly from storage upkeep.
+- `lib/sql-reader.js`: a reader thread with its own read-only connection. KEXP's big reports (top lists, winners,
+  search, program/DJ pages, new to KEXP) run there via `rq()` in kexp-log.js, so they never block the app; top() and
+  winners() cache the promise. Single-artist/song look-ups stay on the main thread (artist index).
+- `kexp_artists` (key, artist, plays, first_at, last_at, first_heavy): built a minute after start, 10,000 plays every
+  0.4 s in id order (kexp_meta artists_cursor / artists_done; "KEXP: artist summary ready" in the log), and kept up
+  to date in save() only for ids the builder has passed (no double counting). playCount, heavyFirst, heavySince,
+  newArtists and the Called it worker read it once it's ready.
+- Still to do: KEXP in its own database file (kexp.db); pruning Radar's growing history tables; Radar in its own process.

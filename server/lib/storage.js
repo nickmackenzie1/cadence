@@ -22,6 +22,7 @@ function openDb() {
   try {
     db = new sqlite.DatabaseSync(DB_FILE);
     db.exec(`PRAGMA busy_timeout=4000`);   // before WAL, which needs a lock
+    require('./sqlite-tune').tune(db, { cacheMB: 16, mmapMB: 128, busyMs: 4000 });
     db.exec(`PRAGMA journal_mode=WAL; PRAGMA synchronous=NORMAL;
       CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT);
       CREATE TABLE IF NOT EXISTS state (id INTEGER PRIMARY KEY CHECK (id = 1), json TEXT NOT NULL, updated_at INTEGER NOT NULL);`);
@@ -166,6 +167,7 @@ function maintain(force) {
   dailyDbBackup();
   tidy();
 }
+const { optimize } = require('./sqlite-tune');
 // history older than HISTORY_DAYS (the newest version of every record always stays); deleted records gone for
 // TOMBSTONE_DAYS (every device has synced the delete by then); resolved conflicts after RESOLVED_CONFLICT_DAYS
 function tidy() {
@@ -293,7 +295,7 @@ openDb();
 // daily upkeep also runs on a timer (a quiet day with no pushes still gets its backup), and the one-off compaction of
 // history that piled up before the plugin-history cap runs once, a minute after start
 if (db) {
-  setInterval(() => maintain(), 3600e3).unref();
+  setInterval(() => { maintain(); optimize(db); }, 3600e3).unref();
   setTimeout(() => { try { if (!(db.prepare("SELECT value FROM meta WHERE key = 'compacted'").get() || {}).value) { compact(); db.prepare("INSERT OR REPLACE INTO meta (key, value) VALUES ('compacted', '1')").run(); } } catch (e) { console.error('compact failed', e.message); } }, 60e3).unref();
 }
 const closeDb = () => { try { if (db) { db.exec('PRAGMA wal_checkpoint(TRUNCATE)'); db.close(); db = null; } } catch {} };

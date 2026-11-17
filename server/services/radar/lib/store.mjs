@@ -41,6 +41,7 @@ function open() {
     fs.mkdirSync(path.dirname(DB_FILE), { recursive: true });
     db = new sqlite.DatabaseSync(DB_FILE);
     db.exec(`PRAGMA busy_timeout=5000`);   // first: switching to WAL needs a lock the app may be holding
+    try { createRequire(import.meta.url)("../../../lib/sqlite-tune.js").tune(db, { cacheMB: 32, mmapMB: 256 }); } catch (e) { console.error("radar store tune", e.message); }
     db.exec(`PRAGMA journal_mode=WAL; PRAGMA synchronous=NORMAL;
       CREATE TABLE IF NOT EXISTS radar_kv (key TEXT PRIMARY KEY, json TEXT NOT NULL, updated_at INTEGER NOT NULL);
       CREATE TABLE IF NOT EXISTS radar_artists (key TEXT PRIMARY KEY, name TEXT, genres TEXT, subs TEXT, first_seen INTEGER, listeners INTEGER, json TEXT NOT NULL);

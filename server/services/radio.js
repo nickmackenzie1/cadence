@@ -144,7 +144,7 @@ function hist() {
   if (hdb) return hdb;
   const { DatabaseSync } = require('node:sqlite');
   hdb = new DatabaseSync(path.join(DATA, 'cadence.db'));
-  hdb.exec('PRAGMA busy_timeout=5000');
+  require('../lib/sqlite-tune').tune(hdb, { cacheMB: 8, mmapMB: 64 });
   hdb.exec(`CREATE TABLE IF NOT EXISTS radio_plays (id INTEGER PRIMARY KEY AUTOINCREMENT, station TEXT NOT NULL, at INTEGER NOT NULL, artist TEXT, song TEXT, raw TEXT);
     CREATE INDEX IF NOT EXISTS radio_plays_station ON radio_plays(station, at);
     CREATE TABLE IF NOT EXISTS radio_follow (station TEXT PRIMARY KEY, name TEXT, url TEXT, since INTEGER);`);

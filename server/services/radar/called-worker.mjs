@@ -7,7 +7,10 @@ let heavySince = () => [];
 if (workerData.kexp) {
   const d = new DatabaseSync(workerData.dbFile, { readOnly: true });
   d.exec("PRAGMA busy_timeout = 10000");
-  heavySince = (s) => d.prepare("SELECT MIN(artist) AS artist, MIN(airdate) AS t FROM kexp_plays WHERE airdate >= ? AND rotation = 'Heavy' GROUP BY artist COLLATE NOCASE").all(Math.floor(s));
+  // the per-artist summary once it's built (kexp-log.js), else group the plays since then
+  let done = false; try { done = (d.prepare("SELECT v FROM kexp_meta WHERE k = 'artists_done'").get() || {}).v === "1"; } catch {}
+  heavySince = done ? (s) => d.prepare("SELECT artist, first_heavy AS t FROM kexp_artists WHERE first_heavy >= ?").all(Math.floor(s))
+    : (s) => d.prepare("SELECT MIN(artist) AS artist, MIN(airdate) AS t FROM kexp_plays WHERE airdate >= ? AND rotation = 'Heavy' GROUP BY artist COLLATE NOCASE").all(Math.floor(s));
 }
 try {
   const v = X.calledIt(null, { heavySince, artistOf: (k) => S.artistRecord(k), fresh: true, limit: 200 });
