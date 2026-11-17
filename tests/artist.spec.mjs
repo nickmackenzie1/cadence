@@ -71,6 +71,33 @@ test('artist page: from a Radar pick to everything about them', async ({ page })
   await expect(page.locator('.ap-head h2')).toHaveText('Glass Lantern');
 });
 
+test('artist pages are kept: instant from the NAS copy and this browser, updated in the background', async ({ page }) => {
+  const api = n => fetch(B + '/api/radar/artist?name=' + encodeURIComponent(n)).then(r => r.json());
+  const first = await api('Glass Lantern');
+  expect(first.name).toBe('Glass Lantern');
+  const again = await api('Glass Lantern');
+  expect(again.cachedAt).toBeGreaterThan(0);                                   // answered from the kept page
+  // ?fresh=1 rebuilds now: a new KEXP play appears
+  const before = (await api('Glass Lantern')).kexp.plays;
+  const add = spawnSync(process.execPath, ['--disable-warning=ExperimentalWarning', '-e', `
+    const K = require('./server/services/kexp-log.js'); const d = K.open();
+    d.prepare('INSERT INTO kexp_plays VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)').run(...K.row({ id: 999, play_type: 'trackplay', airdate: new Date().toISOString(), artist: 'Glass Lantern', song: 'Orbit', album: 'Night Swim', show: 5 }));
+  `], { env: { ...process.env, DATA_DIR: dir, KEXP_LOG: '0' }, encoding: 'utf8' });
+  expect(add.status, add.stderr).toBe(0);
+  await expect.poll(async () => (await fetch(B + '/api/radar/artist?fresh=1&name=Glass%20Lantern').then(r => r.json())).kexp.plays).toBe(before + 1);
+
+  // the browser keeps it too: reopen with the NAS slow to answer, and the page is there straight away
+  await page.goto(B + '/');
+  await page.evaluate(() => window.CadenceArtist.open('Glass Lantern'));
+  await expect(page.locator('.ap-head h2')).toHaveText('Glass Lantern');
+  await expect(page.locator('section', { hasText: 'On KEXP' })).toContainText(`${before + 1} plays`);
+  await expect.poll(() => page.evaluate(() => new Promise(ok => { const r = indexedDB.open('cadence-artists', 1); r.onsuccess = () => { const q = r.result.transaction('p').objectStore('p').count(); q.onsuccess = () => ok(q.result); }; r.onerror = () => ok(0); }))).toBeGreaterThan(0);
+  await page.route(/api\/radar\/artist/, async r => { await new Promise(f => setTimeout(f, 4000)); r.continue().catch(() => {}); });
+  await page.reload();
+  await page.evaluate(() => window.CadenceArtist.open('Glass Lantern'));
+  await expect(page.locator('section', { hasText: 'On KEXP' })).toContainText(`${before + 1} plays`, { timeout: 2000 });
+});
+
 test('an artist nobody knows still gets a calm page', async ({ page }) => {
   await page.goto(B + '/');
   await page.evaluate(() => window.CadenceArtist.open('Nobody Here Yet'));

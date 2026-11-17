@@ -31,7 +31,7 @@ module.exports = async function radarRoutes(req, res, { url, p }) {
     const v = Number(url.searchParams.get('v')), ok = await radar.feedback(String(url.searchParams.get('id')), v);
     return send(res, ok ? 200 : 404, `<!doctype html><meta name=viewport content="width=device-width"><body style="font-family:system-ui;padding:2rem">${ok ? (v > 0 ? 'Got it: more like this.' : 'Got it: less like this.') : 'Pick not found.'}<p><a href="${baseOf(req)}/#view-radar">Open Music Radar</a></p>`, 'text/html; charset=utf-8');
   }
-  if (p === '/api/radar/artist') { const d = await radar.artist(url.searchParams.get('name')); return d ? send(res, 200, d) : send(res, 400, { error: 'Which artist?' }); }
+  if (p === '/api/radar/artist') { const d = await radar.artist(url.searchParams.get('name'), { fresh: url.searchParams.get('fresh') === '1' }); return d ? send(res, 200, d) : send(res, 400, { error: 'Which artist?' }); }
   if (p === '/api/radar/preview') { try { return send(res, 200, await radar.preview(Object.fromEntries(url.searchParams))); } catch (e) { return send(res, e.code === 400 ? 400 : 502, { error: e.message }); } }
   if (p === '/api/radar/follow') { try { return send(res, 200, await radar.follow(req.method === 'POST' ? await body() : {})); } catch (e) { return send(res, 500, { error: e.message }); } }
   if (p === '/api/radar/shows') { try { return send(res, 200, await radar.shows(req.method === 'POST' ? await body() : {})); } catch (e) { return send(res, 502, { error: e.message }); } }

@@ -44,4 +44,11 @@ export function mainstreamSet(state, { chartArtists = [] } = {}, cfg = mainstrea
   for (const f of getKv("follows", []) || []) set.delete(f.key || norm(f.name));
   return set;
 }
+// the same answer as mainstreamSet for one artist, without walking every artist Radar knows
+export function isMainstream(name, record, { chartArtists = [] } = {}, cfg = mainstreamCfg()) {
+  if (!cfg.on || !name) return false;
+  const k = norm(name);
+  if ((getKv("follows", []) || []).some((f) => (f.key || norm(f.name)) === k)) return false;
+  return cfg.list.some((n) => norm(n) === k) || (cfg.listeners > 0 && (record?.listeners || 0) >= cfg.listeners) || (cfg.charts && chartArtists.some((n) => norm(n) === k));
+}
 export const hidden = (set, name) => !!set && !!name && set.has(norm(name));

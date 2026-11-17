@@ -126,7 +126,36 @@ async function community(input) {
   return { communities: f.communities || F.DEFAULT_COMMUNITIES, tags: f.tags || F.DEFAULT_TAGS, mainstream: M.mainstreamCfg() };
 }
 // one artist, everything known (Radar + sources + charts + KEXP + MusicBrainz)
-async function artist(name) {
+// Artist pages are kept once built (user, 2026-11-16: "should cache and update in background … its slow"): opening one
+// answers from the kept copy at once and rebuilds it behind the scenes when it's over 15 minutes old (or MusicBrainz
+// was still being asked); pages opened in the last 60 days are refreshed hourly. ?fresh=1 waits for a new build.
+const PAGE_FRESH = 15 * 60e3, building = new Map();
+const storeLib = () => import(pathToFileURL(path.join(__dirname, 'radar', 'lib', 'store.mjs')).href);
+async function artist(name, { fresh = false } = {}) {
+  name = String(name || '').trim().slice(0, 120); if (!name) return null;
+  const { norm } = await import(pathToFileURL(path.join(__dirname, 'radar', 'lib', 'extract.mjs')).href), S = await storeLib();
+  const key = norm(name); let kept = null;
+  if (!fresh) try { kept = S.getPage(key); } catch (e) { kept = null; }
+  const rebuild = () => {
+    if (!building.has(key)) building.set(key, buildArtist(name).then(d => { if (d) try { S.setPage(key, d); } catch (e) {} return d; }).finally(() => building.delete(key)));
+    return building.get(key);
+  };
+  if (!kept) return rebuild();
+  const age = Date.now() - kept.at;
+  if (age > PAGE_FRESH || kept.d.mbPending) rebuild().catch(e => console.error('artist page', e.message));
+  return { ...kept.d, cachedAt: kept.at, refreshing: building.has(key) };
+}
+// keep recently opened pages warm: hourly, one page every few seconds
+if (!process.env.CI && process.env.ARTIST_WARM !== '0') {
+  const warm = async () => {
+    try {
+      const S = await storeLib();
+      for (const r of S.pagesToRefresh(55 * 60e3, 40)) { if (r.name) { await artist(r.name, { fresh: true }).catch(() => {}); await new Promise(f => setTimeout(f, 3000).unref()); } }
+    } catch (e) { console.error('artist warm', e.message); }
+  };
+  setTimeout(warm, 120e3).unref(); setInterval(warm, 3600e3).unref();
+}
+async function buildArtist(name) {
   const A = await import(pathToFileURL(path.join(__dirname, 'radar', 'lib', 'artist.mjs')).href);
   let kexp = null; try { const K = require('./kexp-log'); if (K.status().on !== false) kexp = K.artist(name); } catch (e) { kexp = null; }
   const d = A.artistData(name, { kexp });

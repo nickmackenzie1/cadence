@@ -223,6 +223,45 @@ export function chartPoints({ since = 0, uids = null } = {}) {
   return db.prepare("SELECT ts, source, uid, artist, title, feed, rank, metric FROM radar_chart_points WHERE ts >= ? ORDER BY ts").all(since).filter((p) => !uids || uids.has(p.source + "|" + p.uid));
 }
 
+// ---- one artist without loading everything (artist pages, 2026-11-16: loadState() read the whole Radar every time) ----
+export function artistRecord(key) {
+  if (!open()) return loadState().artists[key] || null;
+  const r = db.prepare("SELECT json FROM radar_artists WHERE key = ?").get(key);
+  return r ? JSON.parse(r.json) : null;
+}
+// their picks: by exact name, or by the stored key (covers spellings that normalise the same)
+export function picksForArtist(key, name) {
+  if (!open()) return loadState().picks.filter((p) => p.key === key);
+  return db.prepare("SELECT json FROM radar_picks WHERE artist = ? COLLATE NOCASE OR json LIKE ? ESCAPE '\\' ORDER BY ts DESC LIMIT 200")
+    .all(String(name || ""), '%"key":' + JSON.stringify(key).replace(/[\\%_]/g, (c) => "\\" + c) + "%").map((r) => JSON.parse(r.json));
+}
+// chart points for just these entries (pairs of "source|uid"), using the (source, uid, ts) index
+export function chartPointsFor(pairs, since = 0) {
+  if (!open()) return chartPoints({ since, uids: new Set(pairs) });
+  const q = db.prepare("SELECT ts, source, uid, artist, title, feed, rank, metric FROM radar_chart_points WHERE source = ? AND uid = ? AND ts >= ? ORDER BY ts");
+  const out = []; for (const id of pairs) { const i = id.indexOf("|"); out.push(...q.all(id.slice(0, i), id.slice(i + 1), since)); }
+  return out;
+}
+// finished artist pages, served at once and rebuilt in the background when they get old
+function pagesTable() { db.exec("CREATE TABLE IF NOT EXISTS radar_artist_pages (key TEXT PRIMARY KEY, json TEXT NOT NULL, at INTEGER NOT NULL, opened INTEGER NOT NULL)"); }
+export function getPage(key) {
+  if (!open()) return null; pagesTable();
+  const r = db.prepare("SELECT json, at FROM radar_artist_pages WHERE key = ?").get(key);
+  if (!r) return null;
+  db.prepare("UPDATE radar_artist_pages SET opened = ? WHERE key = ?").run(Date.now(), key);
+  return { d: JSON.parse(r.json), at: r.at };
+}
+export function setPage(key, d) {
+  if (!open()) return; pagesTable();
+  db.prepare("INSERT INTO radar_artist_pages (key, json, at, opened) VALUES (?, ?, ?, ?) ON CONFLICT(key) DO UPDATE SET json = excluded.json, at = excluded.at").run(key, JSON.stringify(d), Date.now(), Date.now());
+}
+// pages opened lately (kept fresh in the background), oldest-built first; anything not opened in 60 days is dropped
+export function pagesToRefresh(olderThan, limit = 20) {
+  if (!open()) return []; pagesTable();
+  db.prepare("DELETE FROM radar_artist_pages WHERE opened < ?").run(Date.now() - 60 * 86400e3);
+  return db.prepare("SELECT key, json_extract(json, '$.name') AS name FROM radar_artist_pages WHERE at < ? ORDER BY at LIMIT ?").all(Date.now() - olderThan, limit);
+}
+
 // ---- read-only table access for the Database view ----
 export function tables() {
   if (!open()) return null;

@@ -193,3 +193,12 @@ Cleaned up 2026-11-16 (0.8.2): items already built were moved out after checking
 - "Genres blowing up" skips umbrella tags (alternative, pop, electronic, energizing…) and rounds the numbers.
 - Fastest risers no longer filled with ListenBrainz-only "0 → N" rows; status shown only for new entries.
 - Albums card drops the redundant "album" chip.
+
+### Artist pages kept and refreshed in the background (2026-11-16)
+- User: artist pages "should cache and update in background … its slow". Building one used `loadState()` (the whole
+  Radar: every artist, pick, edge and digest) plus 120 days of every chart's points; now `artistRecord`,
+  `picksForArtist`, `chartPointsFor` and `isMainstream` read just that artist (about 450 ms → 22 ms on NAS-sized data).
+- NAS keeps finished pages in `radar_artist_pages`: served at once, rebuilt in the background after 15 min (or while
+  MusicBrainz is pending), pages opened in the last 60 days refreshed hourly, dropped after 60 days unopened.
+  `?fresh=1` waits for a new build. The browser keeps the last 40 in IndexedDB `cadence-artists` and re-asks once the
+  NAS says it's rebuilding (`refreshing`).

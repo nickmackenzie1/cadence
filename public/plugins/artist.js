@@ -186,13 +186,34 @@
           : '<p class="muted">Nothing saved yet. Use the bookmark next to any pick in Music Radar or on an artist page.</p>'}</div>`;
         const all = el.querySelector('#wh-all'); if (all) all.onclick = () => window.CadencePreview.playAll(list);
       } });
+      // Pages you've opened are remembered in this browser (the last 40), so opening one again draws at once and then
+      // updates quietly; the NAS keeps its own copy too and rebuilds it in the background (user, 2026-11-16).
+      const KEEP = (() => {
+        let dbp = null; const dbo = () => dbp || (dbp = new Promise((ok, no) => { try { const r = indexedDB.open('cadence-artists', 1); r.onupgradeneeded = () => r.result.createObjectStore('p'); r.onsuccess = () => ok(r.result); r.onerror = () => no(r.error); } catch (e) { no(e); } }));
+        const st = (mode, fn) => dbo().then(db => new Promise((ok, no) => { const t = db.transaction('p', mode), q = fn(t.objectStore('p')); t.oncomplete = () => ok(q && q.result); t.onerror = () => no(t.error); }));
+        return {
+          get: k => st('readonly', s => s.get(k)).catch(() => null),
+          put: (k, d) => st('readwrite', s => s.put({ d, at: Date.now() }, k)).then(() => st('readonly', s => s.getAllKeys())).then(async keys => {
+            if (keys.length <= 40) return;
+            const all = await Promise.all(keys.map(x => st('readonly', s => s.get(x)).then(v => [x, v ? v.at : 0])));
+            all.sort((a, b) => a[1] - b[1]); for (const [x] of all.slice(0, keys.length - 40)) await st('readwrite', s => s.delete(x));
+          }).catch(() => {})
+        };
+      })();
+      const again = (name, k, ms) => setTimeout(() => { if (current && current.toLowerCase() === k && api.ui.currentRoute() === 'view-artist') load(name, true); }, ms);
       const load = (name, force) => {
         const k = name.toLowerCase(), c = G[k];
         if (c && !force && (c.busy || Date.now() - c.at < 60e3)) return c.d;
         G[k] = { d: c && c.d, at: Date.now(), busy: true };
+        // nothing in memory yet: draw what this browser kept while the NAS answers
+        if (!c) KEEP.get(k).then(v => { if (v && G[k] && G[k].busy && !G[k].d) { G[k].d = v.d; if (api.ui.currentRoute() === 'view-artist') api.ui.refresh(); } });
+        const tries = force ? (c && c.tries) || 0 : 0;
         fetch('api/radar/artist?name=' + encodeURIComponent(name)).then(r => r.ok ? r.json() : Promise.reject(new Error('HTTP ' + r.status)))
-          .then(d => { G[k] = { d, at: Date.now() }; if (d && d.mbPending) setTimeout(() => { if (current && current.toLowerCase() === k && api.ui.currentRoute() === 'view-artist') { load(name, true); } }, 4000); },
-            e => { G[k] = { d: { error: e.message }, at: Date.now() }; })
+          .then(d => {
+            G[k] = { d, at: Date.now(), tries: tries + 1 }; if (d && !d.error) KEEP.put(k, d);
+            // the NAS answered from its copy and is rebuilding: pick the new one up shortly (a few times at most)
+            if (d && (d.refreshing || d.mbPending) && tries < 4) { G[k].tries = tries + 1; again(name, k, d.refreshing ? 2500 : 4000); }
+          }, e => { G[k] = { d: (c && c.d) || (G[k] && G[k].d) || { error: e.message }, at: Date.now() }; })
           .then(() => { if (api.ui.currentRoute() === 'view-artist') api.ui.refresh(); });
         return G[k].d;
       };
