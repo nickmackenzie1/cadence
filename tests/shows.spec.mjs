@@ -29,7 +29,7 @@ test.beforeAll(async () => {
       </channel></rss>`); }
     const m = u.pathname.match(/^\/artists\/(.+)\/events$/);
     if (m) { const a = decodeURIComponent(m[1]);
-      if (a === 'Alvvays') return j([{ id: 'x1', datetime: day(20) + 'T19:30:00', lineup: ['Alvvays'], url: 'https://bit.example/x1', venue: { name: "Ale House", city: 'Kingston', region: 'ON', ...KINGSTON } },
+      if (a === 'Alvvays') return j([{ id: 'x1', datetime: day(20) + 'T19:30:00', lineup: ['Alvvays', 'Piner'], url: 'https://bit.example/x1', venue: { name: "Ale House", city: 'Kingston', region: 'ON', ...KINGSTON } },
         { id: 'x2', datetime: day(21) + 'T19:30:00', lineup: ['Alvvays'], venue: { name: 'Commodore', city: 'Vancouver', region: 'BC', ...VANCOUVER } }]);
       return j([]); }
     res.writeHead(404); res.end();
@@ -53,6 +53,11 @@ test('shows near home: artists you care about first, with why; far and past show
   await expect(mine.nth(0)).toContainText('The Grad Club · Kingston, ON');
   await expect(mine.nth(1)).toContainText('Alvvays');
   await expect(mine.nth(1)).toContainText('You looked them up');
+  // a headliner and support share one line ("Alvvays, Piner"), not one name per line (user screenshot, 2026-11-16)
+  await expect(mine.nth(1).locator('.sh-a')).toContainText('Alvvays, Piner');
+  const tops = await mine.nth(1).locator('.sh-a a').evaluateAll(as => as.map(a => Math.round(a.getBoundingClientRect().top)));
+  expect(new Set(tops).size).toBe(1);
+  await mine.nth(1).screenshot({ path: 'test-results/show-row.png' });
   await expect(page.locator('.sh')).not.toContainText('Vancouver');
   await page.locator('.sh-more summary').click();
   await expect(page.locator('.sh-more li')).toHaveCount(2);             // Random Band, and the Kingston Live listing (Jay Som there twice counts once)
