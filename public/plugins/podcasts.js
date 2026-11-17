@@ -174,6 +174,8 @@
     const ib = (act, ic, label, extra = '') => `<button class="pc-ib" data-pc="${act}" aria-label="${E(label)}" title="${E(label)}"${extra}>${api.ui.icon(ic)}</button>`;
     const play = a => `<button class="pc-ib pc-play${a.paused ? '' : ' on'}" data-pc="toggle" aria-label="${a.paused ? 'Play' : 'Pause'}">${api.ui.icon(a.paused ? 'play' : 'pause')}</button>`;
     const art = (src, ic) => (src ? `<img src="${E(src)}" alt="" onerror="this.style.visibility='hidden'">` : `<i class="pc-noart">${api.ui.icon(ic)}</i>`);
+    // write a part only when it changed: rebuilding the artwork 4 times a second made it flash (user, 2026-11-16)
+    const put = (el, html) => { if (el.dataset.h !== html) { el.dataset.h = html; el.innerHTML = html; } };
     const draw = () => {
       const c = P.current; bar.hidden = !c; if (!c) return;
       if (bar.dataset.skin !== skin()) build();
@@ -182,18 +184,18 @@
       bar.style.fontFamily = getComputedStyle(document.body).fontFamily;
       if (c.live) {
         const n = c.now && !c.now.airbreak ? c.now : null, state = P.failed ? "Can't reach this station right now" : !a.paused && a.readyState < 3 ? 'Tuning in…' : a.paused ? 'Paused' : 'Live';
-        L.innerHTML = `${n && n.art ? art(n.art, 'radio') : `<span class="pc-lg"><i class="pc-noart">${api.ui.icon('radio')}</i>${c.art || c.home ? api.ui.logo(c.home, { img: c.art, size: 42 }) : ''}</span>`}<div class="pc-m-t"><b>${E(n ? n.song : c.title)}</b><span>${n && n.artist ? `<a class="ar-link" href="#view-artist" data-artist="${E(n.artist)}">${E(n.artist)}</a> · ` : ''}${E(n ? c.title : c.podcastTitle || '')}</span></div>`;
-        R.innerHTML = `${play(a)}<span class="pc-m-time${!a.paused && !P.failed ? ' live' : ''}">${E(state)}</span><a class="pc-ib" href="#view-radio" aria-label="Open Radio" title="Open Radio">${api.ui.icon('radio')}</a>`;
+        put(L, `${n && n.art ? art(n.art, 'radio') : `<span class="pc-lg"><i class="pc-noart">${api.ui.icon('radio')}</i>${c.art || c.home ? api.ui.logo(c.home, { img: c.art, size: 42 }) : ''}</span>`}<div class="pc-m-t"><b>${E(n ? n.song : c.title)}</b><span>${n && n.artist ? `<a class="ar-link" href="#view-artist" data-artist="${E(n.artist)}">${E(n.artist)}</a> · ` : ''}${E(n ? c.title : c.podcastTitle || '')}</span></div>`);
+        put(R, `${play(a)}<span class="pc-m-time${!a.paused && !P.failed ? ' live' : ''}">${E(state)}</span><a class="pc-ib" href="#view-radio" aria-label="Open Radio" title="Open Radio">${api.ui.icon('radio')}</a>`);
         if (api.ui.currentRoute() === 'view-radio' && bar.dataset.cur !== c.uuid + ':' + a.paused) { bar.dataset.cur = c.uuid + ':' + a.paused; setTimeout(() => api.ui.refresh(), 0); }
       } else if (c.preview) {
         const d = isFinite(a.duration) && a.duration ? a.duration : 30, t = a.currentTime || 0; pct = t / d;
-        L.innerHTML = `${art(c.art, 'music')}<div class="pc-m-t"><b>${E(c.title)}</b><span><a class="ar-link" href="#view-artist" data-artist="${E(c.podcastTitle)}">${E(c.podcastTitle)}</a> · 30-second preview</span></div>`;
-        R.innerHTML = `${play(a)}${P.hasNextPreview && P.hasNextPreview() ? ib('nextpv', 'skip-forward', 'Next preview') : ''}<span class="pc-m-time">${fmt(t)} / ${fmt(d)}</span>${c.link ? `<a class="pc-ib" href="${E(c.link)}" target="_blank" rel="noopener" aria-label="Full song on Deezer" title="Full song on Deezer">${api.ui.icon('external-link')}</a>` : ''}`;
+        put(L, `${art(c.art, 'music')}<div class="pc-m-t"><b>${E(c.title)}</b><span><a class="ar-link" href="#view-artist" data-artist="${E(c.podcastTitle)}">${E(c.podcastTitle)}</a> · 30-second preview</span></div>`);
+        put(R, `${play(a)}${P.hasNextPreview && P.hasNextPreview() ? ib('nextpv', 'skip-forward', 'Next preview') : ''}<span class="pc-m-time">${fmt(t)} / ${fmt(d)}</span>${c.link ? `<a class="pc-ib" href="${E(c.link)}" target="_blank" rel="noopener" aria-label="Full song on Deezer" title="Full song on Deezer">${api.ui.icon('external-link')}</a>` : ''}`);
       } else {
         const d = isFinite(a.duration) && a.duration ? a.duration : c.duration || 0, t = a.currentTime || c.position || 0; pct = d ? t / d : 0;
         if (api.ui.currentRoute() === 'view-podcasts' && bar.dataset.cur !== c.uuid + ':' + a.paused) { bar.dataset.cur = c.uuid + ':' + a.paused; setTimeout(() => api.ui.refresh(), 0); }
-        L.innerHTML = `${art(c.art, 'podcast')}<div class="pc-m-t"><b>${E(c.title)}</b><span>${E(c.podcastTitle)}</span></div>`;
-        R.innerHTML = `${ib('back', 'rotate-ccw', `Back ${SK().b} seconds`)}${play(a)}${ib('fwd', 'rotate-cw', `Forward ${SK().f} seconds`)}<span class="pc-m-time">${fmt(t)} / ${fmt(d)}</span><a class="pc-ib" href="#view-podcasts" aria-label="Open Podcasts" title="Open Podcasts">${api.ui.icon('podcast')}</a>`;
+        put(L, `${art(c.art, 'podcast')}<div class="pc-m-t"><b>${E(c.title)}</b><span>${E(c.podcastTitle)}</span></div>`);
+        put(R, `${ib('back', 'rotate-ccw', `Back ${SK().b} seconds`)}${play(a)}${ib('fwd', 'rotate-cw', `Forward ${SK().f} seconds`)}<span class="pc-m-time">${fmt(t)} / ${fmt(d)}</span><a class="pc-ib" href="#view-podcasts" aria-label="Open Podcasts" title="Open Podcasts">${api.ui.icon('podcast')}</a>`);
       }
       line.style.width = (Math.max(0, Math.min(1, pct)) * 100).toFixed(2) + '%';
       bar.classList.toggle('pc-live', !!c.live);

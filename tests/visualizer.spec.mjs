@@ -42,6 +42,10 @@ test('Player: calm redesign, visualizer relays the sound, switches styles and dr
   await expect(bar.locator('[data-pc=back]')).toHaveCount(1); await expect(bar.locator('[data-pc=fwd]')).toHaveCount(1);
   await expect(bar.locator('.pc-m-line')).toBeVisible();
   expect(hits.relay).toBe(0);   // visualizer off: played straight from the other server
+  // while it plays, the artwork and title are left alone (rebuilding them made the logo flash)
+  await page.evaluate(() => { document.querySelector('#pc-mini .pc-m-l').firstElementChild.__keep = 1; });
+  await page.waitForTimeout(1500);
+  expect(await page.evaluate(() => document.querySelector('#pc-mini .pc-m-l').firstElementChild.__keep)).toBe(1);
 
   // let it play a few seconds, then open the visualizer: it moves to the relay and keeps the place
   await expect.poll(() => page.evaluate(() => CadencePodcasts.audio.currentTime), { timeout: 8000 }).toBeGreaterThan(2);
