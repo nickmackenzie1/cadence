@@ -178,6 +178,52 @@ async function preview({ artist, title }) {
   return v;
 }
 // Want to hear: a list on the NAS (same in both spaces and on every device)
+// ---- following artists (user, 2026-11-16): a list kept on the NAS, and calm notes about what's new for each since you
+// last looked: blog posts, chart entries, releases (every Radar source), KEXP plays, plays on stations whose history is
+// kept, and nearby shows. radar_kv: follows [{ name, key, since }], followSeen { key: unix s }, followShows [ids].
+const CHART_SRC = new Set(['apple', 'audius', 'lastfm', 'hypem', 'earshot', 'kexpchart']);
+async function follow(input = {}) {
+  const { store } = await load(), X = await import(pathToFileURL(path.join(__dirname, 'radar', 'lib', 'extract.mjs')).href);
+  let list = store.getKv('follows', []) || [];
+  const now = Math.round(Date.now() / 1000);
+  if (input.add) { const name = String(input.add).trim().slice(0, 120), key = X.norm(name);
+    if (key && !list.some(f => f.key === key)) list = [{ name, key, since: now }, ...list].slice(0, 500); }
+  if (input.remove) { const key = X.norm(String(input.remove)); list = list.filter(f => f.key !== key); }
+  if (input.add || input.remove) store.setKv('follows', list);
+  // following someone takes them off your mainstream list (and the automatic checks skip them: mainstream.mjs)
+  if (input.add) { try { const M = await import(pathToFileURL(path.join(__dirname, 'radar', 'lib', 'mainstream.mjs')).href), c = M.mainstreamCfg(), key = X.norm(String(input.add));
+    if (c.list.some(n => X.norm(n) === key)) M.saveMainstreamCfg({ ...c, list: c.list.filter(n => X.norm(n) !== key) }); } catch (e) { console.warn('follow: mainstream list', e.message); } }
+  if (input.seen) { const seen = store.getKv('followSeen', {}) || {}; for (const f of list) if (input.seen === true || X.norm(input.seen) === f.key) seen[f.key] = now; store.setKv('followSeen', seen);
+    if (input.seen === true) { try { const S = await showsLib(); store.setKv('followShows', [...new Set([...(store.getKv('followShows', []) || []), ...S.cachedShows().map(e => e.id)])].slice(-2000)); } catch {} } }
+  return { follows: list, news: input.news === false ? [] : await followNews(list) };
+}
+async function followNews(list) {
+  const { store } = await load(), X = await import(pathToFileURL(path.join(__dirname, 'radar', 'lib', 'extract.mjs')).href);
+  let SRC = {}; try { SRC = (await import(pathToFileURL(path.join(__dirname, 'radar', 'lib', 'sources.mjs')).href)).SOURCES; } catch {}
+  const seen = store.getKv('followSeen', {}) || {}, shownShows = new Set(store.getKv('followShows', []) || []);
+  let K = null; try { K = require('./kexp-log'); if (K.status().on === false) K = null; } catch { K = null; }
+  let R = null; try { R = require('./radio'); } catch { R = null; }
+  let shows = []; try { shows = (await showsLib()).cachedShows(); } catch {}
+  const out = [], iso = sec => new Date(sec * 1000).toISOString(), src = id => (SRC[id] && SRC[id].name) || id;
+  for (const f of list) {
+    const since = Math.max(f.since || 0, seen[f.key] || 0);
+    for (const s of store.signalsFor(f.key, 100)) {
+      if (s.first_seen <= since || s.source === 'kexp') continue;   // KEXP plays are counted below
+      const t = s.title && s.title !== s.artist ? s.title : null;
+      const text = CHART_SRC.has(s.source) ? `On ${s.source === 'kexpchart' ? 'KEXP\'s charts' + (s.feed ? ' (' + s.feed + ')' : '') : src(s.source)}${s.best_rank ? ' at #' + s.best_rank : ''}${t ? ': ' + t : ''}`
+        : s.source === 'blogs' ? `${s.feed || 'A blog'} wrote about them${t ? ': ' + t : ''}`
+        : /album|ep|release/.test(s.type || '') ? `New release${t ? ': ' + t : ''} (${src(s.source)})` : `Mentioned on ${src(s.source)}${t ? ': ' + t : ''}`;
+      out.push({ artist: f.name, key: f.key, kind: CHART_SRC.has(s.source) ? 'chart' : s.source === 'blogs' ? 'blog' : 'release', text, url: s.url || null, at: iso(s.first_seen) });
+    }
+    if (K) { const p = K.playsSince(f.name, since); if (p.length) out.push({ artist: f.name, key: f.key, kind: 'kexp', at: iso(p[0].at),
+      text: `KEXP played them ${p.length === 1 ? 'once' : p.length === 2 ? 'twice' : p.length + (p.length === 20 ? '+' : '') + ' times'}: latest “${p[0].song || 'a song'}”${p[0].program ? ' on ' + p[0].program : ''}` }); }
+    if (R) { const p = R.playsFor(f.name, since); const by = {}; for (const x of p) (by[x.name] ||= []).push(x);
+      for (const [st, l] of Object.entries(by)) out.push({ artist: f.name, key: f.key, kind: 'radio', at: iso(l[0].at), text: `${st} played “${l[0].song || 'a song'}”${l.length > 1 ? ` and ${l.length - 1} more` : ''}` }); }
+    for (const e of shows) if (!shownShows.has(e.id) && e.artists.some(a => X.norm(a) === f.key))
+      out.push({ artist: f.name, key: f.key, kind: 'show', at: new Date().toISOString(), url: e.url || null, showId: e.id, text: `Playing ${e.venue || 'nearby'}${e.city ? ', ' + e.city : ''} on ${e.date || 'a date to be announced'}` });
+  }
+  return out.sort((a, b) => String(b.at).localeCompare(String(a.at))).slice(0, 200);
+}
 // ---- local shows: concerts near home, matched to artists you care about (radar/lib/shows.mjs) ----
 const showsLib = () => import(pathToFileURL(path.join(__dirname, 'radar', 'lib', 'shows.mjs')).href);
 async function shows(input = {}) {
@@ -185,6 +231,7 @@ async function shows(input = {}) {
   if (input.settings) S.saveShowsCfg(input.settings);
   const interest = [];
   const add = (name, why) => { if (name) interest.push({ name: String(name).slice(0, 120), why }); };
+  for (const f of store.getKv('follows', []) || []) add(f.name, 'You follow them');
   for (const w of store.getKv('wantToHear', []) || []) add(w.artist, 'In your Want to hear');
   for (const r of (Array.isArray(input.recent) ? input.recent : []).slice(0, 40)) add(r, 'You looked them up');
   try { const d = await data(); for (const r of [...(d.rise.top || []), ...(d.rise.risers || [])]) add(r.artist, 'Climbing on Music Radar');
@@ -214,4 +261,4 @@ async function digestFile(name) {
 }
 async function spotify() { const { spotify } = await load(); return spotify; }
 
-module.exports = { artist, stg, shows, preview, want, community, sourcesNow, sourcesSettings, raw, settings, status, scan, digestNow, data, feedback, rss, digestFile, spotify };
+module.exports = { artist, stg, shows, follow, preview, want, community, sourcesNow, sourcesSettings, raw, settings, status, scan, digestNow, data, feedback, rss, digestFile, spotify };

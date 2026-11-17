@@ -169,3 +169,10 @@ Cleaned up 2026-11-16 (0.8.2): items already built were moved out after checking
   half-pixel font sizes rounded; `LifeKit.empty(t)` with one argument is a quiet hint (was bold), two = title + hint;
   links in `.empty` and checkboxes/radios use the accent; feed fetch errors in plain words (`detail` keeps the cause).
   Calendar view's "now" line uses the accent instead of red.
+- **0.19.0 following artists (music list #4):** `radar.follow()` / `/api/radar/follow` (GET list + news; POST
+  add/remove/seen). radar_kv `follows`, `followSeen` (per-artist cursor), `followShows`. News since you last looked:
+  every Radar signal (blog / chart / release), KEXP plays (`kexp-log.playsSince`), plays on kept stations
+  (`radio.playsFor`), Shows' cached list (`shows.cachedShows`). Following someone removes them from the mainstream list
+  and `mainstreamSet` never hides a followed artist (user). Client: `window.CadenceFollow`, Follow button on artist pages,
+  "Following" in Music → Artists, island note 20 s after load and every 30 min (each item once: `cadence.followNoted`).
+  Shows puts followed artists first ("You follow them").

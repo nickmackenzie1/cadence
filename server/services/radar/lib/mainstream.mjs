@@ -40,6 +40,8 @@ export function mainstreamSet(state, { chartArtists = [] } = {}, cfg = mainstrea
   const set = new Set(cfg.list.map(norm).filter(Boolean));
   if (cfg.listeners > 0) for (const [k, a] of Object.entries(state?.artists || {})) if ((a.listeners || 0) >= cfg.listeners) set.add(norm(a.name || k));
   if (cfg.charts) for (const n of chartArtists) set.add(norm(n));
+  // anyone you follow is never hidden, however big (user, 2026-11-16)
+  for (const f of getKv("follows", []) || []) set.delete(f.key || norm(f.name));
   return set;
 }
 export const hidden = (set, name) => !!set && !!name && set.has(norm(name));

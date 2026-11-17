@@ -186,6 +186,14 @@ function history(id, limit = 50) {
   const f = id === 'kexp' ? null : hist().prepare('SELECT since FROM radio_follow WHERE station = ?').get(String(id));
   return { station: id, follow: id === 'kexp' ? 'kexp' : !!f, since: f ? new Date(f.since * 1000).toISOString() : null, plays: list };
 }
+// followed artists: plays on stations whose history the NAS keeps (or that you listened to), since a time
+function playsFor(name, sinceSec, limit = 20) {
+  try {
+    return hist().prepare(`SELECT p.station, p.at, p.song, f.name FROM radio_plays p LEFT JOIN radio_follow f ON f.station = p.station
+      WHERE p.artist = ? COLLATE NOCASE AND p.at > ? ORDER BY p.at DESC LIMIT ?`).all(String(name), Math.floor(sinceSec), limit)
+      .map(r => ({ ...r, name: r.name || (PRESETS.find(x => x.id === r.station) || {}).name || r.station }));
+  } catch (e) { return []; }
+}
 // "Keep a history": the NAS looks every couple of minutes, even when nobody is listening
 function follow({ id, name, url, on }) {
   if (!id || id === 'kexp') throw Object.assign(new Error('Which station?'), { code: 400 });
@@ -239,4 +247,4 @@ async function relay(url, clientReq, clientRes) {
 // look the presets up shortly after the NAS starts, so the first visit to Radio doesn't wait
 if (!process.env.CI && process.env.RADIO_WARM !== '0') setTimeout(() => { stations().catch(() => {}); }, 20000).unref();
 
-module.exports = { PRESETS, stations, search, nowPlaying, history, follow, relay, resolve, shape, best, parseIcy, splitTitle, readIcy };
+module.exports = { PRESETS, stations, search, nowPlaying, history, follow, playsFor, relay, resolve, shape, best, parseIcy, splitTitle, readIcy };

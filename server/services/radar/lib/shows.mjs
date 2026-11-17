@@ -130,6 +130,8 @@ async function bandsintown(name, cfg) {
 }
 
 let cache = null, running = null;
+// the last list fetched (followed-artist notes look here without fetching again)
+export const cachedShows = () => (cache ? cache.list : []);
 // interest: [{ name, why }] (strongest reason first; the page adds the artists you opened lately)
 export async function shows(interest = [], { force = false } = {}) {
   const cfg = showsCfg(), k = keys();

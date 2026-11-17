@@ -22,6 +22,15 @@
     p.load({ uuid: 'preview:' + key(v.artist, v.title), preview: true, title: v.title, podcastTitle: v.artist, url: v.preview, art: v.cover, link: v.link, from: { artist, title } }, true);
     return true;
   };
+  // ---- following artists: the list and what's new are kept on the NAS (api/radar/follow) ----
+  const FW = { d: null, at: 0 };
+  const fwLoad = async (body) => { try { const r = await fetch('api/radar/follow', body ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) } : {}); if (r.ok) { FW.d = await r.json(); FW.at = Date.now(); } } catch (e) {} window.dispatchEvent(new Event('cadence-follow')); return FW.d; };
+  window.CadenceFollow = {
+    peek: () => FW.d || { follows: [], news: [] },
+    load: (force) => (!force && FW.d && Date.now() - FW.at < 60e3 ? Promise.resolve(FW.d) : fwLoad()),
+    has: name => { if (!FW.d || !name) return false; const n = String(name).toLowerCase(); return FW.d.follows.some(f => f.name.toLowerCase() === n || f.key === n); },
+    add: name => fwLoad({ add: name }), remove: name => fwLoad({ remove: name }), seen: (name) => fwLoad({ seen: name || true })
+  };
   window.CadencePreview = {
     play: (artist, title) => { PV.queue = []; return playOne(artist, title); },
     // play a list in order (Want to hear → Play all); skips ones without a preview
@@ -33,6 +42,9 @@
     p.hasNextPreview = () => PV.queue.length > 0; };
   // buttons any page can drop next to a pick: <button data-pv data-a="…" data-t="…"> and <button data-want …>
   document.addEventListener('click', async e => {
+    const fb = e.target.closest('[data-follow]');
+    if (fb) { e.preventDefault(); e.stopPropagation(); const n = fb.dataset.follow, on = window.CadenceFollow.has(n);
+      await (on ? window.CadenceFollow.remove(n) : window.CadenceFollow.add(n)); PV.toast(on ? 'Stopped following ' + n : 'Following ' + n + '. You\'ll get a note when they turn up.'); return; }
     const b = e.target.closest('[data-pv],[data-want]'); if (!b) return;
     e.preventDefault(); e.stopPropagation(); hook();
     const a = b.dataset.a, t = b.dataset.t || null;
@@ -59,8 +71,19 @@
       // play + want buttons for one pick (used by Music Radar and this page)
       window.CadencePreview.buttons = (artist, title, type, from) => { if (!artist) return ''; const on = window.CadencePreview.want.has(artist, title);
         return `<span class="pv-btns"><button class="pv-b" data-pv data-a="${E(artist)}" data-t="${E(title || '')}" aria-label="Play a preview of ${E(title || artist)}" title="Play a 30-second preview">${api.ui.icon('play')}</button><button class="pv-b${on ? ' on' : ''}" data-want data-a="${E(artist)}" data-t="${E(title || '')}" data-type="${E(type || '')}" data-from="${E(from || '')}" aria-label="${on ? 'Remove from' : 'Save to'} Want to hear" title="${on ? 'In Want to hear' : 'Save to Want to hear'}">${api.ui.icon(on ? 'bookmark-check' : 'bookmark-plus')}</button></span>`; };
-      const onWant = () => { api.ui.refreshWidgets && api.ui.refreshWidgets(); const r = api.ui.currentRoute(); if (r === 'view-radar' || r === 'view-artist' || r === 'view-want') api.ui.refresh(); };
+      const onWant = () => { api.ui.refreshWidgets && api.ui.refreshWidgets(); const r = api.ui.currentRoute(); if (r === 'view-radar' || r === 'view-artist' || r === 'view-want' || r === 'view-artists') api.ui.refresh(); };
       window.addEventListener('cadence-want', onWant);
+      window.addEventListener('cadence-follow', onWant);
+      // a calm note when something new turns up for an artist you follow: each item once, checked every 30 minutes
+      const noteFollow = async () => {
+        const d = await window.CadenceFollow.load(true); if (!d || !d.news.length || !api.island || !api.island.notify) return;
+        let told = []; try { told = JSON.parse(localStorage.getItem('cadence.followNoted') || '[]'); } catch (e) {}
+        const fresh = d.news.filter(n => !told.includes(n.artist + '|' + n.text)); if (!fresh.length) return;
+        localStorage.setItem('cadence.followNoted', JSON.stringify([...told, ...fresh.map(n => n.artist + '|' + n.text)].slice(-400)));
+        const n = fresh[0], more = fresh.length - 1;
+        api.island.notify({ icon: 'mic-vocal', title: n.artist + ': ' + n.text, sub: more ? `and ${more} more about artists you follow` : 'An artist you follow', actions: [{ label: 'See', run: () => api.ui.navigate('view-artists') }] });
+      };
+      const fwT1 = setTimeout(noteFollow, 20000), fwT2 = setInterval(noteFollow, 30 * 60e3);
       // Said the Gramophone: Sean's 100 favourite songs and favourite albums of every year since 2005, read from the blog
       const SG = { d: null, year: null, tab: 'artists', at: 0 };
       const sgLoad = async (year) => { try { SG.d = await (await fetch('api/radar/stg' + (year ? '?year=' + year : ''))).json(); SG.at = Date.now(); } catch (e) { SG.d = SG.d || { err: true }; }
@@ -138,12 +161,19 @@
         const saved = [...new Set((PV.want || []).map(x => x.artist))].filter(a => !recent.some(r => r.toLowerCase() === a.toLowerCase()));
         const chips = list => `<div class="ars">${list.map(a => `<a class="ar-chip" href="#view-artist" data-artist="${E(a)}">${E(a)}</a>`).join('')}</div>`;
         el.innerHTML = `<div class="sg"><form id="ar-find" class="ar-find"><input class="inp" id="ar-q" placeholder="Any artist or band" aria-label="Artist name" autocomplete="off"><button class="btn primary" type="submit">Look up</button></form>
+          ${(() => { const F = window.CadenceFollow.peek(); if (!F.follows.length) return '<h3>Following</h3><p class="muted">Follow an artist from their page to hear when they turn up: a blog post, a release, a chart, KEXP or a station playing them, a show nearby. Following someone also keeps them off your mainstream list.</p>';
+            const by = {}; for (const n of F.news) (by[n.key] ||= []).push(n);
+            return `<div class="fw-head"><h3>Following</h3>${F.news.length ? '<button class="linkish" id="fw-seen">Mark everything as seen</button>' : ''}</div><ul class="fw-l">${F.follows.map(f => `<li><div class="fw-n"><a class="ar-link" href="#view-artist" data-artist="${E(f.name)}"><b>${E(f.name)}</b></a>
+              <button class="linkish fw-x" data-unfollow="${E(f.name)}">Unfollow</button></div>${(by[f.key] || []).length ? `<ul class="fw-news">${by[f.key].slice(0, 6).map(n => `<li>${n.url ? `<a href="${E(n.url)}" target="_blank" rel="noopener">${E(n.text)}</a>` : E(n.text)}</li>`).join('')}${by[f.key].length > 6 ? `<li class="muted">and ${by[f.key].length - 6} more</li>` : ''}</ul>` : '<span class="muted">Nothing new since you last looked</span>'}</li>`).join('')}</ul>`; })()}
           <h3>Looked at lately</h3>${recent.length ? chips(recent) : '<p class="muted">Artists you open from Radar, Radio or KEXP history show up here.</p>'}
           ${saved.length ? `<h3>From Want to hear</h3>${chips(saved)}` : ''}
           ${recent.length ? '<p><button class="linkish" id="ar-clear">Clear the list</button></p>' : ''}</div>`;
         el.querySelector('#ar-find').onsubmit = e => { e.preventDefault(); const q = el.querySelector('#ar-q').value.trim(); if (q) { window.CadenceArtist.open(q); location.hash = 'view-artist'; } };
         const c = el.querySelector('#ar-clear'); if (c) c.onclick = () => { localStorage.removeItem('cadence.recentArtists'); api.ui.refresh(); };
         if (!PV.want) wantList().then(() => api.ui.currentRoute() === 'view-artists' && api.ui.refresh());
+        if (!FW.d) window.CadenceFollow.load().then(() => api.ui.currentRoute() === 'view-artists' && api.ui.refresh());
+        const fs = el.querySelector('#fw-seen'); if (fs) fs.onclick = () => window.CadenceFollow.seen().then(() => { localStorage.setItem('cadence.followNoted', '[]'); api.ui.refresh(); });
+        el.querySelectorAll('[data-unfollow]').forEach(b => b.onclick = () => window.CadenceFollow.remove(b.dataset.unfollow).then(() => { api.ui.toast('Stopped following ' + b.dataset.unfollow); api.ui.refresh(); }));
       } });
 
       // the Want to hear page: everything you saved, to listen through
@@ -187,7 +217,7 @@
             <div><h2>${E(d.name)}</h2>${mb && mb.disambiguation ? `<p class="muted">${E(mb.disambiguation)}</p>` : ''}
               ${facts.length ? `<p class="ap-facts">${facts.map(E).join(' · ')}</p>` : ''}
               ${tags.length ? `<div class="ap-tags">${tags.map(t => `<span>${E(t)}</span>`).join('')}</div>` : ''}
-              <div class="ap-links"><button class="btn primary" data-pv data-a="${E(d.name)}">${api.ui.icon('play')}Play a preview</button>${(() => { const on = window.CadencePreview.want.has(d.name, null);
+              <div class="ap-links">${(() => { const f = window.CadenceFollow.has(d.name); return `<button class="btn${f ? '' : ' primary'}" data-follow="${E(d.name)}" aria-pressed="${f}">${api.ui.icon(f ? 'user-check' : 'user-plus')}${f ? 'Following' : 'Follow'}</button>`; })()}<button class="btn" data-pv data-a="${E(d.name)}">${api.ui.icon('play')}Play a preview</button>${(() => { const on = window.CadencePreview.want.has(d.name, null);
                 return `<button class="btn" data-want data-a="${E(d.name)}" data-type="artist" data-from="artist page">${api.ui.icon(on ? 'bookmark-check' : 'bookmark-plus')}${on ? 'In Want to hear' : 'Save to Want to hear'}</button>`; })()}</div>
               ${links.length ? `<div class="ap-links">${links.map(l => A(l.url, `${api.ui.icon(l.kind === 'website' ? 'globe' : 'external-link')}${E(LINK_NAMES[l.kind] || l.kind)}`, 'btn')).join('')}</div>` : ''}
               ${d.mbPending ? `<p class="muted ap-wait">Looking up releases and links…</p>` : ''}
@@ -247,6 +277,9 @@
         .sh-l li>div{flex:1;min-width:0;display:flex;flex-direction:column}.sh-l .muted{font-size:12px}.sh-d{min-width:9em;color:var(--muted);font-size:13px}
         .sh-why{font-size:12px;color:var(--accent)}.sh-more>summary,.sh-set>summary{cursor:pointer;color:var(--muted);margin:8px 0}
         .sh-set ul{list-style:none;padding:0;display:flex;flex-direction:column;gap:8px;font-size:14px}.sh-set li{display:flex;gap:8px;align-items:flex-start}.sh-set li svg{width:15px;height:15px;flex:none;margin-top:2px}
+        .fw-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px}.fw-l{list-style:none;padding:0;margin:6px 0 18px;display:flex;flex-direction:column;gap:12px}
+        .fw-n{display:flex;align-items:baseline;gap:10px}.fw-x{font-size:12px;color:var(--muted)!important}.fw-l>li>.muted{font-size:12px}
+        .fw-news{list-style:none;padding:0 0 0 2px;margin:4px 0 0;display:flex;flex-direction:column;gap:3px;font-size:13px}.fw-news li::before{content:'';display:inline-block;width:5px;height:5px;border-radius:50%;background:var(--accent);margin:0 8px 2px 0}
         .ar-find{display:flex;gap:8px;max-width:520px;margin:4px 0 18px}.ar-find .inp{flex:1}
         .ars{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0 16px}.ar-chip{border:1px solid var(--line);background:var(--panel);border-radius:999px;padding:4px 12px;font-size:13px;color:var(--text);text-decoration:none}.ar-chip:hover{border-color:var(--accent);color:var(--accent)}
         .sg{max-width:820px} .sg-tabs{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0 14px} .sg-c{border:1px solid var(--line);background:var(--panel);color:var(--muted);border-radius:999px;padding:3px 10px;font-size:13px;cursor:pointer} .sg-c.on{border-color:var(--accent);color:var(--accent);background:var(--accent-soft)} .sg-l{list-style:none;padding:0;margin:6px 0 18px;display:flex;flex-direction:column;gap:6px}
@@ -258,7 +291,7 @@
         [data-artist]{cursor:pointer} .ar-link{color:inherit;text-decoration:none;font:inherit;background:none;border:0;padding:0} .ar-link:hover{text-decoration:underline}
         @media (max-width:640px){.ap-head{flex-direction:column} .ap-list li{grid-template-columns:80px 1fr}}`;
       document.head.appendChild(css);
-      return () => { window.removeEventListener('cadence-artist', onOpen); window.removeEventListener('cadence-want', onWant); css.remove(); };
+      return () => { window.removeEventListener('cadence-artist', onOpen); window.removeEventListener('cadence-want', onWant); window.removeEventListener('cadence-follow', onWant); clearTimeout(fwT1); clearInterval(fwT2); css.remove(); };
     },
   });
 })();

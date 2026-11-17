@@ -274,6 +274,12 @@ function around(id, n = 6) {
   const after = d.prepare('SELECT * FROM kexp_plays WHERE airdate > ? ORDER BY airdate ASC LIMIT ?').all(p.airdate, k).map(play);
   return { play: play(p), before, after };
 }
+// followed artists: their plays since a time (unix seconds), newest first, with the program
+function playsSince(name, sinceSec, limit = 20) {
+  if (!db && !open()) return [];
+  return open().prepare(`SELECT p.airdate AS at, p.song, p.album, s.program FROM kexp_plays p LEFT JOIN kexp_shows s ON s.id = p.show_id
+    WHERE p.artist = ? COLLATE NOCASE AND p.airdate > ? ORDER BY p.airdate DESC LIMIT ?`).all(String(name), Math.floor(sinceSec), limit);
+}
 function recent({ limit = 50, comments = false } = {}) {
   return open().prepare(`SELECT * FROM kexp_plays ${comments ? "WHERE comment IS NOT NULL AND comment != ''" : ''} ORDER BY airdate DESC LIMIT ?`).all(lim(limit, 50, 300)).map(play);
 }
@@ -288,4 +294,4 @@ function newArtists({ days = 14, limit = 50 } = {}) {
 }
 
 start();
-module.exports = { winners, status, checkNew, backfillStep, fillShows, row, start, top, search, artist, song, around, recent, newArtists, onAir, open };
+module.exports = { winners, playsSince, status, checkNew, backfillStep, fillShows, row, start, top, search, artist, song, around, recent, newArtists, onAir, open };
