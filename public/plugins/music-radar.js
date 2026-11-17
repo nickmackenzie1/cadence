@@ -132,12 +132,18 @@
   }
 
   Cadence.registerPlugin({
+    // its settings live on the Radar page (folded under Settings): the gear opens that, unfolded
+    settings(api) { window.dispatchEvent(new Event('cadence-radar-settings')); api.ui.navigate('view-radar'); },
+    
     id: 'music-radar', name: 'Music Radar', version: '1.0.0', category: 'Life', spaces: ['life'],
     description: 'Finds up-and-coming artists, songs and albums from indie blogs, campus radio, charts and music communities on Lemmy and Mastodon, tracks what\'s rising, and learns your taste from thumbs up and down. Runs on your NAS: a scan every 6 hours and a weekly digest, an RSS feed, optional phone alerts and a Spotify playlist.',
     tagline: 'Up-and-coming music before it breaks', color: '#3b82f6',
     icon: '<path d="M19.07 4.93A10 10 0 0 0 6.99 3.34M4 6h.01M2.29 9.62A10 10 0 1 0 21.31 8.35M16.24 7.76A6 6 0 1 0 8.23 16.67M12 18h.01M17.99 11.66A6 6 0 0 1 15.77 16.67"/><circle cx="12" cy="12" r="2"/><path d="m13.41 10.59 5.66-5.66"/>',
     setup(api) {
       const G = { more: api.storage.get('more') || {}, d: null, st: null, years: 'year', year: null, all: false, poll: 0, src: 'all', feed: '', multi: true };
+      const openSettings = () => { G.more.settings = true; api.storage.set('more', G.more); if (api.ui.currentRoute() === 'view-radar') api.ui.refresh(); };
+      window.removeEventListener('cadence-radar-settings', window.__radarSettingsHook); window.__radarSettingsHook = openSettings;   // one listener, however often plugins rebuild
+      window.addEventListener('cadence-radar-settings', openSettings);
       const get = async u => { const r = await fetch(u, { cache: 'no-store' }); if (!r.ok) throw new Error(r.status); return r.json(); };
       const post = async (u, b) => { const r = await fetch(u, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(b || {}) }); return r.json(); };
       async function load() {

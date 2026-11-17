@@ -3,6 +3,7 @@
    Click a task to edit it in the panel on the right. */
 (() => {
   Cadence.registerPlugin({
+    settings(api) { window.LifeKit.form(api, 'Calendar view', [{ k: 'ws', label: 'Weeks start on', type: 'select', opts: [['0', 'Sunday'], ['1', 'Monday']] }], { ws: String(api.storage.get('weekStart') === 1 ? 1 : 0) }, o => { api.storage.set('weekStart', +o.ws); api.ui.refresh(); }); },
     id: 'calview', name: 'Calendar view', version: '1.0.0', category: 'Views', spaces: ['work', 'life'],
     description: 'Month and week grids of your tasks and meetings. Drag tasks to reschedule, click a day to add one.',
     tagline: 'Month and week grids', color: '#e5484d',
@@ -10,6 +11,7 @@
     setup(api) {
       const esc = window.CadenceKit.esc;
       const U = api.util, key = d => U.ymd(d);
+      const ws = () => (api.storage.get('weekStart') === 1 ? 1 : 0), sow = d => U.addDays(d, -((d.getDay() - ws() + 7) % 7));
       const st = () => Object.assign({ mode: 'month', at: null }, api.storage.get('st') || {});
       const setSt = p => { api.storage.set('st', Object.assign(st(), p)); api.ui.refresh(); };
       const anchor = () => { const a = st().at; return a ? U.fromYmd(a) : new Date(); };
@@ -24,7 +26,7 @@
       const evHTML = e => `<div class="cv-ev" title="${esc(e.title || 'Meeting')}"><span class="tm">${new Date(e.start).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }).replace(':00', '').replace(' ', '').toLowerCase()}</span>${esc(e.title || 'Meeting')}</div>`;
 
       function month(el) {
-        const a = anchor(), first = new Date(a.getFullYear(), a.getMonth(), 1), start = U.addDays(first, -first.getDay()), t0 = U.todayKey();
+        const a = anchor(), first = new Date(a.getFullYear(), a.getMonth(), 1), start = sow(first), t0 = U.todayKey();
         const tasks = api.tasks.list(t => t.dueDate && (!t.done || (t.doneAt && Date.now() - t.doneAt < 30 * 864e5)));
         const evs = events();
         let cells = '';
@@ -36,17 +38,17 @@
           cells += `<div class="cv-day ${inM ? '' : 'out'} ${k === t0 ? 'today' : ''} ${d.getDay() % 6 === 0 ? 'we' : ''}" data-day="${k}"><div class="cv-dn">${d.getDate() === 1 ? d.toLocaleDateString([], { month: 'short' }) + ' ' : ''}${d.getDate()}</div>
             ${items.slice(0, max).join('')}${items.length > max ? `<button class="cv-more" data-day="${k}">+${items.length - max} more</button>` : ''}</div>`;
         }
-        el.innerHTML = `<div class="cv-dow">${['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(x => `<span>${x}</span>`).join('')}</div><div class="cv-month">${cells}</div>`;
+        el.innerHTML = `<div class="cv-dow">${(ws() ? ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] : ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']).map(x => `<span>${x}</span>`).join('')}</div><div class="cv-month">${cells}</div>`;
       }
 
       const narrow = () => matchMedia('(max-width: 640px)').matches;
       function agenda(el) {   // the week as a list of days, for phones
-        const a = anchor(), start = U.addDays(a, -a.getDay()), t0 = U.todayKey(), tasks = api.tasks.list(t => t.dueDate), evs = events();
+        const a = anchor(), start = sow(a), t0 = U.todayKey(), tasks = api.tasks.list(t => t.dueDate), evs = events();
         el.innerHTML = Array.from({ length: 7 }, (_, i) => { const d = U.addDays(start, i), k = key(d), its = [...evs.filter(e => key(new Date(e.start)) === k).map(evHTML), ...tasks.filter(t => t.dueDate === k).sort((x, y) => String(x.dueTime || '99').localeCompare(String(y.dueTime || '99'))).map(itemHTML)];
           return `<div class="cv-ag ${k === t0 ? 'today' : ''}" data-day="${k}"><div class="cv-agh"><b>${d.toLocaleDateString([], { weekday: 'short' })}</b> ${d.getDate()}</div><div class="cv-agl">${its.join('') || '<span class="muted" style="font-size:12px">Nothing</span>'}</div></div>`; }).join('');
       }
       function week(el) { if (narrow()) return agenda(el);
-        const a = anchor(), start = U.addDays(a, -a.getDay()), t0 = U.todayKey(), [h0, h1] = HOURS, PX = 44;
+        const a = anchor(), start = sow(a), t0 = U.todayKey(), [h0, h1] = HOURS, PX = 44;
         const days = Array.from({ length: 7 }, (_, i) => U.addDays(start, i)), tasks = api.tasks.list(t => t.dueDate), evs = events();
         const now = new Date(), nowTop = ((now.getHours() + now.getMinutes() / 60) - h0) * PX;
         el.innerHTML = `<div class="cv-wk">

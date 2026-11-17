@@ -11,6 +11,8 @@
 
   /* ======================= Roulette ======================= */
   Cadence.registerPlugin({
+    settings(api) { window.LifeKit.form(api, 'Roulette', [{ k: 'm', label: 'After a spin, the wheel stays locked for', type: 'select', opts: [['0', 'No lock'], ['5', '5 minutes'], ['10', '10 minutes'], ['30', '30 minutes'], ['60', 'An hour']] }], { m: String(api.storage.get('lockMins') ?? 10) }, o => api.storage.set('lockMins', +o.m)); },
+    
     id: 'roulette', name: 'Roulette', version: '1.0.0', category: 'Fun', spaces: ['work', 'life'],
     description: 'Can’t decide? Spin a wheel of your open tasks and do whatever it lands on. No appeals: the wheel locks for 10 minutes.',
     tagline: 'Spin. Do it. No appeals.', color: '#ef4444',
@@ -36,8 +38,8 @@
           const pick = Math.floor(Math.random() * n), turns = 5 + Math.floor(Math.random() * 3), target = turns * 360 + (360 - (pick + .5) * seg) + (Math.random() - .5) * seg * .6;
           const g = document.querySelector('.rl-g'), btn = document.getElementById('rl-go'); btn.disabled = true;
           g.style.transition = matchMedia('(prefers-reduced-motion: reduce)').matches ? 'none' : 'transform 4.2s cubic-bezier(.12,.75,.12,1)'; g.style.transform = `rotate(${target}deg)`;
-          setTimeout(() => { const t = list[pick]; api.storage.set('lock', Date.now() + 10 * 60e3); api.storage.set('won', { id: t.id, at: Date.now() });
-            document.getElementById('rl-res').innerHTML = `<small>The wheel has spoken</small><b>${esc(t.title)}</b><span>Do it now. The wheel is locked for 10 minutes.</span>`;
+          setTimeout(() => { const t = list[pick], mins = api.storage.get('lockMins') ?? 10; api.storage.set('lock', Date.now() + mins * 60e3); api.storage.set('won', { id: t.id, at: Date.now() });
+            document.getElementById('rl-res').innerHTML = `<small>The wheel has spoken</small><b>${esc(t.title)}</b><span>Do it now.${mins ? ` The wheel is locked for ${mins === 60 ? 'an hour' : mins + ' minutes'}.` : ''}</span>`;
             btn.textContent = 'Do it'; btn.disabled = false; btn.onclick = () => { api.ui.close(); api.ui.navigate(t.clientId ? 'client-' + t.clientId : 'today'); setTimeout(() => api.ui.openTask(t.id), 100); }; R.last = t.id; }, matchMedia('(prefers-reduced-motion: reduce)').matches ? 50 : 4300);
         };
       }

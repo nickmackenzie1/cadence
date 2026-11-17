@@ -194,6 +194,8 @@
 
   /* ======================= Weekly rewind ======================= */
   Cadence.registerPlugin({
+    settings(api) { const v = api.storage.get('offerDay'); window.LifeKit.form(api, 'Weekly rewind', [{ k: 'day', label: 'Offer your week as a story on', type: 'select', opts: [['off', 'Never'], ['1', 'Monday'], ['2', 'Tuesday'], ['3', 'Wednesday'], ['4', 'Thursday'], ['5', 'Friday'], ['6', 'Saturday'], ['0', 'Sunday']] }], { day: v === null ? 'off' : String(v ?? 5) }, o => api.storage.set('offerDay', o.day === 'off' ? null : +o.day)); },
+    
     id: 'rewind', name: 'Weekly rewind', version: '1.0.0', category: 'Insights', spaces: ['work', 'life'],
     description: 'Your week as a short story: what you finished, your busiest day, who you worked with, the oldest thing you finally closed. Offered on Friday afternoons.',
     tagline: 'Your week, in six cards', color: '#a855f7',
@@ -231,7 +233,7 @@
       }
       window.__rewind = { show, data };
       api.commands.add({ title: 'Weekly rewind', hint: 'Your week in six cards', run: show });
-      setTimeout(() => { const d = new Date(); if (!(d.getDay() === 5 && d.getHours() >= 15) || api.storage.get('seen') === weekStart() || api.storage.get('offered') === weekStart()) return; if (!data().done.length) return; api.storage.set('offered', weekStart());
+      setTimeout(() => { const d = new Date(), od = api.storage.get('offerDay'), day = od === undefined ? 5 : od; if (day === null || !(d.getDay() === day && d.getHours() >= 15) || api.storage.get('seen') === weekStart() || api.storage.get('offered') === weekStart()) return; if (!data().done.length) return; api.storage.set('offered', weekStart());
         api.island.show({ icon: '⏪', title: 'Your weekly rewind is ready', sub: `${data().done.length} things finished this week`, sticky: true, actions: [{ label: 'Watch', run: show }] }); }, 8000);
       css('rw-css', `#rw-ov{position:fixed;inset:0;z-index:130;background:rgba(10,8,20,.6);backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center}
         .rw-card{width:380px;max-width:92vw;min-height:440px;display:flex;flex-direction:column;border-radius:22px;padding:18px 22px;color:#fff;background:linear-gradient(160deg,#6d28d9,#db2777 60%,#f59e0b);box-shadow:0 30px 80px -20px rgba(0,0,0,.6);animation:rwIn .35s cubic-bezier(.3,1.4,.5,1)}

@@ -13,6 +13,8 @@
   const high = el => el >= 60 ? 'high overhead' : el >= 30 ? 'halfway up' : 'low';
 
   Cadence.registerPlugin({
+    settings(api) { const c = Object.assign({ aurora: true, iss: true }, api.storage.get('cfg') || {});
+      window.LifeKit.form(api, 'Outside', [{ k: 'aurora', type: 'check', label: 'A note when northern lights might show tonight' }, { k: 'iss', type: 'check', label: 'A note just before the space station passes over' }], c, o => api.storage.set('cfg', Object.assign(c, { aurora: !!o.aurora, iss: !!o.iss }))); },
     id: 'outdoors', name: 'Outside', version: '1.0.0', category: 'Info', color: '#0ea5e9',
     icon: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>',
     tagline: 'Air, UV, northern lights and the space station, for where you are.',

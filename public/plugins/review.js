@@ -4,6 +4,13 @@ const registerPlugin = def => Cadence.registerPlugin(def);
 registerPlugin({
   id:'review', name:'Weekly review', version:'1.0.0', icon: '<rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 9.5h16M8.5 3v4M15.5 3v4M9 14.5l2 2 4-4"/>', color: '#8e4ec6', category: 'Productivity', tagline: 'Friday: look back, plan ahead', builtin:true,
   description:'Friday-afternoon look back: what got done per client, what carried over, who owes you, who has gone quiet, and what’s coming next week.',
+  settings(api){
+    const n = Object.assign({ day: 5, hour: 14 }, api.storage.get('nudge') || {});
+    window.LifeKit.form(api, 'Weekly review', [
+      { k: 'day', label: 'Remind me to do the review on', type: 'select', opts: [['off', 'Never'], ['1', 'Monday'], ['2', 'Tuesday'], ['3', 'Wednesday'], ['4', 'Thursday'], ['5', 'Friday'], ['6', 'Saturday'], ['0', 'Sunday']] },
+      { k: 'hour', label: 'From', type: 'select', opts: [9, 10, 11, 12, 13, 14, 15, 16, 17].map(h => [String(h), new Date(2000, 0, 1, h).toLocaleTimeString([], { hour: 'numeric' })]) }
+    ], { day: n.day == null ? 'off' : String(n.day), hour: String(n.hour) }, o => api.storage.set('nudge', { day: o.day === 'off' ? null : +o.day, hour: +o.hour }));
+  },
   setup(api){
     const E = api.ui.esc;
     const monday = () => { const d = new Date(); d.setHours(0,0,0,0); d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); return d; };
@@ -50,7 +57,7 @@ registerPlugin({
     api.commands.add({ title:'Weekly review', hint:'R', run: api => api.ui.navigate('view-review') });
     // Friday-afternoon nudge, once a week, remembered per device (never touches synced data)
     setTimeout(() => {
-      const d = new Date(); if(d.getDay() !== 5 || d.getHours() < 14) return;
+      const n = Object.assign({ day: 5, hour: 14 }, api.storage.get('nudge') || {}), d = new Date(); if(n.day == null || d.getDay() !== n.day || d.getHours() < n.hour) return;
       const k = 'cadence.reviewNudge', wkKey = api.util.ymd(monday());
       try { if(localStorage.getItem(k) === wkKey) return; localStorage.setItem(k, wkKey); } catch(e){ return; }
       api.ui.toast('Weekly review', [{ label:'Open review', run: () => api.ui.navigate('view-review') }]);

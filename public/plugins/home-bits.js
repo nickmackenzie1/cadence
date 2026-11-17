@@ -16,6 +16,8 @@
   window.CadenceHomeBits = { nextPickup, PRESETS };   // for tests
 
   Cadence.registerPlugin({
+    settings(api) { const c = Object.assign({ preset: 'loyalist-east', day: 2, what: 'Garbage and recycling', remind: '19:00', on: true }, api.storage.get('garbage') || {});
+      window.LifeKit.form(api, 'Home helpers', [{ k: 'on', type: 'check', label: 'Remind me the evening before garbage night' }, { k: 'remind', type: 'time', label: 'At', w: '140px' }], c, o => api.storage.set('garbage', Object.assign(c, { on: !!o.on, remind: o.remind || '19:00' }))); },
     id: 'home-bits', name: 'Home helpers', version: '1.0.0', category: 'Life', color: '#16a34a', spaces: ['life'],
     icon: '<path d="m15 11-1 9"/><path d="m19 11-4-7"/><path d="M2 11h20"/><path d="m3.5 11 1.6 7.4a2 2 0 0 0 2 1.6h9.8a2 2 0 0 0 2-1.6l1.7-7.4"/><path d="M4.5 15.5h15"/><path d="m5 11 4-7"/><path d="m9 11 1 9"/>',
     tagline: 'Dinner ideas, garbage night, barcodes to the shopping list, and your shows.',

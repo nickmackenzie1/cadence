@@ -156,3 +156,9 @@ Cleaned up 2026-11-16 (0.8.2): items already built were moved out after checking
   `a.btn`. Fixes: tabs no longer shift sideways between pages; Want to hear on one line; risers fit their card (status
   only when not "climbing"); play/save buttons always sit before the name; Shows errors in plain words (detail on hover).
   Next design-pass candidates: the rest of the app (same pattern: one heading/list/empty-state style), dark mode check.
+- **0.18.0 plugin settings audit (user, 2026-11-16):** 78 plugins, 25 had a settings window. Added (all through
+  `LifeKit.form`, test tests/plugin-settings.spec.mjs): Quick date (calendar after a dateless task on/off), Weekly
+  review (nudge day/hour or never, was Friday 2 pm fixed), Weekly rewind (offer day or never), Outside (aurora / space
+  station notes), Home helpers (garbage-night reminder on/off + time), Calendar view (week starts Sun/Mon), Podcasts
+  (skip lengths, were 10/30 fixed), Roulette (lock length), Music Radar (gear opens its Settings section).
+  Judgement calls offered to the user, not done: Daily page picks, Rival pace, Focus aquarium lengths, energy check-in.
