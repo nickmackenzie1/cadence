@@ -229,10 +229,36 @@ function listConflicts(ids) {
   const rows = ids ? db.prepare(`SELECT * FROM conflicts WHERE cid IN (${ids.map(() => '?').join(',')})`).all(...ids) : db.prepare('SELECT * FROM conflicts WHERE resolved = 0 ORDER BY cid DESC LIMIT 100').all();
   return rows.map(r => ({ cid: r.cid, kind: r.kind, id: r.id, field: r.field, title: r.title, kept: JSON.parse(r.kept), other: JSON.parse(r.other), keptDevice: r.kept_device, otherDevice: r.other_device, keptAt: r.kept_at, otherAt: r.other_at, at: r.at }));
 }
+// Daily backups copy everything that's yours, but not what can be fetched or built again (2026-11-16: the whole file,
+// KEXP's full history included, was copied every day and kept 30 days, which heads for tens of GB):
+//   kexp_*              KEXP's playlist history: downloads again by itself (the NAS starts over if it's missing)
+//   radar_artist_pages  finished artist pages: rebuilt the next time each is opened
+// Everything else (tasks, clients, Music Radar's history, station plays, settings) is copied with its indexes.
+const BACKUP_SKIP = /^(kexp_|radar_artist_pages$)/;
+function backupInto(f) {
+  const tmp = f + '.tmp'; try { fs.unlinkSync(tmp); } catch {}
+  const q = s => "'" + String(s).replace(/'/g, "''") + "'", id = s => '"' + String(s).replace(/"/g, '""') + '"';
+  // CREATE TABLE x / CREATE INDEX x ON … → CREATE TABLE bk.x (indexes, triggers and views keep their unqualified table)
+  const into = sql => sql.replace(/^(\s*CREATE\s+(?:UNIQUE\s+)?(?:TABLE|INDEX|TRIGGER|VIEW)\s+(?:IF\s+NOT\s+EXISTS\s+)?)/i, '$1bk.');
+  db.exec(`ATTACH ${q(tmp)} AS bk`);
+  try {
+    db.exec('BEGIN');
+    try {
+      const objs = db.prepare("SELECT type, name, tbl_name, sql FROM main.sqlite_master WHERE sql IS NOT NULL AND name NOT LIKE 'sqlite\\_%' ESCAPE '\\'").all();
+      for (const o of objs.filter(o => o.type === 'table' && !BACKUP_SKIP.test(o.name))) {
+        if (/^\s*CREATE\s+VIRTUAL/i.test(o.sql)) { console.warn('backup: skipped virtual table', o.name); continue; }
+        db.exec(into(o.sql)); db.exec(`INSERT INTO bk.${id(o.name)} SELECT * FROM main.${id(o.name)}`);
+      }
+      for (const o of objs.filter(o => o.type !== 'table' && !BACKUP_SKIP.test(o.tbl_name) && !BACKUP_SKIP.test(o.name))) db.exec(into(o.sql));
+      db.exec('COMMIT');
+    } catch (e) { try { db.exec('ROLLBACK'); } catch {} throw e; }
+  } finally { db.exec('DETACH bk'); }
+  fs.renameSync(tmp, f);
+}
 function dailyDbBackup() {
   const day = new Date().toISOString().slice(0, 10), f = path.join(BACKUP_DIR, `cadence-${day}.db`);
   if (fs.existsSync(f)) return;
-  try { db.exec(`VACUUM INTO '${f.replace(/'/g, "''")}'`); } catch (e) { console.error('backup failed', e.message); return; }
+  try { backupInto(f); } catch (e) { console.error('backup failed', e.message); try { fs.unlinkSync(f + '.tmp'); } catch {} return; }
   const all = fs.readdirSync(BACKUP_DIR).filter(x => /^cadence-\d{4}-\d{2}-\d{2}\.db$/.test(x)).sort();
   while (all.length > KEEP_BACKUPS) fs.unlinkSync(path.join(BACKUP_DIR, all.shift()));
 }
@@ -295,4 +321,4 @@ const allDocs = () => db ? [assemble('work'), assemble('life')] : [readState()];
 // small read helpers for tests and the DB viewer
 const historyCount = (kind, id) => db.prepare('SELECT COUNT(*) AS n FROM history WHERE kind = ? AND id = ?').get(kind, id).n;
 const recordRev = (kind, id) => (db.prepare('SELECT rev FROM records WHERE kind = ? AND id = ?').get(kind, id) || {}).rev || 0;
-module.exports = { compact, maintain, tidy, historyCount, recordRev, ARRAYS, DB_FILE, J, SCHEMA, allDocs, applyChanges, assemble, closeDb, curRev, dailyDbBackup, dailyJsonBackup, dbInfo, hasDb, importDoc, listConflicts, nextRev, openDb, putRecord, readState, refreshDoc, resolveConflicts, shred, storageInfo, syncPull, syncPush, titleOf, writeJsonMirror, writeState };
+module.exports = { backupInto, compact, maintain, tidy, historyCount, recordRev, ARRAYS, DB_FILE, J, SCHEMA, allDocs, applyChanges, assemble, closeDb, curRev, dailyDbBackup, dailyJsonBackup, dbInfo, hasDb, importDoc, listConflicts, nextRev, openDb, putRecord, readState, refreshDoc, resolveConflicts, shred, storageInfo, syncPull, syncPush, titleOf, writeJsonMirror, writeState };

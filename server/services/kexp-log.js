@@ -36,6 +36,11 @@ function open() {
   // 2026-11-16 (from kexp.fyi's write-up): KEXP's airdate_before includes that exact time, so asking for "before our
   // oldest play" returned it again and looked like the filter didn't work: undo that switch to offset paging once.
   try {
+    // once: clear the airbreaks already saved
+    if (!meta('fix_airbreak')) {
+      db.prepare("DELETE FROM kexp_plays WHERE artist COLLATE NOCASE IN ('airbreak', 'air break', 'air-break', 'airbreaks', 'air breaks') OR (artist IS NULL AND song COLLATE NOCASE IN ('airbreak', 'air break'))").run();
+      meta('fix_airbreak', 1);
+    }
     if (!meta('fix_inclusive')) {
       if (meta('backfill_mode') === 'offset') { db.prepare("DELETE FROM kexp_meta WHERE k IN ('backfill_mode', 'backfill_next', 'backfill_done')").run(); }
       db.prepare("UPDATE OR IGNORE kexp_plays SET artist = trim(substr(artist, 19)) WHERE artist LIKE '(Various Artists) %' AND length(trim(substr(artist, 19))) > 0").run();
@@ -47,6 +52,8 @@ function open() {
 const meta = (k, v) => { const d = open(); if (v === undefined) return (d.prepare('SELECT v FROM kexp_meta WHERE k = ?').get(k) || {}).v; d.prepare('INSERT OR REPLACE INTO kexp_meta (k, v) VALUES (?, ?)').run(k, String(v)); };
 
 // compilation tracks are often logged "(Various Artists) The English Beat": keep the band (kexp.fyi found ~15k of these)
+// KEXP's older playlists list DJ talk as a track by "AIRBREAK" (user, 2026-11-16: it showed up as an artist)
+const AIRBREAK = /^\s*air\s*-?\s*breaks?\s*$/i;
 const realArtist = a => { const m = String(a || '').match(/^\(various artists?\)\s+(.+)$/i); return m ? m[1].trim() : a; };
 // a bare compilation credit is a bucket, not a band: left on the plays, kept out of top-artist lists
 const NOT_VA = `artist NOT IN ('Various Artists', 'Various', '(Various Artists)', 'Various Artist') COLLATE NOCASE`;
@@ -54,6 +61,7 @@ const NOT_VA = `artist NOT IN ('Various Artists', 'Various', '(Various Artists)'
 // one API play → a row (songs only; air breaks are skipped)
 function row(p) {
   if (!p || p.play_type !== 'trackplay' || !p.id || !p.airdate) return null;
+  if (AIRBREAK.test(p.artist || '') || (!p.artist && AIRBREAK.test(p.song || ''))) return null;   // older playlists log DJ talk as a song
   const t = Date.parse(p.airdate); if (!isFinite(t)) return null;
   const s = v => (v == null || v === '' ? null : String(v));
   return [p.id, Math.round(t / 1000), s(realArtist(p.artist)), s(p.song), s(p.album), s((p.labels || [])[0]), s(p.release_date), s(p.rotation_status),

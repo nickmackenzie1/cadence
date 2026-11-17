@@ -235,3 +235,11 @@ Cleaned up 2026-11-16 (0.8.2): items already built were moved out after checking
 - TheAudioDB (`radar/lib/audiodb.mjs`, free key 123 or AUDIODB_KEY; 2.1 s between requests; by MusicBrainz ID, else
   name; kept 30 days, misses 7): band logo (on a dark tile), photo, banner or fan art, biography (About), members,
   label, genre/style/mood, extra links; "MusicBrainz and TheAudioDB side by side" marks where they disagree.
+
+### Lean daily backups, no AIRBREAK in KEXP history (2026-11-16)
+- Daily `cadence-<day>.db` backups used VACUUM INTO (the whole file, KEXP history included, 30 kept → tens of GB once
+  all of KEXP is in). `backupInto()` now copies every table, index, trigger and view except `kexp_*` and
+  `radar_artist_pages` (they download or rebuild by themselves). 194 MB → 46 MB on a NAS-sized test copy, 134 ms.
+  Older full-size backups age out over the 30 days. Database view says what backups leave out; its lock emoji is a Lucide icon.
+- KEXP's older playlists list DJ talk as a track by "AIRBREAK": skipped when saving, existing rows deleted once
+  (`kexp_meta.fix_airbreak`).

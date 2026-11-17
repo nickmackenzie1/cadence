@@ -9,12 +9,12 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 const freePort = () => new Promise(r => { const s = createServer().listen(0, () => { const p = s.address().port; s.close(() => r(p)); }); });
 
-// ten days of plays, one every 4 minutes; every 10th is an air break
+// ten days of plays, one every 4 minutes; every 10th is an air break, and some older-style ones are a "song" by AIRBREAK
 const NOW = Date.now(), PLAYS = [];
 for (let i = 0; i < 10 * 24 * 15; i++) {
   const t = NOW - i * 4 * 60e3, id = 10_000_000 - i;
   PLAYS.push(i % 10 === 5 ? { id, play_type: 'airbreak', airdate: new Date(t).toISOString() }
-    : { id, play_type: 'trackplay', airdate: new Date(t).toISOString(), artist: i % 50 === 3 ? '(Various Artists) The English Beat' : i % 50 === 4 ? 'Various Artists' : 'Artist ' + (i % 37), song: 'Song ' + i, album: 'Album', labels: ['Sub Pop'], rotation_status: i % 3 ? null : 'Heavy', comment: i === 0 ? 'Playing Thursday at the Crocodile' : '', show: 100 + Math.floor(i / 45) });
+    : { id, play_type: 'trackplay', airdate: new Date(t).toISOString(), artist: i % 50 === 3 ? '(Various Artists) The English Beat' : i % 50 === 4 ? 'Various Artists' : i % 50 === 6 ? 'AIRBREAK' : 'Artist ' + (i % 37), song: 'Song ' + i, album: 'Album', labels: ['Sub Pop'], rotation_status: i % 3 ? null : 'Heavy', comment: i === 0 ? 'Playing Thursday at the Crocodile' : '', show: 100 + Math.floor(i / 45) });
 }
 const limits = new Set();   // page sizes the NAS asked for
 function fakeKexp(honourDates) {
@@ -49,7 +49,7 @@ for (const honour of [true, false]) {
       expect(s.mode).toBe(honour ? 'date' : 'offset');
       expect([...limits]).toEqual([1000]);                                          // the past comes in big pages (user: "aggressively")                          // KEXP's inclusive airdate_before isn't mistaken for "ignored"
       const tops = (await (await fetch(B + '/api/radio/kexp?view=top&by=artist&period=all&limit=200')).json()).map(a => a.artist);
-      expect(tops).toContain('The English Beat'); expect(tops).not.toContain('Various Artists'); expect(tops.some(a => /^\(Various/.test(a))).toBe(false);
+      expect(tops).toContain('The English Beat'); expect(tops).not.toContain('AIRBREAK'); expect(tops).not.toContain('Various Artists'); expect(tops.some(a => /^\(Various/.test(a))).toBe(false);
       expect(Date.parse(s.latest)).toBeGreaterThan(NOW - 60e3);
       expect(Date.parse(s.since)).toBeLessThanOrEqual(NOW - 3 * 864e5);           // reached the 3-day limit…
       expect(Date.parse(s.since)).toBeGreaterThan(NOW - 7 * 864e5);               // …and stopped soon after (within one 1,000-play page, ~3 days)

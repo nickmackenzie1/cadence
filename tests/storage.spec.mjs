@@ -71,3 +71,28 @@ test('a fresh install starts empty on SQLite', async () => {
   expect(existsSync(join(dir, 'cadence.db'))).toBe(true);
   await s.stop();
 });
+
+test('daily backups keep your data and Radar history, but not what downloads again (KEXP history, artist pages)', async () => {
+  // a NAS that has been collecting: KEXP's playlist, a Music Radar pick (with its index), a kept artist page
+  const pre = new DatabaseSync(join(dir, 'cadence.db'));
+  pre.exec(`CREATE TABLE kexp_plays (id INTEGER PRIMARY KEY, airdate INTEGER, artist TEXT); CREATE INDEX kexp_plays_artist ON kexp_plays(artist COLLATE NOCASE);
+    CREATE TABLE kexp_meta (k TEXT PRIMARY KEY, v TEXT); CREATE TABLE radar_artist_pages (key TEXT PRIMARY KEY, json TEXT, at INTEGER, opened INTEGER);
+    CREATE TABLE radar_picks (id TEXT PRIMARY KEY, ts INTEGER, artist TEXT, json TEXT); CREATE INDEX radar_picks_ts ON radar_picks(ts);`);
+  const ins = pre.prepare('INSERT INTO kexp_plays VALUES (?, ?, ?)'); for (let i = 0; i < 500; i++) ins.run(i, i, 'Artist ' + i);
+  pre.prepare("INSERT INTO radar_picks VALUES ('p1', 1, 'Glass Lantern', '{}')").run();
+  pre.prepare("INSERT INTO radar_artist_pages VALUES ('glass lantern', '{}', 1, 1)").run();
+  pre.close();
+  const s = await start(dir);
+  expect((await put(s.url, doc([{ id: 't1', title: 'Keep me' }], 1000))).status).toBe(200);
+  await expect.poll(() => readdirSync(join(dir, 'backups')).find(f => /^cadence-\d{4}-\d{2}-\d{2}\.db$/.test(f)) || '').toMatch(/cadence-/);
+  await s.stop();
+  const f = readdirSync(join(dir, 'backups')).find(f => /^cadence-\d{4}-\d{2}-\d{2}\.db$/.test(f));
+  const b = new DatabaseSync(join(dir, 'backups', f), { readOnly: true });
+  const names = b.prepare("SELECT name FROM sqlite_master").all().map(r => r.name);
+  expect(names).not.toContain('kexp_plays'); expect(names).not.toContain('kexp_meta'); expect(names).not.toContain('kexp_plays_artist'); expect(names).not.toContain('radar_artist_pages');
+  expect(names).toContain('radar_picks_ts');                                              // indexes come along
+  expect(b.prepare('SELECT artist FROM radar_picks').get().artist).toBe('Glass Lantern');
+  expect(JSON.parse(b.prepare("SELECT data FROM records WHERE kind='task' AND id='t1'").get().data).title).toBe('Keep me');
+  expect(b.prepare('PRAGMA integrity_check').get().integrity_check).toBe('ok');
+  b.close();
+});
