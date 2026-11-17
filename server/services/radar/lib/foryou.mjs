@@ -78,7 +78,13 @@ export function forYou(state, pool, { limit = 12 } = {}) {
   if (!P.any) return { list: [], note: "Follow a few artists, save some to Want to hear, or play previews, and picks for you show up here." };
   const liked = [...P.artists.values()].filter((a) => a.w > 0);
   const likedKeys = new Map(liked.map((a) => [a.key, a]));
-  const edges = Object.values(state?.edges || {});
+  // one pass over the "sounds like" edges: for each artist next to someone you like, the strongest such link
+  // (was once per candidate: 300 × 150k edges, 2026-11-17)
+  const nearBy = new Map();
+  for (const e of Object.values(state?.edges || {})) for (const [me, other] of [[e.a, e.b], [e.b, e.a]]) {
+    const l = likedKeys.get(other); if (!l) continue; const w = l.w * Math.min(3, e.n || 1), cur = nearBy.get(me);
+    if (!cur || w > cur.w) nearBy.set(me, { l, w });
+  }
   const maxBuzz = Math.max(1, ...pool.map((x) => x.score || 0));
   const seen = new Set(), out = [];
   for (const x of pool) {
@@ -86,11 +92,7 @@ export function forYou(state, pool, { limit = 12 } = {}) {
     const mine = P.artists.get(k);
     if (mine && (mine.w >= 3 || mine.w < 0)) continue;   // already yours (followed, saved), or not for you
     // mentioned alongside someone you like
-    let near = null, nearW = 0;
-    for (const e of edges) {
-      const other = e.a === k ? e.b : e.b === k ? e.a : null; if (!other) continue;
-      const l = likedKeys.get(other); if (l && l.w * Math.min(3, e.n || 1) > nearW) { near = l; nearW = l.w * Math.min(3, e.n || 1); }
-    }
+    const nb = nearBy.get(k), near = nb ? nb.l : null, nearW = nb ? nb.w : 0;
     const g = genresOf(k, state); let gScore = 0, gBest = null, gBestW = 0;
     for (const [name, n] of g) { const w = P.genres.get(name) || 0; gScore += w * Math.min(1, n / 2); if (w > gBestW) { gBest = name; gBestW = w; } }
     if ([...g.keys()].some((name) => (P.genres.get(name) || 0) <= -10)) continue;   // a genre you said no to

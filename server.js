@@ -17,10 +17,22 @@ require('./server/services/push');    // starts the reminder push timer
 require('./server/services/feeds');   // starts the feed history checks
 require('./server/services/kexp-log'); // keeps KEXP's play history (Radio)
 
+// Slow things say so in the log (2026-11-17: the NAS stopped answering and nothing said why). A request over 2 s
+// is logged with its path; if the whole app is stuck for 3 s or more, the log says so and what it was serving.
+const busy = new Map(); let seq = 0;
+const timed = (req, res) => {
+  const id = ++seq, t = Date.now(), path = String(req.url || '').split('?')[0].slice(0, 80);
+  busy.set(id, path);
+  res.on('close', () => { busy.delete(id); const ms = Date.now() - t; if (ms > 2000 && !/\/stream$|\/events$/.test(path)) console.log(`slow: ${req.method} ${path} took ${(ms / 1000).toFixed(1)}s`); });
+  return handle(req, res);
+};
+let tick = Date.now();
+setInterval(() => { const lag = Date.now() - tick - 1000; tick = Date.now(); if (lag >= 3000) console.log(`! stuck for ${(lag / 1000).toFixed(1)}s${busy.size ? ' while serving ' + [...new Set(busy.values())].slice(0, 5).join(', ') : ' (background work)'}`); }, 1000).unref();
+
 const { storage, storageNote } = storageInfo();
 const tag = `data=${DATA_DIR}  storage=${storage}${storageNote ? ' (' + storageNote + ')' : ''}  ai=${API_KEY ? 'on' : 'off'}  auth=${PASSWORD ? 'on' : 'off'}`;
 if (TLS) {
-  require('https').createServer(TLS, handle).listen(HTTPS_PORT, () => console.log(`Cadence running on https :${HTTPS_PORT}  ${tag}  CA ${caFingerprint() || 'unknown'}`));
+  require('https').createServer(TLS, timed).listen(HTTPS_PORT, () => console.log(`Cadence running on https :${HTTPS_PORT}  ${tag}  CA ${caFingerprint() || 'unknown'}`));
   // plain HTTP: nothing but a redirect (so a password is never sent unencrypted) and the public CA download
   http.createServer((req, res) => {
     const u = new URL(req.url, 'http://x');
@@ -31,5 +43,5 @@ if (TLS) {
     res.end();
   }).listen(PORT, () => console.log(`Cadence http :${PORT} redirects to https :${HTTPS_PORT}`));
 } else {
-  http.createServer(handle).listen(PORT, () => console.log(`Cadence running on :${PORT}  ${tag}  https=off`));
+  http.createServer(timed).listen(PORT, () => console.log(`Cadence running on :${PORT}  ${tag}  https=off`));
 }

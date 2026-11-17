@@ -282,3 +282,22 @@ Cleaned up 2026-11-16 (0.8.2): items already built were moved out after checking
 - Now: `K.isOn()` for that question; status() keeps the play count (bumped on save) and estimates size from it;
   `K.heavySince()` reads heavy rotation once by date index (window capped at 400 days); Called it groups first
   sightings in SQL (`store.firstSightings`), reads artists only (`store.loadArtists`), kept an hour.
+
+### Idea: Music Radar as its own thing (user, 2026-11-17)
+- "at some point radar should be its own thing". Radar + KEXP history + Radio are the heaviest parts and share one
+  process with tasks, so a slow Radar query froze the whole app (health check included).
+- Step 1: run the music side in a second Node process in the same container (main app proxies /api/radar/*,
+  /api/radio/*, /api/kexp*); a crash or slow query there can't stop tasks or the health check.
+- Step 2 (later): its own container or app, maybe its own name and database file (cadence.db is 1 GB+ mostly KEXP).
+- Related: a `kexp_artists` metrics table (plays, first/last play, first heavy rotation per artist), built in small
+  batches and kept up to date on save, so per-artist KEXP numbers never group over millions of rows.
+
+### Radar page froze the NAS (2026-11-17, 0.24.3)
+- Opening Radar fires data, calledit, home, releases… at once, all synchronous on the one thread. Fixes:
+  `data()` kept 60 s (any POST /api/radar/* or finished scan starts it fresh); For you's "mentioned alongside" is one
+  pass over the edges (was candidates × edges); Called it runs in a worker thread (`radar/called-worker.mjs`), starts
+  from Apple-chart/heavy-rotation artists only, result kept in radar_kv `calledIt`, refreshed hourly; the page shows
+  the last result straight away.
+- Daily database backup runs in a worker thread (`lib/backup-worker.js` + `lib/backup-copy.js`).
+- Log: "slow: GET /path took Xs" for requests over 2 s; "! stuck for Xs while serving …" when the app is blocked 3 s+.
+- New indexes: radar_signals(last_seen), radar_chart_points(ts), radar_picks(artist COLLATE NOCASE).

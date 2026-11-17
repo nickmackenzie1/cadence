@@ -54,7 +54,7 @@ function runJob(kind, fn) {
     load().then(({ store }) => store.addJob({ ts: Date.now(), kind, ok: !problem, ms, errors: errors.length, problem, lines: lines.slice(-80) })).catch(e => console.error('radar job log', e));
     job = null;
   };
-  Promise.resolve().then(fn).then(() => finish(true), e => { console.error('radar', kind, e); finish(false, e); });
+  Promise.resolve().then(fn).then(() => { bust(); finish(true); }, e => { console.error('radar', kind, e); bust(); finish(false, e); });
   return true;
 }
 const runSources = async only => { const { store, sources, srcData } = await load(); console.log('Checking other sources…'); await sources.runSources(srcData.sourcesCfg(), { store, state: store.loadState(), only }); };
@@ -101,7 +101,17 @@ async function raw(name, offset = 0, limit = 50) {
   r.rows = r.rows.map(row => row.map(v => (typeof v === 'string' && v.length > 600 ? v.slice(0, 600) + '…' : v)));
   return r;
 }
-async function data() { const { store, data } = await load(); return data.dashboardData(store.loadState()); }
+// The Radar page's data is kept a minute: building it reads all of Radar (seconds on the NAS), and the page asks
+// often. Anything you change in Radar (every POST to /api/radar) starts it fresh (2026-11-17).
+let dataMemo = { at: 0, v: null, p: null };
+function bust() { dataMemo = { at: 0, v: null, p: null }; }
+async function data() {
+  if (dataMemo.v && Date.now() - dataMemo.at < 60e3) return dataMemo.v;
+  if (dataMemo.p) return dataMemo.p;
+  dataMemo.p = dataFresh().then(v => { dataMemo = { at: Date.now(), v, p: null }; return v; }, e => { dataMemo.p = null; throw e; });
+  return dataMemo.p;
+}
+async function dataFresh() { const { store, data } = await load(); return data.dashboardData(store.loadState()); }
 // what you listened to (the player sends one line per song heard; nothing about you leaves the NAS)
 const fyLib = () => import(pathToFileURL(path.join(__dirname, 'radar', 'lib', 'foryou.mjs')).href);
 async function listen(b = {}) {
@@ -126,10 +136,22 @@ async function mix({ week, again } = {}) {
   if (week && week !== X.mixWeek()) return X.pastMix(String(week)) || { error: 'No mix that week' };
   return X.fridayMix(await data(), { again: !!again, rel: X.releases() });
 }
+let called = { v: null, at: 0, running: false };
 async function calledIt() {
   const { store } = await load();
-  let K = null; try { K = require('./kexp-log'); if (!K.isOn()) K = null; } catch (e) {}
-  return (await exLib()).calledIt({ artists: store.loadArtists ? store.loadArtists() : store.loadState().artists }, { heavySince: K ? s => K.heavySince(s) : () => [] });
+  if (!called.v) { const kept = store.getKv('calledIt'); if (kept && kept.v) called = { ...called, v: kept.v, at: kept.at }; }
+  if (!called.running && (!called.v || Date.now() - called.at > 3600e3)) {
+    called.running = true;
+    let kexp = false; try { kexp = require('./kexp-log').isOn(); } catch (e) {}
+    const { Worker } = require('worker_threads');
+    try {
+      const w = new Worker(path.join(__dirname, 'radar', 'called-worker.mjs'), { workerData: { kexp, dbFile: path.join(require('../config').DATA_DIR, 'cadence.db') } });
+      w.once('message', m => { if (m && m.v) { called.v = m.v; called.at = Date.now(); try { store.setKv('calledIt', { v: m.v, at: called.at }); } catch (e) {} } else if (m && m.error) console.error('radar called it', m.error); });
+      w.once('error', e => console.error('radar called it', e.message));
+      w.once('exit', () => { called.running = false; });
+    } catch (e) { called.running = false; console.error('radar called it', e.message); }
+  }
+  return called.v ? { ...called.v, list: called.v.all.slice(0, 12) } : { list: [], count: 0, median: null, pending: true };
 }
 // Close to home (user, 2026-11-16): Kingston and Canadian artists, from what Cadence already hears:
 //   Kingston  Kingston Live listings, CFRC (Queen's) and Amherst Island Radio plays, MusicBrainz "from Kingston"
@@ -451,4 +473,4 @@ async function digestFile(name) {
 }
 async function spotify() { const { spotify } = await load(); return spotify; }
 
-module.exports = { mixcloud, yearInMusic, closeToHome, releases, mix, calledIt, listen, notForMe, artist, stg, shows, follow, preview, want, community, sourcesNow, sourcesSettings, raw, settings, status, scan, digestNow, data, feedback, rss, digestFile, spotify };
+module.exports = { bust, mixcloud, yearInMusic, closeToHome, releases, mix, calledIt, listen, notForMe, artist, stg, shows, follow, preview, want, community, sourcesNow, sourcesSettings, raw, settings, status, scan, digestNow, data, feedback, rss, digestFile, spotify };

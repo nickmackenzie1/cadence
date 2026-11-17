@@ -39,7 +39,7 @@ test('an existing state.json is imported into SQLite unchanged, then retired to 
   expect((await put(s.url, doc([{ id: 't1', title: 'One, edited' }], 2000))).status).toBe(200);
   expect(existsSync(join(dir, 'state.json'))).toBe(false);
   expect(readdirSync(join(dir, 'backups')).some(f => /^state-\d{4}-\d{2}-\d{2}\.json$/.test(f))).toBe(true);
-  expect(readdirSync(join(dir, 'backups')).some(f => /^cadence-\d{4}-\d{2}-\d{2}\.db$/.test(f))).toBe(true);
+  await expect.poll(() => readdirSync(join(dir, 'backups')).some(f => /^cadence-\d{4}-\d{2}-\d{2}\.db$/.test(f))).toBe(true);   // made in the background
   // stale writes are still refused
   expect((await put(s.url, doc([], 1500))).status).toBe(409);
   await s.stop();

@@ -56,7 +56,11 @@ function open() {
       CREATE TABLE IF NOT EXISTS radar_chart_points (id INTEGER PRIMARY KEY AUTOINCREMENT, ts INTEGER, source TEXT, uid TEXT, artist TEXT, title TEXT, feed TEXT, rank INTEGER, metric REAL);
       CREATE INDEX IF NOT EXISTS radar_chart_points_uid ON radar_chart_points(source, uid, ts);
       CREATE TABLE IF NOT EXISTS radar_source_runs (id INTEGER PRIMARY KEY AUTOINCREMENT, ts INTEGER, source TEXT, ok INTEGER, n INTEGER, fresh INTEGER, ms INTEGER, error TEXT);
-      CREATE TABLE IF NOT EXISTS radar_jobs (id INTEGER PRIMARY KEY AUTOINCREMENT, ts INTEGER, kind TEXT, ok INTEGER, ms INTEGER, errors INTEGER, problem TEXT, lines TEXT);`);
+      CREATE TABLE IF NOT EXISTS radar_jobs (id INTEGER PRIMARY KEY AUTOINCREMENT, ts INTEGER, kind TEXT, ok INTEGER, ms INTEGER, errors INTEGER, problem TEXT, lines TEXT);
+      CREATE INDEX IF NOT EXISTS radar_signals_last ON radar_signals(last_seen);
+      CREATE INDEX IF NOT EXISTS radar_chart_points_ts ON radar_chart_points(ts);
+      CREATE INDEX IF NOT EXISTS radar_picks_artist ON radar_picks(artist COLLATE NOCASE);
+    `);
     for (const [name, cols] of Object.entries(SERIES)) {
       db.exec(`CREATE TABLE IF NOT EXISTS radar_${name} (id INTEGER PRIMARY KEY AUTOINCREMENT, ts INTEGER NOT NULL, ${cols.map((c) => `${c} ${c === "n" || c === "mentions" ? "INTEGER" : c === "score" ? "REAL" : "TEXT"}`).join(", ")}, json TEXT NOT NULL);
         CREATE INDEX IF NOT EXISTS radar_${name}_ts ON radar_${name}(ts);`);
@@ -262,6 +266,16 @@ export function pagesToRefresh(olderThan, limit = 20) {
   return db.prepare("SELECT key, json_extract(json, '$.name') AS name FROM radar_artist_pages WHERE at < ? ORDER BY at LIMIT ?").all(Date.now() - olderThan, limit);
 }
 
+// first early sighting for just these artists (one grouped query)
+export function firstEarlyFor(keys, sources) {
+  if (!open() || !keys.length) return [];
+  const out = [];
+  for (let i = 0; i < keys.length; i += 500) {
+    const k = keys.slice(i, i + 500);
+    out.push(...db.prepare(`SELECT artist_key AS key, MIN(artist) AS artist, MIN(first_seen) AS ts, source, MIN(feed) AS feed FROM radar_signals WHERE artist_key IN (${k.map(() => "?").join(",")}) AND source IN (${sources.map(() => "?").join(",")}) GROUP BY artist_key, source`).all(...k, ...sources));
+  }
+  return out;
+}
 // just the artists (keyed), without picks, edges and digests
 export function loadArtists() {
   if (!open()) return loadState().artists;
