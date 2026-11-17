@@ -19,7 +19,7 @@
       function sizes(k) {
         const rows = get('sizes').filter(s => s.kid === k.id), kinds = [...new Set(['Shoes', 'Clothes', ...rows.map(r => r.kind)])], a = age(k) ?? 5;
         return `${kinds.map(kind => { const h = rows.filter(r => r.kind === kind).sort((x, y) => y.at.localeCompare(x.at)), cur = h[0]; const next = cur ? addDays(cur.at, LAST(kind, a) * 30) : null, d = next ? daysUntil(next) : null;
-          return K.card(esc(kind), cur ? `<div class="lk-row"><span class="grow">Size <b>${esc(cur.size)}</b> since ${esc(api.util.fmtDate(cur.at))}</span><em class="${d < 0 ? 'hot' : d < 30 ? 'soon' : ''}">${d < 0 ? 'Next size probably due now' : `Next size in ~${Math.max(1, Math.round(d / 30))} mo`}</em></div>${h.slice(1, 4).map(r => `<div class="lk-row"><span class="grow muted">${esc(r.size)}</span><em>${esc(api.util.fmtDate(r.at))}</em></div>`).join('')}` : K.empty('No size yet'), `<button class="lk-btn" data-size="${esc(kind)}">New size</button>`); }).join('')}
+          return K.card(esc(kind), cur ? `<div class="lk-row"><span class="grow">Size <b>${esc(cur.size)}</b> since ${esc(api.util.fmtDate(cur.at))}</span><em class="${d < 0 ? 'hot' : d < 30 ? 'soon' : ''}">${d < 0 ? 'Next size probably due now' : `Next size in ~${Math.max(1, Math.round(d / 30))} mo`}</em></div>${h.slice(1, 4).map(r => `<div class="lk-row"><span class="grow muted">${esc(r.size)}</span><em>${esc(api.util.fmtDate(r.at))}</em></div>`).join('')}` : K.empty('No sizes yet'), `<button class="lk-btn" data-size="${esc(kind)}">New size</button>`); }).join('')}
           <div class="lk-top"><button class="lk-btn" data-size="">Track something else</button><button class="lk-btn" id="kd-buy">Copy “what to buy” for grandparents</button></div>`;
       }
       function activities(k) {
@@ -94,7 +94,7 @@
       window.__kids = { today: () => { const dow = new Date().getDay(), wk = Math.floor(Date.now() / (7 * 864e5)); return (api.storage.get('acts') || []).filter(a => a.day !== '' && a.day != null && +a.day === dow).map(a => { const rot = (a.carpool || '').split(',').map(x => x.trim()).filter(Boolean); const k = kid(a.kid); return { kid: k ? k.name : '', name: a.name, time: a.time, where: a.where, driver: rot.length ? rot[wk % rot.length] : '' }; }); } };
       api.views.add({ id: 'kids', title: 'Kids', icon: '👶', subtitle: 'Sizes, activities, memories, health, chores and parties', render: view });
       K.css('kd-css', `.kd-kid{border:1px solid var(--line);background:var(--panel);border-radius:999px;padding:5px 12px;font:600 13px Inter,system-ui;cursor:pointer;color:var(--text);display:inline-flex;gap:6px;align-items:center}.kd-kid span{font-size:11px;color:var(--muted)}.kd-kid.on{background:#f472b6;border-color:#f472b6;color:#fff}.kd-kid.on span{color:#fff}
-        .kd-alert{background:color-mix(in srgb,#e5484d 12%,var(--panel));border:1px solid color-mix(in srgb,#e5484d 40%,var(--line));color:#b42318;border-radius:var(--r);padding:8px 12px;font-weight:700;font-size:13px;margin-bottom:10px}
+        .kd-alert{background:color-mix(in srgb,var(--danger) 12%,var(--panel));border:1px solid color-mix(in srgb,var(--danger) 40%,var(--line));color:var(--danger);border-radius:var(--r);padding:8px 12px;font-weight:700;font-size:13px;margin-bottom:10px}
         .kd-bal{display:flex;align-items:center;gap:10px;margin-bottom:12px}.kd-bal b{font:900 34px/1 ui-rounded,system-ui;color:#f472b6}.kd-bal span{flex:1;color:var(--muted);font-size:13px}`);
     },
   });

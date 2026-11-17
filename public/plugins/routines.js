@@ -47,7 +47,7 @@
       css('en-css', `.en-ban{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin:-8px 0 22px;font-size:13px;color:var(--muted)}
         .en-ban span{margin-right:4px}.en-ban svg{width:16px;height:16px}.en-ban button{display:inline-flex;align-items:center;gap:5px;border:1px solid var(--line);background:var(--bg);color:var(--text);border-radius:999px;padding:4px 11px;font:600 12px Inter,system-ui;cursor:pointer}
         .en-ban button:hover{border-color:var(--accent)}.en-ban button{padding:3px 10px;font-weight:500;color:var(--muted)}.en-ban button:hover{color:var(--text)}
-        .en-tucked{display:none!important}.en-hard,.chip.en-hard{color:#b45309}.en-easy,.chip.en-easy{color:#15803d}.chip.en-hard svg,.chip.en-easy svg{width:13px;height:13px;margin-right:3px}
+        .en-tucked{display:none!important}.en-hard,.chip.en-hard{color:var(--warn)}.en-easy,.chip.en-easy{color:var(--ok)}.chip.en-hard svg,.chip.en-easy svg{width:13px;height:13px;margin-right:3px}
         .en-card{display:flex;align-items:center;gap:4px;margin-top:8px;font-size:12px}.en-card span{color:var(--muted);margin-right:4px}.en-card button{border:1px solid var(--line);background:none;border-radius:999px;padding:3px 9px;font:600 11.5px Inter,system-ui;color:var(--muted);cursor:pointer}.en-card button.on{background:var(--accent);border-color:var(--accent);color:#fff}`);
     },
   });

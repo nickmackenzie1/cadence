@@ -53,7 +53,7 @@
       const css = document.createElement('style');
       css.textContent = `.db-otd{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px;font-size:13px} .db-otd li{display:grid;grid-template-columns:44px 1fr;gap:8px}
         .db-x{margin:0} .db-x img{max-width:100%;height:auto;display:block;margin:0 auto 6px;background:#fff;border-radius:4px} .db-x figcaption{font-size:13px} .db-x details{font-size:12px;color:var(--muted)}
-        .db-c iframe{width:100%;max-width:400px;border:0;border-radius:6px;display:block} .db-board .btn{display:inline-flex;gap:6px;align-items:center} .db-c p{font-size:12px;margin:6px 0 0}
+        .db-c iframe{width:100%;max-width:400px;border:0;border-radius:var(--r-s);display:block} .db-board .btn{display:inline-flex;gap:6px;align-items:center} .db-c p{font-size:12px;margin:6px 0 0}
         .db-hn{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:6px;font-size:13px} .db-hn li span{display:block;font-size:12px}
         .db-hn a,.db-otd a{color:inherit} .db-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:18px;max-width:1200px} .db-grid h3{margin:0 0 8px;font-size:15px}`;
       document.head.appendChild(css);

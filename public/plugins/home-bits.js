@@ -164,9 +164,9 @@
         .hb-g{display:flex;flex-direction:column;gap:2px;cursor:pointer} .hb-g.eve b,.hb-g.today b{color:var(--accent)}
         .hb-form{display:flex;flex-direction:column;gap:8px;margin-top:10px} .hb-form label{display:flex;flex-direction:column;gap:3px;font-size:12px;color:var(--muted)} .hb-chk{flex-direction:row!important;align-items:center}
         .hb-note{font-size:12px} .hb-row{display:flex;gap:6px;flex-wrap:wrap;margin:6px 0} .hb-row .inp{flex:1;min-width:140px}
-        .hb-meals{display:flex;flex-direction:column;gap:10px} .hb-meal{display:flex;gap:10px} .hb-meal img{width:64px;height:64px;border-radius:8px;object-fit:cover;flex:none}
+        .hb-meals{display:flex;flex-direction:column;gap:10px} .hb-meal{display:flex;gap:10px} .hb-meal img{width:64px;height:64px;border-radius:var(--r-m);object-fit:cover;flex:none}
         .hb-meal>div{display:flex;flex-direction:column;gap:2px;font-size:13px} .hb-act{display:flex;gap:6px;flex-wrap:wrap;margin-top:4px} .hb-act .btn{font-size:12px;padding:3px 8px} .hb-more{margin-top:8px;display:inline-flex;gap:6px;align-items:center}
-        #hb-cam video{width:100%;max-width:360px;border-radius:8px} .hb-prod{display:flex;gap:10px;align-items:center;flex-wrap:wrap} .hb-prod img{width:56px;height:56px;object-fit:contain} .hb-prod>div{flex:1;display:flex;flex-direction:column}
+        #hb-cam video{width:100%;max-width:360px;border-radius:var(--r-m)} .hb-prod{display:flex;gap:10px;align-items:center;flex-wrap:wrap} .hb-prod img{width:56px;height:56px;object-fit:contain} .hb-prod>div{flex:1;display:flex;flex-direction:column}
         .hb-tv,.hb-res{list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:6px;font-size:13px} .hb-tv li{display:grid;grid-template-columns:170px 1fr auto;gap:8px}
         .hb-res li{display:grid;grid-template-columns:1fr auto auto;gap:8px;align-items:center} .hb-chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
         .hb-chip{display:inline-flex;align-items:center;gap:4px;border:1px solid var(--line);border-radius:999px;padding:2px 4px 2px 10px;font-size:12px} .hb-chip button{background:none;border:0;cursor:pointer;color:var(--muted);display:flex}

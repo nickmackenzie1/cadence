@@ -2,13 +2,13 @@
 :root{
   --bg:#f7f6f3;--panel:#fff;--side:#f0eee9;--text:#1d1c1a;--muted:#8a877f;--faint:#b9b5ac;--line:#e7e4dd;
   --hover:rgba(0,0,0,.035);--accent:#5b5bd6;--accent-soft:#ecebfb;--danger:#d4533b;--danger-soft:#fbeae6;
-  --ok:#2f9e6b;--client:#c2771c;--client-soft:#fbf1e3;--shadow:0 1px 2px rgba(0,0,0,.04),0 8px 28px rgba(0,0,0,.08);
+  --ok:#2f9e6b;--warn:#b7741a;--warn-soft:#fbf1e3;--client:#c2771c;--client-soft:#fbf1e3;--shadow:0 1px 2px rgba(0,0,0,.04),0 8px 28px rgba(0,0,0,.08);
   --r:10px;--r-s:calc(var(--r) * .6);--r-m:calc(var(--r) * .8);--r-l:calc(var(--r) * 1.2);--r-xl:calc(var(--r) * 1.6);--mono:'JetBrains Mono',ui-monospace,monospace;
 }
 [data-theme=dark]{
   --bg:#141416;--panel:#1b1b1e;--side:#17171a;--text:#ecebe8;--muted:#8f8c86;--faint:#5c5a56;--line:#29292d;
   --hover:rgba(255,255,255,.04);--accent:#8d8df7;--accent-soft:#25254a;--danger:#ef7a62;--danger-soft:#3a201b;
-  --ok:#4cc38a;--client:#e5a24a;--client-soft:#33281a;--shadow:0 1px 2px rgba(0,0,0,.3),0 10px 30px rgba(0,0,0,.45);
+  --ok:#4cc38a;--warn:#e0a24a;--warn-soft:#33281a;--client:#e5a24a;--client-soft:#33281a;--shadow:0 1px 2px rgba(0,0,0,.3),0 10px 30px rgba(0,0,0,.45);
 }
 *{box-sizing:border-box}
 html,body{margin:0;height:100%}
@@ -401,7 +401,7 @@ html.demo #sync i{background:#f5a524!important;box-shadow:0 0 0 3px rgba(245,165
 .pl-meta .btn{padding:4px 10px;font-size:12px}
 .switch.sm{transform:scale(.82);transform-origin:right center;flex:none}
 
-.demo-row{display:flex;align-items:center;gap:6px;margin:0 0 8px;padding:6px 6px 6px 10px;border-radius:var(--r);background:color-mix(in srgb,#f5a524 14%,transparent);font-size:12px;font-weight:500}
+.demo-row{display:flex;align-items:center;gap:6px;margin:0 0 8px;padding:6px 6px 6px 10px;border-radius:var(--r);background:color-mix(in srgb,var(--warn) 14%,transparent);font-size:12px;font-weight:500}
 .demo-row b{color:#f5a524;font-size:10px}
 .demo-row button:first-of-type{margin-left:auto}
 .demo-row button{font-size:12px;padding:3px 8px;border-radius:var(--r-s);color:var(--text)}
@@ -510,7 +510,7 @@ html.amb-on .c-hero .bg.img{opacity:.24;filter:saturate(1.1)}
 /* internal projects */
 .c-hero.proj .sub{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
 .pj-tgt{font-size:13px;font-weight:600;padding:3px 9px;border-radius:999px;background:var(--hover);color:var(--muted)}
-.pj-tgt.soon{background:color-mix(in srgb,var(--warn,#d97706) 16%,transparent);color:var(--warn,#b45309)}
+.pj-tgt.soon{background:color-mix(in srgb,var(--warn) 16%,transparent);color:var(--warn,#b45309)}
 .pj-tgt.late{background:color-mix(in srgb,var(--danger) 14%,transparent);color:var(--danger)}
 .pj-bar{width:100%;align-self:stretch;height:8px;border-radius:var(--r-m);background:color-mix(in srgb,var(--text) 9%,transparent);overflow:hidden;max-width:520px}
 .pj-bar i{display:block;height:100%;border-radius:var(--r-m);min-width:2px;transition:width .5s cubic-bezier(.2,.8,.2,1)}
@@ -525,7 +525,7 @@ html.amb-on .c-hero .bg.img{opacity:.24;filter:saturate(1.1)}
 .pop-sect{font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--faint);padding:10px 12px 4px;border-top:1px solid var(--line);margin-top:4px}
 /* in progress / following up */
 .chip.stage.st-doing{background:color-mix(in srgb,var(--accent) 13%,transparent);color:var(--accent);font-weight:600}
-.chip.stage.st-waiting{background:color-mix(in srgb,#d97706 14%,transparent);color:color-mix(in srgb,#d97706 80%,var(--text));font-weight:600}
+.chip.stage.st-waiting{background:color-mix(in srgb,var(--warn) 14%,transparent);color:color-mix(in srgb,#d97706 80%,var(--text));font-weight:600}
 .t-last{font-size:13px;color:var(--muted);margin-top:2px;overflow-wrap:anywhere}
 .te-chip.st-doing{color:var(--accent)}.te-chip.st-waiting{color:color-mix(in srgb,#d97706 80%,var(--text))}
 .te-log{margin:6px 0 8px;padding-left:4px}
@@ -744,3 +744,7 @@ a.btn.primary{color:#fff}
 .vw-music #pv a:not(.btn):not(.ar-chip):not(.ar-link):not(.pc-ib){color:var(--accent);text-decoration:none}
 .vw-music #pv a:not(.btn):not(.ar-chip):not(.ar-link):not(.pc-ib):hover{text-decoration:underline}
 .vw-music :is(.kx-chips,.sg-tabs,.ars){gap:6px}
+
+/* design pass (2026-11-16): links in empty states and checkboxes / radios follow the theme instead of browser blue */
+.empty a:not(.btn){color:var(--accent);text-decoration:none}.empty a:not(.btn):hover{text-decoration:underline}
+input[type=checkbox],input[type=radio],input[type=range],progress{accent-color:var(--accent)}

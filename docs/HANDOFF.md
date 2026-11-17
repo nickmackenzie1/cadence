@@ -162,3 +162,10 @@ Cleaned up 2026-11-16 (0.8.2): items already built were moved out after checking
   station notes), Home helpers (garbage-night reminder on/off + time), Calendar view (week starts Sun/Mon), Podcasts
   (skip lengths, were 10/30 fixed), Roulette (lock length), Music Radar (gear opens its Settings section).
   Judgement calls offered to the user, not done: Daily page picks, Rival pace, Focus aquarium lengths, energy check-in.
+- **0.18.1 design pass (whole app):** measured every plugin's CSS (scripts were /tmp/css-audit.cjs, /tmp/hex.cjs;
+  screenshots of every view as contact sheets). Changes: `--warn`/`--warn-soft` tokens (light + dark) and the status colours in
+  routines, mindset, desk, life-kit, camping, kids, orbit, kanban, fun-games, core now use `--ok`/`--warn`/`--danger`
+  (themes control them; decorative/brand colours left alone); fixed 6/8/10/12px radii → `--r-s/--r-m/--r/--r-l`;
+  half-pixel font sizes rounded; `LifeKit.empty(t)` with one argument is a quiet hint (was bold), two = title + hint;
+  links in `.empty` and checkboxes/radios use the accent; feed fetch errors in plain words (`detail` keeps the cause).
+  Calendar view's "now" line uses the accent instead of red.

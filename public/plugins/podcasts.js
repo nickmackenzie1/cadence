@@ -193,8 +193,8 @@
 
   const css = document.createElement('style'); css.id = 'pc-css';
   css.textContent = `#pc-mini{position:fixed;left:50%;bottom:12px;transform:translateX(-50%);z-index:40;display:flex;align-items:center;gap:8px;width:min(560px,calc(100vw - 24px));padding:6px 8px;border-radius:14px;background:var(--panel);color:var(--text);border:1px solid var(--line);box-shadow:0 8px 28px rgba(0,0,0,.18)}
-    #pc-mini[hidden]{display:none} #pc-mini img,#pc-mini .pc-noart{width:40px;height:40px;border-radius:8px;flex:none;object-fit:cover;display:grid;place-items:center;background:var(--accent-soft)}
-    .pc-m-t{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px} .pc-m-t b,.pc-m-t span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis} .pc-m-t b{font-size:13px} .pc-m-t span{font-size:11.5px;color:var(--muted)}
+    #pc-mini[hidden]{display:none} #pc-mini img,#pc-mini .pc-noart{width:40px;height:40px;border-radius:var(--r-m);flex:none;object-fit:cover;display:grid;place-items:center;background:var(--accent-soft)}
+    .pc-m-t{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px} .pc-m-t b,.pc-m-t span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis} .pc-m-t b{font-size:13px} .pc-m-t span{font-size:12px;color:var(--muted)}
     .pc-m-bar{display:block;height:3px;border-radius:2px;background:var(--line);overflow:hidden} .pc-m-bar i{display:block;height:100%;background:var(--accent)}
     .pc-ib{display:inline-grid;place-items:center;width:34px;height:34px;border-radius:50%;border:0;background:transparent;color:var(--text);cursor:pointer;flex:none} .pc-ib:hover{background:var(--hover)} .pc-ib svg{width:18px;height:18px}
     .pc-ib.pc-big{width:40px;height:40px;background:var(--accent);color:var(--on-accent)} .pc-ib.pc-big svg{width:20px;height:20px}
@@ -203,14 +203,14 @@
     .pc-main,.pc-side{display:flex;flex-direction:column;gap:14px;min-width:0}
     .pc-card{background:var(--panel);border:1px solid var(--line);border-radius:var(--r,10px);padding:12px 14px}
     .pc-h{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px}
-    .pc-now{display:flex;gap:14px;align-items:flex-start} .pc-now>img{width:96px;height:96px;border-radius:12px;object-fit:cover;flex:none}
+    .pc-now{display:flex;gap:14px;align-items:flex-start} .pc-now>img{width:96px;height:96px;border-radius:var(--r-l);object-fit:cover;flex:none}
     .pc-now-t{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px} .pc-now-t b{font-size:16px}
     .pc-seek{width:100%;margin:8px 0 4px;accent-color:var(--accent)} .pc-ctl{display:flex;flex-wrap:wrap;align-items:center;gap:6px} .pc-ctl select{width:auto}
     .pc-ep{display:flex;align-items:center;gap:10px;padding:7px 0;border-top:1px solid var(--line)} .pc-ep:first-of-type{border-top:0}
-    .pc-ep img{width:38px;height:38px;border-radius:8px;object-fit:cover;flex:none} .pc-ep-t{flex:1;min-width:0;display:flex;flex-direction:column} .pc-ep-t b{font-size:13.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis} .pc-ep-t span{font-size:12px;color:var(--muted)}
+    .pc-ep img{width:38px;height:38px;border-radius:var(--r-m);object-fit:cover;flex:none} .pc-ep-t{flex:1;min-width:0;display:flex;flex-direction:column} .pc-ep-t b{font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis} .pc-ep-t span{font-size:12px;color:var(--muted)}
     .pc-ep-a{display:flex;gap:4px;flex:none} .pc-ep-a .btn svg{width:14px;height:14px} @media (max-width:700px){.pc-ep-a .btn span{display:none}}
-    .pc-shows{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:8px} .pc-shows img{width:100%;aspect-ratio:1;border-radius:8px;object-fit:cover;background:var(--accent-soft)}
-    .pc-note,.pc-sync{display:flex;align-items:center;gap:6px;font-size:12.5px} .pc-note svg,.pc-sync svg{width:14px;height:14px;flex:none}
-    .pc-setup pre{background:var(--hover);padding:10px;border-radius:8px;overflow:auto} .pc-notes{max-height:60vh;overflow:auto;line-height:1.55;white-space:normal}`;
+    .pc-shows{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:8px} .pc-shows img{width:100%;aspect-ratio:1;border-radius:var(--r-m);object-fit:cover;background:var(--accent-soft)}
+    .pc-note,.pc-sync{display:flex;align-items:center;gap:6px;font-size:12px} .pc-note svg,.pc-sync svg{width:14px;height:14px;flex:none}
+    .pc-setup pre{background:var(--hover);padding:10px;border-radius:var(--r-m);overflow:auto} .pc-notes{max-height:60vh;overflow:auto;line-height:1.55;white-space:normal}`;
   document.head.appendChild(css);
 })();

@@ -55,7 +55,7 @@
     setup(api) {
       const on = () => { const v = localStorage.getItem('cadence.donelist'); return v && v === new Date().toDateString(); };
       const set = v => { v ? localStorage.setItem('cadence.donelist', new Date().toDateString()) : localStorage.removeItem('cadence.donelist'); live(); api.ui.navigate('today'); api.ui.refresh(); };
-      const live = () => on() ? api.island.live('donelist', { prio: 3, view: () => ({ minW: 160, onClick: () => set(false), html: `<span class="isl-dot" style="background:#10b981"></span><span class="isl-t"><b>Done-list mode</b></span>` }) }) : api.island.clear('donelist');
+      const live = () => on() ? api.island.live('donelist', { prio: 3, view: () => ({ minW: 160, onClick: () => set(false), html: `<span class="isl-dot" style="background:var(--ok)"></span><span class="isl-t"><b>Done-list mode</b></span>` }) }) : api.island.clear('donelist');
       api.on('render', e => {
         if (!on() || !e || e.route !== 'today') return; const v = document.getElementById('view'); if (!v || v.querySelector('.dl')) return;
         const t0 = new Date().setHours(0, 0, 0, 0), wk = t0 - ((new Date().getDay() + 6) % 7) * DAY, done = api.tasks.list(t => t.done && t.doneAt).sort((a, b) => b.doneAt - a.doneAt);
@@ -72,8 +72,8 @@
       api.commands.add({ title: 'Bad day: show only what I’ve done', hint: 'Done-list mode', run: () => set(!on()) });
       live();
       css('dl-css', `.dl-big{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:8px 0 18px}.dl-big div{border:1px solid var(--line);border-radius:var(--r-l);padding:16px;background:color-mix(in srgb,#10b981 7%,var(--panel))}
-        .dl-big b{display:block;font:900 34px/1 ui-rounded,system-ui;color:#059669}.dl-big span{font-size:13px;color:var(--muted)}
-        .dl-it{display:flex;align-items:center;gap:10px;padding:8px 2px;border-bottom:1px solid var(--line);font-size:14px}.dl-it svg{width:16px;height:16px;color:#10b981;flex:none}.dl-it span{flex:1}.dl-it em{font-style:normal;font-size:12px;color:var(--muted)}
+        .dl-big b{display:block;font:900 34px/1 ui-rounded,system-ui;color:var(--ok)}.dl-big span{font-size:13px;color:var(--muted)}
+        .dl-it{display:flex;align-items:center;gap:10px;padding:8px 2px;border-bottom:1px solid var(--line);font-size:14px}.dl-it svg{width:16px;height:16px;color:var(--ok);flex:none}.dl-it span{flex:1}.dl-it em{font-style:normal;font-size:12px;color:var(--muted)}
         .dl-soft{padding:18px;border-radius:var(--r-l);background:var(--hover);font-size:14px;margin-bottom:10px}`);
     },
   });
@@ -113,7 +113,7 @@
       window.__futureYou = { prime };
       api.commands.add({ title: 'Future-you negotiator settings', run: () => api.ui.ask('Future-you negotiator', [{ k: 'n', label: 'Ask for a note to future you from', type: 'select', def: opt().from, opts: [[1, 'Every time I push a task back'], [2, 'The second push onwards'], [3, 'The third push onwards']] }]).then(v => { if (v) api.storage.set('opt', { from: +v.n }); }) });
       css('fy-css', `.fy-chip{color:#f43f5e}.fy-chip svg{width:12px;height:12px;margin-right:3px}
-        .fy-card{border:1px solid color-mix(in srgb,#f43f5e 35%,var(--line));background:color-mix(in srgb,#f43f5e 6%,var(--panel));border-radius:var(--r-l);padding:10px 12px;margin-top:8px}
+        .fy-card{border:1px solid color-mix(in srgb,var(--danger) 35%,var(--line));background:color-mix(in srgb,#f43f5e 6%,var(--panel));border-radius:var(--r-l);padding:10px 12px;margin-top:8px}
         .fy-card small{color:var(--muted);font-size:12px}.fy-card p{margin:4px 0 8px;font-size:14px;font-style:italic}.fy-card div{display:flex;gap:6px}`);
     },
   });

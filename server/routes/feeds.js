@@ -33,7 +33,7 @@ module.exports = async function feedsRoutes(req, res, { url, p }) {
       feedCache.set(u, { at: Date.now(), data }); if (feedCache.size > 50) feedCache.delete(feedCache.keys().next().value);
       logFeed(u, data, true);
       return send(res, 200, data);
-    } catch (e) { return hit ? send(res, 200, hit.data) : send(res, 502, { error: 'Could not fetch feed: ' + e.message }); }
+    } catch (e) { return hit ? send(res, 200, hit.data) : send(res, 502, { error: "Couldn't reach this feed just now. It'll try again next time.", detail: e.message }); }
   }
   return NEXT;   // not ours
 };

@@ -82,7 +82,7 @@
       css.textContent = `.od-l{list-style:none;margin:6px 0 0;padding:0;display:flex;flex-direction:column;gap:6px}
         .od-l li{display:grid;grid-template-columns:18px 118px 1fr;align-items:baseline;gap:8px;font-size:13px} .od-l li svg{width:16px;height:16px;color:var(--muted);align-self:center}
         .od-v{max-width:720px} .od-v h3{margin:18px 0 4px;font-size:15px}
-        .od-p{list-style:none;padding:0;margin:6px 0;display:flex;flex-direction:column;gap:4px} .od-p li{display:grid;grid-template-columns:150px 1fr auto;gap:10px;font-size:13px;padding:4px 6px;border-radius:6px}
+        .od-p{list-style:none;padding:0;margin:6px 0;display:flex;flex-direction:column;gap:4px} .od-p li{display:grid;grid-template-columns:150px 1fr auto;gap:10px;font-size:13px;padding:4px 6px;border-radius:var(--r-s)}
         .od-p li.on{background:var(--accent-soft)} .od-c{display:flex;gap:8px;align-items:center;font-size:13px;margin:4px 0} .od-src{font-size:12px;margin-top:12px}`;
       document.head.appendChild(css);
       return () => { clearInterval(t); css.remove(); };
