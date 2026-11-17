@@ -2580,6 +2580,7 @@
   /* shared helpers for plugins (so each plugin doesn't carry its own copy) */
   window.CadenceKit = Object.freeze({
     focusLater,
+    icon: n => icon(n),
     esc: s =>
       String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]),
     css: (id, text) => {

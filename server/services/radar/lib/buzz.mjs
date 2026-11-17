@@ -65,6 +65,9 @@ export function allBuzz({ t, snaps, sig, pts, weight, communityWeight, chartSet,
   for (const x of vals) { x.score = +(x.score / top * 100).toFixed(1); if (x.score >= 0.5) fake.push(x); }
   const rise = riseData(fake, t, days);
   for (const r of [...rise.risers, ...rise.top]) r.sources = sources[r.key] || [];
+  // a riser needs real buzz: a second source, or one that isn't just ListenBrainz's list of new releases
+  const real = rise.risers.filter((r) => r.sources.length > 1 || (r.sources.length === 1 && r.sources[0] !== name("listenbrainz")));
+  if (real.length >= 3) rise.risers = real;
   delete rise.all;
   return rise;
 }

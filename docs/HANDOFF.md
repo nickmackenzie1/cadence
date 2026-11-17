@@ -176,3 +176,20 @@ Cleaned up 2026-11-16 (0.8.2): items already built were moved out after checking
   and `mainstreamSet` never hides a followed artist (user). Client: `window.CadenceFollow`, Follow button on artist pages,
   "Following" in Music → Artists, island note 20 s after load and every 30 min (each item once: `cadence.followNoted`).
   Shows puts followed artists first ("You follow them").
+
+### Player redesign + old-school visualizers (2026-11-16)
+- User: the player "seems so out of place design wise and ugly", wants "old school" visualizers to choose from "in a mini window".
+- `#pc-mini` (podcasts.js) redrawn with theme tokens (panel, line, shadow, `--r-l`): outlined play button, skip either side,
+  steady digits, thin seek line along the bottom (click to jump), tiny live bars that open the visualizer.
+- `public/plugins/visualizer.js` (`window.CadenceViz`, in `ALWAYS`): draggable window with Bars (Winamp-style, amber tips,
+  no red), Scope, VU (two needles), Ring (theme colour); remembers mode, position, open. "Pop out" uses Document
+  Picture-in-Picture (Chrome/Edge) so it floats over other apps.
+- Sound analysis needs same-origin audio, so with the visualizer on `P.setViz(true)` plays everything through
+  `api/radio/stream?u=` (relay now forwards Range → 206 so seeking works) and keeps the place when switching.
+  Once the AudioContext exists the relay stays on for the rest of the page session.
+- `CadenceKit.icon(name)` added so plain scripts can use the Lucide set. Icons added: picture-in-picture-2, audio-lines.
+
+### Radar data fixes (2026-11-16)
+- "Genres blowing up" skips umbrella tags (alternative, pop, electronic, energizing…) and rounds the numbers.
+- Fastest risers no longer filled with ListenBrainz-only "0 → N" rows; status shown only for new entries.
+- Albums card drops the redundant "album" chip.

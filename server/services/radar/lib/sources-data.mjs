@@ -9,7 +9,7 @@ import { SOURCES, DEFAULT_CFG, tagsFor, blogList } from "./sources.mjs";
 
 // how much one signal from each source counts in the combined score (blogs and Hype Machine are the early-buzz signals)
 // KEXP is DJs choosing records: the strongest early signal here. Blogs count by tier (see DEFAULT_BLOGS).
-const WEIGHT = { community: 3, blogs: 3, hypem: 3, kexp: 3.5, kexpchart: 3, earshot: 3, audius: 2, bandcamp: 1.5, listenbrainz: 1.5, apple: 1, lastfm: 1 };
+const WEIGHT = { community: 3, blogs: 3, hypem: 3, kexp: 3.5, kexpchart: 3, earshot: 3, audius: 2, bandcamp: 1.5, listenbrainz: 0.75, apple: 1, lastfm: 1 };
 const TIER_WEIGHT = { big: 1.5, small: 3.5 };
 const CHARTS = new Set(["apple", "audius", "lastfm", "hypem", "earshot", "kexpchart"]);
 export const sourcesCfg = () => { const c = store.getKv("sourcesCfg", {}) || {}; return { ...DEFAULT_CFG, ...c, on: { ...DEFAULT_CFG.on, ...(c.on || {}) } }; };
@@ -79,6 +79,8 @@ export function sourcesData(state, snaps, hide = null) {
   for (const s of sig) bump(s.source, s.first_seen);
   for (const p of state.picks) bump("community", p.ts);
   const name = (id) => (id === "community" ? "Lemmy & Mastodon" : SOURCES[id]?.name || id);
+  // store categories and moods say nothing ("electronic", "pop", "energizing"): keep the specific genres
+  const UMBRELLA = new Set(["alternative", "pop", "rock", "electronic", "electronica", "dance", "hip hop", "hip-hop", "hip hop/rap", "rap", "r&b", "r&b/soul", "soul", "country", "singer/songwriter", "world", "music", "indie", "energizing", "chill", "workout", "focus", "party", "relaxing", "feel good", "happy", "sad", "romantic", "upbeat", "mellow", "fun", "sleep", "study", "instrumental", "soundtrack", "latin", "k-pop", "j-pop"]);
   const genreRows = [];
   // the community scan's genres too (counted once per scan, about 4 a day, so they're scaled to match one mention)
   for (const r of store.readJsonl("genres", t - 28 * DAY)) { const g = cleanGenre(r.genre); if (g) genreRows.push({ ts: r.ts, genre: g, n: (r.n || 1) / 4 }); }
@@ -107,7 +109,7 @@ export function sourcesData(state, snaps, hide = null) {
     available: true, rise, albums, tracked, cfg: { ...cfg, blogs: blogList(cfg), tagsUsed: tagsFor(cfg, state) }, list,
     combined: combined.slice(0, 60), multi: combined.filter((a) => a.breadth >= 2).length,
     perDay: { labels, series: Object.entries(perDay).map(([id, data]) => ({ id, label: name(id), data })).sort((a, b) => b.data.reduce((x, y) => x + y, 0) - a.data.reduce((x, y) => x + y, 0)) },
-    genres: momentum(genreRows, t, "genre").map((g) => ({ ...g, thisWeek: +g.thisWeek.toFixed(1) })).slice(0, 20),
+    genres: momentum(genreRows.filter((r) => !UMBRELLA.has(String(r.genre).toLowerCase())), t, "genre").map((g) => ({ ...g, thisWeek: Math.round(g.thisWeek), perWeekBefore: Math.round(g.perWeekBefore) })).slice(0, 20),
     crossover: crossover.sort((a, b) => b.charted - a.charted).slice(0, 20),
     movers: movesOnce.slice(0, 20),
     alsoOn: Object.fromEntries(combined.filter((a) => Object.keys(a.sources).some((s) => s !== "community")).map((a) => [a.key, Object.keys(a.sources).filter((s) => s !== "community")])),

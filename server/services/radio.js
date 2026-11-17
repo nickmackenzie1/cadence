@@ -234,11 +234,16 @@ async function openStream(url, extra = {}) {
   }
   return { res, req };
 }
+// Also the player's relay for anything it plays while a visualizer is on (2026-11-16): a browser can only analyse sound
+// from its own server. Seeking passes through (Range → 206), so podcasts can still jump around.
 async function relay(url, clientReq, clientRes) {
-  let { res, req } = await openStream(url);
+  const range = clientReq.headers.range && /^bytes=\d*-\d*$/.test(clientReq.headers.range) ? { Range: clientReq.headers.range } : {};
+  let { res, req } = await openStream(url, range);
   const type = String(res.headers['content-type'] || '');
-  if (res.statusCode !== 200 || !/^(audio\/|application\/ogg|application\/octet-stream|video\/mp2t)/i.test(type)) { req.destroy(); throw Object.assign(new Error('not an audio stream (' + (res.statusCode || '?') + ' ' + type + ')'), { code: 502 }); }
-  clientRes.writeHead(200, { 'Content-Type': type, 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' });
+  if ((res.statusCode !== 200 && res.statusCode !== 206) || !/^(audio\/|application\/ogg|application\/octet-stream|binary\/octet-stream|video\/mp2t|video\/mp4)/i.test(type)) { req.destroy(); throw Object.assign(new Error('not an audio stream (' + (res.statusCode || '?') + ' ' + type + ')'), { code: 502 }); }
+  const h = { 'Content-Type': type, 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' };
+  for (const k of ['content-length', 'content-range', 'accept-ranges']) if (res.headers[k]) h[k.replace(/(^|-)\w/g, m => m.toUpperCase())] = res.headers[k];
+  clientRes.writeHead(res.statusCode, h);
   res.pipe(clientRes);
   const stop = () => { try { req.destroy(); } catch {} };
   clientReq.on('close', stop); clientRes.on('close', stop); res.on('error', stop);

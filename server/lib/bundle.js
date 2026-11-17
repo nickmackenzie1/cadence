@@ -21,7 +21,7 @@ const { PUBLIC_DIR } = require('../config');
 
 const BLOCK = /<!-- bundle -->([\s\S]*?)<!-- \/bundle -->/;
 // provide globals other code uses (island toasts, the date picker, templates, chase/recap/prep, weather, the Life kit)
-const ALWAYS = new Set(['plugins/podcasts.js', 'plugins/island.js', 'plugins/datepick.js', 'plugins/templates.js', 'plugins/chase.js', 'plugins/recap.js', 'plugins/prep.js', 'plugins/weather.js', 'plugins/life-kit.js']);
+const ALWAYS = new Set(['plugins/podcasts.js', 'plugins/visualizer.js', 'plugins/island.js', 'plugins/datepick.js', 'plugins/templates.js', 'plugins/chase.js', 'plugins/recap.js', 'plugins/prep.js', 'plugins/weather.js', 'plugins/life-kit.js']);
 const META = ['id', 'name', 'version', 'icon', 'color', 'category', 'tagline', 'description', 'spaces', 'builtin'];
 let cache = null; // { sig, hash, files: [[src, code]], manifest, out: Map(key → { js, gz, etag }) }
 
