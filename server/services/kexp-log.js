@@ -3,20 +3,21 @@
    this?", show the songs around it and the DJ's comments. Inspired by KSSE (github.com/geluso/kexp_song_search_engine),
    but from KEXP's own public API instead of scraping their pages.
    - New plays: checked every 5 minutes (one request; more only if it fell behind).
-   - The past: filled in in the background, one page (200 plays, about half a day) every 8 s plus its shows, back
-     KEXP_BACKFILL_DAYS (default: everything, to the end of 2000: ~3.6M plays, ~2 days, ~1–1.5 GB; the user asked
-     for all of it 2026-11-16). Stops on its own; resumes after a restart.
+   - The past: filled in in the background, back KEXP_BACKFILL_DAYS (default: everything, to the end of 2000: ~3.6M
+     plays, ~1–1.5 GB; the user asked for all of it 2026-11-16, then "aggressively"): one page of up to 1,000 plays
+     every 1.5 s (KEXP_BACKFILL_PAGE, KEXP_BACKFILL_EVERY) plus its shows, so a few hours instead of two days. Still one
+     request at a time, and it backs off by itself when KEXP answers 429 or 5xx. Stops on its own; resumes after a restart.
    Off with KEXP_LOG=0. Under CI it's off unless KEXP_LOG=1 (tests point KEXP_API at a fake). */
 const path = require('path');
 const { DATA_DIR } = require('../config');
 
 const API = (process.env.KEXP_API || 'https://api.kexp.org').replace(/\/$/, '');
 const ON = process.env.KEXP_LOG === '1' || (process.env.KEXP_LOG !== '0' && !process.env.CI);
-const EVERY = +process.env.KEXP_LOG_EVERY || 5 * 60e3, STEP = +process.env.KEXP_BACKFILL_EVERY || 8e3;
+const EVERY = +process.env.KEXP_LOG_EVERY || 5 * 60e3, STEP = +process.env.KEXP_BACKFILL_EVERY || 1500;
 // KEXP_BACKFILL_DAYS=all keeps going until KEXP has nothing older (about 25–50 MB of database per year of plays)
 const BD = process.env.KEXP_BACKFILL_DAYS;
 const BACK_DAYS = BD == null || BD === '' || /^all$/i.test(BD) ? Infinity : +BD;
-const PAGE = 200;
+const PAGE = 200, BPAGE = Math.max(50, Math.min(1000, +process.env.KEXP_BACKFILL_PAGE || 1000));
 
 let db = null, state = { running: false, error: null, lastCheck: 0, backfill: 'waiting' };
 function open() {
@@ -116,15 +117,16 @@ async function backfillStep() {
   const stopAt = BACK_DAYS === Infinity ? -Infinity : Date.now() / 1000 - BACK_DAYS * 86400;
   if (oldest <= stopAt || meta('backfill_floor')) { meta('backfill_done', 1); return 'done'; }
   let url = meta('backfill_next');
+  if (url) url = url.replace(/([?&]limit=)\d+/, '$1' + BPAGE);   // pages saved under the old, smaller size
   // airdate_before is inclusive: ask for one second before our oldest play
-  if (!url || meta('backfill_mode') !== 'offset') url = `${API}/v2/plays/?format=json&limit=${PAGE}&ordering=-airdate&airdate_before=${encodeURIComponent(iso(oldest - 1))}`;
+  if (!url || meta('backfill_mode') !== 'offset') url = `${API}/v2/plays/?format=json&limit=${BPAGE}&ordering=-airdate&airdate_before=${encodeURIComponent(iso(oldest - 1))}`;
   const b = await get(url), list = b.results || [];
   if (!list.length) { meta('backfill_done', 1); meta('backfill_floor', 1); return 'done'; }   // nothing older at KEXP
   const first = Date.parse(list[0].airdate) / 1000;
   if (meta('backfill_mode') !== 'offset' && first >= oldest) {
     // the date filter didn't work: switch to offset paging, starting about where our history ends
     const have = (d.prepare('SELECT COUNT(*) AS n FROM kexp_plays').get() || {}).n || 0;
-    meta('backfill_mode', 'offset'); meta('backfill_next', `${API}/v2/plays/?format=json&limit=${PAGE}&ordering=-airdate&offset=${Math.max(0, have - PAGE)}`);
+    meta('backfill_mode', 'offset'); meta('backfill_next', `${API}/v2/plays/?format=json&limit=${BPAGE}&ordering=-airdate&offset=${Math.max(0, have - BPAGE)}`);
     return 'running';
   }
   save(list); state.pageShows = list.map(p => p.show).filter(Boolean);
@@ -294,4 +296,6 @@ function newArtists({ days = 14, limit = 50 } = {}) {
 }
 
 start();
-module.exports = { winners, playsSince, status, checkNew, backfillStep, fillShows, row, start, top, search, artist, song, around, recent, newArtists, onAir, open };
+// how many times KEXP has played someone (cheap: the artist index), for "where they've turned up"
+function playCount(name) { try { return open().prepare('SELECT COUNT(*) AS n FROM kexp_plays WHERE artist = ? COLLATE NOCASE').get(String(name || '')).n; } catch (e) { return 0; } }
+module.exports = { playCount, winners, playsSince, status, checkNew, backfillStep, fillShows, row, start, top, search, artist, song, around, recent, newArtists, onAir, open };

@@ -130,6 +130,7 @@
           <span class="sh-a">${e.artists.map((a, i) => `<a class="ar-link" href="#view-artist" data-artist="${E(a)}">${i ? E(a) : `<b>${E(a)}</b>`}</a>`).join(', ')}${e.title && e.title !== e.artists.join(', ') ? ` <span class="muted">· ${E(e.title.split(': ')[0])}</span>` : ''}</span>
           <span class="muted">${E([e.venue, e.city, e.km != null ? e.km + ' km away' : null, e.price].filter(Boolean).join(' · '))}${e.url ? ` · <a href="${E(e.url)}" target="_blank" rel="noopener">Details</a>` : ''}</span>
           ${e.note ? `<span class="muted sh-note">${E(e.note)}</span>` : ''}
+          ${(e.heard || []).map(h => `<span class="sh-heard">${api.ui.icon('message-square-quote')}${e.artists.length > 1 ? `${E(h.artist)}: ` : ''}${E(h.where.join(' · '))}</span>`).join('')}
           ${full && e.match ? `<span class="sh-why">${E(e.match.why)}</span>` : ''}</div></li>`;
       api.views.add({ id: 'shows', group: 'music', order: 45, title: 'Shows', icon: '🗓', subtitle: 'Concerts near home, by artists you care about first', render: el => {
         const d = SH.d;
@@ -254,14 +255,17 @@
             ${other.length || d.picks.length ? `<ul class="ap-list">
               ${other.slice(0, 30).map(m => `<li><span class="ap-src">${E(m.feed || m.sourceName)}</span><div>${m.url ? A(m.url, E(m.title || d.name)) : E(m.title || d.name)}<span class="muted">${E(m.sourceName)}${m.tier === 'small' ? ' · small blog' : ''} · ${day(m.first)}${m.seen > 1 ? ` · seen ${m.seen} times` : ''}</span></div></li>`).join('')}
               ${d.picks.map(p => `<li><span class="ap-src">${E((p.subs || []).slice(0, 2).join(', ') || 'Communities')}</span><div>${p.link ? A(p.link, E(p.song || 'recommended')) : E(p.song || 'recommended')}<span class="muted">Lemmy & Mastodon · ${day(p.ts)}${p.thread ? ' · ' + A(p.thread, 'discussion') : ''}</span></div></li>`).join('')}
-            </ul>` : '<p class="muted">No blog, chart or community has mentioned them yet.</p>'}</section>
+            </ul>` : `<p class="muted">${(() => {
+              const also = [d.stg && d.stg.length ? "Said the Gramophone's best-of lists" : null, k && k.plays ? `KEXP (${k.plays.toLocaleString()} plays)` : null].filter(Boolean);
+              return also.length ? `No blog, chart or community has mentioned them lately. They do turn up on ${E(also.join(' and '))}, further down.` : 'No blog, chart or community has mentioned them yet.';
+            })()}</p>`}</section>
 
           <section><h3>Charts</h3>
             ${charts.length ? `<ul class="ap-list">${charts.map(m => { const run = (m.run || []).map(x => x.rank); const first = run[0], lastR = run[run.length - 1];
               return `<li><span class="ap-src">${E(m.sourceName)}</span><div>${E(m.feed || '')}${m.title ? ' · ' + E(m.title) : ''}<span class="muted">now #${m.rank}${m.best && m.best !== m.rank ? `, best #${m.best}` : ''}${run.length > 1 ? ` · #${first} → #${lastR} over ${run.length} checks` : ''}</span>
                 ${run.length > 1 ? spark(run) : ''}</div></li>`; }).join('')}</ul>` : '<p class="muted">Not on any chart Cadence follows.</p>'}</section>
 
-          ${d.stg && d.stg.length ? `<section><h3>On Said the Gramophone's best-of lists</h3><ul class="ap-list">${d.stg.map(x => `<li><span class="ap-src">${x.year}</span><div>${x.kind === 'song' ? `#${x.rank} song: ` : 'Album of the year: '}${A(x.url, E(x.title))}</div>${window.CadencePreview.buttons(d.name, x.title, x.kind, "Said the Gramophone " + x.year)}</li>`).join('')}</ul></section>` : ''}
+          ${d.stg && d.stg.length ? `<section><h3>On Said the Gramophone's best-of lists</h3><ul class="ap-list ap-stg">${d.stg.map(x => `<li><span class="ap-src">${x.year}</span><div><span>${x.kind === 'song' ? `#${x.rank} song: ` : 'Album of the year: '}${A(x.url, E(x.title))}</span></div>${window.CadencePreview.buttons(d.name, x.title, x.kind, "Said the Gramophone " + x.year)}</li>`).join('')}</ul></section>` : ''}
 
           <section><h3>On KEXP</h3>
             ${k ? `<p>${k.plays.toLocaleString()} play${k.plays === 1 ? '' : 's'} · first ${new Date(k.first).toLocaleDateString(undefined, { month: 'short', year: 'numeric' })} · last ${new Date(k.last).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</p>
@@ -290,14 +294,15 @@
         .ap-rel{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:12px} .ap-r{display:flex;flex-direction:column;gap:2px;color:inherit;text-decoration:none;font-size:13px}
         .ap-cover{position:relative;aspect-ratio:1;border-radius:var(--r-m);background:var(--accent-soft);display:grid;place-items:center;overflow:hidden;color:var(--accent)} .ap-cover img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
         .ap-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px} .ap-list li{display:grid;grid-template-columns:110px 1fr;gap:10px;font-size:13px}
-        .ap-list li>div{display:flex;flex-direction:column;gap:1px;min-width:0} .ap-list .muted{font-size:12px} .ap-src{color:var(--muted);font-size:12px;overflow:hidden;text-overflow:ellipsis}
+        .ap-list li>div{display:flex;flex-direction:column;gap:1px;min-width:0} .ap-list .muted{font-size:12px}
+        .ap-list.ap-stg li{grid-template-columns:48px 1fr auto;align-items:center} .ap-list.ap-stg li>div{display:block} .ap-src{color:var(--muted);font-size:12px;overflow:hidden;text-overflow:ellipsis}
         .ap-spark{color:var(--accent);margin-top:2px} .ap-relplay{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px} .ap-relplay .btn{display:inline-flex;gap:4px;align-items:center;font-size:12px;padding:3px 8px}
         .pv-btns{display:inline-flex;gap:2px;vertical-align:middle} .pv-b{background:none;border:0;padding:3px;border-radius:var(--r-s);cursor:pointer;color:var(--muted);display:inline-flex}
         .pv-b:hover{background:var(--accent-soft);color:var(--accent)} .pv-b.on{color:var(--accent)} .pv-b svg{width:16px;height:16px} .pv-busy{opacity:.4}
         .sh-bar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin:2px 0 14px}.sh-bar .inp{width:auto;display:inline-block;margin-left:4px}
         .sh-l{list-style:none;padding:0;margin:8px 0 16px;display:flex;flex-direction:column;gap:10px}.sh-l li{display:flex;gap:12px;align-items:flex-start;font-size:14px}
         .sh-l li>div{flex:1;min-width:0;display:flex;flex-direction:column}.sh-l .muted{font-size:12px}.sh-d{min-width:9em;color:var(--muted);font-size:13px}
-        .sh-why{font-size:12px;color:var(--accent)}.sh-more>summary,.sh-set>summary{cursor:pointer;color:var(--muted);margin:8px 0}
+        .sh-why{font-size:12px;color:var(--accent)} .sh-heard{font-size:12px;color:var(--muted);display:flex;gap:5px;align-items:flex-start} .sh-heard svg{width:13px;height:13px;flex:none;margin-top:2px}.sh-more>summary,.sh-set>summary{cursor:pointer;color:var(--muted);margin:8px 0}
         .sh-set ul{list-style:none;padding:0;display:flex;flex-direction:column;gap:8px;font-size:14px}.sh-set li{display:flex;gap:8px;align-items:flex-start}.sh-set li svg{width:15px;height:15px;flex:none;margin-top:2px}
         .fw-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px}.fw-l{list-style:none;padding:0;margin:6px 0 18px;display:flex;flex-direction:column;gap:12px}
         .fw-n{display:flex;align-items:baseline;gap:10px}.fw-x{font-size:12px;color:var(--muted)!important}.fw-l>li>.muted{font-size:12px}

@@ -32,3 +32,4 @@ Cadence's themes borrow fonts, techniques and code from these open-source projec
 | Bootstrap 6 | [Bootstrap](https://github.com/twbs/bootstrap) 6.0.0-alpha.1 | MIT | colours, radius and focus ring read from its CSS by `scripts/build-framework-themes.mjs` |
 | Bootswatch (26 palettes) | [Bootswatch](https://github.com/thomaspark/bootswatch) by Thomas Park | MIT | palettes read from each theme's CSS |
 | Bulma | [Bulma](https://github.com/jgthms/bulma) by Jeremy Thomas | MIT | colours, radius, box shadow read from its CSS |
+| Classic player | [Aldrich](https://fonts.google.com/specimen/Aldrich) by Matthew Desmond, [Share Tech Mono](https://fonts.google.com/specimen/Share+Tech+Mono) by Carrois | OFL 1.1 (`fonts/OFL-Aldrich.txt`, `fonts/OFL-ShareTechMono.txt`) | time display and LCD text |

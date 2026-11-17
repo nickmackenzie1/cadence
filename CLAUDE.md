@@ -9,7 +9,7 @@ A self-hosted to-do app with Work and Life spaces, running in Docker on the user
 - **Every push gets a new release number:** run `npm run bump` (or `npm run bump minor` for a big batch) before committing.
 - **Calm, anxiety-safe UI:** no alarming red, no countdown pressure, no badge counts. Use plain labels.
 - **No emoji in the UI.** Use Lucide icons via `api.ui.icon(name)`. To add icons: `node scripts/build-icons.mjs /tmp/lu/package <names>`.
-- **Themes:** CSS recreations, lookalike fonts and props are fine. No logos and no quotes. Don't draw actual characters.
+- **Themes:** CSS recreations, lookalike fonts and props are fine. Logos are allowed (user, 2026-11-16). No quotes. Don't draw actual characters.
 - When the user mentions an idea, add it to the bottom of `docs/HANDOFF.md`.
 
 ## Layout

@@ -206,6 +206,7 @@
     if (minis.has(c)) return; minis.add(c);
     const tick = () => {
       if (!c.isConnected) { minis.delete(c); return; }
+      if (c.dataset.style === 'classic') { classicMini(c); if (sound() && !reduce()) requestAnimationFrame(tick); else setTimeout(tick, 400); return; }
       const [g, w, h] = size(c), s = sound(), n = 7, b = bands(s, n), col = accent();
       g.clearRect(0, 0, w, h); g.fillStyle = col;
       const bw = (w - (n - 1) * 3) / n;
@@ -216,6 +217,21 @@
     tick();
   }
 
+  // the Classic player's own little analyser: black, green → yellow → amber bars with peak caps, a flat line when quiet
+  const mpk = new WeakMap();
+  function classicMini(c) {
+    const [g, w, h] = size(c), s = sound(), n = 19, b = bands(s, n), gap = 1, bw = (w - gap * (n - 1)) / n;
+    g.fillStyle = '#000'; g.fillRect(0, 0, w, h);
+    if (!s) { g.fillStyle = '#1d6b2a'; g.fillRect(0, h - 1, w, 1); return; }
+    const grad = g.createLinearGradient(0, h, 0, 0); grad.addColorStop(0, '#1fbf3a'); grad.addColorStop(.6, '#d8d21c'); grad.addColorStop(1, '#e8902a');
+    const pk = mpk.get(c) || []; mpk.set(c, pk);
+    for (let i = 0; i < n; i++) {
+      const bh = Math.round(Math.pow(b[i], 1.3) * (h - 2)), x = i * (bw + gap);
+      g.fillStyle = grad; g.fillRect(x, h - bh, bw, bh);
+      pk[i] = Math.max(bh, (pk[i] || 0) - (reduce() ? h : 0.5));
+      g.fillStyle = '#c9cfd6'; g.fillRect(x, h - pk[i] - 1, bw, 1);
+    }
+  }
   window.CadenceViz = { open, close, toggle, mini, get isOpen() { return isOpen(); } };
   // reopen where you left it (it starts drawing once something plays)
   if (get('open', false)) addEventListener('load', () => { const p = P(); if (p && p.current) { ensure(); box.hidden = false; loop(); } });

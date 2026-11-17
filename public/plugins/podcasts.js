@@ -11,6 +11,7 @@
   const left = e => Math.max(0, (e.duration || 0) - (e.position || 0));
   const LS = 'cadence.pc.';
   const lsGet = (k, d) => { try { const v = localStorage.getItem(LS + k); return v == null ? d : JSON.parse(v); } catch { return d; } };
+  const skin = () => (lsGet('skin', 'calm') === 'classic' ? 'classic' : 'calm');
   const SK = () => ({ b: +lsGet('skipBack', 10) || 10, f: +lsGet('skipFwd', 30) || 30 });   // skip lengths (Podcasts settings)
   const lsSet = (k, v) => { try { localStorage.setItem(LS + k, JSON.stringify(v)); } catch {} };
   const post = (u, b) => fetch(u, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(b) }).then(r => r.ok ? r.json() : null).catch(() => null);
@@ -30,6 +31,7 @@
     const sendPos = played => { if (!cur || !cur.podcast || cur.live) return; lastSent = Date.now(); post('api/podcasts/progress', { uuid: cur.uuid, podcast: cur.podcast, position: played ? cur.duration || audio.duration || 0 : audio.currentTime, played }); };
     audio.addEventListener('timeupdate', () => { savePos(); if (Date.now() - lastSent > 30000 && !audio.paused) sendPos(false); emit(); });
     audio.addEventListener('pause', () => { savePos(); sendPos(false); emit(); });
+    audio.volume = Math.max(0, Math.min(1, +lsGet('volume', 1))); audio.addEventListener('volumechange', emit); audio.addEventListener('seeked', emit);
     audio.addEventListener('play', emit); audio.addEventListener('error', emit); audio.addEventListener('waiting', emit); audio.addEventListener('playing', emit); audio.addEventListener('loadedmetadata', () => { if (cur && !cur.duration) cur.duration = audio.duration; emit(); });
     audio.addEventListener('ended', () => { if (cur && cur.live) return emit(); if (cur && cur.preview) { emit(); if (P.onPreviewEnded) P.onPreviewEnded(cur); return; } sendPos(true); const q = lsGet('queue', []); const next = q.shift(); lsSet('queue', q); if (next) api.play(next); else emit(); });
     const media = () => { if (!('mediaSession' in navigator) || !cur) return;
@@ -41,7 +43,7 @@
       h('seekbackward', cur.live ? null : () => api.skip(-SK().b)); h('seekforward', cur.live ? null : () => api.skip(SK().f));
       h('seekto', cur.live ? null : d => { audio.currentTime = d.seekTime; }); h('nexttrack', cur.live ? null : () => audio.dispatchEvent(new Event('ended'))); };
     const api = {
-      audio, get current() { return cur; }, on: f => { listeners.add(f); return () => listeners.delete(f); },
+      audio, emit: () => emit(), get current() { return cur; }, on: f => { listeners.add(f); return () => listeners.delete(f); },
       load(e, autoplay) {
         if (!e || !e.url) return; if (cur && cur.uuid !== e.uuid) { savePos(); sendPos(false); }
         if (e.live) {   // a radio station: no position to restore, always the live edge
@@ -106,16 +108,78 @@
     // a little live visualizer that opens the big one. The text and buttons redraw; the visualizer canvas stays put.
     let bar = document.getElementById('pc-mini');
     if (!bar) { bar = document.createElement('div'); bar.id = 'pc-mini'; bar.setAttribute('role', 'region'); bar.setAttribute('aria-label', 'Player'); document.documentElement.appendChild(bar); }
-    bar.innerHTML = `<div class="pc-m-l"></div><button class="pc-m-viz" data-pc="viz" title="Visualizer" aria-label="Open the visualizer"><canvas></canvas></button><div class="pc-m-r"></div><i class="pc-m-line" data-pc-seek><i></i></i>`;
-    const L = bar.querySelector('.pc-m-l'), R = bar.querySelector('.pc-m-r'), line = bar.querySelector('.pc-m-line > i'), cvs = bar.querySelector('.pc-m-viz canvas');
-    if (window.CadenceViz) window.CadenceViz.mini(cvs);
+    // two looks (Podcasts settings → Player look): Calm (the app's own) and Classic (user, 2026-11-16: "winamp inspired
+    // player skin"): a gunmetal body, black LCD with big green time and a scrolling title, spectrum, seek and volume.
+    // A recreation in CSS only: the title bar says Cadence, no logo, no slogan.
+    let L, R, line, W = null;
+    const build = () => {
+      const look = skin(); bar.dataset.skin = look; bar.className = look === 'classic' ? 'pc-wa' : '';
+      if (look === 'classic') {
+        P.setViz(true);   // its little spectrum always moves, like the original: the sound goes through the NAS relay
+        // after the user's own recreation (2026-11-16): gold title pills, lime-on-black time, cream seek bar with a gold
+        // thumb, bevelled buttons where the active one lights up, and a playlist that folds open from its title
+        const bt = (act, ic, label) => `<button data-pc="${act}" aria-label="${label}" title="${label}">${api.ui.icon(ic)}</button>`;
+        bar.innerHTML = `<div class="wa-box"><div class="wa-tt"><i class="wa-ln"></i><b>Cadence</b><i class="wa-ln"></i><button class="wa-x" data-pc="skin" title="Back to the calm look" aria-label="Back to the calm look">${api.ui.icon('minimize-2')}</button></div>
+          <div class="wa-cmd"><div class="wa-row"><div class="wa-left"><div class="wa-time"><span class="wa-st"></span><span class="wa-t"></span></div><button class="wa-vis" data-pc="viz" title="Visualizer" aria-label="Open the visualizer"><canvas data-style="classic"></canvas></button></div>
+            <div class="wa-right"><div class="wa-mq"><span></span></div><div class="wa-meta"><span class="wa-f wa-kind"></span><span class="wa-f wa-rate"></span><span class="wa-led wa-vled">vis</span></div>
+              <input class="wa-vol" type="range" min="0" max="100" step="1" aria-label="Volume" title="Volume"></div></div>
+            <input class="wa-seek" type="range" min="0" max="1000" step="1" aria-label="Seek">
+            <div class="wa-btns"><div class="wa-b1">${bt('back', 'skip-back', 'Back')}${bt('play', 'play', 'Play')}${bt('pause', 'pause', 'Pause')}${bt('stop', 'square', 'Stop')}${bt('fwd', 'skip-forward', 'Forward')}</div>
+              <button class="wa-wide" data-pc="pl" aria-label="Show Up next">Up next</button><a class="wa-open" aria-label="Open where this came from" title="Open where this came from">${api.ui.icon('external-link')}</a></div></div></div>
+          <div class="wa-box wa-plbox"><div class="wa-tt wa-tt-s" data-pc="pl" role="button" tabindex="0" aria-label="Fold Up next"><i class="wa-ln"></i><b>Up next</b><i class="wa-ln"></i></div><div class="wa-list"></div></div>`;
+        W = { st: bar.querySelector('.wa-st'), time: bar.querySelector('.wa-t'), mq: bar.querySelector('.wa-mq span'), kind: bar.querySelector('.wa-kind'), rate: bar.querySelector('.wa-rate'),
+          visLed: bar.querySelector('.wa-vled'), vol: bar.querySelector('.wa-vol'), seek: bar.querySelector('.wa-seek'), open: bar.querySelector('.wa-open'), list: bar.querySelector('.wa-list'), plbox: bar.querySelector('.wa-plbox'), dragging: false };
+        W.plbox.hidden = !lsGet('waPl', false);
+        W.vol.oninput = () => { P.audio.volume = W.vol.value / 100; lsSet('volume', P.audio.volume); };
+        W.seek.onpointerdown = () => { W.dragging = true; }; W.seek.onchange = () => { W.dragging = false; const a = P.audio; if (P.current && !P.current.live && isFinite(a.duration) && a.duration) a.currentTime = W.seek.value / 1000 * a.duration; };
+        W.list.ondblclick = e => { const r = e.target.closest('[data-q]'); if (!r) return; const q = lsGet('queue', []), it = q.find(x => x.uuid === r.dataset.q); if (!it) return; lsSet('queue', q.filter(x => x !== it)); P.play(it); };
+        L = R = line = null;
+      } else {
+        bar.innerHTML = `<div class="pc-m-l"></div><button class="pc-m-viz" data-pc="viz" title="Visualizer" aria-label="Open the visualizer"><canvas></canvas></button><div class="pc-m-r"></div><i class="pc-m-line" data-pc-seek><i></i></i>`;
+        L = bar.querySelector('.pc-m-l'); R = bar.querySelector('.pc-m-r'); line = bar.querySelector('.pc-m-line > i'); W = null;
+      }
+      if (window.CadenceViz) window.CadenceViz.mini(bar.querySelector('canvas'));
+    };
+    build();
+    const mmss = t => { t = Math.max(0, Math.floor(t || 0)); const h = Math.floor(t / 3600), m = Math.floor(t / 60) % 60, x = String(t % 60).padStart(2, '0'); return h ? `${h}:${String(m).padStart(2, '0')}:${x}` : `${String(m).padStart(2, '0')}:${x}`; };
+    const classic = (c, a) => {
+      const live = !!c.live, n = live && c.now && !c.now.airbreak ? c.now : null;
+      const d = isFinite(a.duration) && a.duration ? a.duration : c.duration || (c.preview ? 30 : 0), t = a.readyState ? a.currentTime : (live ? 0 : c.position || 0);
+      const title = live ? (n ? `${n.artist ? n.artist + ' - ' : ''}${n.song} · ${c.title}` : c.title) : `1. ${c.podcastTitle} - ${c.title}${d ? ` (${mmss(d)})` : ''}${c.preview ? ' preview' : ''}`;
+      if (W.mq.dataset.t !== title) { W.mq.dataset.t = title; W.mq.textContent = title + '  ***  '; W.mq.parentElement.classList.toggle('run', title.length > 30); }
+      W.st.innerHTML = api.ui.icon(P.failed ? 'circle-alert' : a.paused ? 'pause' : 'play'); W.st.className = 'wa-st' + (a.paused ? '' : ' on');
+      W.time.textContent = live && P.failed ? '--:--' : mmss(t);
+      W.kind.textContent = live ? 'LIVE' : c.preview ? 'PREV' : 'POD'; W.rate.textContent = (a.playbackRate || 1).toFixed(1) + 'x';
+      W.visLed.classList.toggle('lit', !!(window.CadenceViz && window.CadenceViz.isOpen));
+      if (document.activeElement !== W.vol) W.vol.value = Math.round(a.volume * 100);
+      W.vol.style.setProperty('--v', (a.volume * 100).toFixed(0) + '%');
+      W.seek.disabled = live; if (!W.dragging) W.seek.value = d && !live ? Math.round(t / d * 1000) : 0;
+      // the lit button: playing, paused part-way, or stopped (paused at the start)
+      const state = !a.paused ? 'play' : (!live && t > 0.5) ? 'pause' : 'stop';
+      for (const k of ['play', 'pause', 'stop']) bar.querySelector(`.wa-b1 [data-pc=${k}]`).classList.toggle('lit', k === state);
+      const href = live ? '#view-radio' : c.preview ? (c.link || '') : '#view-podcasts';
+      if (href) { W.open.href = href; W.open.hidden = false; if (/^https?:/.test(href)) { W.open.target = '_blank'; W.open.rel = 'noopener'; } else W.open.removeAttribute('target'); } else W.open.hidden = true;
+      bar.querySelector('[data-pc=back]').disabled = live; bar.querySelector('[data-pc=fwd]').disabled = live;
+      bar.querySelector('.wa-wide').classList.toggle('lit', !W.plbox.hidden);
+      // the playlist: what's on now, then Up next (double-click one to play it)
+      if (!W.plbox.hidden) {
+        const q = lsGet('queue', []), key = c.uuid + '|' + q.map(x => x.uuid).join(',');
+        if (W.list.dataset.k !== key) {
+          W.list.dataset.k = key;
+          const row = (x, i, on) => `<div class="wa-tr${on ? ' on' : ''}"${on ? '' : ` data-q="${E(x.uuid)}" title="Double-click to play"`}><span>${i}. ${E(x.podcastTitle ? x.podcastTitle + ' - ' : '')}${E(x.title)}</span><span>${x.live ? 'live' : x.duration ? mmss(x.duration) : ''}</span></div>`;
+          W.list.innerHTML = row(c, 1, true) + (q.length ? q.map((x, i) => row(x, i + 2, false)).join('') : '<div class="wa-tr wa-empty"><span>Nothing in Up next. Add episodes from Podcasts.</span></div>');
+        }
+      }
+    };
     const ib = (act, ic, label, extra = '') => `<button class="pc-ib" data-pc="${act}" aria-label="${E(label)}" title="${E(label)}"${extra}>${api.ui.icon(ic)}</button>`;
     const play = a => `<button class="pc-ib pc-play${a.paused ? '' : ' on'}" data-pc="toggle" aria-label="${a.paused ? 'Play' : 'Pause'}">${api.ui.icon(a.paused ? 'play' : 'pause')}</button>`;
     const art = (src, ic) => (src ? `<img src="${E(src)}" alt="" onerror="this.style.visibility='hidden'">` : `<i class="pc-noart">${api.ui.icon(ic)}</i>`);
     const draw = () => {
       const c = P.current; bar.hidden = !c; if (!c) return;
-      bar.style.fontFamily = getComputedStyle(document.body).fontFamily;
+      if (bar.dataset.skin !== skin()) build();
       const a = P.audio; let pct = 0;
+      if (W) { bar.style.fontFamily = ''; return classic(c, a); }
+      bar.style.fontFamily = getComputedStyle(document.body).fontFamily;
       if (c.live) {
         const n = c.now && !c.now.airbreak ? c.now : null, state = P.failed ? "Can't reach this station right now" : !a.paused && a.readyState < 3 ? 'Tuning in…' : a.paused ? 'Paused' : 'Live';
         L.innerHTML = `${art((n && n.art) || c.art, 'radio')}<div class="pc-m-t"><b>${E(n ? n.song : c.title)}</b><span>${n && n.artist ? `<a class="ar-link" href="#view-artist" data-artist="${E(n.artist)}">${E(n.artist)}</a> · ` : ''}${E(n ? c.title : c.podcastTitle || '')}</span></div>`;
@@ -135,11 +199,16 @@
       bar.classList.toggle('pc-live', !!c.live);
       const vb = bar.querySelector('.pc-m-viz'); vb.classList.toggle('on', !!(window.CadenceViz && window.CadenceViz.isOpen));
     };
+    bar.onkeydown = e => { if ((e.key === 'Enter' || e.key === ' ') && e.target.matches('[data-pc][tabindex]')) { e.preventDefault(); e.target.click(); } };
     bar.onclick = e => {
       const seek = e.target.closest('[data-pc-seek]');
       if (seek) { const c = P.current, a = P.audio; if (c && !c.live && isFinite(a.duration) && a.duration) { const r = seek.getBoundingClientRect(); a.currentTime = Math.max(0, Math.min(1, (e.clientX - r.left) / r.width)) * a.duration; } return; }
       const b = e.target.closest('[data-pc]'); if (!b) return;
-      ({ back: () => P.skip(-SK().b), fwd: () => P.skip(SK().f), toggle: () => P.toggle(), nextpv: () => P.onPreviewEnded && P.onPreviewEnded(P.current), viz: () => { window.CadenceViz && window.CadenceViz.toggle(); draw(); } })[b.dataset.pc]();
+      if (b.dataset.pc === 'fwd' && P.current && P.current.preview) return P.onPreviewEnded && P.onPreviewEnded(P.current);
+      ({ back: () => P.skip(-SK().b), fwd: () => P.skip(SK().f), toggle: () => P.toggle(),
+        play: () => P.play(), pause: () => P.pause(), stop: () => { P.pause(); if (P.current && !P.current.live) P.audio.currentTime = 0; },
+        skin: () => { lsSet('skin', 'calm'); build(); draw(); },
+        pl: () => { if (!W) return; W.plbox.hidden = !W.plbox.hidden; lsSet('waPl', !W.plbox.hidden); W.list.dataset.k = ''; draw(); }, nextpv: () => P.onPreviewEnded && P.onPreviewEnded(P.current), viz: () => { window.CadenceViz && window.CadenceViz.toggle(); draw(); } })[b.dataset.pc]();
     };
     // redraw at most ~4 times a second
     let q = 0; const off = P.on(() => { if (q) return; q = setTimeout(() => { q = 0; draw(); }, 250); }); draw();
@@ -152,8 +221,8 @@
     return () => { if (--miniRefs > 0) return; if (miniOff) miniOff(); miniOff = null; const b = document.getElementById('pc-mini'); if (b) b.hidden = true; }; };
 
   Cadence.registerPlugin({
-    settings(api) { const k = SK(); window.LifeKit.form(api, 'Podcasts', [{ k: 'b', label: 'Back button skips', type: 'select', opts: [5, 10, 15, 30].map(x => [String(x), x + ' seconds']) }, { k: 'f', label: 'Forward button skips', type: 'select', opts: [10, 15, 30, 45, 60].map(x => [String(x), x + ' seconds']) }],
-      { b: String(k.b), f: String(k.f) }, o => { lsSet('skipBack', +o.b); lsSet('skipFwd', +o.f); api.ui.refresh(); }); },
+    settings(api) { const k = SK(); window.LifeKit.form(api, 'Podcasts', [{ k: 'skin', label: 'Player look', type: 'select', opts: [['calm', 'Calm (matches your theme)'], ['classic', 'Classic (Winamp-inspired)']] }, { k: 'b', label: 'Back button skips', type: 'select', opts: [5, 10, 15, 30].map(x => [String(x), x + ' seconds']) }, { k: 'f', label: 'Forward button skips', type: 'select', opts: [10, 15, 30, 45, 60].map(x => [String(x), x + ' seconds']) }],
+      { skin: skin(), b: String(k.b), f: String(k.f) }, o => { lsSet('skin', o.skin); lsSet('skipBack', +o.b); lsSet('skipFwd', +o.f); P.emit && P.emit(); api.ui.refresh(); }); },
     id: 'podcasts', name: 'Podcasts', version: '1.0.0', category: 'Media', color: '#f43e37',
     icon: '<path d="M16.85 18.58a9 9 0 1 0-9.7 0"/><path d="M8 14a5 5 0 1 1 8 0"/><circle cx="12" cy="11" r="1"/><path d="M13 17a1 1 0 1 0-2 0l.5 4.5a.5.5 0 1 0 1 0Z"/>',
     tagline: 'Your Pocket Casts shows, Up next and your place, with a player that keeps going everywhere.',
@@ -247,6 +316,56 @@
     .pc-ib.pc-play{width:38px;height:38px;border:1px solid var(--line);background:var(--panel)} .pc-ib.pc-play:hover{border-color:var(--accent);color:var(--accent);background:var(--panel)} .pc-ib.pc-play.on{background:var(--accent-soft);border-color:transparent;color:var(--accent)}
     .pc-ib.pc-big{width:40px;height:40px;background:var(--accent);color:var(--on-accent)} .pc-ib.pc-big svg{width:20px;height:20px}
     @media (max-width:560px){.pc-m-viz,.pc-m-time{display:none}}
+    /* Classic (Winamp-inspired), after the user's own recreation: a CSS recreation, no images, fonts kept on the NAS */
+    @font-face{font-family:'Cadence Aldrich';src:url(vendor/themes/fonts/aldrich-latin-400-normal.woff2) format('woff2');font-display:swap}
+    @font-face{font-family:'Cadence Share Tech Mono';src:url(vendor/themes/fonts/share-tech-mono-latin-400-normal.woff2) format('woff2');font-display:swap}
+    @font-face{font-family:'Cadence VT323';src:url(vendor/themes/fonts/vt323-latin-400-normal.woff2) format('woff2');font-display:swap}
+    #pc-mini.pc-wa{display:block;width:min(480px,calc(100vw - 24px));min-height:0;padding:0;gap:0;border:0;border-radius:0;background:none;box-shadow:0 12px 30px rgba(0,0,0,.45);overflow:visible;
+      color:#c9cbe0;font:13px/1.2 'Cadence Share Tech Mono',ui-monospace,Consolas,monospace;-webkit-backdrop-filter:none;backdrop-filter:none}
+    .pc-wa .wa-box{position:relative;background:linear-gradient(90deg,#11101a,#373857 35%,#373857 65%,#11101a);border:1px solid #000;display:flex;flex-direction:column;align-items:stretch}
+    .pc-wa .wa-box::after{content:'';position:absolute;inset:2px;border:2px outset #555265;pointer-events:none}
+    .pc-wa .wa-tt{display:flex;align-items:center;justify-content:center;gap:8px;padding:5px 10px 4px}
+    .pc-wa .wa-ln{flex:1;height:9px;border:1px solid #000;border-radius:3px;background:linear-gradient(#87785a,#635a42 35%,#202024 50%,#635a42 65%,#87785a)}
+    .pc-wa .wa-tt b{font:18px/1 'Cadence VT323',monospace;letter-spacing:.4em;color:#8a8ba0;text-transform:uppercase;padding-left:.4em}
+    .pc-wa .wa-tt-s{cursor:pointer} .pc-wa .wa-tt-s b{font-size:13px;letter-spacing:.25em} .pc-wa .wa-tt-s .wa-ln{height:6px}
+    .pc-wa .wa-x{position:relative;z-index:1;display:grid;place-items:center;width:15px;height:13px;padding:0;background:#adbac7;border:2px outset #adbac7;color:#202033;cursor:pointer} .pc-wa .wa-x svg{width:8px;height:8px}
+    .pc-wa .wa-cmd{margin:0 8px 8px;padding:8px 9px 9px;border:2px solid #555265;position:relative;z-index:1}
+    .pc-wa .wa-row{display:flex;gap:8px}
+    .pc-wa .wa-left{width:36%;display:flex;flex-direction:column;gap:4px} .pc-wa .wa-right{flex:1;min-width:0;display:flex;flex-direction:column;justify-content:space-between;gap:5px}
+    .pc-wa .wa-time,.pc-wa .wa-mq,.pc-wa .wa-f,.pc-wa .wa-vis,.pc-wa .wa-list{background:#000;border:2px inset #555265}
+    .pc-wa .wa-time{display:flex;align-items:center;gap:4px;padding:2px 6px;color:lime;font:34px/1.05 'Cadence Aldrich',sans-serif;font-variant-numeric:tabular-nums}
+    .pc-wa .wa-t{flex:1;text-align:right;text-shadow:0 0 6px rgba(0,255,0,.35)}
+    .pc-wa .wa-st{color:#1f4a1f;display:grid;place-items:center} .pc-wa .wa-st.on{color:lime} .pc-wa .wa-st svg{width:11px;height:11px}
+    .pc-wa .wa-vis{height:22px;padding:0;cursor:pointer;display:block} .pc-wa .wa-vis canvas{width:100%;height:100%;display:block}
+    .pc-wa .wa-mq{height:26px;overflow:hidden;white-space:nowrap;color:lime;font-size:17px;line-height:22px;padding:0 5px}
+    .pc-wa .wa-mq span{display:inline-block} .pc-wa .wa-mq.run span{padding-left:100%;animation:wa-mq 16s linear infinite}
+    @keyframes wa-mq{to{transform:translateX(-100%)}}
+    @media (prefers-reduced-motion:reduce){.pc-wa .wa-mq.run span{animation:none;padding-left:0}}
+    .pc-wa .wa-meta{display:flex;align-items:center;gap:6px}
+    .pc-wa .wa-f{color:lime;font-size:12px;line-height:15px;padding:0 6px;min-width:38px;text-align:center}
+    .pc-wa .wa-led{font-size:11px;text-transform:uppercase;letter-spacing:.1em;color:#4a4c66} .pc-wa .wa-led.lit{color:lime}
+    .pc-wa input[type=range]{-webkit-appearance:none;appearance:none;margin:0;padding:0;outline:none;cursor:pointer;background:transparent}
+    .pc-wa input[type=range]::-webkit-slider-thumb{-webkit-appearance:none}
+    .pc-wa .wa-vol{width:100%;height:12px;border-radius:25px;border:2px inset #555265;background:linear-gradient(90deg,#1c5c1c,#46a01e var(--v,100%),#2b2c3e var(--v,100%))}
+    .pc-wa .wa-vol::-webkit-slider-thumb{width:24px;height:16px;background:#adbac7;border:2px outset #adbac7;box-shadow:0 0 0 1px #202033}
+    .pc-wa .wa-vol::-moz-range-thumb{width:20px;height:12px;border-radius:0;background:#adbac7;border:2px outset #adbac7}
+    .pc-wa .wa-seek{display:block;width:100%;height:18px;margin:9px 0;border:2px inset #555265;overflow:hidden}
+    .pc-wa .wa-seek::-webkit-slider-thumb{width:44px;height:18px;background:#b39d66;border:4px outset #ddcba2;box-shadow:-600px 0 0 600px #f9ebbc}
+    .pc-wa .wa-seek::-moz-range-thumb{width:36px;height:12px;border-radius:0;background:#b39d66;border:4px outset #ddcba2}
+    .pc-wa .wa-seek::-moz-range-progress{background:#f9ebbc;height:100%}
+    .pc-wa .wa-seek:disabled{opacity:.45;cursor:default}
+    .pc-wa .wa-btns{display:flex;align-items:center;gap:8px} .pc-wa .wa-b1{display:flex}
+    .pc-wa .wa-btns button,.pc-wa .wa-open{position:relative;display:grid;place-items:center;width:38px;height:26px;padding:0;background:#adbac7;border:4px outset #adbac7;outline:1px solid #202033;color:#202033;cursor:pointer;font:inherit}
+    .pc-wa .wa-btns svg{width:13px;height:13px;stroke-width:2.6}
+    .pc-wa .wa-btns button.lit,.pc-wa .wa-btns button:active,.pc-wa .wa-open:active{color:#0a0;border-style:inset} .pc-wa .wa-btns button.lit svg{color:lime;filter:drop-shadow(0 0 1px #050)}
+    .pc-wa .wa-btns button:disabled{opacity:.5;cursor:default}
+    .pc-wa .wa-wide{width:auto!important;padding:0 10px!important;font-size:13px!important;font-weight:700;text-transform:uppercase;letter-spacing:.04em} .pc-wa .wa-wide.lit{color:#060!important}
+    .pc-wa .wa-open{margin-left:auto}
+    .pc-wa .wa-plbox{border-top:0} .pc-wa .wa-plbox[hidden]{display:none}
+    .pc-wa .wa-list{margin:0 8px 8px;padding:6px 8px;color:lime;max-height:150px;overflow:auto;position:relative;z-index:1;font-size:13px;line-height:1.35}
+    .pc-wa .wa-tr{display:flex;justify-content:space-between;gap:10px;cursor:default} .pc-wa .wa-tr[data-q]{cursor:pointer} .pc-wa .wa-tr span:first-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .pc-wa .wa-tr.on{color:#f5f5f5} .pc-wa .wa-tr[data-q]:hover{background:#0b2a0b} .pc-wa .wa-empty{color:#4fae4f}
+    .pc-wa button:focus-visible,.pc-wa a:focus-visible,.pc-wa input:focus-visible,.pc-wa [tabindex]:focus-visible{outline:1px dotted lime;outline-offset:1px}
     @media (min-width:900px){#pc-mini{left:calc(50% + 138px)}}
     .pc{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:16px;padding-bottom:80px} @media (max-width:900px){.pc{grid-template-columns:1fr}}
     .pc-main,.pc-side{display:flex;flex-direction:column;gap:14px;min-width:0}

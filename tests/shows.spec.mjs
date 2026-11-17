@@ -3,7 +3,7 @@
 import { test, expect } from '@playwright/test';
 import { createServer } from 'node:net';
 import http from 'node:http';
-import { spawn } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -35,6 +35,12 @@ test.beforeAll(async () => {
     res.writeHead(404); res.end();
   }).listen(FAKE);
   dir = mkdtempSync(join(tmpdir(), 'cadence-shows-'));
+  // KEXP has played The Local Band once: their show says so
+  const fill = spawnSync(process.execPath, ['--disable-warning=ExperimentalWarning', '-e', `
+    const K = require('./server/services/kexp-log.js'); const d = K.open();
+    d.prepare('INSERT INTO kexp_plays VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)').run(...K.row({ id: 1, play_type: 'trackplay', airdate: new Date().toISOString(), artist: 'The Local Band', song: 'Home', album: 'Home' }));
+  `], { env: { ...process.env, DATA_DIR: dir, KEXP_LOG: '0' }, encoding: 'utf8' });
+  if (fill.status !== 0) throw new Error(fill.stderr);
   server = spawn(process.execPath, ['--disable-warning=ExperimentalWarning', 'server.js'], { env: { ...process.env, PORT: String(PORT), DATA_DIR: dir, TLS_DIR: join(dir, 'x'),
     RADAR_DATA: join(dir, 'radar'), RADAR_DB: join(dir, 'cadence.db'), TICKETMASTER_API_KEY: 'k', TICKETMASTER_API: `http://localhost:${FAKE}`, BANDSINTOWN_APP_ID: 'cadence-test', BANDSINTOWN_API: `http://localhost:${FAKE}`, KINGSTONLIVE_FEED: `http://localhost:${FAKE}/kingstonlive`,
     KEXP_LOG: '0', STG: '0', RADAR_MB: '0', RADIO_WARM: '0', ANTHROPIC_API_KEY: '' }, stdio: 'ignore' });
@@ -66,6 +72,8 @@ test('shows near home: artists you care about first, with why; far and past show
   await expect(kl.first()).toContainText('The Mansion · Kingston area · 13 km away');
   await expect(kl.first()).toContainText('Wind Down Wednesdays');
   await expect(kl.first()).toContainText('9:30');
+  // where they've turned up (user: "used to show where they were mentioned, if they were mentioned on any source")
+  await expect(kl.first().locator('.sh-heard')).toContainText('The Local Band: KEXP (1 play)');
   // everything else stays folded
   await page.locator('.sh-more summary').click();
   await expect(page.locator('.sh-more li')).toHaveCount(1);             // Random Band (Jay Som there twice counts once)

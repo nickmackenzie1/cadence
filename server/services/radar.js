@@ -255,6 +255,28 @@ async function followNews(list) {
 }
 // ---- local shows: concerts near home, matched to artists you care about (radar/lib/shows.mjs) ----
 const showsLib = () => import(pathToFileURL(path.join(__dirname, 'radar', 'lib', 'shows.mjs')).href);
+// Where an artist has turned up anywhere Cadence looks (user, 2026-11-16: "used to show where they were mentioned, if
+// they were mentioned on any source"): Radar's sources and communities, Said the Gramophone, KEXP, your radio stations.
+// Short plain phrases, kept 10 minutes per name.
+const heardCache = new Map();
+async function heardFor(name) {
+  const k = String(name || '').toLowerCase().trim(); if (!k) return [];
+  const hit = heardCache.get(k); if (hit && Date.now() - hit.at < 10 * 60e3) return hit.v;
+  const out = [];
+  try {
+    const { store } = await load(), { norm } = await import(pathToFileURL(path.join(__dirname, 'radar', 'lib', 'extract.mjs')).href);
+    const { SOURCES } = await import(pathToFileURL(path.join(__dirname, 'radar', 'lib', 'sources.mjs')).href);
+    const key = norm(name), sig = store.signalsFor(key, 100);
+    const names = [...new Set(sig.map(s => (s.source === 'blogs' && s.feed) || (s.source === 'community' ? 'Lemmy & Mastodon' : (SOURCES[s.source] && SOURCES[s.source].name) || s.source)))];
+    if (names.length) out.push(names.slice(0, 4).join(', ') + (names.length > 4 ? ` and ${names.length - 4} more` : ''));
+    if (store.picksForArtist(key, name).some(p => p.key === key || norm(p.artist || '') === key) && !names.includes('Lemmy & Mastodon')) out.push('Lemmy & Mastodon');
+  } catch (e) {}
+  try { const g = (await stgLib()).stgFor(name); if (g.length) { const ys = [...new Set(g.map(x => x.year))]; out.push(`Said the Gramophone's best-of ${ys.slice(0, 3).join(', ')}${ys.length > 3 ? ' and earlier' : ''}`); } } catch (e) {}
+  try { const K = require('./kexp-log'); const n = K.playCount(name); if (n) out.push(`KEXP (${n.toLocaleString('en-CA')} play${n === 1 ? '' : 's'})`); } catch (e) {}
+  try { const n = require('./radio').playsFor(name, 0, 500).length; if (n) out.push(`your radio stations (${n} play${n === 1 ? '' : 's'})`); } catch (e) {}
+  heardCache.set(k, { v: out, at: Date.now() }); if (heardCache.size > 3000) heardCache.clear();
+  return out;
+}
 async function shows(input = {}) {
   const S = await showsLib(), { store } = await load();
   if (input.settings) S.saveShowsCfg(input.settings);
@@ -267,7 +289,14 @@ async function shows(input = {}) {
     for (const a of ((d.sources && d.sources.combined) || []).slice(0, 30)) add(a.artist, 'Showing up in ' + Object.keys(a.sources).length + ' Radar sources'); } catch {}
   try { const K = require('./kexp-log'); if (K.status().on !== false) for (const a of K.top({ by: 'artist', period: 'year', limit: 80 })) add(a.artist, `KEXP played them ${a.plays} times this year`); } catch {}
   try { const G = (await stgLib()).stgData(); for (const a of G.artists.slice(0, 60)) add(a.artist, `On Said the Gramophone's best-of ${a.n} time${a.n === 1 ? '' : 's'}`); } catch {}
-  return S.shows(interest, { force: !!input.refresh });
+  const r = await S.shows(interest, { force: !!input.refresh });
+  // each act in a lineup: where they've turned up (only acts with something to say)
+  for (const e of [...(r.matches || []), ...(r.local || []), ...(r.nearby || [])]) {
+    const heard = [];
+    for (const a of (e.artists || []).slice(0, 8)) { const h = await heardFor(a); if (h.length) heard.push({ artist: a, where: h }); }
+    if (heard.length) e.heard = heard;
+  }
+  return r;
 }
 async function want(input) {
   const { store } = await load();

@@ -13,8 +13,9 @@ Cleaned up 2026-11-16 (0.8.2): items already built were moved out after checking
   words ("overdue", "late", "behind"), no red for unfinished work (red = real errors only), nothing punishes unfinished
   work by itself. Accountability plugins stay opt-in and off by default.
 - No emoji in the UI: Lucide icons via api.ui.icon.
-- Themes: lookalike fonts (licence permitting), palettes, textures, UI chrome and props in CSS are fine. No logos, no
-  quotes, and Claude doesn't draw actual characters. Rebuilt items stay generic (a gem, not a rupee).
+- Themes: lookalike fonts (licence permitting), palettes, textures, UI chrome and props in CSS are fine. Logos are
+  allowed now (user, 2026-11-16: "there can be logos, lets remove that rule"), but Claude itself doesn't redraw a brand's
+  real logo or wordmark; real artwork the user brings (skins, images) is fine. No quotes, and Claude doesn't draw actual characters. Rebuilt items stay generic (a gem, not a rupee).
 - User location: Amherstview, Ontario (Loyalist Township). Garbage: Tuesday east of Speers Blvd, Wednesday west.
 
 ## In progress (user picked 2026-11-16)
@@ -207,3 +208,13 @@ Cleaned up 2026-11-16 (0.8.2): items already built were moved out after checking
 - Daily page sections overlapped: its `.db-grid` shared a name with the Dashboard's fixed-row grid. Daily now uses `dy-`.
 - Shows: Kingston Live has its own open list (`local` from the server), and every act in a lineup is named (no "and more").
 - Idea from the user's API list: Genius (song facts and the stories behind songs; its API has no lyrics).
+
+### Classic player, where they've turned up, faster KEXP history (2026-11-16)
+- Podcasts settings → Player look: Calm or Classic. Classic follows the user's own Winamp recreation (gold title pills,
+  lime Aldrich time, cream seek bar with gold thumb, lit active button, fold-open Up next playlist; double-click plays).
+  Fonts vendored: Aldrich, Share Tech Mono (OFL) next to VT323. Classic keeps sound analysis on (NAS relay) so its
+  spectrum moves. Volume is remembered (`cadence.pc.volume`).
+- Shows rows: `heard` per act (Radar sources, Lemmy & Mastodon, Said the Gramophone years, KEXP play count, your
+  stations), from `heardFor` in radar.js (10 min cache). Artist page points to STG / KEXP when no blog mentions them.
+- KEXP backfill: 1,000 plays a page every 1.5 s (KEXP_BACKFILL_PAGE / KEXP_BACKFILL_EVERY); backs off on 429/5xx.
+- Idea: winamp2-js / Webamp (MIT code) to load real Winamp .wsz skins the user brings.

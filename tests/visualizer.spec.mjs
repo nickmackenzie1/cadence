@@ -75,3 +75,45 @@ test('Player: calm redesign, visualizer relays the sound, switches styles and dr
   await expect.poll(() => page.evaluate(() => CadencePodcasts.audio.currentTime), { timeout: 5000 }).toBeGreaterThan(13);
   expect(errs).toEqual([]);
 });
+
+test('Classic player skin: Winamp-style LCD, scrolling title, spectrum, seek and volume; back to calm in one click', async ({ page }) => {
+  const errs = []; page.on('pageerror', e => errs.push(String(e)));
+  await page.route(EP, r => r.fulfill({ status: 200, contentType: 'audio/wav', body: wav, headers: { 'Access-Control-Allow-Origin': '*' } }));
+  await page.route(u => u.pathname.endsWith('/api/radio/stream'), r => r.fulfill(ranged(r)));
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.addInitScript(() => { localStorage.setItem('cadence.pc.skin', '"classic"'); });
+  await page.goto(B + '/#today'); await expect(page.locator('#sync')).toBeVisible({ timeout: 10000 });
+  await page.evaluate(ep => CadencePodcasts.load({ uuid: 'w1', url: ep, title: 'Classic sounds of the late nineties', podcastTitle: 'Test Show', duration: 20 }, true), EP);
+  const bar = page.locator('#pc-mini.pc-wa');
+  await expect(bar).toBeVisible();
+  await expect(bar.locator('.wa-tt').first()).toContainText(/cadence/i);
+  await expect(bar.locator('.wa-mq')).toContainText('1. Test Show - Classic sounds of the late nineties');
+  await expect(bar.locator('.wa-f').first()).toHaveText('POD');
+  await expect.poll(() => bar.locator('.wa-time').textContent(), { timeout: 8000 }).toMatch(/^00:0[1-9]$/);
+  // stop goes back to the start; play carries on; volume is the real volume and is remembered
+  await expect(bar.locator('.wa-b1 [data-pc=play]')).toHaveClass(/lit/);        // the active button lights up
+  await bar.locator('[data-pc=stop]').click();
+  await expect.poll(() => page.evaluate(() => [CadencePodcasts.audio.paused, CadencePodcasts.audio.currentTime])).toEqual([true, 0]);
+  await expect(bar.locator('.wa-b1 [data-pc=stop]')).toHaveClass(/lit/);
+  await bar.locator('[data-pc=play]').click();
+  await expect.poll(() => page.evaluate(() => !CadencePodcasts.audio.paused)).toBe(true);
+  await bar.locator('.wa-vol').fill('40');
+  await expect.poll(() => page.evaluate(() => CadencePodcasts.audio.volume)).toBeCloseTo(0.4, 2);
+  // the LCD spectrum moves (bright pixels in the little canvas)
+  await expect.poll(() => bar.locator('.wa-vis canvas').evaluate(c => { const d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data; let n = 0; for (let i = 0; i < d.length; i += 4) if (d[i + 1] > 120) n++; return n; }), { timeout: 8000 }).toBeGreaterThan(30);
+  // the playlist folds open: what's on now, then Up next; double-click one to play it
+  await page.evaluate(ep => CadencePodcasts.queue({ uuid: 'w2', url: ep + '?2', title: 'The next one', podcastTitle: 'Test Show', duration: 20 }), EP);
+  await bar.locator('.wa-wide').click();
+  await expect(bar.locator('.wa-list .wa-tr')).toHaveCount(2);
+  await expect(bar.locator('.wa-tr.on')).toContainText('Classic sounds');
+  await page.waitForTimeout(1200); await bar.screenshot({ path: 'test-results/player-classic.png' });
+  await bar.locator('.wa-tr[data-q=w2]').dblclick();
+  await expect(bar.locator('.wa-mq')).toContainText('The next one');
+  await expect.poll(() => page.evaluate(() => CadencePodcasts.queued.length)).toBe(0);
+  // the title bar button goes back to the calm look
+  await bar.locator('[data-pc=skin]').click();
+  await expect(page.locator('#pc-mini')).not.toHaveClass(/pc-wa/);
+  await expect(page.locator('#pc-mini .pc-play')).toHaveCount(1);
+  expect(await page.evaluate(() => CadencePodcasts.audio.volume)).toBeCloseTo(0.4, 2);
+  expect(errs).toEqual([]);
+});
