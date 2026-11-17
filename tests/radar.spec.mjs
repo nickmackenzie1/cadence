@@ -23,6 +23,7 @@ test('Music Radar view: charts, picks, thumbs, and no Reddit anywhere', async ({
   const errs = []; page.on('pageerror', e => errs.push(String(e)));
   await page.addInitScript(() => { localStorage.setItem('cadence.reviewNudge', (d => { d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); })(new Date())); localStorage.setItem('cadence.space', 'life'); });
   await page.goto(B + '/#view-radar');
+  await page.locator('.mr-sec[data-sec=all]').click();   // every Radar section at once
   await expect(page.locator('.mr-tiles')).toBeVisible({ timeout: 10000 });
   // (if this fails, say what the card showed)
   await expect(page.locator('.mr-chart svg polyline').first()).toBeAttached({ timeout: 15000 }).catch(async e => {
@@ -48,6 +49,7 @@ test('Music Radar view: charts, picks, thumbs, and no Reddit anywhere', async ({
 
   // other sources: combined across sources, each source on its own tab, and their settings
   await page.goto(B + '/#view-radar');
+  await page.locator('.mr-sec[data-sec=all]').click();   // every Radar section at once
   const src = page.locator('#mr-sources');
   // the simpler front page (2026-11-16): sources live under "Sources and charts", folded until opened (and remembered)
   await expect(page.locator('details[data-more=sources]')).not.toHaveAttribute('open', '');
@@ -87,6 +89,7 @@ test('Where it listens: Lemmy/Mastodon settings, and hiding an artist removes th
   expect(who).toBeTruthy();
   await page.addInitScript(() => { localStorage.setItem('cadence.reviewNudge', (d => { d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); })(new Date())); localStorage.setItem('cadence.space', 'life'); });
   await page.goto(B + '/#view-radar');
+  await page.locator('.mr-sec[data-sec=all]').click();   // every Radar section at once
   await expect(page.locator('.mr-tiles')).toBeVisible({ timeout: 10000 });
   await page.locator('details[data-more=settings] > summary').click();
   await expect(page.locator('#mr-comm')).toContainText('Where it listens');

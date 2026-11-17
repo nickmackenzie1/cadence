@@ -51,6 +51,7 @@ test('artist page: from a Radar pick to everything about them', async ({ page })
   await page.goto(B + '/');
   await page.click('[data-act="space"][data-s="life"]');   // Music Radar lives in Life
   await page.evaluate(() => { location.hash = 'view-radar'; });
+  await page.locator('.mr-sec[data-sec=all]').click();   // every Radar section at once
   await expect(page.locator('.mr-tiles')).toBeVisible({ timeout: 10000 });
   await page.locator('.mr-pick [data-artist="Glass Lantern"]').first().click();
   await expect(page).toHaveURL(/#view-artist$/);

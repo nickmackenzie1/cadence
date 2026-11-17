@@ -47,7 +47,15 @@ test('For you learns from what you follow and play; Not for me hides and undoes'
   await expect(fy.locator('.mr-fyl li').first()).toBeVisible({ timeout: 10000 });
   const first = await fy.locator('.mr-fyl li').first().locator('.ar-link').textContent();
   await expect(fy.locator('.mr-why').first()).not.toBeEmpty();
-  await page.setViewportSize({ width: 1400, height: 900 }); await fy.screenshot({ path: 'test-results/foryou.png' });
+  // sections: For you first; Rising shows the risers and hides For you; the choice is remembered
+  await expect(page.locator('.mr-sec[aria-pressed=true]')).toHaveText('For you');
+  await page.locator('.mr-sec[data-sec=rising]').click();
+  await expect(page.locator('.mr-card', { hasText: 'Fastest risers' })).toBeVisible();
+  await expect(fy).toBeHidden();
+  await page.reload(); await page.evaluate(() => { location.hash = 'view-radar'; });
+  await expect(page.locator('.mr-sec[aria-pressed=true]')).toHaveText('Rising');
+  await page.locator('.mr-sec[data-sec=foryou]').click();
+  await page.setViewportSize({ width: 1400, height: 900 }); await page.waitForTimeout(400); await page.screenshot({ path: 'test-results/radar-sections.png' });
   await fy.locator('.mr-fyl li').first().locator('[data-nfm-type=artist]').click();
   await expect(fy.locator('.mr-fyl .ar-link', { hasText: first })).toHaveCount(0);
   await expect(fy).toContainText('1 artist hidden');

@@ -294,6 +294,29 @@
         $('#mr-digest').onclick = async () => { G.st = await post('api/radar/run', { what: 'digest' }); load(); };
         const lg = $('#mr-log'); if (lg) lg.onclick = () => { (window.__dbv = window.__dbv || {}).want = 'sql:radar_jobs'; };
         el.querySelectorAll('[data-fb]').forEach(b => b.onclick = async () => { const v = +b.dataset.v, cur = +b.dataset.cur; await post('api/radar/feedback', { id: b.dataset.fb, v: cur === v ? 0 : v }); load(); });
+        // sections instead of one long page (user, 2026-11-17: "so long… needs to be presented better"): every card is
+        // filed by its heading, chips at the top switch between them, and the choice is remembered
+        {
+          const SECS = [['foryou', 'For you', 'sparkles'], ['rising', 'Rising', 'trending-up'], ['sources', 'Sources', 'radio-tower'], ['community', 'Communities', 'users'], ['about', 'About Radar', 'settings-2'], ['all', 'Everything', 'layout-list']];
+          const FILE = [[/^For you|^Out this week|^Close to home|^Called it|^Want to hear/, 'foryou'],
+            [/^Who's climbing|^Fastest risers|^Albums and EPs|^Genres blowing up|^Climbing the charts|^Genres across sources/, 'rising'],
+            [/^Other sources|^New finds per day/, 'sources'],
+            [/^Recent picks|^New scenes|^Which communities|"Sounds like"|^Track record/, 'community'],
+            [/^What it's learned|^Weekly digests|^Where it listens/, 'about']];
+          const cards = [...el.querySelectorAll('.mr-card')];
+          const more = [...el.querySelectorAll('details.mr-more')];   // the older fold-out groups: shown with their section
+          for (const c of cards) { const h = (c.querySelector('h3') || {}).textContent || ''; c.dataset.sec = (FILE.find(([re]) => re.test(h.trim())) || [, 'about'])[1]; }
+          let cur = api.storage.get('radarSection') || 'foryou'; if (cur !== 'all' && !cards.some(c => c.dataset.sec === cur)) cur = 'foryou';
+          const grid = el.querySelector('.mr-grid');
+          if (grid && !el.querySelector('.mr-secs')) {
+            const nav = document.createElement('nav'); nav.className = 'mr-secs'; nav.setAttribute('aria-label', 'Radar sections');
+            nav.innerHTML = SECS.filter(([k]) => k === 'all' || cards.some(c => c.dataset.sec === k)).map(([k, l, i]) => `<button class="mr-sec" data-sec="${k}" aria-pressed="${k === cur}">${ic(i)}${l}</button>`).join('');
+            grid.parentNode.insertBefore(nav, grid);
+            const show = k => { cur = k; for (const c of cards) c.hidden = k !== 'all' && c.dataset.sec !== k; const MORE = { sources: 'sources', scenes: 'community', record: 'community', settings: 'about' }; for (const m of more) { const mine = MORE[m.dataset.more] || 'about'; m.hidden = k !== 'all' && mine !== k; if (k !== 'all' && mine === k) m.open = true; } nav.querySelectorAll('.mr-sec').forEach(b => b.setAttribute('aria-pressed', b.dataset.sec === k)); };
+            nav.onclick = e => { const b = e.target.closest('.mr-sec'); if (!b) return; api.storage.set('radarSection', b.dataset.sec); show(b.dataset.sec); };
+            show(cur);
+          }
+        }
         const fa = $('#mr-fyall'); if (fa) fa.onclick = () => window.CadencePreview.playAll((D.forYou.list || []).map(x => ({ artist: x.artist, title: x.title })));
         const nm = $('#mr-nfm-manage'); if (nm) nm.onclick = () => nfmDialog(api, D.notForMe);
         const wa = $('#mr-wantall'); if (wa) wa.onclick = () => window.CadencePreview.playAll(window.CadencePreview.want.peek());
@@ -349,6 +372,10 @@
         .mr-rise{table-layout:fixed;width:100%} .mr-rise td:first-child{overflow:hidden} .mr-rise th:not(:first-child),.mr-rise td:not(:first-child){width:4.2em}
         .mr-src .cx-logo,.mr-small .cx-logo,.mr-chip .cx-logo{margin-right:4px;vertical-align:-2px} .mr-tabs .cx-logo{margin-right:5px;vertical-align:-2px}
         .mr-home{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:18px} .mr-home h4{margin:4px 0 0}
+        .mr-secs{position:sticky;top:0;z-index:2;display:flex;gap:6px;flex-wrap:wrap;padding:8px 0;margin:4px 0 10px;background:color-mix(in srgb,var(--bg) 88%,transparent);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)}
+        .mr-sec{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:var(--panel);color:var(--text);border-radius:999px;padding:6px 14px;font:inherit;font-size:13px;cursor:pointer}
+        .mr-sec svg{width:14px;height:14px;color:var(--muted)} .mr-sec[aria-pressed=true]{background:var(--accent-soft);border-color:transparent;color:var(--accent)} .mr-sec[aria-pressed=true] svg{color:var(--accent)}
+        .mr-card[hidden]{display:none!important}
         .mr-fyl.mr-one{grid-template-columns:1fr} .mr-card h3 svg{width:16px;height:16px;vertical-align:-2px;margin-right:6px;color:var(--muted)}
         .mr-fyl{list-style:none;margin:6px 0 4px;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:8px 18px}
         .mr-fyl li{display:flex;align-items:center;gap:8px;min-width:0} .mr-fyt{flex:1;min-width:0;display:flex;flex-direction:column} .mr-fyt .ar-link{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}

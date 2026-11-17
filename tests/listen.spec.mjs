@@ -47,6 +47,7 @@ test('play from a pick, save to Want to hear, play all', async ({ page }) => {
   await page.goto(B + '/');
   await page.click('[data-act="space"][data-s="life"]');
   await page.evaluate(() => { location.hash = 'view-radar'; });
+  await page.locator('.mr-sec[data-sec=all]').click();   // every Radar section at once
   await expect(page.locator('.mr-tiles')).toBeVisible({ timeout: 10000 });
 
   // play the first pick's preview

@@ -30,7 +30,7 @@ export const nfmSourceOff = (cfg, source, feed) => cfg.sources.includes(source) 
 
 // genres Cadence knows for an artist: Radar's own, every source's tags, MusicBrainz's (if looked up)
 export function genresOf(key, state) {
-  const g = new Map(), add = (x, w = 1) => { const c = cleanGenre ? cleanGenre(x) : x; if (c) g.set(String(c).toLowerCase(), (g.get(String(c).toLowerCase()) || 0) + w); };
+  const g = new Map(), add = (x, w = 1) => { const c = cleanGenre ? cleanGenre(x) : x; if (c && !UMBRELLA.has(String(c).toLowerCase())) g.set(String(c).toLowerCase(), (g.get(String(c).toLowerCase()) || 0) + w); };
   for (const [x, n] of Object.entries(state?.artists?.[key]?.genres || {})) add(x, n);
   try { for (const s of signalsFor(key, 60)) for (const x of String(s.genres || "").split(", ").filter(Boolean)) add(x); } catch {}
   try { for (const x of (getKv("mba:" + key) || {}).tags || []) add(x, 2); } catch {}

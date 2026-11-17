@@ -334,3 +334,9 @@ Cleaned up 2026-11-16 (0.8.2): items already built were moved out after checking
   stopped (SIGKILL, often running out of memory)" in Problems. The child exits when the main server goes.
   MUSIC_PROCESS=0 runs everything in one process as before; MUSIC_MAX_MB caps the music side's memory.
 - Mixcloud plays in a small dock at the bottom (#rd-mcdock), outside the page, so redraws don't restart the show.
+
+### Radar page in sections (2026-11-17, 0.27.1)
+- Chips under the tiles: For you · Rising · Sources · Communities · About Radar · Everything (sticky; remembered in
+  plugin storage `radarSection`). Cards are filed by their heading (FILE map in music-radar.js); the older fold-outs
+  (data-more sources/scenes/record/settings) show with their section and open when chosen.
+- For you's genre weights now skip catch-all genres (the earlier edit hadn't applied).
