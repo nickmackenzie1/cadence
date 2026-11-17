@@ -119,14 +119,18 @@ async function notForMe(b) {
 }
 // Friday mix, Out this week, Called it (radar/lib/extras.mjs)
 const exLib = () => import(pathToFileURL(path.join(__dirname, 'radar', 'lib', 'extras.mjs')).href);
-const kexpHeavy = () => { try { const K = require('./kexp-log'); return K.status().on === false ? () => null : n => K.heavyFirst(n); } catch (e) { return () => null; } };
+const kexpHeavy = () => { try { const K = require('./kexp-log'); return !K.isOn() ? () => null : n => K.heavyFirst(n); } catch (e) { return () => null; } };
 async function releases() { return (await exLib()).releases(); }
 async function mix({ week, again } = {}) {
   const X = await exLib();
   if (week && week !== X.mixWeek()) return X.pastMix(String(week)) || { error: 'No mix that week' };
   return X.fridayMix(await data(), { again: !!again, rel: X.releases() });
 }
-async function calledIt() { const { store } = await load(); return (await exLib()).calledIt(store.loadState(), { kexpHeavy: kexpHeavy() }); }
+async function calledIt() {
+  const { store } = await load();
+  let K = null; try { K = require('./kexp-log'); if (!K.isOn()) K = null; } catch (e) {}
+  return (await exLib()).calledIt({ artists: store.loadArtists ? store.loadArtists() : store.loadState().artists }, { heavySince: K ? s => K.heavySince(s) : () => [] });
+}
 // Close to home (user, 2026-11-16): Kingston and Canadian artists, from what Cadence already hears:
 //   Kingston  Kingston Live listings, CFRC (Queen's) and Amherst Island Radio plays, MusicBrainz "from Kingston"
 //   Canada    the !earshot campus charts, Canadian campus stations' plays, MusicBrainz / TheAudioDB country
@@ -206,7 +210,7 @@ let mcCache = { at: 0, v: null };
 async function mixcloud({ refresh } = {}) {
   if (mcCache.v && !refresh && Date.now() - mcCache.at < 6 * 3600e3) return mcCache.v;
   const { store } = await load(), { safeFetch } = require('../lib/net');
-  let K = null; try { K = require('./kexp-log'); if (K.status().on === false) K = null; } catch (e) {}
+  let K = null; try { K = require('./kexp-log'); if (!K.isOn()) K = null; } catch (e) {}
   if (!K) return { djs: [], note: 'Mixcloud picks come from KEXP history, which is off on this NAS.' };
   const favs = new Map();
   for (const r of store.listensSince(Math.floor(Date.now() / 1000) - 365 * 86400, 20000)) if (!(r.kind === 'preview' && r.skipped)) favs.set(r.artist, (favs.get(r.artist) || 0) + r.secs);
@@ -283,7 +287,7 @@ if (!process.env.CI && process.env.ARTIST_WARM !== '0') {
 }
 async function buildArtist(name) {
   const A = await import(pathToFileURL(path.join(__dirname, 'radar', 'lib', 'artist.mjs')).href);
-  let kexp = null; try { const K = require('./kexp-log'); if (K.status().on !== false) kexp = K.artist(name); } catch (e) { kexp = null; }
+  let kexp = null; try { const K = require('./kexp-log'); if (K.isOn()) kexp = K.artist(name); } catch (e) { kexp = null; }
   const d = A.artistData(name, { kexp });
   if (d) try { d.stg = (await stgLib()).stgFor(d.name).concat(d.name !== name ? (await stgLib()).stgFor(name) : []).filter((x, i, l) => l.findIndex(y => y.year === x.year && y.kind === x.kind && y.title === x.title) === i); } catch (e) { d.stg = []; }
   if (d) try { d.similar = await (await import(pathToFileURL(path.join(__dirname, 'radar', 'lib', 'similar.mjs')).href)).similar(d.name); } catch (e) { d.similar = []; }
@@ -358,7 +362,7 @@ async function followNews(list) {
   const { store } = await load(), X = await import(pathToFileURL(path.join(__dirname, 'radar', 'lib', 'extract.mjs')).href);
   let SRC = {}; try { SRC = (await import(pathToFileURL(path.join(__dirname, 'radar', 'lib', 'sources.mjs')).href)).SOURCES; } catch {}
   const seen = store.getKv('followSeen', {}) || {}, shownShows = new Set(store.getKv('followShows', []) || []);
-  let K = null; try { K = require('./kexp-log'); if (K.status().on === false) K = null; } catch { K = null; }
+  let K = null; try { K = require('./kexp-log'); if (!K.isOn()) K = null; } catch { K = null; }
   let R = null; try { R = require('./radio'); } catch { R = null; }
   let shows = []; try { shows = (await showsLib()).cachedShows(); } catch {}
   const out = [], iso = sec => new Date(sec * 1000).toISOString(), src = id => (SRC[id] && SRC[id].name) || id;
@@ -415,7 +419,7 @@ async function shows(input = {}) {
   for (const r of (Array.isArray(input.recent) ? input.recent : []).slice(0, 40)) add(r, 'You looked them up');
   try { const d = await data(); for (const r of [...(d.rise.top || []), ...(d.rise.risers || [])]) add(r.artist, 'Climbing on Music Radar');
     for (const a of ((d.sources && d.sources.combined) || []).slice(0, 30)) add(a.artist, 'Showing up in ' + Object.keys(a.sources).length + ' Radar sources'); } catch {}
-  try { const K = require('./kexp-log'); if (K.status().on !== false) for (const a of K.top({ by: 'artist', period: 'year', limit: 80 })) add(a.artist, `KEXP played them ${a.plays} times this year`); } catch {}
+  try { const K = require('./kexp-log'); if (K.isOn()) for (const a of K.top({ by: 'artist', period: 'year', limit: 80 })) add(a.artist, `KEXP played them ${a.plays} times this year`); } catch {}
   try { const G = (await stgLib()).stgData(); for (const a of G.artists.slice(0, 60)) add(a.artist, `On Said the Gramophone's best-of ${a.n} time${a.n === 1 ? '' : 's'}`); } catch {}
   const r = await S.shows(interest, { force: !!input.refresh });
   // each act in a lineup: where they've turned up (only acts with something to say)

@@ -274,3 +274,11 @@ Cleaned up 2026-11-16 (0.8.2): items already built were moved out after checking
   the relay (`playable()` now relays .pls/.m3u); now playing via the usual ICY reader.
 - Mixcloud (Radio, fold-open; /api/radar/mixcloud, 6 h): KEXP DJs who play your favourites most (listens + follows →
   kexp-log artist().djs), Mixcloud public search "<DJ> KEXP" filtered to that DJ; Play loads Mixcloud's widget.
+
+### NAS stopped answering its health check (2026-11-17)
+- Up ~2 min then "Health check exceeded timeout": the hourly artist-page warm-up (starts 2 min after boot, 40 pages)
+  called `kexp-log.status()` per page just to ask "is it on?", and status() did COUNT(*) over all of KEXP plus a
+  dbstat size scan (1 GB+). Also "Called it" loaded every Radar signal on each Radar page load.
+- Now: `K.isOn()` for that question; status() keeps the play count (bumped on save) and estimates size from it;
+  `K.heavySince()` reads heavy rotation once by date index (window capped at 400 days); Called it groups first
+  sightings in SQL (`store.firstSightings`), reads artists only (`store.loadArtists`), kept an hour.

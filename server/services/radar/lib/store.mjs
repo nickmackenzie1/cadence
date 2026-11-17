@@ -262,6 +262,17 @@ export function pagesToRefresh(olderThan, limit = 20) {
   return db.prepare("SELECT key, json_extract(json, '$.name') AS name FROM radar_artist_pages WHERE at < ? ORDER BY at LIMIT ?").all(Date.now() - olderThan, limit);
 }
 
+// just the artists (keyed), without picks, edges and digests
+export function loadArtists() {
+  if (!open()) return loadState().artists;
+  const out = {}; for (const r of db.prepare("SELECT key, json FROM radar_artists").all()) { try { out[r.key] = JSON.parse(r.json); } catch {} }
+  return out;
+}
+// first time each artist turned up, per kind of source (for "Called it"): grouped by the database, not loaded whole
+export function firstSightings(sources) {
+  if (!open()) return [];
+  return db.prepare(`SELECT artist_key AS key, MIN(artist) AS artist, MIN(first_seen) AS ts, source, MIN(feed) AS feed FROM radar_signals WHERE source IN (${sources.map(() => "?").join(",")}) GROUP BY artist_key, source`).all(...sources);
+}
 // ---- artists mentioned together with this one (the "sounds like" graph), strongest first ----
 export function neighbors(key, limit = 12) {
   if (!open()) return [];

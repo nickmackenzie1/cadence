@@ -3,7 +3,7 @@
 //   Out this week   releases by artists you follow or saved, from MusicBrainz and the sources' release dates
 //   Called it    how early Radar spotted someone before the Apple chart or KEXP's heavy rotation
 import { now, DAY } from "./config.mjs";
-import { getKv, setKv, signals, signalsFor } from "./store.mjs";
+import { getKv, setKv, signalsFor, firstSightings } from "./store.mjs";
 import { norm } from "./extract.mjs";
 import { artistInfo } from "./coverart.mjs";
 import { nfmCfg } from "./foryou.mjs";
@@ -35,32 +35,39 @@ export function releases({ back = 7, ahead = 60 } = {}) {
 }
 
 // ---- Called it: Radar's first sighting vs the Apple chart and KEXP's heavy rotation ----
-// kexpHeavy(name) -> unix seconds of KEXP's first heavy-rotation play, or null (from kexp-log, when it's on)
-export function calledIt(state, { kexpHeavy = () => null, limit = 12 } = {}) {
-  const t = now(), firstApple = new Map(), firstEarly = new Map();
-  const early = new Set(["blogs", "hypem", "bandcamp", "kexp", "earshot", "kexpchart", "audius", "community"]);
-  for (const s of signals({ since: 0, limit: 200000 })) {
-    const k = s.artist_key || norm(s.artist); if (!k) continue;
-    if (s.source === "apple") { if (!firstApple.has(k) || s.first_seen < firstApple.get(k).ts) firstApple.set(k, { ts: s.first_seen, name: s.artist }); }
-    else if (early.has(s.source)) { if (!firstEarly.has(k) || s.first_seen < firstEarly.get(k).ts) firstEarly.set(k, { ts: s.first_seen, name: s.artist, via: s.source === "blogs" ? s.feed || "a blog" : s.source }); }
+// The database groups first sightings; KEXP's heavy rotation is read once for the stretch since Radar started (by
+// date index). Kept an hour (2026-11-17: loading every signal and asking KEXP per artist froze the NAS).
+let calledCache = { at: 0, v: null };
+const EARLY = ["blogs", "hypem", "bandcamp", "kexp", "earshot", "kexpchart", "audius", "community"];
+export function calledIt(state, { heavySince = () => [], limit = 12, fresh = false } = {}) {
+  if (!fresh && calledCache.v && Date.now() - calledCache.at < 3600e3) return { ...calledCache.v, list: calledCache.v.all.slice(0, limit) };
+  const firstApple = new Map(), firstEarly = new Map();
+  for (const r of firstSightings(["apple", ...EARLY])) {
+    if (!r.key) continue;
+    if (r.source === "apple") { if (!firstApple.has(r.key) || r.ts < firstApple.get(r.key).ts) firstApple.set(r.key, { ts: r.ts, name: r.artist }); }
+    else if (!firstEarly.has(r.key) || r.ts < firstEarly.get(r.key).ts) firstEarly.set(r.key, { ts: r.ts, name: r.artist, via: r.source === "blogs" ? r.feed || "a blog" : r.source });
   }
   for (const [k, a] of Object.entries(state?.artists || {})) {
     const f = Math.min(...Object.values(a.firstSeen || {}), Infinity);
     if (isFinite(f) && (!firstEarly.has(k) || f < firstEarly.get(k).ts)) firstEarly.set(k, { ts: f, name: a.name || k, via: "Lemmy & Mastodon" });
   }
+  let start = Infinity; for (const e of firstEarly.values()) start = Math.min(start, e.ts);
+  start = Math.max(start, now() - 400 * DAY);   // Radar's history is recent; never read all of KEXP for this
+  const heavy = new Map(); if (isFinite(start)) try { for (const h of heavySince(start)) heavy.set(norm(h.artist), h.t); } catch {}
   const nfm = new Set(nfmCfg().artists.map(norm)), out = [];
   for (const [k, e] of firstEarly) {
     if (nfm.has(k)) continue;
-    const ms = [];
-    const ap = firstApple.get(k); if (ap && ap.ts - e.ts >= 3 * DAY) ms.push({ what: "the Apple chart", days: Math.round((ap.ts - e.ts) / DAY), at: ap.ts });
-    let h = null; try { h = kexpHeavy(e.name); } catch {}
+    const ms = [], ap = firstApple.get(k), h = heavy.get(k);
+    if (ap && ap.ts - e.ts >= 3 * DAY) ms.push({ what: "the Apple chart", days: Math.round((ap.ts - e.ts) / DAY), at: ap.ts });
     if (h && h - e.ts >= 3 * DAY) ms.push({ what: "KEXP's heavy rotation", days: Math.round((h - e.ts) / DAY), at: h });
     if (!ms.length) continue;
     ms.sort((a, b) => b.days - a.days);
     out.push({ artist: e.name, spotted: iso(e.ts), via: e.via, lead: ms[0].days, milestones: ms.map((m) => ({ ...m, at: iso(m.at) })) });
   }
   out.sort((a, b) => b.lead - a.lead);
-  return { list: out.slice(0, limit), count: out.length, median: out.length ? out.map((x) => x.lead).sort((a, b) => a - b)[Math.floor(out.length / 2)] : null };
+  const v = { all: out, count: out.length, median: out.length ? out.map((x) => x.lead).sort((a, b) => a - b)[Math.floor(out.length / 2)] : null };
+  calledCache = { at: Date.now(), v };
+  return { ...v, list: out.slice(0, limit) };
 }
 // the line for one artist's page: only their own signals (indexed), not every artist's
 export function calledItFor(state, name, { kexpHeavy = () => null } = {}) {

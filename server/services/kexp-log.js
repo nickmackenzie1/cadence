@@ -71,6 +71,7 @@ function save(plays) {
   const d = open(), ins = d.prepare('INSERT OR IGNORE INTO kexp_plays VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)');
   let n = 0; d.exec('BEGIN');
   try { for (const p of plays) { const r = row(p); if (r && ins.run(...r).changes) n++; } d.exec('COMMIT'); } catch (e) { d.exec('ROLLBACK'); throw e; }
+  if (countCache.at) countCache.n += n;   // keep the kept count right without recounting
   return n;
 }
 // the API address is fixed config (not user input), so plain fetch; "next" links are only followed back to the same API
@@ -147,12 +148,21 @@ function kexpBytes(d) {
   try { return d.prepare("SELECT SUM(pgsize) AS b FROM dbstat WHERE name LIKE 'kexp\\_%' ESCAPE '\\' OR name IN (SELECT name FROM sqlite_master WHERE type = 'index' AND tbl_name LIKE 'kexp\\_%' ESCAPE '\\')").get().b || 0; }
   catch { return null; }
 }
+// Counting every play and measuring the table read the whole KEXP history (1 GB+ once all of it is in), and other
+// features called this just to ask "is it on?" (2026-11-17: the NAS stopped answering its health check). Now: isOn()
+// for that, the count kept 10 minutes, the size kept 6 hours; MIN/MAX use the airdate index.
+const isOn = () => !!ON;
+let countCache = { at: 0, n: 0, shows: 0 }, bytesCache = { at: 0, b: null };
 function status() {
   if (!ON) return { on: false };
   try {
-    const d = open(), r = d.prepare('SELECT COUNT(*) AS n, MIN(airdate) AS since, MAX(airdate) AS latest FROM kexp_plays').get();
-    return { on: true, plays: r.n, since: r.since ? iso(r.since) : null, latest: r.latest ? iso(r.latest) : null, backfill: state.backfill, mode: meta('backfill_mode') || 'date', error: state.error, backDays: BACK_DAYS === Infinity ? 'all' : BACK_DAYS,
-      shows: (d.prepare('SELECT COUNT(*) AS n FROM kexp_shows').get() || {}).n || 0, bytes: kexpBytes(d) };
+    const d = open();
+    if (Date.now() - countCache.at > 10 * 60e3) countCache = { at: Date.now(), n: d.prepare('SELECT COUNT(*) AS n FROM kexp_plays').get().n, shows: (d.prepare('SELECT COUNT(*) AS n FROM kexp_shows').get() || {}).n || 0 };
+    // size: an estimate from the count (measuring it reads every page of the table, seconds to minutes on the NAS)
+    bytesCache = { at: Date.now(), b: Math.round(countCache.n * 290 + countCache.shows * 400) };
+    const r = { since: (d.prepare('SELECT MIN(airdate) AS t FROM kexp_plays').get() || {}).t, latest: (d.prepare('SELECT MAX(airdate) AS t FROM kexp_plays').get() || {}).t };
+    return { on: true, plays: countCache.n, since: r.since ? iso(r.since) : null, latest: r.latest ? iso(r.latest) : null, backfill: state.backfill, mode: meta('backfill_mode') || 'date', error: state.error, backDays: BACK_DAYS === Infinity ? 'all' : BACK_DAYS,
+      shows: (d.prepare('SELECT COUNT(*) AS n FROM kexp_shows').get() || {}).n || 0, bytes: bytesCache.b };
   } catch (e) { return { on: true, error: e.message }; }
 }
 
@@ -308,4 +318,6 @@ start();
 function playCount(name) { try { return open().prepare('SELECT COUNT(*) AS n FROM kexp_plays WHERE artist = ? COLLATE NOCASE').get(String(name || '')).n; } catch (e) { return 0; } }
 // when KEXP first put someone in heavy rotation (unix seconds), for Music Radar's "Called it"
 function heavyFirst(name) { try { const r = open().prepare("SELECT MIN(airdate) AS t FROM kexp_plays WHERE artist = ? COLLATE NOCASE AND rotation = 'Heavy'").get(String(name || '')); return r && r.t ? r.t : null; } catch (e) { return null; } }
-module.exports = { heavyFirst, playCount, winners, playsSince, status, checkNew, backfillStep, fillShows, row, start, top, search, artist, song, around, recent, newArtists, onAir, open };
+// first heavy-rotation play for every artist since a time (one pass over that stretch of the airdate index)
+function heavySince(sinceSec) { try { return open().prepare("SELECT MIN(artist) AS artist, MIN(airdate) AS t FROM kexp_plays WHERE airdate >= ? AND rotation = 'Heavy' GROUP BY artist COLLATE NOCASE").all(Math.floor(sinceSec)); } catch (e) { return []; } }
+module.exports = { isOn, heavySince, heavyFirst, playCount, winners, playsSince, status, checkNew, backfillStep, fillShows, row, start, top, search, artist, song, around, recent, newArtists, onAir, open };
