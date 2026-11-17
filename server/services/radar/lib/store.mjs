@@ -262,6 +262,13 @@ export function pagesToRefresh(olderThan, limit = 20) {
   return db.prepare("SELECT key, json_extract(json, '$.name') AS name FROM radar_artist_pages WHERE at < ? ORDER BY at LIMIT ?").all(Date.now() - olderThan, limit);
 }
 
+// ---- artists mentioned together with this one (the "sounds like" graph), strongest first ----
+export function neighbors(key, limit = 12) {
+  if (!open()) return [];
+  db.exec("CREATE INDEX IF NOT EXISTS radar_edges_a ON radar_edges(a); CREATE INDEX IF NOT EXISTS radar_edges_b ON radar_edges(b)");
+  return db.prepare("SELECT CASE WHEN e.a = ? THEN e.b ELSE e.a END AS key, e.n AS n, a.name AS name FROM radar_edges e LEFT JOIN radar_artists a ON a.key = (CASE WHEN e.a = ? THEN e.b ELSE e.a END) WHERE e.a = ? OR e.b = ? ORDER BY e.n DESC LIMIT ?")
+    .all(key, key, key, key, limit);
+}
 // ---- what you listened to (user, 2026-11-16: Radar learns your taste; Your year in music) ----
 // one row per song heard: kind = preview | live (a station) | kexp; secs = how long it played; skipped = stopped early
 function listensTable() { db.exec("CREATE TABLE IF NOT EXISTS radar_listens (id INTEGER PRIMARY KEY AUTOINCREMENT, ts INTEGER NOT NULL, artist TEXT, artist_key TEXT, title TEXT, kind TEXT, station TEXT, secs INTEGER, skipped INTEGER); CREATE INDEX IF NOT EXISTS radar_listens_ts ON radar_listens(ts); CREATE INDEX IF NOT EXISTS radar_listens_key ON radar_listens(artist_key)"); }

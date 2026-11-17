@@ -178,6 +178,27 @@ async function stationNow(id, u) {
   })().finally(() => nowInflight.delete(id));
   nowInflight.set(id, job); return job;
 }
+// SomaFM (user, 2026-11-16, from their API list): ~40 listener-supported channels, no ads, each with what's playing.
+// Their channel list is public JSON; kept 10 minutes. Streams are .pls playlists, which the NAS relay opens.
+let somaCache = { at: 0, v: null };
+async function soma() {
+  if (somaCache.v && Date.now() - somaCache.at < 10 * 60e3) return somaCache.v;
+  const base = (process.env.SOMAFM_API || 'https://somafm.com').replace(/\/$/, '');
+  const r = await safeFetch(base + '/channels.json', { headers: { Accept: 'application/json' }, timeout: 8000 }, 2 * 1024 * 1024);
+  const j = JSON.parse(r.buf.toString('utf8'));
+  const pick = c => { const l = (c.playlists || []).filter(p => p && p.url); return (l.find(p => p.format === 'mp3' && p.quality === 'highest') || l.find(p => p.format === 'mp3') || l.find(p => /aac/.test(p.format || '')) || l[0] || {}).url || null; };
+  const v = (j.channels || []).map(c => ({ id: 'soma:' + String(c.id || '').replace(/[^a-z0-9_-]/gi, ''), name: String(c.title || c.id || '').slice(0, 80), place: String(c.genre || '').replace(/\|/g, ', ').slice(0, 80),
+    about: String(c.description || '').slice(0, 200), now: c.lastPlaying ? String(c.lastPlaying).slice(0, 160) : null, listeners: +c.listeners || 0,
+    art: c.largeimage || c.xlimage || c.image || null, home: `https://somafm.com/${encodeURIComponent(c.id || '')}/`, url: pick(c) }))
+    .filter(c => c.url && c.id !== 'soma:').sort((a, b) => b.listeners - a.listeners);
+  somaCache = { at: Date.now(), v }; return v;
+}
+// who these stations played lately, most first (Music Radar's Close to home)
+function artistCounts(stations, sinceSec, limit = 300) {
+  try {
+    return hist().prepare(`SELECT MIN(artist) AS artist, station, COUNT(*) AS n FROM radio_plays WHERE station IN (${stations.map(() => '?').join(',')}) AND at > ? AND artist IS NOT NULL AND artist != '' GROUP BY artist COLLATE NOCASE, station ORDER BY n DESC LIMIT ?`).all(...stations, Math.floor(sinceSec), limit);
+  } catch (e) { return []; }
+}
 function history(id, limit = 50) {
   const n = Math.max(1, Math.min(500, +limit || 50));
   let list = [];
@@ -252,4 +273,4 @@ async function relay(url, clientReq, clientRes) {
 // look the presets up shortly after the NAS starts, so the first visit to Radio doesn't wait
 if (!process.env.CI && process.env.RADIO_WARM !== '0') setTimeout(() => { stations().catch(() => {}); }, 20000).unref();
 
-module.exports = { PRESETS, stations, search, nowPlaying, history, follow, playsFor, relay, resolve, shape, best, parseIcy, splitTitle, readIcy };
+module.exports = { soma, artistCounts, PRESETS, stations, search, nowPlaying, history, follow, playsFor, relay, resolve, shape, best, parseIcy, splitTitle, readIcy };

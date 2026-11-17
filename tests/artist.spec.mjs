@@ -63,6 +63,8 @@ test('artist page: from a Radar pick to everything about them', async ({ page })
   await expect(page.locator('.ap-r')).toHaveCount(1);                       // the live album is left out
   await expect(page.locator('.ap-r')).toContainText('Night Swim');
   await expect(page.locator('.ap-tags')).toContainText('shoegaze');
+  // sounds like: artists mentioned together with them, each a way to wander on
+  await expect(page.locator('.ap-sim li', { hasText: 'Porch Static' })).toContainText(/mentioned together \d+ time/);
   // where they're showing up: sources and community picks
   await expect(page.locator('section', { hasText: 'Where they\'re showing up' }).locator('.ap-list li').first()).toBeVisible();
   // KEXP: plays, songs, who plays them, and the way into KEXP history
@@ -151,7 +153,7 @@ test('Music home: one tile, tabs on every music page, and it reopens the tab you
   await page.evaluate(() => { location.hash = 'music'; });
   await expect(page).toHaveURL(/#view-(radar|radio|kexp-history|want|shows|stg|artists)$/);   // the last music tab (settings sync, so another test may have chosen one)
   const tabs = page.locator('.mus-tabs a');
-  await expect(tabs).toHaveText(['Music Radar', 'Friday mix', 'Radio', 'KEXP history', 'Want to hear', 'Shows', 'Said the Gramophone', 'Artists']);
+  await expect(tabs).toHaveText(['Music Radar', 'Friday mix', 'Radio', 'KEXP history', 'Want to hear', 'Shows', 'Said the Gramophone', 'Artists', 'Your year']);
   await expect(page.locator('#view h1')).toHaveText('Music');
   await tabs.filter({ hasText: 'Radio' }).first().click();
   await expect(page).toHaveURL(/#view-radio$/);
@@ -166,7 +168,7 @@ test('Music home: one tile, tabs on every music page, and it reopens the tab you
   await page.locator('.mus-tabs a', { hasText: 'Artists' }).click();
   await page.fill('#ar-q', 'Glass Lantern'); await page.click('#ar-find button');
   await expect(page).toHaveURL(/#view-artist$/);
-  await expect(page.locator('.mus-tabs a')).toHaveCount(8);         // tabs stay on top of an artist page…
+  await expect(page.locator('.mus-tabs a')).toHaveCount(9);         // tabs stay on top of an artist page…
   await expect(page.locator('.mus-tabs a.on')).toHaveCount(0);      // …with none of them chosen
   await page.evaluate(() => { location.hash = 'view-artists'; });
   await expect(page.locator('.ar-chip', { hasText: 'Glass Lantern' })).toHaveCount(1);

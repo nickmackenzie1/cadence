@@ -6,7 +6,8 @@
   const P = window.CadencePodcasts;
   if (!P) { console.warn('Radio needs the shared player from podcasts.js'); return; }
   const E = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-  const playable = url => (location.protocol === 'https:' && /^http:\/\//i.test(url) ? 'api/radio/stream?u=' + encodeURIComponent(url) : url);
+  // playlists (.pls / .m3u, e.g. SomaFM) and plain-http streams on an https page go through the NAS relay
+  const playable = url => ((location.protocol === 'https:' && /^http:\/\//i.test(url)) || /\.(pls|m3u8?)(\?|$)/i.test(url || '') ? 'api/radio/stream?u=' + encodeURIComponent(url) : url);
   const getJson = async u => { const r = await fetch(u); const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error(j.error || 'HTTP ' + r.status); return j; };
 
   Cadence.registerPlugin({
@@ -53,6 +54,9 @@
 
       // a station's own logo (kept by the NAS), else its website's icon, else the radio icon underneath
       const stLogo = (s, size, big) => `<span class="rd-lg${big ? ' big' : ''}" style="--s:${size}px"><i class="rd-noart">${api.ui.icon('radio')}</i>${s.art || s.home ? api.ui.logo(s.home, { img: s.art, size }) : ''}</span>`;
+      const SOMA = { v: null, busy: false, err: null }, MC = { v: null, busy: false, err: null };
+      const loadMc = async () => { MC.busy = true; try { MC.v = await getJson('api/radar/mixcloud'); } catch (e) { MC.err = e.message; } MC.busy = false; if (api.ui.currentRoute() === 'view-radio') api.ui.refresh(); };
+      const loadSoma = async () => { SOMA.busy = true; try { SOMA.v = await getJson('api/radio/soma'); } catch (e) { SOMA.err = e.message; } SOMA.busy = false; if (api.ui.currentRoute() === 'view-radio') api.ui.refresh(); };
       const card = (s, opts = {}) => {
         const c = P.current, on = c && c.live && c.uuid === 'radio:' + s.id, playing = on && !P.audio.paused;
         return `<div class="rd-st${on ? ' on' : ''}">
@@ -83,6 +87,14 @@
           ${error ? `<p class="pc-note">${api.ui.icon('refresh-cw')}Couldn't load stations from the NAS: ${E(error)}</p>` : ''}
           ${my.length ? `<h3 class="rd-h">Your stations</h3><div class="rd-list">${my.map(s => card(s, { remove: true })).join('')}</div>` : ''}
           <h3 class="rd-h">Stations</h3><div class="rd-list">${stations.map(s => card(s)).join('')}</div>
+          ${(() => { const S = SOMA.v; if (!S && !SOMA.busy && !SOMA.err) loadSoma(); if (!S || !S.length) return '';
+            return `<details class="rd-soma" ${api.storage.get('somaOpen') ? 'open' : ''}><summary><h3 class="rd-h">${api.ui.logo('somafm.com', { size: 16 })}SomaFM</h3><span class="muted">${S.length} listener-supported channels, no ads</span></summary>
+              <div class="rd-list">${S.map(s => card({ ...s, about: s.now ? 'Now: ' + s.now : s.about })).join('')}</div></details>`; })()}
+          ${(() => { const M = MC.v; if (!M && !MC.busy && !MC.err) loadMc(); if (!M || !(M.djs || []).length) return '';
+            return `<details class="rd-soma rd-mc" ${api.storage.get('mcOpen') ? 'open' : ''}><summary><h3 class="rd-h">${api.ui.logo('mixcloud.com', { size: 16 })}Mixcloud</h3><span class="muted">Shows by the KEXP DJs who play your favourites</span></summary>
+              ${M.djs.map(d => `<div class="rd-mcdj"><b>${E(d.dj)}</b> <span class="muted">${d.program ? E(d.program) + ' · ' : ''}plays ${E(d.because.slice(0, 3).join(', '))}</span>
+                ${(d.shows || []).length ? `<ul class="rd-mcl">${d.shows.map(c => `<li data-mc="${E(c.key)}">${c.art ? `<img src="${E('api/logo?u=' + encodeURIComponent(c.art))}" alt="" width="40" height="40" loading="lazy" onerror="this.remove()">` : ''}<div><b>${E(c.name)}</b><span class="muted">${[c.by, c.mins && c.mins + ' min', c.at && new Date(c.at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })].filter(Boolean).map(E).join(' · ')}</span></div>
+                  <button class="btn" data-rd="mc" data-key="${E(c.key)}">${api.ui.icon('play')}Play</button><a class="btn ghost" href="${E(c.url)}" target="_blank" rel="noopener">${api.ui.icon('external-link')}</a></li>`).join('')}</ul>` : `<p class="muted">${E(d.error || 'No shows found on Mixcloud.')}</p>`}</div>`).join('')}</details>`; })()}
           <h3 class="rd-h">Find a station</h3>
           <form class="rd-find" id="rd-find"><input class="inp" id="rd-q" type="search" placeholder="Name, city or genre (shoegaze, college, Kingston…)" aria-label="Find a station" value="${E(api.storage.get('lastQ') || '')}">
             <button class="btn" type="submit">${searching ? 'Looking…' : 'Search'}</button></form>
@@ -92,10 +104,15 @@
           ${hist && hist.on && hist.plays ? `<p class="muted rd-foot">${api.ui.icon('history')} Your NAS is keeping KEXP's playlist: ${hist.plays.toLocaleString()} songs since ${day(hist.since)}${hist.backfill === 'running' ? `, still filling in ${hist.backDays === 'all' ? 'everything back to 2001' : 'the past'}` : ''}. <a href="#view-kexp-history">Open KEXP history</a></p>` : ''}
           <p class="muted rd-foot">Stream addresses come from Radio Browser, a free community directory, looked up by your NAS.</p>
         </div>`;
-        const byId = id => stations.find(s => s.id === id) || my.find(s => s.id === id);
+        const byId = id => stations.find(s => s.id === id) || my.find(s => s.id === id) || (SOMA.v || []).find(s => s.id === id);
+        const sd = el.querySelector('.rd-soma:not(.rd-mc)'); if (sd) sd.ontoggle = () => api.storage.set('somaOpen', sd.open);
+        const md = el.querySelector('.rd-mc'); if (md) md.ontoggle = () => api.storage.set('mcOpen', md.open);
         el.querySelector('.rd').onclick = e => {
           const b = e.target.closest('[data-rd]'); if (!b) return;
           const act = b.dataset.rd, s = b.dataset.i != null && results ? results[+b.dataset.i] : byId(b.dataset.id);
+          if (act === 'mc') { // Mixcloud's own little player, loaded only when you press play; pauses this player first
+            P.pause(); const li = b.closest('li'); li.querySelector('.rd-mcw')?.remove();
+            li.insertAdjacentHTML('beforeend', `<iframe class="rd-mcw" src="https://player-widget.mixcloud.com/widget/iframe/?feed=${encodeURIComponent(b.dataset.key)}&hide_cover=1&mini=1&autoplay=1" title="Mixcloud player" allow="autoplay"></iframe>`); return; }
           if (act === 'play' && s) play(s);
           else if (act === 'pause') P.pause();
           else if (act === 'resume') P.play();
@@ -283,6 +300,9 @@
     .rd-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:8px}
     .rd-st{display:flex;align-items:center;gap:10px;padding:8px 10px;border:1px solid var(--line);border-radius:var(--radius,10px);background:var(--card)}
     .rd-st.on{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent) inset}
+    .rd-soma summary{display:flex;align-items:baseline;gap:10px;cursor:pointer;list-style:none} .rd-soma summary::-webkit-details-marker{display:none} .rd-soma summary .rd-h{margin:0} .rd-soma[open] summary{margin-bottom:8px}
+    .rd-mcdj{margin:8px 0 14px} .rd-mcl{list-style:none;padding:0;margin:6px 0 0;display:flex;flex-direction:column;gap:8px} .rd-mcl li{display:flex;align-items:center;gap:10px;flex-wrap:wrap} .rd-mcl li>div{flex:1;min-width:180px;display:flex;flex-direction:column} .rd-mcl img{border-radius:var(--r-s);object-fit:cover} .rd-mcl .muted{font-size:12px}
+    .rd-mcw{flex-basis:100%;width:100%;height:60px;border:0;border-radius:var(--r-s)}
     .rd-hl{display:flex;align-items:center;gap:10px}
     .rd-lg{position:relative;width:var(--s);height:var(--s);flex:none;display:block} .rd-lg .rd-noart{width:100%;height:100%}
     .rd-lg .cx-logo{position:absolute;inset:0;width:100%;height:100%;margin:0;object-fit:contain;background:#fff;border-radius:var(--r-m);padding:3px;box-shadow:inset 0 0 0 1px var(--line)}

@@ -260,3 +260,17 @@ Cleaned up 2026-11-16 (0.8.2): items already built were moved out after checking
 - Sounds-like graph names were "undefined" for edges read from SQLite (no aName/bName): names looked up now.
 - Artist page: no logo tile when there's a banner; placeholder layout while loading; banner/releases placeholders while
   TheAudioDB / MusicBrainz are pending; banner and photo keep fixed shapes.
+
+### Sounds like, Close to home, Your year, SomaFM, Mixcloud (2026-11-16)
+- Sounds like (artist pages): `radar/lib/similar.mjs` = co-mentions (`store.neighbors`, new edge indexes) + Last.fm
+  artist.getSimilar when LASTFM_API_KEY is set (kept 30 days in `lfs:<key>`).
+- Close to home (Radar card; /api/radar/home): Kingston (CFRC + Amherst Island Radio plays, Kingston Live acts,
+  MusicBrainz "from Kingston"), Canada (!earshot, CIUT/CJRU/CHRY/CKUT plays, MusicBrainz/TheAudioDB country), and
+  Local and rising (mentions in the last 30 days). `radio.artistCounts` added.
+- Your year in music (tab "Your year"; /api/radar/year?y=): minutes, artists, songs on the radio, previews, follows,
+  saves, top artists, months, genres, stations, found early (listened before Apple chart / KEXP heavy rotation).
+  Skipped previews don't count. Island note on Dec 1.
+- SomaFM (Radio, fold-open): /api/radio/soma reads somafm.com/channels.json (10 min), best mp3 .pls played through
+  the relay (`playable()` now relays .pls/.m3u); now playing via the usual ICY reader.
+- Mixcloud (Radio, fold-open; /api/radar/mixcloud, 6 h): KEXP DJs who play your favourites most (listens + follows →
+  kexp-log artist().djs), Mixcloud public search "<DJ> KEXP" filtered to that DJ; Play loads Mixcloud's widget.

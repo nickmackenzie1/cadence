@@ -135,6 +135,7 @@
       const noteMusic = async () => {
         if (api.system().mode !== 'nas' || !api.island || !api.island.notify) return;
         const now = new Date();
+        if (now.getMonth() === 11 && now.getDate() >= 1 && !told('cadence.yearNoted', String(now.getFullYear()))) api.island.notify({ icon: 'calendar-days', title: `Your ${now.getFullYear()} in music is ready`, sub: 'Who you listened to most, your stations, and who you found early', actions: [{ label: 'See it', run: () => api.ui.navigate('view-year') }] });
         if (now.getDay() === 5 && now.getHours() >= 7) {
           const wk = `${now.getFullYear()}-${now.getMonth() + 1}-${now.getDate()}`;
           if (!told('cadence.mixNoted', wk)) api.island.notify({ icon: 'disc-3', title: 'Your Friday mix is ready', sub: 'New picks for you, and new music from people you follow', actions: [{ label: 'Listen', run: () => api.ui.navigate('view-mix') }] });
@@ -242,6 +243,32 @@
       } });
 
       // the Want to hear page: everything you saved, to listen through
+      // ---- Your year in music: from what you actually listened to (user, 2026-11-16) ----
+      const YR = { d: null, y: null, at: 0 };
+      const yrLoad = async y => { try { YR.d = await (await fetch('api/radar/year' + (y ? '?y=' + y : ''))).json(); } catch (e) { YR.d = { error: e.message }; } YR.at = Date.now(); if (api.ui.currentRoute() === 'view-year') api.ui.refresh(); };
+      api.views.add({ id: 'year', group: 'music', order: 70, title: 'Your year', icon: '📅', subtitle: 'Your year in music, from what you listened to', render: el => {
+        if (api.system().mode !== 'nas') { el.innerHTML = '<p class="muted">Your year in music needs the NAS.</p>'; return; }
+        const d = YR.d;
+        if (!d || Date.now() - YR.at > 10 * 60e3) { yrLoad(YR.y); if (!d) { el.innerHTML = '<div class="yr" aria-busy="true"><i class="sk sk-l" style="width:30%;height:22px"></i><div class="yr-tiles">' + '<i class="sk" style="height:76px"></i>'.repeat(4) + '</div></div>'; return; } }
+        if (d.error) { el.innerHTML = `<p class="muted">Couldn't put it together: ${E(d.error)}</p>`; return; }
+        const max = Math.max(1, ...d.months), mon = i => new Date(2000, i, 1).toLocaleDateString(undefined, { month: 'short' });
+        const hrs = m => m >= 120 ? Math.round(m / 60) + ' hours' : m + ' minutes';
+        el.innerHTML = `<div class="yr">
+          <div class="yr-head"><h2>${d.year} in music</h2>${d.years.length > 1 ? `<select class="inp" id="yr-y">${d.years.map(y => `<option ${y === d.year ? 'selected' : ''}>${y}</option>`).join('')}</select>` : ''}</div>
+          ${!d.songs ? '<p class="muted">Nothing yet. Every preview you play and every song you hear on a station adds to it.</p>' : `
+          <div class="yr-tiles"><div><b>${E(hrs(d.minutes))}</b><span>listening</span></div><div><b>${d.artistsCount.toLocaleString()}</b><span>artists</span></div>
+            <div><b>${d.live.toLocaleString()}</b><span>songs on the radio</span></div><div><b>${d.previews.toLocaleString()}</b><span>previews played</span></div>
+            ${d.follows ? `<div><b>${d.follows}</b><span>artists followed</span></div>` : ''}${d.saved ? `<div><b>${d.saved}</b><span>saved to Want to hear</span></div>` : ''}</div>
+          <div class="yr-grid">
+            <section><h3>Who you listened to most</h3><ol class="yr-l">${d.artists.map(a => `<li>${window.CadencePreview.buttons(a.artist, null, 'artist', 'Your year')}<div><a class="ar-link" href="#view-artist" data-artist="${E(a.artist)}"><b>${E(a.artist)}</b></a><span class="muted">${E(hrs(a.minutes))}${a.songs.length ? ' · ' + E(a.songs.join(', ')) : ''}</span></div></li>`).join('')}</ol></section>
+            <section><h3>Month by month</h3><div class="yr-m">${d.months.map((m, i) => `<div title="${E(hrs(m))}"><i style="height:${Math.round(m / max * 100)}%"></i><span>${E(mon(i))}</span></div>`).join('')}</div>
+              ${d.genres.length ? `<h3>Your sound</h3><div class="ap-tags">${d.genres.map(g => `<span>${E(g)}</span>`).join('')}</div>` : ''}
+              ${d.stations.length ? `<h3>Your stations</h3><ul class="yr-s">${d.stations.map(x => `<li><span>${E(x.station)}</span><span class="muted">${E(hrs(x.minutes))}</span></li>`).join('')}</ul>` : ''}
+              ${d.early.length ? `<h3>${api.ui.icon('trophy')}Found early</h3><ul class="yr-s">${d.early.map(x => `<li><span><a class="ar-link" href="#view-artist" data-artist="${E(x.artist)}">${E(x.artist)}</a></span><span class="muted">${x.days} days before ${E(x.what)}</span></li>`).join('')}</ul>` : ''}</section>
+          </div>`}</div>`;
+        const ys = el.querySelector('#yr-y'); if (ys) ys.onchange = () => { YR.y = +ys.value; YR.d = null; yrLoad(YR.y); };
+      } });
+
       // ---- Friday mix: a new set of previews every Friday (user, 2026-11-16) ----
       const MX = { d: null, at: 0, week: null };
       const mxLoad = async (opts = {}) => {
@@ -372,6 +399,7 @@
           ${cmpRows.length ? `<section class="ap-cmp"><h3>MusicBrainz and TheAudioDB side by side</h3><table><tr><th></th><th>${api.ui.logo('musicbrainz.org', { size: 13 })}MusicBrainz</th><th>${api.ui.logo('theaudiodb.com', { size: 13 })}TheAudioDB</th></tr>
             ${cmpRows.map(([l, a, b]) => `<tr class="${differs(a, b) ? 'diff' : ''}"><th>${E(l)}</th><td>${a ? E(a) : '<span class="muted">not listed</span>'}</td><td>${b ? E(b) : '<span class="muted">not listed</span>'}</td></tr>`).join('')}</table>
             ${cmpRows.some(([, a, b]) => differs(a, b)) ? '<p class="muted">Highlighted rows: the two disagree.</p>' : '<p class="muted">They agree wherever both have an answer.</p>'}</section>` : ''}
+          ${(d.similar || []).length ? `<section class="ap-wide"><h3>${api.ui.icon('sparkles')}Sounds like</h3><ul class="ap-sim">${d.similar.map(x => `<li>${window.CadencePreview.buttons(x.name, null, 'artist', 'Sounds like ' + d.name)}<div><a class="ar-link" href="#view-artist" data-artist="${E(x.name)}"><b>${E(x.name)}</b></a><span class="muted">${E(x.why)}</span></div></li>`).join('')}</ul></section>` : ''}
           <section><h3>Where they're showing up</h3>
             ${other.length || d.picks.length ? `<ul class="ap-list">
               ${other.slice(0, 30).map(m => `<li><span class="ap-src">${api.ui.logo(m.url || '', { size: 14 })}${E(m.feed || m.sourceName)}</span><div>${m.url ? A(m.url, E(m.title || d.name)) : E(m.title || d.name)}<span class="muted">${E(m.sourceName)}${m.tier === 'small' ? ' · small blog' : ''} · ${day(m.first)}${m.seen > 1 ? ` · seen ${m.seen} times` : ''}</span></div></li>`).join('')}
@@ -417,9 +445,16 @@
         .ap-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px} .ap-list li{display:grid;grid-template-columns:110px 1fr;gap:10px;font-size:13px}
         .ap-list li>div{display:flex;flex-direction:column;gap:1px;min-width:0} .ap-list .muted{font-size:12px}
         .ap .cx-logo,.sh .cx-logo,.sg .cx-logo{vertical-align:-2px} .ap-src .cx-logo{margin-right:5px} .ap-links .btn .cx-logo{margin:0}
+        .yr-head{display:flex;align-items:center;gap:12px} .yr-head h2{margin:0} .yr-head .inp{width:auto}
+        .yr-tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;margin:14px 0 18px} .yr-tiles>div{border:1px solid var(--line);border-radius:var(--r-l);padding:12px 14px;background:var(--panel)} .yr-tiles b{display:block;font-size:22px} .yr-tiles span{color:var(--muted);font-size:13px}
+        .yr-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:22px} .yr h3{font-size:15px;margin:14px 0 6px} .yr h3 svg{width:15px;height:15px;vertical-align:-2px;margin-right:6px;color:var(--muted)}
+        .yr-l{list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:8px} .yr-l li{display:flex;align-items:center;gap:8px} .yr-l li>div{display:flex;flex-direction:column;min-width:0} .yr-l .muted{font-size:12px}
+        .yr-m{display:grid;grid-template-columns:repeat(12,1fr);gap:4px;height:120px;align-items:end} .yr-m>div{display:flex;flex-direction:column;justify-content:flex-end;height:100%;gap:4px} .yr-m i{display:block;background:var(--accent);border-radius:3px 3px 0 0;min-height:2px;opacity:.75} .yr-m span{font-size:10px;color:var(--muted);text-align:center}
+        .yr-s{list-style:none;padding:0;margin:0} .yr-s li{display:flex;justify-content:space-between;gap:10px;padding:4px 0;border-bottom:1px solid var(--line);font-size:13px}
         .mx-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap} .mx-head h2{margin:0} .mx-act{display:flex;gap:8px;flex-wrap:wrap;align-items:center} .mx-act .inp{width:auto}
         .mx-l{list-style:none;padding:0;margin:6px 0 16px;display:flex;flex-direction:column;gap:8px} .mx-l li{display:flex;align-items:center;gap:10px;font-size:14px}
         .mx-t{flex:1;min-width:0;display:flex;flex-direction:column} .mx-t .muted{font-size:12px} .mx-bc{font-size:12px;color:var(--muted);white-space:nowrap} .mx h3{margin:14px 0 4px;font-size:15px}
+        .ap-sim{list-style:none;padding:0;margin:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:8px 16px} .ap-sim li{display:flex;align-items:center;gap:8px;min-width:0} .ap-sim li>div{display:flex;flex-direction:column;min-width:0} .ap-sim .muted{font-size:12px} .ap-wide h3 svg{width:16px;height:16px;vertical-align:-2px;margin-right:6px;color:var(--muted)}
         .ap-called{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--accent);margin:2px 0 6px} .ap-called svg{width:14px;height:14px;flex:none}
         .ap-banner{display:block;width:100%;height:auto;aspect-ratio:1000/185;max-height:200px;object-fit:cover;border-radius:var(--r-l);margin:0 0 14px}
         /* placeholders while parts are still on their way (user, 2026-11-16: parts coming in were jarring) */

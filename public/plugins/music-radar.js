@@ -172,7 +172,7 @@
       const post = async (u, b) => { const r = await fetch(u, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(b || {}) }); return r.json(); };
       async function load() {
         if (api.system().mode !== 'nas') return;
-        try { [G.st, G.d, G.comm, G.rel, G.called] = await Promise.all([get('api/radar/status'), get('api/radar/data'), get('api/radar/community').catch(() => G.comm || null), get('api/radar/releases').catch(() => null), get('api/radar/calledit').catch(() => null)]); } catch (e) { G.err = e.message; }
+        try { [G.st, G.d, G.comm, G.rel, G.called, G.home] = await Promise.all([get('api/radar/status'), get('api/radar/data'), get('api/radar/community').catch(() => G.comm || null), get('api/radar/releases').catch(() => null), get('api/radar/calledit').catch(() => null), get('api/radar/home').catch(() => null)]); } catch (e) { G.err = e.message; }
         if (api.ui.currentRoute() === 'view-radar') api.ui.refresh();
         clearTimeout(G.poll); if (G.st && G.st.job) G.poll = setTimeout(load, 3000);   // a scan is running: check back
       }
@@ -218,6 +218,10 @@
               return `<section class="mr-card w6"><h3>${ic('calendar-days')}Out this week</h3><p class="mr-sub">New releases from artists you follow or saved: the last 7 days and the next week</p>
                 ${R.thisWeek.length ? `<ul class="mr-fyl mr-one">${R.thisWeek.map(row).join('')}</ul>` : empty(R.pending ? 'Looking up release dates for the artists you follow…' : 'Nothing from your artists this week.')}
                 ${R.soon.length ? `<h4>Coming up</h4><ul class="mr-fyl mr-one">${R.soon.slice(0, 6).map(row).join('')}</ul>` : ''}</section>`; })()}
+            ${(() => { const H = G.home; if (!H || !(H.kingston.length || H.canada.length)) return '';
+              const col = (title, sub, l, kind) => `<div class="mr-home-c"><h4>${title}</h4><p class="mr-small">${sub}</p>${l.length ? `<ul class="mr-fyl mr-one">${l.map(x => `<li>${pv(x.artist, null, 'artist', 'Close to home')}<div class="mr-fyt">${an(x.artist)}<span class="mr-small">${esc(x.why.join(' · '))}${kind === 'rising' && x.buzz ? ` · ${x.buzz} mention${x.buzz === 1 ? '' : 's'} this month` : ''}</span></div></li>`).join('')}</ul>` : empty('Nobody yet.')}</div>`;
+              return `<section class="mr-card w12"><h3>${ic('map-pin')}Close to home</h3><p class="mr-sub">Kingston and Canadian artists: Kingston Live, CFRC, Amherst Island Radio, the !earshot charts, Canadian campus radio</p>
+                <div class="mr-home">${col('Kingston', 'Playing here, or on CFRC and Amherst Island Radio', H.kingston.slice(0, 8), 'kingston')}${col('Canada', '!earshot charts and campus radio', H.canada.slice(0, 8), 'canada')}${col('Local and rising', 'The ones Radar\'s sources are talking about most', H.rising.slice(0, 8), 'rising')}</div></section>`; })()}
             ${(() => { const C = G.called; if (!C) return '';
               return `<section class="mr-card w6"><h3>${ic('trophy')}Called it</h3><p class="mr-sub">How early Radar spotted artists before the Apple chart or KEXP's heavy rotation${C.median ? `: ${C.median} days early, typically, across ${C.count}` : ''}</p>
                 ${C.list.length ? `<table class="mr-t">${C.list.map(x => `<tr><td>${an(x.artist)}<div class="mr-small">Spotted ${esc(new Date(x.spotted + 'T12:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }))} on ${esc(x.via)}</div></td><td class="mr-small">${x.milestones.map(m => `${m.days} days before ${esc(m.what)}`).join('<br>')}</td></tr>`).join('')}</table>` : empty('Nobody yet. Once someone Radar found early reaches the Apple chart or KEXP heavy rotation, they show up here.')}</section>`; })()}
@@ -344,6 +348,7 @@
         .mr-src{display:block;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
         .mr-rise{table-layout:fixed;width:100%} .mr-rise td:first-child{overflow:hidden} .mr-rise th:not(:first-child),.mr-rise td:not(:first-child){width:4.2em}
         .mr-src .cx-logo,.mr-small .cx-logo,.mr-chip .cx-logo{margin-right:4px;vertical-align:-2px} .mr-tabs .cx-logo{margin-right:5px;vertical-align:-2px}
+        .mr-home{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:18px} .mr-home h4{margin:4px 0 0}
         .mr-fyl.mr-one{grid-template-columns:1fr} .mr-card h3 svg{width:16px;height:16px;vertical-align:-2px;margin-right:6px;color:var(--muted)}
         .mr-fyl{list-style:none;margin:6px 0 4px;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:8px 18px}
         .mr-fyl li{display:flex;align-items:center;gap:8px;min-width:0} .mr-fyt{flex:1;min-width:0;display:flex;flex-direction:column} .mr-fyt .ar-link{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}

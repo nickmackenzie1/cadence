@@ -101,3 +101,37 @@ test('Out this week and Called it', async () => {
   expect(Array.isArray(c.list)).toBe(true);
   for (const x of c.list) { expect(x.lead).toBeGreaterThanOrEqual(3); expect(x.milestones[0].what).toMatch(/Apple chart|heavy rotation/); }
 });
+
+test('Close to home: Kingston and Canadian artists, with why', async ({ page }) => {
+  const { DatabaseSync } = await import('node:sqlite');
+  const d = new DatabaseSync(join(dir, 'cadence.db'));
+  d.exec("PRAGMA busy_timeout=5000; CREATE TABLE IF NOT EXISTS radio_plays (id INTEGER PRIMARY KEY AUTOINCREMENT, station TEXT NOT NULL, at INTEGER NOT NULL, artist TEXT, song TEXT, raw TEXT)");
+  const ins = d.prepare('INSERT INTO radio_plays (station, at, artist, song, raw) VALUES (?,?,?,?,?)'), now = Math.round(Date.now() / 1000);
+  for (let i = 0; i < 3; i++) ins.run('cfrc', now - i * 3600, 'The Limestone Kids', 'Song ' + i, '');
+  ins.run('ckut', now, 'Montreal Band', 'Song', '');
+  d.close();
+  const h = await get('/api/radar/home');
+  const k = h.kingston.find(x => x.artist === 'The Limestone Kids');
+  expect(k.why[0]).toBe('played on CFRC 101.9 3 times');
+  expect(h.canada.find(x => x.artist === 'Montreal Band').why[0]).toBe('played on CKUT 90.3');
+  await page.goto(B + '/');
+  await page.click('[data-act="space"][data-s="life"]');
+  await page.evaluate(() => { location.hash = 'view-radar'; });
+  await expect(page.locator('.mr-home')).toContainText('The Limestone Kids');
+});
+
+test('Your year in music: minutes, top artists, stations; skipped previews left out', async ({ page }) => {
+  await post('/api/radar/listen', { artist: 'Year Band', title: 'First', kind: 'live', station: 'CFRC 101.9', secs: 600 });
+  await post('/api/radar/listen', { artist: 'Year Band', title: 'Second', kind: 'kexp', station: 'KEXP 90.3', secs: 300 });
+  await post('/api/radar/listen', { artist: 'Skip Band', title: 'Nope', kind: 'preview', secs: 3, skipped: true });
+  const y = await get('/api/radar/year');
+  expect(y.year).toBe(new Date().getFullYear());
+  expect(y.artists[0].artist).toBe('Year Band');
+  expect(y.artists[0].minutes).toBe(15);
+  expect(y.artists.some(a => a.artist === 'Skip Band')).toBe(false);
+  expect(y.stations.map(s => s.station)).toContain('CFRC 101.9');
+  expect(y.months[new Date().getMonth()]).toBeGreaterThanOrEqual(15);
+  await page.goto(B + '/#view-year');
+  await expect(page.locator('.yr h2')).toHaveText(`${y.year} in music`);
+  await expect(page.locator('.yr-l li').first()).toContainText('Year Band');
+});

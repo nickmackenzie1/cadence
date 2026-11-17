@@ -37,6 +37,9 @@ module.exports = async function radarRoutes(req, res, { url, p }) {
   if (p === '/api/radar/shows') { try { return send(res, 200, await radar.shows(req.method === 'POST' ? await body() : {})); } catch (e) { return send(res, 502, { error: e.message }); } }
   if (p === '/api/radar/stg') return send(res, 200, await radar.stg(req.method === 'POST' ? { ...(await body()), year: url.searchParams.get('year') } : { year: url.searchParams.get('year') }));
   if (p === '/api/radar/mix') return send(res, 200, await radar.mix(req.method === 'POST' ? await body() : { week: url.searchParams.get('week') }));
+  if (p === '/api/radar/mixcloud') return send(res, 200, await radar.mixcloud({ refresh: url.searchParams.get('refresh') === '1' }));
+  if (p === '/api/radar/year') return send(res, 200, await radar.yearInMusic(url.searchParams.get('y')));
+  if (p === '/api/radar/home') return send(res, 200, await radar.closeToHome());
   if (p === '/api/radar/releases') return send(res, 200, await radar.releases());
   if (p === '/api/radar/calledit') return send(res, 200, await radar.calledIt());
   if (p === '/api/radar/listen' && req.method === 'POST') return send(res, 200, await radar.listen(await body()));

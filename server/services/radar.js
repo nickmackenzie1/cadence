@@ -127,6 +127,107 @@ async function mix({ week, again } = {}) {
   return X.fridayMix(await data(), { again: !!again, rel: X.releases() });
 }
 async function calledIt() { const { store } = await load(); return (await exLib()).calledIt(store.loadState(), { kexpHeavy: kexpHeavy() }); }
+// Close to home (user, 2026-11-16): Kingston and Canadian artists, from what Cadence already hears:
+//   Kingston  Kingston Live listings, CFRC (Queen's) and Amherst Island Radio plays, MusicBrainz "from Kingston"
+//   Canada    the !earshot campus charts, Canadian campus stations' plays, MusicBrainz / TheAudioDB country
+// "Local and rising": the same artists ranked by how much they're being talked about across Radar's sources.
+const KINGSTON_STATIONS = ['cfrc', 'cjai'], CANADA_STATIONS = ['ciut', 'cjru', 'chry', 'ckut'];
+async function closeToHome() {
+  const { store } = await load(), { norm } = await import(pathToFileURL(path.join(__dirname, 'radar', 'lib', 'extract.mjs')).href);
+  const t = Math.floor(Date.now() / 1000), A = new Map();
+  const hit = (name, where, why, w) => {
+    if (!name) return; const k = norm(name); if (!k) return;
+    const a = A.get(k) || { artist: name, key: k, kingston: 0, canada: 0, why: [] }; A.set(k, a);
+    a[where] += w; if (!a.why.includes(why)) a.why.push(why);
+  };
+  const R = require('./radio'), stName = id => (R.PRESETS.find(x => x.id === id) || {}).name || id;
+  for (const r of R.artistCounts(KINGSTON_STATIONS, t - 60 * 86400)) hit(r.artist, 'kingston', `played on ${stName(r.station)}${r.n > 1 ? ` ${r.n} times` : ''}`, Math.min(4, r.n));
+  for (const r of R.artistCounts(CANADA_STATIONS, t - 60 * 86400)) hit(r.artist, 'canada', `played on ${stName(r.station)}`, Math.min(3, r.n) * 0.6);
+  let shows = []; try { const S = await showsLib(); shows = S.cachedShows(); if (!shows.length) { await (await import(pathToFileURL(path.join(__dirname, 'radar', 'lib', 'shows.mjs')).href)).shows([]).catch(() => {}); shows = S.cachedShows(); } } catch (e) {}
+  for (const e of shows.filter(x => String(x.id).startsWith('kl:'))) for (const a of (e.artists || []).slice(0, 4)) hit(a, 'kingston', `playing ${e.venue || 'Kingston'}${e.date ? ' on ' + new Date(e.date + 'T12:00:00').toLocaleDateString('en-CA', { month: 'short', day: 'numeric' }) : ''}`, 3);
+  for (const s of store.signals({ since: t - 60 * 86400, source: 'earshot', limit: 2000 })) hit(s.artist, 'canada', `on the !earshot charts${s.best_rank ? ' (best #' + s.best_rank + ')' : ''}`, 2);
+  // MusicBrainz / TheAudioDB answers already kept for these (no new look-ups from here)
+  for (const a of A.values()) {
+    const mb = store.getKv('mba:' + a.key) || {}, ad = store.getKv('adb:' + a.key) || {};
+    if (/kingston/i.test(mb.from || '')) { a.kingston += 3; a.why.unshift('from Kingston'); }
+    else if (mb.country === 'CA' || /canada/i.test(ad.country || '')) { a.canada += 2; a.why.unshift('Canadian'); }
+  }
+  // how much Radar's sources are talking about them: mentions in the last 30 days
+  const buzz = new Map(); try { for (const r of store.signals({ since: t - 30 * 86400, limit: 50000 })) { const k = r.artist_key || norm(r.artist); if (A.has(k)) buzz.set(k, (buzz.get(k) || 0) + 1); } } catch (e) {}
+  let nfm = new Set(); try { nfm = new Set((await fyLib()).nfmCfg().artists.map(norm)); } catch (e) {}
+  const list = [...A.values()].filter(a => !nfm.has(a.key)).map(a => ({ ...a, buzz: buzz.get(a.key) || 0, why: a.why.slice(0, 3) }));
+  const rank = (x, y) => (y.buzz - x.buzz) || ((y.kingston + y.canada) - (x.kingston + x.canada));
+  return {
+    kingston: list.filter(a => a.kingston > 0).sort((x, y) => (y.kingston - x.kingston) || (y.buzz - x.buzz)).slice(0, 15),
+    canada: list.filter(a => a.canada > 0 && !a.kingston).sort((x, y) => (y.canada - x.canada) || (y.buzz - x.buzz)).slice(0, 15),
+    rising: list.filter(a => a.buzz > 0).sort(rank).slice(0, 10),
+  };
+}
+// Your year in music (user, 2026-11-16): from what you actually listened to (radar_listens), a calm recap
+async function yearInMusic(y) {
+  const { store } = await load(), F = await fyLib(), X = await exLib();
+  const year = +y || new Date().getFullYear(), from = Math.floor(new Date(year, 0, 1) / 1000), to = Math.floor(new Date(year + 1, 0, 1) / 1000);
+  const rows = store.listensSince(from, 200000).filter(r => r.ts < to && r.artist);
+  const years = [...new Set(store.listensSince(0, 200000).map(r => new Date(r.ts * 1000).getFullYear()))].sort().reverse();
+  const by = new Map(), st = new Map(), months = Array(12).fill(0);
+  let secs = 0, previews = 0, live = 0;
+  for (const r of rows) {
+    if (r.kind === 'preview' && r.skipped) continue;
+    secs += r.secs; months[new Date(r.ts * 1000).getMonth()] += r.secs;
+    if (r.kind === 'preview') previews++; else { live++; if (r.station) st.set(r.station, (st.get(r.station) || 0) + r.secs); }
+    const a = by.get(r.artist_key) || { artist: r.artist, key: r.artist_key, secs: 0, n: 0, first: r.ts, songs: new Set() }; by.set(r.artist_key, a);
+    a.secs += r.secs; a.n++; a.first = Math.min(a.first, r.ts); if (r.title) a.songs.add(r.title);
+  }
+  const artists = [...by.values()].sort((a, b) => b.secs - a.secs);
+  // genres of the artists you spent the most time with
+  const G = new Map(), state = store.loadState();
+  for (const a of artists.slice(0, 40)) for (const [g, n] of F.genresOf(a.key, state)) G.set(g, (G.get(g) || 0) + a.secs * Math.min(1, n / 2));
+  // found early: artists you listened to before the Apple chart or KEXP heavy rotation caught up
+  const early = [];
+  for (const a of artists.slice(0, 80)) {
+    const c = X.calledItFor(state, a.artist, { kexpHeavy: kexpHeavy() }); if (!c || !c.milestones.length) continue;
+    const m = c.milestones.map(m => ({ ...m, mine: Math.round((Date.parse(m.at) / 1000 - a.first) / 86400) })).filter(m => m.mine >= 3).sort((p, q) => q.mine - p.mine)[0];
+    if (m) early.push({ artist: a.artist, days: m.mine, what: m.what });
+  }
+  const follows = (store.getKv('follows', []) || []).filter(f => f.since >= from && f.since < to).length;
+  const secOf = v => (typeof v === 'number' ? v / 1000 : Date.parse(v) / 1000), saved = (store.getKv('wantToHear', []) || []).filter(w => w.at && secOf(w.at) >= from && secOf(w.at) < to).length;
+  return {
+    year, years: years.length ? years : [year], minutes: Math.round(secs / 60), songs: rows.length, previews, live, artistsCount: artists.length, follows, saved,
+    artists: artists.slice(0, 15).map(a => ({ artist: a.artist, minutes: Math.round(a.secs / 60), plays: a.n, songs: [...a.songs].slice(0, 3) })),
+    stations: [...st].sort((a, b) => b[1] - a[1]).slice(0, 6).map(([station, s]) => ({ station, minutes: Math.round(s / 60) })),
+    genres: [...G].sort((a, b) => b[1] - a[1]).slice(0, 10).map(([g]) => g),
+    months: months.map(s => Math.round(s / 60)),
+    early: early.sort((a, b) => b.days - a.days).slice(0, 8),
+  };
+}
+// Mixcloud (user, 2026-11-16): shows by the KEXP DJs who play your favourite artists most (KEXP history), found with
+// Mixcloud's public search (no key). Favourites: who you listened to most this year, then who you follow. Kept 6 hours.
+let mcCache = { at: 0, v: null };
+async function mixcloud({ refresh } = {}) {
+  if (mcCache.v && !refresh && Date.now() - mcCache.at < 6 * 3600e3) return mcCache.v;
+  const { store } = await load(), { safeFetch } = require('../lib/net');
+  let K = null; try { K = require('./kexp-log'); if (K.status().on === false) K = null; } catch (e) {}
+  if (!K) return { djs: [], note: 'Mixcloud picks come from KEXP history, which is off on this NAS.' };
+  const favs = new Map();
+  for (const r of store.listensSince(Math.floor(Date.now() / 1000) - 365 * 86400, 20000)) if (!(r.kind === 'preview' && r.skipped)) favs.set(r.artist, (favs.get(r.artist) || 0) + r.secs);
+  for (const f of store.getKv('follows', []) || []) favs.set(f.name, (favs.get(f.name) || 0) + 3600);
+  const top = [...favs].sort((a, b) => b[1] - a[1]).slice(0, 12).map(([a]) => a);
+  if (!top.length) return { djs: [], note: 'Follow a few artists or listen for a while, and shows from the DJs who play them show up here.' };
+  const D = new Map();
+  for (const a of top) { let k = null; try { k = K.artist(a); } catch (e) {} for (const d of (k && k.djs) || []) for (const host of String(d.hosts || '').split(/,\s*/).filter(Boolean)) {
+    const x = D.get(host) || { dj: host, program: d.program, plays: 0, because: [] }; D.set(host, x); x.plays += d.plays; if (!x.because.includes(a)) x.because.push(a); } }
+  const djs = [...D.values()].sort((a, b) => b.plays - a.plays).slice(0, 5), base = (process.env.MIXCLOUD_API || 'https://api.mixcloud.com').replace(/\/$/, '');
+  for (const d of djs) {
+    try {
+      const r = await safeFetch(`${base}/search/?q=${encodeURIComponent(d.dj + ' KEXP')}&type=cloudcast&limit=10`, { headers: { Accept: 'application/json' }, timeout: 8000 }, 1024 * 1024);
+      const words = d.dj.toLowerCase().split(/\s+/).filter(w => w.length > 2);
+      d.shows = (JSON.parse(r.buf.toString('utf8')).data || []).filter(c => { const t = ((c.name || '') + ' ' + ((c.user || {}).name || '')).toLowerCase(); return words.some(w => t.includes(w)); })
+        .slice(0, 4).map(c => ({ name: String(c.name || '').slice(0, 160), url: c.url, key: c.key, by: (c.user || {}).name || null, at: c.created_time || null, mins: c.audio_length ? Math.round(c.audio_length / 60) : null, art: (c.pictures || {}).medium || null }));
+    } catch (e) { d.shows = []; d.error = 'Mixcloud didn\'t answer'; }
+  }
+  mcCache = { at: Date.now(), v: { djs: djs.filter(d => (d.shows || []).length || d.error) } };
+  return mcCache.v;
+}
 async function feedback(id, v) {
   const { store } = await load(); const state = store.loadState();
   if (!state.picks.some(p => p.id === id)) return false;
@@ -185,6 +286,7 @@ async function buildArtist(name) {
   let kexp = null; try { const K = require('./kexp-log'); if (K.status().on !== false) kexp = K.artist(name); } catch (e) { kexp = null; }
   const d = A.artistData(name, { kexp });
   if (d) try { d.stg = (await stgLib()).stgFor(d.name).concat(d.name !== name ? (await stgLib()).stgFor(name) : []).filter((x, i, l) => l.findIndex(y => y.year === x.year && y.kind === x.kind && y.title === x.title) === i); } catch (e) { d.stg = []; }
+  if (d) try { d.similar = await (await import(pathToFileURL(path.join(__dirname, 'radar', 'lib', 'similar.mjs')).href)).similar(d.name); } catch (e) { d.similar = []; }
   if (d) try { const { store } = await load(); d.called = (await exLib()).calledItFor({ artists: { [d.key]: store.artistRecord(d.key) || {} } }, d.name, { kexpHeavy: kexpHeavy() }); } catch (e) { d.called = null; }
   return d;
 }
@@ -345,4 +447,4 @@ async function digestFile(name) {
 }
 async function spotify() { const { spotify } = await load(); return spotify; }
 
-module.exports = { releases, mix, calledIt, listen, notForMe, artist, stg, shows, follow, preview, want, community, sourcesNow, sourcesSettings, raw, settings, status, scan, digestNow, data, feedback, rss, digestFile, spotify };
+module.exports = { mixcloud, yearInMusic, closeToHome, releases, mix, calledIt, listen, notForMe, artist, stg, shows, follow, preview, want, community, sourcesNow, sourcesSettings, raw, settings, status, scan, digestNow, data, feedback, rss, digestFile, spotify };
