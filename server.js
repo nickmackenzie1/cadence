@@ -19,15 +19,22 @@ require('./server/services/kexp-log'); // keeps KEXP's play history (Radio)
 
 // Slow things say so in the log (2026-11-17: the NAS stopped answering and nothing said why). A request over 2 s
 // is logged with its path; if the whole app is stuck for 3 s or more, the log says so and what it was serving.
+const problems = require('./server/lib/problems');
 const busy = new Map(); let seq = 0;
+problems.setCurrent(() => (busy.size ? [...new Set(busy.values())].slice(0, 5).join(', ') : null));
+problems.startWatch((() => { try { return require('./public/version.json').version; } catch { return '?'; } })());   // package.json isn't in the image
 const timed = (req, res) => {
   const id = ++seq, t = Date.now(), path = String(req.url || '').split('?')[0].slice(0, 80);
   busy.set(id, path);
-  res.on('close', () => { busy.delete(id); const ms = Date.now() - t; if (ms > 2000 && !/\/stream$|\/events$/.test(path)) console.log(`slow: ${req.method} ${path} took ${(ms / 1000).toFixed(1)}s`); });
+  res.on('close', () => {
+    busy.delete(id); const ms = Date.now() - t;
+    if (ms > 2000 && !/\/stream$|\/events$/.test(path)) { console.log(`slow: ${req.method} ${path} took ${(ms / 1000).toFixed(1)}s`); problems.record('slow', `${req.method} ${path} took ${(ms / 1000).toFixed(1)}s`, { path, ms }); }
+    if (res.statusCode >= 500 && res.statusCode !== 502 && res.statusCode !== 504) problems.record('failed', `${req.method} ${path} answered ${res.statusCode}`, { path, status: res.statusCode, error: res.problem || null });
+  });
   return handle(req, res);
 };
 let tick = Date.now();
-setInterval(() => { const lag = Date.now() - tick - 1000; tick = Date.now(); if (lag >= 3000) console.log(`! stuck for ${(lag / 1000).toFixed(1)}s${busy.size ? ' while serving ' + [...new Set(busy.values())].slice(0, 5).join(', ') : ' (background work)'}`); }, 1000).unref();
+setInterval(() => { const lag = Date.now() - tick - 1000; tick = Date.now(); if (lag >= 3000) { const m = `stuck for ${(lag / 1000).toFixed(1)}s${busy.size ? ' while serving ' + [...new Set(busy.values())].slice(0, 5).join(', ') : ' (background work)'}`; console.log('! ' + m); problems.record('stuck', m, { ms: lag }); } }, 1000).unref();
 
 const { storage, storageNote } = storageInfo();
 const tag = `data=${DATA_DIR}  storage=${storage}${storageNote ? ' (' + storageNote + ')' : ''}  ai=${API_KEY ? 'on' : 'off'}  auth=${PASSWORD ? 'on' : 'off'}`;

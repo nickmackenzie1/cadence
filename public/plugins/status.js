@@ -129,6 +129,37 @@
       }
       G.open = openPanel;
       api.commands.add({ title: 'System status', run: () => openPanel() });
+
+      // ---- Problems: what went wrong on the NAS or in this browser, newest first (user, 2026-11-17) ----
+      const PR = { d: null, at: 0 };
+      const KIND = { error: ['Error', 'circle-alert'], failed: ['Failed request', 'circle-alert'], stopped: ['Stopped unexpectedly', 'power'], stuck: ['Froze', 'hourglass'], slow: ['Slow', 'clock'], browser: ['In the browser', 'monitor'] };
+      const prLoad = async () => { try { PR.d = await (await fetch('api/problems')).json(); } catch (e) { PR.d = { error: e.message }; } PR.at = Date.now(); if (api.ui.currentRoute() === 'view-problems') api.ui.refresh(); };
+      api.views.add({ id: 'problems', title: 'Problems', icon: '🩺', subtitle: 'Errors, freezes and slow spots on the NAS and in this browser', render: el => {
+        if (api.system().mode !== 'nas') { el.innerHTML = '<p class="muted">The Problems log lives on the NAS.</p>'; return; }
+        if (!PR.d || Date.now() - PR.at > 15e3) { prLoad(); if (!PR.d) { el.innerHTML = '<p class="muted">Loading…</p>'; return; } }
+        if (PR.d.error) { el.innerHTML = `<p class="muted">Couldn't read the log: ${api.ui.esc(PR.d.error)}</p>`; return; }
+        const E = api.ui.esc, list = PR.d, f = PR.f || 'all';
+        const shown = list.filter(x => f === 'all' || (f === 'serious' ? ['error', 'failed', 'stopped', 'stuck', 'browser'].includes(x.kind) : x.kind === f));
+        const counts = k => list.filter(x => x.kind === k).length;
+        el.innerHTML = `<div class="pr">
+          <div class="pr-bar"><div class="pr-f">${[['all', 'Everything'], ['serious', 'Errors and freezes'], ['slow', 'Slow']].map(([k, l]) => `<button class="chip${f === k ? ' on' : ''}" data-pf="${k}">${l}</button>`).join('')}</div>
+            <div><button class="btn ghost" id="pr-re">${api.ui.icon('refresh-cw')}Check again</button>${list.length ? `<button class="btn ghost" id="pr-clear">Clear the log</button>` : ''}</div></div>
+          ${!list.length ? '<p class="muted">Nothing has gone wrong that Cadence noticed.</p>' : `<p class="muted pr-sum">${[['stopped', 'unexpected stops'], ['error', 'errors'], ['stuck', 'freezes'], ['slow', 'slow requests'], ['browser', 'browser errors']].map(([k, l]) => counts(k) ? counts(k) + ' ' + l : '').filter(Boolean).join(' · ')}</p>
+          <ul class="pr-l">${shown.map(x => { const [label, ic] = KIND[x.kind] || [x.kind, 'circle-alert'];
+            return `<li class="pr-${E(x.kind)}"><span class="pr-ic">${api.ui.icon(ic)}</span><div><div class="pr-h"><b>${E(label)}</b><span class="muted">${E(new Date(x.at).toLocaleString())}${x.mb ? ` · ${x.mb} MB in use` : ''}</span></div><div class="pr-m">${E(x.msg)}</div>
+              ${x.stack || x.where || x.doing || x.before || x.lastMb ? `<details><summary>Details</summary><pre>${E([x.where && 'Page: ' + x.where, x.doing && 'Was serving: ' + x.doing, x.lastMb && 'Memory in use before it stopped: ' + x.lastMb + ' MB', x.lastVersion && 'Version: ' + x.lastVersion, x.version && 'Version: ' + x.version, x.before, x.stack].filter(Boolean).join('\n'))}</pre></details>` : ''}</div></li>`; }).join('')}</ul>`}</div>`;
+        el.querySelectorAll('[data-pf]').forEach(b => b.onclick = () => { PR.f = b.dataset.pf; api.ui.refresh(); });
+        const re = el.querySelector('#pr-re'); if (re) re.onclick = () => { PR.d = null; prLoad(); };
+        const cl = el.querySelector('#pr-clear'); if (cl) cl.onclick = async () => { await fetch('api/problems', { method: 'DELETE' }); PR.d = null; prLoad(); api.ui.toast('Cleared the Problems log'); };
+      } });
+      api.commands.add({ title: 'Problems', run: () => api.ui.navigate('view-problems') });
+      if (!document.getElementById('pr-css')) { const st = document.createElement('style'); st.id = 'pr-css'; st.textContent = `
+        .pr-bar{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:8px} .pr-f{display:flex;gap:6px;flex-wrap:wrap}
+        .pr-l{list-style:none;padding:0;margin:8px 0;display:flex;flex-direction:column;gap:8px} .pr-l li{display:flex;gap:10px;border:1px solid var(--line);border-radius:var(--r-l);padding:10px 12px;background:var(--panel)}
+        .pr-ic{color:var(--muted);flex:none} .pr-ic svg{width:16px;height:16px} .pr-error .pr-ic,.pr-stopped .pr-ic,.pr-failed .pr-ic{color:var(--warn,#c08a2c)} .pr-stuck .pr-ic{color:var(--accent)}
+        .pr-l li>div{flex:1;min-width:0} .pr-h{display:flex;gap:10px;flex-wrap:wrap;align-items:baseline;font-size:13px} .pr-h .muted{font-size:12px} .pr-m{font-size:13px;margin-top:2px;word-break:break-word}
+        .pr-l pre{white-space:pre-wrap;word-break:break-word;font-size:11px;background:var(--hover);padding:8px;border-radius:var(--r-s);max-height:260px;overflow:auto} .pr-l summary{cursor:pointer;font-size:12px;color:var(--muted)}`;
+        document.head.appendChild(st); }
       api.onSettings(() => openPanel());
 
       /* ------------ boot sequence (once per page load) */

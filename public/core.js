@@ -4,6 +4,23 @@
    Cadence — a modular to-do app for consultants
    Core: state, storage, parsing, rendering, plugin host
    ========================================================= */
+/* Problems: errors in this page are sent to the NAS's Problems log (Settings → Problems), at most once a minute per
+   message, so a crash while moving around shows up there with where it happened (user, 2026-11-17). */
+(function () {
+  const seen = new Map();
+  const send = (msg, stack) => {
+    try {
+      if (!/^https?:$/.test(location.protocol)) return;
+      const k = String(msg).slice(0, 200), t = seen.get(k); if (t && Date.now() - t < 60e3) return; seen.set(k, Date.now());
+      let version = null; try { version = (document.querySelector('meta[name="cadence-version"]') || {}).content || null; } catch (e) {}
+      fetch('api/problems/browser', { method: 'POST', headers: { 'Content-Type': 'application/json' }, keepalive: true,
+        body: JSON.stringify({ msg: k, stack: stack ? String(stack).slice(0, 3000) : null, where: location.hash || '/', version }) }).catch(() => {});
+    } catch (e) {}
+  };
+  window.addEventListener('error', e => { if (e && (e.message || e.error)) send(e.message || String(e.error), e.error && e.error.stack); });
+  window.addEventListener('unhandledrejection', e => { const r = e && e.reason; if (r && !/AbortError|Failed to fetch|NetworkError|Load failed/.test(String(r.name || r.message || r))) send('Unhandled: ' + (r.message || String(r)), r.stack); });
+  window.CadenceReportProblem = send;
+})();
 (function () {
   'use strict';
   const $ = (s, r = document) => r.querySelector(s);

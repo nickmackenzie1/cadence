@@ -314,3 +314,14 @@ Cleaned up 2026-11-16 (0.8.2): items already built were moved out after checking
   to date in save() only for ids the builder has passed (no double counting). playCount, heavyFirst, heavySince,
   newArtists and the Called it worker read it once it's ready.
 - Still to do: KEXP in its own database file (kexp.db); pruning Radar's growing history tables; Radar in its own process.
+
+### Problems log (2026-11-17, 0.26.0)
+- `server/lib/problems.js` → data/problems.jsonl (2 MB, then .1): error (with stack), failed (5xx except 502/504),
+  slow (>2 s), stuck (app blocked ≥3 s, with what it was serving), stopped (heartbeat `.heartbeat` every 20 s with
+  memory; removed on a clean stop, so one found at start = crash/OOM/kill), browser (window error/unhandledrejection
+  from core.js → POST /api/problems/browser, 30/min). Same message within a minute is folded.
+- uncaughtException is logged then exits (restart: unless-stopped brings it back); unhandledRejection is logged and
+  no longer kills the process.
+- Problems page (System status plugin; command "Problems"): filters Everything / Errors and freezes / Slow, details
+  (stack, page, what it was serving, memory before a stop), Clear.
+- Note: the image has no package.json; the version comes from public/version.json.
