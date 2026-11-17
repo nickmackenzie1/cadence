@@ -325,3 +325,12 @@ Cleaned up 2026-11-16 (0.8.2): items already built were moved out after checking
 - Problems page (System status plugin; command "Problems"): filters Everything / Errors and freezes / Slow, details
   (stack, page, what it was serving, memory before a stop), Clear.
 - Note: the image has no package.json; the version comes from public/version.json.
+
+### The music side runs in its own process (2026-11-17, 0.27.0)
+- `server/music.js`: Radar, Radio and KEXP history (their routes, scans, timers) in a child process on 127.0.0.1,
+  answering only requests with the main server's one-time key (MUSIC_KEY). Started at boot by `lib/music-proxy.js`,
+  which passes /api/radar/* and /api/radio/* through after sign-in (streams piped), waits up to 20 s while it starts,
+  and restarts it if it stops (1 s, then backing off to 60 s if it keeps failing), logging "The music side … was
+  stopped (SIGKILL, often running out of memory)" in Problems. The child exits when the main server goes.
+  MUSIC_PROCESS=0 runs everything in one process as before; MUSIC_MAX_MB caps the music side's memory.
+- Mixcloud plays in a small dock at the bottom (#rd-mcdock), outside the page, so redraws don't restart the show.

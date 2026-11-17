@@ -46,11 +46,16 @@ function startWatch(version) {
   beat(); setInterval(beat, 20e3).unref();
   const bye = () => { try { fs.unlinkSync(BEAT); } catch {} };
   process.on('SIGTERM', bye); process.on('SIGINT', bye); process.on('exit', code => { if (code === 0) bye(); });
-  process.on('uncaughtException', e => { record('error', 'Crashed: ' + (e && e.message), { stack: e && e.stack }); console.error(e); beat(); process.exitCode = 1; process.exit(1); });
-  process.on('unhandledRejection', e => { record('error', 'Unhandled: ' + (e && e.message || e), { stack: e && e.stack }); console.error('unhandled', e); });
+  watchCrashes('', beat);
+}
+// an uncaught error: logged with its stack, then the process ends (it's restarted); an unhandled promise: logged only
+function watchCrashes(who = '', before = () => {}) {
+  const pre = who ? who + ': ' : '';
+  process.on('uncaughtException', e => { record('error', pre + 'Crashed: ' + (e && e.message), { stack: e && e.stack }); console.error(e); try { before(); } catch {} process.exit(1); });
+  process.on('unhandledRejection', e => { record('error', pre + 'Unhandled: ' + (e && e.message || e), { stack: e && e.stack }); console.error('unhandled', e); });
 }
 // what the server is serving right now (server.js sets this), so "stopped" and "stuck" can say what was going on
 let currentFn = () => null;
 const current = () => { try { return currentFn(); } catch { return null; } };
 const setCurrent = fn => { currentFn = fn; };
-module.exports = { record, list, clear, startWatch, setCurrent };
+module.exports = { record, list, clear, startWatch, watchCrashes, setCurrent };

@@ -9,6 +9,7 @@ const { NEXT, send } = require('./lib/http');
 const { TLS, sendCA } = require('./lib/tls');
 const bundle = require('./lib/bundle');
 
+const SEPARATE_MUSIC = process.env.MUSIC_PROCESS !== '0';
 const routes = {
   auth: require('./routes/auth'),
   system: require('./routes/system'),
@@ -19,9 +20,10 @@ const routes = {
   integrations: require('./routes/integrations'),
   files: require('./routes/files'),
   calendar: require('./routes/calendar'),
-  radar: require('./routes/radar'),
+  // the music side (Radar, Radio, KEXP) runs in its own process unless MUSIC_PROCESS=0 (lib/music-proxy.js)
+  radar: SEPARATE_MUSIC ? require('./lib/music-proxy').route : require('./routes/radar'),
   podcasts: require('./routes/podcasts'),
-  radio: require('./routes/radio'),
+  radio: SEPARATE_MUSIC ? () => NEXT : require('./routes/radio'),
   daily: require('./routes/daily'),
   problems: require('./routes/problems'),
 };

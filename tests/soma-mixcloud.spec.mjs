@@ -69,6 +69,10 @@ test('Radio shows SomaFM and Mixcloud; SomaFM plays through the relay; a Mixclou
     await mc.locator('summary').click();
     await expect(mc).toContainText('plays Alvvays');
     await mc.locator('[data-rd=mc]').click();
-    await expect(mc.locator('iframe.rd-mcw')).toHaveAttribute('src', /feed=%2Fkexp%2Fmorning-show%2F/);
+    const dock = page.locator('#rd-mcdock');
+    await expect(dock.locator('iframe.rd-mcw')).toHaveAttribute('src', /feed=%2Fkexp%2Fmorning-show%2F/);
+    await page.evaluate(() => { location.hash = 'view-today'; });                     // moving around keeps it playing
+    await expect(dock.locator('iframe.rd-mcw')).toHaveCount(1);
+    await dock.locator('button').click(); await expect(dock).toHaveCount(0);
   } finally { server.kill(); rmSync(dir, { recursive: true, force: true }); }
 });

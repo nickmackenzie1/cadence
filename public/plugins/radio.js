@@ -57,6 +57,15 @@
       // a station's own logo (kept by the NAS), else its website's icon, else the radio icon underneath
       const stLogo = (s, size, big) => `<span class="rd-lg${big ? ' big' : ''}" style="--s:${size}px"><i class="rd-noart">${api.ui.icon('radio')}</i>${s.art || s.home ? api.ui.logo(s.home, { img: s.art, size }) : ''}</span>`;
       const SOMA = { v: null, busy: false, err: null }, MC = { v: null, busy: false, err: null };
+      // Mixcloud's player sits in its own small dock at the bottom, outside the page, so redraws and moving around
+      // the app don't restart the show; close it with the x
+      const mcDock = (key, name) => {
+        let d = document.getElementById('rd-mcdock');
+        if (!d) { d = document.createElement('div'); d.id = 'rd-mcdock'; document.documentElement.appendChild(d); }
+        d.innerHTML = `<div class="rd-mcd-h"><span>${api.ui.logo('mixcloud.com', { size: 14 })}${E(name || 'Mixcloud')}</span><button aria-label="Close the Mixcloud player" title="Close">${api.ui.icon('x')}</button></div>
+          <iframe class="rd-mcw" src="https://player-widget.mixcloud.com/widget/iframe/?feed=${encodeURIComponent(key)}&hide_cover=1&mini=1&autoplay=1" title="Mixcloud player" allow="autoplay"></iframe>`;
+        d.querySelector('button').onclick = () => d.remove();
+      };
       const loadMc = async () => { MC.busy = true; try { MC.v = await getJson('api/radar/mixcloud'); } catch (e) { MC.err = e.message; } MC.busy = false; if (api.ui.currentRoute() === 'view-radio') api.ui.refresh(); };
       const loadSoma = async () => { SOMA.busy = true; try { SOMA.v = await getJson('api/radio/soma'); } catch (e) { SOMA.err = e.message; } SOMA.busy = false; if (api.ui.currentRoute() === 'view-radio') api.ui.refresh(); };
       const card = (s, opts = {}) => {
@@ -96,7 +105,7 @@
             return `<details class="rd-soma rd-mc" ${open ? 'open' : ''}><summary><h3 class="rd-h">${api.ui.logo('mixcloud.com', { size: 16 })}Mixcloud</h3><span class="muted">Shows by the KEXP DJs who play your favourites</span></summary>
               ${!M ? `<p class="muted">${MC.err ? "Couldn't reach Mixcloud right now." : 'Finding shows…'}</p>` : !(M.djs || []).length ? `<p class="muted">${M.note || 'No shows found yet.'}</p>` : M.djs.map(d => `<div class="rd-mcdj"><b>${E(d.dj)}</b> <span class="muted">${d.program ? E(d.program) + ' · ' : ''}plays ${E(d.because.slice(0, 3).join(', '))}</span>
                 ${(d.shows || []).length ? `<ul class="rd-mcl">${d.shows.map(c => `<li data-mc="${E(c.key)}">${c.art ? `<img src="${E('api/logo?u=' + encodeURIComponent(c.art))}" alt="" width="40" height="40" loading="lazy" onerror="this.remove()">` : ''}<div><b>${E(c.name)}</b><span class="muted">${[c.by, c.mins && c.mins + ' min', c.at && new Date(c.at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })].filter(Boolean).map(E).join(' · ')}</span></div>
-                  <button class="btn" data-rd="mc" data-key="${E(c.key)}">${api.ui.icon('play')}Play</button><a class="btn ghost" href="${E(c.url)}" target="_blank" rel="noopener">${api.ui.icon('external-link')}</a></li>`).join('')}</ul>` : `<p class="muted">${E(d.error || 'No shows found on Mixcloud.')}</p>`}</div>`).join('')}</details>`; })()}
+                  <button class="btn" data-rd="mc" data-key="${E(c.key)}" data-name="${E(c.name)}">${api.ui.icon('play')}Play</button><a class="btn ghost" href="${E(c.url)}" target="_blank" rel="noopener">${api.ui.icon('external-link')}</a></li>`).join('')}</ul>` : `<p class="muted">${E(d.error || 'No shows found on Mixcloud.')}</p>`}</div>`).join('')}</details>`; })()}
           <h3 class="rd-h">Find a station</h3>
           <form class="rd-find" id="rd-find"><input class="inp" id="rd-q" type="search" placeholder="Name, city or genre (shoegaze, college, Kingston…)" aria-label="Find a station" value="${E(api.storage.get('lastQ') || '')}">
             <button class="btn" type="submit">${searching ? 'Looking…' : 'Search'}</button></form>
@@ -112,9 +121,8 @@
         el.querySelector('.rd').onclick = e => {
           const b = e.target.closest('[data-rd]'); if (!b) return;
           const act = b.dataset.rd, s = b.dataset.i != null && results ? results[+b.dataset.i] : byId(b.dataset.id);
-          if (act === 'mc') { // Mixcloud's own little player, loaded only when you press play; pauses this player first
-            P.pause(); const li = b.closest('li'); li.querySelector('.rd-mcw')?.remove();
-            li.insertAdjacentHTML('beforeend', `<iframe class="rd-mcw" src="https://player-widget.mixcloud.com/widget/iframe/?feed=${encodeURIComponent(b.dataset.key)}&hide_cover=1&mini=1&autoplay=1" title="Mixcloud player" allow="autoplay"></iframe>`); return; }
+          if (act === 'mc') { // Mixcloud's own little player, loaded only when you press play (kept across redraws); pauses this player first
+            P.pause(); mcDock(b.dataset.key, b.dataset.name); return; }
           if (act === 'play' && s) play(s);
           else if (act === 'pause') P.pause();
           else if (act === 'resume') P.play();
@@ -304,7 +312,9 @@
     .rd-st.on{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent) inset}
     .rd-soma summary{display:flex;align-items:baseline;gap:10px;cursor:pointer;list-style:none} .rd-soma summary::-webkit-details-marker{display:none} .rd-soma summary .rd-h{margin:0} .rd-soma[open] summary{margin-bottom:8px}
     .rd-mcdj{margin:8px 0 14px} .rd-mcl{list-style:none;padding:0;margin:6px 0 0;display:flex;flex-direction:column;gap:8px} .rd-mcl li{display:flex;align-items:center;gap:10px;flex-wrap:wrap} .rd-mcl li>div{flex:1;min-width:180px;display:flex;flex-direction:column} .rd-mcl img{border-radius:var(--r-s);object-fit:cover} .rd-mcl .muted{font-size:12px}
-    .rd-mcw{flex-basis:100%;width:100%;height:60px;border:0;border-radius:var(--r-s)}
+    #rd-mcdock{position:fixed;left:12px;bottom:84px;z-index:39;width:min(420px,calc(100vw - 24px));background:var(--panel);border:1px solid var(--line);border-radius:var(--r-l);box-shadow:var(--shadow);padding:6px 8px 8px}
+    .rd-mcd-h{display:flex;justify-content:space-between;align-items:center;font-size:12px;color:var(--muted);margin-bottom:4px} .rd-mcd-h span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap} .rd-mcd-h button{border:0;background:transparent;color:var(--muted);cursor:pointer;display:grid;place-items:center} .rd-mcd-h svg{width:14px;height:14px}
+    .rd-mcw{display:block;width:100%;height:60px;border:0;border-radius:var(--r-s)}
     .rd-hl{display:flex;align-items:center;gap:10px}
     .rd-lg{position:relative;width:var(--s);height:var(--s);flex:none;display:block} .rd-lg .rd-noart{width:100%;height:100%}
     .rd-lg .cx-logo{position:absolute;inset:0;width:100%;height:100%;margin:0;object-fit:contain;background:#fff;border-radius:var(--r-m);padding:3px;box-shadow:inset 0 0 0 1px var(--line)}
