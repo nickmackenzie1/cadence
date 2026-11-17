@@ -141,7 +141,7 @@ async function closeToHome() {
     a[where] += w; if (!a.why.includes(why)) a.why.push(why);
   };
   const R = require('./radio'), stName = id => (R.PRESETS.find(x => x.id === id) || {}).name || id;
-  for (const r of R.artistCounts(KINGSTON_STATIONS, t - 60 * 86400)) hit(r.artist, 'kingston', `played on ${stName(r.station)}${r.n > 1 ? ` ${r.n} times` : ''}`, Math.min(4, r.n));
+  for (const r of R.artistCounts(KINGSTON_STATIONS, t - 60 * 86400)) hit(r.artist, 'kingston', `played on ${stName(r.station)}${r.n > 1 ? ` ${r.n} times` : ''}`, Math.min(5, 1 + r.n));
   for (const r of R.artistCounts(CANADA_STATIONS, t - 60 * 86400)) hit(r.artist, 'canada', `played on ${stName(r.station)}`, Math.min(3, r.n) * 0.6);
   let shows = []; try { const S = await showsLib(); shows = S.cachedShows(); if (!shows.length) { await (await import(pathToFileURL(path.join(__dirname, 'radar', 'lib', 'shows.mjs')).href)).shows([]).catch(() => {}); shows = S.cachedShows(); } } catch (e) {}
   for (const e of shows.filter(x => String(x.id).startsWith('kl:'))) for (const a of (e.artists || []).slice(0, 4)) hit(a, 'kingston', `playing ${e.venue || 'Kingston'}${e.date ? ' on ' + new Date(e.date + 'T12:00:00').toLocaleDateString('en-CA', { month: 'short', day: 'numeric' }) : ''}`, 3);

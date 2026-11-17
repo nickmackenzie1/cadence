@@ -19,7 +19,7 @@ test.beforeAll(async () => {
   const env = { ...process.env, RADAR_DATA: join(dir, 'radar'), RADAR_DB: join(dir, 'cadence.db'), DATA_DIR: dir, ANTHROPIC_API_KEY: '', LASTFM_API_KEY: '' };
   const sim = spawnSync(process.execPath, ['server/services/radar/test/simulate.mjs'], { env, encoding: 'utf8' });
   if (sim.status !== 0) throw new Error('simulate failed: ' + sim.stderr);
-  server = spawn(process.execPath, ['--disable-warning=ExperimentalWarning', 'server.js'], { env: { ...env, PORT: String(PORT), TLS_DIR: join(dir, 'x'), KEXP_LOG: '0', STG: '0', RADAR_MB: '0', AUDIODB: '0', RADIO_WARM: '0' }, stdio: 'ignore' });
+  server = spawn(process.execPath, ['--disable-warning=ExperimentalWarning', 'server.js'], { env: { ...env, PORT: String(PORT), TLS_DIR: join(dir, 'x'), KEXP_LOG: '0', STG: '0', RADAR_MB: '0', AUDIODB: '0', RADIO_WARM: '0', KINGSTONLIVE: '0' }, stdio: 'ignore' });
   for (let i = 0; i < 150; i++) { try { if ((await fetch(B + '/api/health')).ok) return; } catch {} await new Promise(r => setTimeout(r, 100)); }
 });
 test.afterAll(() => { server && server.kill(); rmSync(dir, { recursive: true, force: true }); });
