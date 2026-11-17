@@ -240,8 +240,10 @@ async function mixcloud({ refresh } = {}) {
   const top = [...favs].sort((a, b) => b[1] - a[1]).slice(0, 12).map(([a]) => a);
   if (!top.length) return { djs: [], note: 'Follow a few artists or listen for a while, and shows from the DJs who play them show up here.' };
   const D = new Map();
-  for (const a of top) { let k = null; try { k = K.artist(a); } catch (e) {} for (const d of (k && k.djs) || []) for (const host of String(d.hosts || '').split(/,\s*/).filter(Boolean)) {
-    const x = D.get(host) || { dj: host, program: d.program, plays: 0, because: [] }; D.set(host, x); x.plays += d.plays; if (!x.because.includes(a)) x.because.push(a); } }
+  let rows = []; try { rows = await K.djsFor(top); } catch (e) {}
+  for (const d of rows) for (const host of String(d.hosts || '').split(/,\s*/).filter(Boolean)) {
+    const a = top.find(t => t.toLowerCase() === String(d.artist || '').toLowerCase()) || d.artist;
+    const x = D.get(host) || { dj: host, program: d.program, plays: 0, because: [] }; D.set(host, x); x.plays += d.plays; if (!x.because.includes(a)) x.because.push(a); }
   const djs = [...D.values()].sort((a, b) => b.plays - a.plays).slice(0, 5), base = (process.env.MIXCLOUD_API || 'https://api.mixcloud.com').replace(/\/$/, '');
   for (const d of djs) {
     try {

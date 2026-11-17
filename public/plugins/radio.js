@@ -20,8 +20,10 @@
       let stations = null, results = null, searching = false, error = null, nowTimer = 0, hist = null, stTimer = 0;
       const mine = () => api.storage.get('mine') || [];
       const setMine = list => api.storage.set('mine', list);
-      const load = async () => { try { stations = await getJson('api/radio/stations'); error = null; } catch (e) { error = e.message; stations = stations || []; }
-        try { hist = await getJson('api/radio/kexp-history'); } catch { hist = null; } refresh();
+      const load = async () => {
+        const [st, h] = await Promise.allSettled([getJson('api/radio/stations'), getJson('api/radio/kexp-history')]);
+        if (st.status === 'fulfilled') { stations = st.value; error = null; } else { error = st.reason.message; stations = stations || []; }
+        hist = h.status === 'fulfilled' ? h.value : null; refresh();
         // stations the NAS is still looking up: ask again shortly (it keeps searching in the background)
         clearTimeout(stTimer); if (stations.some(s => s.pending)) stTimer = setTimeout(load, 4000); };
       const day = iso => new Date(iso).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
@@ -87,12 +89,12 @@
           ${error ? `<p class="pc-note">${api.ui.icon('refresh-cw')}Couldn't load stations from the NAS: ${E(error)}</p>` : ''}
           ${my.length ? `<h3 class="rd-h">Your stations</h3><div class="rd-list">${my.map(s => card(s, { remove: true })).join('')}</div>` : ''}
           <h3 class="rd-h">Stations</h3><div class="rd-list">${stations.map(s => card(s)).join('')}</div>
-          ${(() => { const S = SOMA.v; if (!S && !SOMA.busy && !SOMA.err) loadSoma(); if (!S || !S.length) return '';
-            return `<details class="rd-soma" ${api.storage.get('somaOpen') ? 'open' : ''}><summary><h3 class="rd-h">${api.ui.logo('somafm.com', { size: 16 })}SomaFM</h3><span class="muted">${S.length} listener-supported channels, no ads</span></summary>
-              <div class="rd-list">${S.map(s => card({ ...s, about: s.now ? 'Now: ' + s.now : s.about })).join('')}</div></details>`; })()}
-          ${(() => { const M = MC.v; if (!M && !MC.busy && !MC.err) loadMc(); if (!M || !(M.djs || []).length) return '';
-            return `<details class="rd-soma rd-mc" ${api.storage.get('mcOpen') ? 'open' : ''}><summary><h3 class="rd-h">${api.ui.logo('mixcloud.com', { size: 16 })}Mixcloud</h3><span class="muted">Shows by the KEXP DJs who play your favourites</span></summary>
-              ${M.djs.map(d => `<div class="rd-mcdj"><b>${E(d.dj)}</b> <span class="muted">${d.program ? E(d.program) + ' · ' : ''}plays ${E(d.because.slice(0, 3).join(', '))}</span>
+          ${(() => { const open = !!api.storage.get('somaOpen'), S = SOMA.v; if (open && !S && !SOMA.busy && !SOMA.err) loadSoma();
+            return `<details class="rd-soma" ${open ? 'open' : ''}><summary><h3 class="rd-h">${api.ui.logo('somafm.com', { size: 16 })}SomaFM</h3><span class="muted">${S ? S.length + ' ' : ''}listener-supported channels, no ads</span></summary>
+              ${S ? `<div class="rd-list">${S.map(s => card({ ...s, about: s.now ? 'Now: ' + s.now : s.about })).join('')}</div>` : `<p class="muted">${SOMA.err ? "Couldn't reach SomaFM right now." : 'Loading the channels…'}</p>`}</details>`; })()}
+          ${(() => { const open = !!api.storage.get('mcOpen'), M = MC.v; if (open && !M && !MC.busy && !MC.err) loadMc();
+            return `<details class="rd-soma rd-mc" ${open ? 'open' : ''}><summary><h3 class="rd-h">${api.ui.logo('mixcloud.com', { size: 16 })}Mixcloud</h3><span class="muted">Shows by the KEXP DJs who play your favourites</span></summary>
+              ${!M ? `<p class="muted">${MC.err ? "Couldn't reach Mixcloud right now." : 'Finding shows…'}</p>` : !(M.djs || []).length ? `<p class="muted">${M.note || 'No shows found yet.'}</p>` : M.djs.map(d => `<div class="rd-mcdj"><b>${E(d.dj)}</b> <span class="muted">${d.program ? E(d.program) + ' · ' : ''}plays ${E(d.because.slice(0, 3).join(', '))}</span>
                 ${(d.shows || []).length ? `<ul class="rd-mcl">${d.shows.map(c => `<li data-mc="${E(c.key)}">${c.art ? `<img src="${E('api/logo?u=' + encodeURIComponent(c.art))}" alt="" width="40" height="40" loading="lazy" onerror="this.remove()">` : ''}<div><b>${E(c.name)}</b><span class="muted">${[c.by, c.mins && c.mins + ' min', c.at && new Date(c.at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })].filter(Boolean).map(E).join(' · ')}</span></div>
                   <button class="btn" data-rd="mc" data-key="${E(c.key)}">${api.ui.icon('play')}Play</button><a class="btn ghost" href="${E(c.url)}" target="_blank" rel="noopener">${api.ui.icon('external-link')}</a></li>`).join('')}</ul>` : `<p class="muted">${E(d.error || 'No shows found on Mixcloud.')}</p>`}</div>`).join('')}</details>`; })()}
           <h3 class="rd-h">Find a station</h3>
@@ -105,8 +107,8 @@
           <p class="muted rd-foot">Stream addresses come from Radio Browser, a free community directory, looked up by your NAS.</p>
         </div>`;
         const byId = id => stations.find(s => s.id === id) || my.find(s => s.id === id) || (SOMA.v || []).find(s => s.id === id);
-        const sd = el.querySelector('.rd-soma:not(.rd-mc)'); if (sd) sd.ontoggle = () => api.storage.set('somaOpen', sd.open);
-        const md = el.querySelector('.rd-mc'); if (md) md.ontoggle = () => api.storage.set('mcOpen', md.open);
+        const sd = el.querySelector('.rd-soma:not(.rd-mc)'); if (sd) sd.ontoggle = () => { api.storage.set('somaOpen', sd.open); if (sd.open && !SOMA.v && !SOMA.busy) { SOMA.err = null; loadSoma(); } };
+        const md = el.querySelector('.rd-mc'); if (md) md.ontoggle = () => { api.storage.set('mcOpen', md.open); if (md.open && !MC.v && !MC.busy) { MC.err = null; loadMc(); } };
         el.querySelector('.rd').onclick = e => {
           const b = e.target.closest('[data-rd]'); if (!b) return;
           const act = b.dataset.rd, s = b.dataset.i != null && results ? results[+b.dataset.i] : byId(b.dataset.id);

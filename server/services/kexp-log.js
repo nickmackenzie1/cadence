@@ -200,11 +200,16 @@ function kexpBytes(d) {
 // for that, the count kept 10 minutes, the size kept 6 hours; MIN/MAX use the airdate index.
 const isOn = () => !!ON;
 let countCache = { at: 0, n: 0, shows: 0 }, bytesCache = { at: 0, b: null };
-function status() {
+async function status() {
   if (!ON) return { on: false };
   try {
     const d = open();
-    if (Date.now() - countCache.at > 10 * 60e3) countCache = { at: Date.now(), n: d.prepare('SELECT COUNT(*) AS n FROM kexp_plays').get().n, shows: (d.prepare('SELECT COUNT(*) AS n FROM kexp_shows').get() || {}).n || 0 };
+    if (!countCache.at) { try { const x = await rq1('SELECT COUNT(*) AS n FROM kexp_plays', []); countCache = { at: Date.now(), n: x.n, busy: false }; } catch (e) {} }   // the first time: wait for it (off the main thread)
+    // the count is worked out on the reader thread; until then (and while it refreshes) the last known number shows
+    if (Date.now() - countCache.at > 10 * 60e3 && !countCache.busy) {
+      countCache.busy = true;
+      rq1('SELECT COUNT(*) AS n FROM kexp_plays', []).then(x => { countCache = { at: Date.now(), n: x.n, busy: false }; }, () => { countCache.busy = false; });
+    }
     // size: an estimate from the count (measuring it reads every page of the table, seconds to minutes on the NAS)
     bytesCache = { at: Date.now(), b: Math.round(countCache.n * 290 + countCache.shows * 400) };
     const r = { since: (d.prepare('SELECT MIN(airdate) AS t FROM kexp_plays').get() || {}).t, latest: (d.prepare('SELECT MAX(airdate) AS t FROM kexp_plays').get() || {}).t };
@@ -247,12 +252,12 @@ function rq(sql, params = []) {
   if (!reader) {
     const { Worker } = require('worker_threads');
     reader = new Worker(path.join(__dirname, '..', 'lib', 'sql-reader.js'), { workerData: { file: path.join(DATA_DIR, 'cadence.db') } });
-    reader.on('message', ({ id, rows, error }) => { const w = rwait.get(id); if (!w) return; rwait.delete(id); error ? w.no(new Error(error)) : w.ok(rows); });
+    reader.on('message', ({ id, rows, error }) => { const w = rwait.get(id); if (!w) return; rwait.delete(id); if (!rwait.size) reader.unref(); error ? w.no(new Error(error)) : w.ok(rows); });
     const fail = e => { for (const w of rwait.values()) w.no(e instanceof Error ? e : new Error('KEXP reader stopped')); rwait.clear(); reader = null; };
     reader.on('error', fail); reader.on('exit', () => fail(new Error('KEXP reader stopped')));
     reader.unref();
   }
-  return new Promise((ok, no) => { const id = ++rseq; rwait.set(id, { ok, no }); reader.postMessage({ id, sql, params }); });
+  return new Promise((ok, no) => { const id = ++rseq; rwait.set(id, { ok, no }); reader.ref(); reader.postMessage({ id, sql, params }); });   // kept alive only while a query waits
 }
 const rq1 = async (sql, params) => (await rq(sql, params))[0];
 function top(o = {}) {
@@ -385,4 +390,10 @@ function playCount(name) { try { if (summary()) return (open().prepare('SELECT p
 function heavyFirst(name) { try { if (summary()) return (open().prepare('SELECT first_heavy AS t FROM kexp_artists WHERE key = ?').get(AKEY(name)) || {}).t || null; const r = open().prepare("SELECT MIN(airdate) AS t FROM kexp_plays WHERE artist = ? COLLATE NOCASE AND rotation = 'Heavy'").get(String(name || '')); return r && r.t ? r.t : null; } catch (e) { return null; } }
 // first heavy-rotation play for every artist since a time (one pass over that stretch of the airdate index)
 function heavySince(sinceSec) { try { if (summary()) return open().prepare('SELECT artist, first_heavy AS t FROM kexp_artists WHERE first_heavy >= ?').all(Math.floor(sinceSec)); return open().prepare("SELECT MIN(artist) AS artist, MIN(airdate) AS t FROM kexp_plays WHERE airdate >= ? AND rotation = 'Heavy' GROUP BY artist COLLATE NOCASE").all(Math.floor(sinceSec)); } catch (e) { return []; } }
-module.exports = { _save: save, buildArtistsStep, isOn, heavySince, heavyFirst, playCount, winners, playsSince, status, checkNew, backfillStep, fillShows, row, start, top, search, artist, song, around, recent, newArtists, onAir, open };
+// which KEXP DJs play these artists most (Mixcloud picks): one query on the reader thread
+async function djsFor(names) {
+  const list = [...new Set(names.map(n => String(n || '').trim()).filter(Boolean))].slice(0, 30); if (!list.length) return [];
+  return rq(`SELECT MIN(p.artist) AS artist, s.hosts AS hosts, s.program AS program, COUNT(*) AS plays FROM kexp_plays p JOIN kexp_shows s ON s.id = p.show_id
+    WHERE p.artist COLLATE NOCASE IN (${list.map(() => '?').join(',')}) AND s.hosts IS NOT NULL GROUP BY p.artist COLLATE NOCASE, s.hosts, s.program ORDER BY plays DESC LIMIT 200`, list);
+}
+module.exports = { djsFor, _save: save, buildArtistsStep, isOn, heavySince, heavyFirst, playCount, winners, playsSince, status, checkNew, backfillStep, fillShows, row, start, top, search, artist, song, around, recent, newArtists, onAir, open };

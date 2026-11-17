@@ -14,7 +14,7 @@ module.exports = async function radioRoutes(req, res, { url, p }) {
   if (p === '/api/radio/soma') return guard(() => radio.soma());
   if (p === '/api/radio/stations') return guard(() => radio.stations());
   if (p === '/api/radio/search') return guard(() => radio.search(url.searchParams.get('q')));
-  if (p === '/api/radio/kexp-history') return send(res, 200, require('../services/kexp-log').status());
+  if (p === '/api/radio/kexp-history') return send(res, 200, await require('../services/kexp-log').status());
   if (p === '/api/radio/kexp') {
     const K = require('../services/kexp-log'), q = Object.fromEntries(url.searchParams), v = q.view;
     return guard(async () => {
