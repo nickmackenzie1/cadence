@@ -99,7 +99,8 @@ test('Home helpers: dinner idea saved to Kitchen and onto the list, barcode onto
   await page.fill('#hb-tq', 'letterkenny'); await page.click('#hb-tgo');
   await page.locator('#hb-tres [data-add]').click();
   await expect(page.locator('.hb-tv')).toContainText('S13E1');
-  await expect(page.locator('.hb-tv')).toContainText('Tonight');
+  // two hours from now: still today unless the test runs after 10 pm (CI runs on UTC, which is evening here)
+  await expect(page.locator('.hb-tv')).toContainText(new Date(soon).toDateString() === new Date().toDateString() ? 'Tonight' : 'Tomorrow');
   // it all landed in Kitchen: the recipe, its ingredients and the scanned milk on the shopping list
   await page.goto(B + '/#view-kitchen');
   await page.click('.kt-tabs [data-t="recipes"]');
