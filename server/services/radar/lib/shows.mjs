@@ -138,7 +138,7 @@ export async function shows(interest = [], { force = false } = {}) {
   const why = new Map();
   for (const it of interest) { const n = norm(it.name); if (n && !why.has(n)) why.set(n, { name: it.name, why: it.why }); }
   const nearKingston = km(cfg.lat, cfg.lon, KINGSTON.lat, KINGSTON.lon) <= cfg.radiusKm;
-  if (!k.ticketmaster && !k.bandsintown && !(k.kingstonlive && nearKingston)) return { keys: k, cfg, matches: [], nearby: [], note: "needs a key" };
+  if (!k.ticketmaster && !k.bandsintown && !(k.kingstonlive && nearKingston)) return { keys: k, cfg, matches: [], local: [], nearby: [], note: "needs a key" };
   if (force || !cache || Date.now() - cache.at > 12 * 3600e3 || cache.radius !== cfg.radiusKm || cache.lat !== cfg.lat) {
     if (!running) running = (async () => {
       const errors = []; let list = [];
@@ -168,5 +168,7 @@ export async function shows(interest = [], { force = false } = {}) {
     const hit = e.artists.map((a) => why.get(norm(a))).find(Boolean);
     all.push(hit ? { ...e, match: hit } : e);
   }
-  return { keys: k, cfg, checked: cache.at, errors: cache.errors, matches: all.filter((e) => e.match), nearby: all.filter((e) => !e.match).slice(0, 150) };
+  // Kingston Live gets its own full list (user, 2026-11-16: "just show all artists from kingston live"); the rest stay folded
+  const kl = (e) => String(e.id).startsWith("kl:");
+  return { keys: k, cfg, checked: cache.at, errors: cache.errors, matches: all.filter((e) => e.match), local: all.filter((e) => !e.match && kl(e)), nearby: all.filter((e) => !e.match && !kl(e)).slice(0, 150) };
 }

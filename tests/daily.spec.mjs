@@ -72,14 +72,21 @@ test('garbage night: Loyalist east is Tuesday, west Wednesday; pickup day counts
 
 test('Daily page and Outside page render from the NAS', async ({ page }) => {
   await page.goto(B + '/#view-daily');
-  await expect(page.locator('.db-otd')).toContainText('Something happened in Ontario.');
-  await expect(page.locator('.db-x figcaption')).toContainText('A Comic');
-  await expect(page.locator('.db-c iframe')).toHaveCount(0);                 // nothing loads from Lichess until you choose to play
+  await expect(page.locator('.dy-otd')).toContainText('Something happened in Ontario.');
+  await expect(page.locator('.dy-x figcaption')).toContainText('A Comic');
+  await expect(page.locator('.dy-c iframe')).toHaveCount(0);                 // nothing loads from Lichess until you choose to play
   await page.route('https://lichess.org/**', r => r.fulfill({ body: '<p>board</p>', contentType: 'text/html' }));
   await page.click('[data-play-chess]');
-  await expect(page.locator('.db-c iframe')).toHaveAttribute('src', /lichess\.org\/training\/frame/);
-  await expect(page.locator('.db-c')).toContainText('Rated 1840');
-  await expect(page.locator('.db-hn li')).toHaveCount(2);
+  await expect(page.locator('.dy-c iframe')).toHaveAttribute('src', /lichess\.org\/training\/frame/);
+  await expect(page.locator('.dy-c')).toContainText('Rated 1840');
+  await expect(page.locator('.dy-hn li')).toHaveCount(2);
+  // no section draws over another (2026-11-16: the Dashboard's own .dy-grid rules squeezed Daily's rows)
+  expect(await page.locator('.dy-grid').evaluate(g => getComputedStyle(g).gridAutoRows)).toBe('auto');   // rows grow with their content
+  const boxes = await page.locator('.dy-grid > section').evaluateAll(ss => ss.map(s => { const r = s.getBoundingClientRect(); return [r.left, r.top, r.right, r.bottom]; }));
+  for (let i = 0; i < boxes.length; i++) for (let j = i + 1; j < boxes.length; j++) {
+    const [a, b] = [boxes[i], boxes[j]];
+    expect(a[0] < b[2] - 1 && b[0] < a[2] - 1 && a[1] < b[3] - 1 && b[1] < a[3] - 1, `sections ${i} and ${j} overlap`).toBe(false);
+  }
   await page.goto(B + '/#view-outside');
   await expect(page.locator('.od-l')).toContainText('Good');
   await expect(page.locator('.od-l')).toContainText('Possible tonight');

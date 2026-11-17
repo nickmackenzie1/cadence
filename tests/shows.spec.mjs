@@ -59,13 +59,17 @@ test('shows near home: artists you care about first, with why; far and past show
   expect(new Set(tops).size).toBe(1);
   await mine.nth(1).screenshot({ path: 'test-results/show-row.png' });
   await expect(page.locator('.sh')).not.toContainText('Vancouver');
+  // Kingston Live: its own open list, every act named (user: "just show all artists from kingston live")
+  const kl = page.locator('.sh-kl li');
+  await expect(kl).toHaveCount(1);
+  await expect(kl.first().locator('.sh-a')).toContainText('The Local Band');
+  await expect(kl.first()).toContainText('The Mansion · Kingston area · 13 km away');
+  await expect(kl.first()).toContainText('Wind Down Wednesdays');
+  await expect(kl.first()).toContainText('9:30');
+  // everything else stays folded
   await page.locator('.sh-more summary').click();
-  await expect(page.locator('.sh-more li')).toHaveCount(2);             // Random Band, and the Kingston Live listing (Jay Som there twice counts once)
+  await expect(page.locator('.sh-more li')).toHaveCount(1);             // Random Band (Jay Som there twice counts once)
   await expect(page.locator('.sh-more')).toContainText('Random Band');
-  await expect(page.locator('.sh-more li').first()).toContainText('The Local Band');
-  await expect(page.locator('.sh-more li').first()).toContainText('The Mansion · Kingston area · 13 km away');
-  await expect(page.locator('.sh-more li').first()).toContainText('Wind Down Wednesdays');
-  await expect(page.locator('.sh-more li').first()).toContainText('9:30');
   expect(tmAsked[0]).toEqual(expect.objectContaining({ latlong: '44.2234,-76.6533', radius: '100', unit: 'km', classificationName: 'music' }));
   // a wider circle is remembered and asked for
   await page.selectOption('#sh-km', '300');

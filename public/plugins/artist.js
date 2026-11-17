@@ -127,7 +127,7 @@
       const dateLabel = (d, t) => { if (!d) return 'Date to be announced'; const x = new Date(d + 'T' + (t || '12:00') + ':00');
         return x.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: x.getFullYear() === new Date().getFullYear() ? undefined : 'numeric' }) + (t ? ' · ' + x.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' }) : ''); };
       const showRow = (e, full) => `<li><span class="sh-d">${E(dateLabel(e.date, e.time))}</span>${full && e.match ? window.CadencePreview.buttons(e.match.name, null, 'artist', 'Shows') : ''}<div>
-          <span class="sh-a">${e.artists.slice(0, 4).map((a, i) => `<a class="ar-link" href="#view-artist" data-artist="${E(a)}">${i ? E(a) : `<b>${E(a)}</b>`}</a>`).join(', ')}${e.artists.length > 4 ? ' and more' : ''}${e.title && e.title !== e.artists.join(', ') ? ` <span class="muted">· ${E(e.title.split(': ')[0])}</span>` : ''}</span>
+          <span class="sh-a">${e.artists.map((a, i) => `<a class="ar-link" href="#view-artist" data-artist="${E(a)}">${i ? E(a) : `<b>${E(a)}</b>`}</a>`).join(', ')}${e.title && e.title !== e.artists.join(', ') ? ` <span class="muted">· ${E(e.title.split(': ')[0])}</span>` : ''}</span>
           <span class="muted">${E([e.venue, e.city, e.km != null ? e.km + ' km away' : null, e.price].filter(Boolean).join(' · '))}${e.url ? ` · <a href="${E(e.url)}" target="_blank" rel="noopener">Details</a>` : ''}</span>
           ${e.note ? `<span class="muted sh-note">${E(e.note)}</span>` : ''}
           ${full && e.match ? `<span class="sh-why">${E(e.match.why)}</span>` : ''}</div></li>`;
@@ -149,6 +149,7 @@
           ${(d.errors || []).map(x => `<p class="muted" title="${E(x)}">${E(x.split(':')[0])} couldn't be reached just now. It'll try again on the next check.</p>`).join('')}
           <h3>By artists you care about</h3>
           ${d.matches.length ? `<ul class="sh-l">${d.matches.map(e => showRow(e, true)).join('')}</ul>` : '<p class="muted">Nobody from your lists is playing nearby right now. Shows by artists in Want to hear, climbing on Radar, played a lot on KEXP, or that you look up will show here.</p>'}
+          ${(d.local || []).length ? `<h3>Kingston Live</h3><ul class="sh-l sh-kl">${d.local.map(e => showRow(e, false)).join('')}</ul>` : ''}
           ${d.nearby.length ? `<details class="sh-more"><summary>Everything else nearby (${d.nearby.length})</summary><ul class="sh-l">${d.nearby.map(e => showRow(e, false)).join('')}</ul></details>` : ''}
           ${setup}`}</div>`;
         const km = el.querySelector('#sh-km'); if (km) km.onchange = () => { SH.d = null; api.ui.refresh(); shLoad({ settings: { radiusKm: +km.value } }); };

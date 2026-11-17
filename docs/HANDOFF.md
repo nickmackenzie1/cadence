@@ -202,3 +202,8 @@ Cleaned up 2026-11-16 (0.8.2): items already built were moved out after checking
   MusicBrainz is pending), pages opened in the last 60 days refreshed hourly, dropped after 60 days unopened.
   `?fresh=1` waits for a new build. The browser keeps the last 40 in IndexedDB `cadence-artists` and re-asks once the
   NAS says it's rebuilding (`refreshing`).
+
+### Daily layout, Kingston Live list (2026-11-16)
+- Daily page sections overlapped: its `.db-grid` shared a name with the Dashboard's fixed-row grid. Daily now uses `dy-`.
+- Shows: Kingston Live has its own open list (`local` from the server), and every act in a lineup is named (no "and more").
+- Idea from the user's API list: Genius (song facts and the stories behind songs; its API has no lyrics).
