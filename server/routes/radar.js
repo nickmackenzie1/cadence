@@ -46,6 +46,9 @@ module.exports = async function radarRoutes(req, res, { url, p }) {
   if (p === '/api/radar/releases') return send(res, 200, await radar.releases());
   if (p === '/api/radar/calledit') return send(res, 200, await radar.calledIt());
   if (p === '/api/radar/listen' && req.method === 'POST') return send(res, 200, await radar.listen(await body()));
+  if (p === '/api/radar/discogs' && req.method === 'GET') return send(res, 200, url.searchParams.get('index') ? await radar.discogsIndex() : await radar.discogs(Object.fromEntries(url.searchParams)));
+  if (p === '/api/radar/discogs/sync' && req.method === 'POST') { try { return send(res, 200, await radar.discogsSync()); } catch (e) { return send(res, 502, { error: e.message }); } }
+  if (p === '/api/radar/discogs/want' && req.method === 'POST') { try { return send(res, 200, await radar.discogsWant(await body())); } catch (e) { return send(res, 502, { error: e.message }); } }
   if (p === '/api/radar/sound' && req.method === 'POST') return send(res, 200, await radar.sound(await body()));
   if (p === '/api/radar/nfm') return send(res, 200, await radar.notForMe(req.method === 'POST' ? await body() : null));
   if (p === '/api/radar/want') return send(res, 200, await radar.want(req.method === 'POST' ? await body() : null));

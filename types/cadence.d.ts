@@ -137,3 +137,6 @@ declare var LZString: any;
 declare var documentPictureInPicture: any;
 // the Claude artifact runtime (core.js uses it only when window.claude exists)
 declare var claude: any;
+
+// idiomorph (vendor/idiomorph.min.js): redraws that change only what changed
+declare const Idiomorph: { morph(el: Element, html: string | Element, opts?: any): any };

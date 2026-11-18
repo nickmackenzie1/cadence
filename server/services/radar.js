@@ -136,6 +136,16 @@ async function listen(b = {}) {
   return { ok: true };
 }
 // the sound of a song, read from its preview in your browser (Essentia.js): tempo, key, danceability, loudness
+// your Discogs records (needs DISCOGS_TOKEN): a copy every 6 hours, a summary for the page, wantlist changes when asked
+const discogsLib = () => import(pathToFileURL(path.join(__dirname, 'radar', 'lib', 'discogs.mjs')).href);
+async function discogs(q = {}) { await load(); const D = await discogsLib(); return D.discogsSummary(q); }
+async function discogsIndex() { await load(); const D = await discogsLib(); const ix = D.discogsIndex(); return { artists: [...ix.artists], own: [...ix.own], want: [...ix.want] }; }
+async function discogsSync() { await load(); const D = await discogsLib(); const r = await D.discogsSync(); bust(); return r; }
+async function discogsWant(b = {}) { await load(); const D = await discogsLib(); const r = await D.discogsWant(b); bust(); return r; }
+if (!process.env.CI && process.env.DISCOGS_TOKEN) {
+  sched.add('discogs', async () => { const r = await discogsSync(); return r && r.records != null ? { note: `Discogs: ${r.records} records, ${r.wants} wanted` } : undefined; },
+    { label: 'Discogs: your collection and wantlist', quiet: true, every: 6 * 3600e3, first: 2 * 60e3, retry: 3600e3 });
+}
 async function sound(b = {}) {
   const S = await import(pathToFileURL(path.join(__dirname, 'radar', 'lib', 'sound.mjs')).href);
   const r = S.keepSound(b); if (r.ok) bust(); return r;
@@ -552,4 +562,4 @@ async function digestFile(name) {
 }
 async function spotify() { const { spotify } = await load(); return spotify; }
 
-module.exports = { sound, find, bust, mixcloud, yearInMusic, closeToHome, releases, mix, calledIt, listen, notForMe, artist, stg, shows, follow, preview, want, community, sourcesNow, sourcesSettings, raw, settings, status, scan, digestNow, data, feedback, rss, digestFile, spotify };
+module.exports = { discogs, discogsIndex, discogsSync, discogsWant, sound, find, bust, mixcloud, yearInMusic, closeToHome, releases, mix, calledIt, listen, notForMe, artist, stg, shows, follow, preview, want, community, sourcesNow, sourcesSettings, raw, settings, status, scan, digestNow, data, feedback, rss, digestFile, spotify };

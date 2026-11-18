@@ -3435,6 +3435,7 @@
         html = emptyState('✦', 'No insights yet', 'Enable Pulse, Review, Mural or Feeds in Settings → Plugins.');
       } else {
         const cur = ins.find(x => x.id === S.settings.insightsTab) || ins[0];
+        delete v.dataset.drawn;
         v.innerHTML = `<div class="head"><div><h1>Insights</h1><div class="sub">${esc(cur.subtitle || '')}</div></div></div><div class="ins-tabs">${ins.map(x => `<button class="${x === cur ? 'on' : ''}" data-act="ins-tab" data-id="${esc(x.id)}">${esc(x.icon || '')} ${esc(x.title)}</button>`).join('')}</div><div id="pv"></div>`;
         try {
           cur.render($('#pv'), makeApi(cur.pid));
@@ -3459,6 +3460,7 @@
         // music pages share one set of tabs (Music home)
         const mtabs = pv.group === 'music' ? Reg.views.filter(x => x.group === 'music' && !x.hidden).sort((a, b) => (a.order ?? 50) - (b.order ?? 50)) : [];
         if (mtabs.includes(pv) && S.settings.musicTab !== pv.id) { S.settings.musicTab = pv.id; persistLocal(); }
+        delete v.dataset.drawn;
         v.innerHTML = `<div class="head"><div><h1>${pv.group === 'music' && !pv.hidden ? 'Music' : (pv.site ? logoHtml(pv.site, { size: 28, cls: 'h1-logo' }) : '') + esc(pv.title)}</h1>${pv.subtitle ? `<div class="sub">${esc(pv.subtitle)}</div>` : ''}</div></div>${mtabs.length ? `<nav class="ins-tabs mus-tabs" aria-label="Music">${mtabs.map(x => `<a href="#view-${esc(x.id)}" class="${x === pv ? 'on' : ''}"${x === pv ? ' aria-current="page"' : ''}>${x.site ? logoHtml(x.site, { size: 14 }) : ''}${esc(x.title)}</a>`).join('')}</nav>` : ''}<div id="pv"></div>`;
         try {
           pv.render($('#pv'), makeApi(pv.pid));
@@ -3476,7 +3478,17 @@
     // a redraw (sync, a plugin, the calendar) must never eat what you're halfway through typing in the add box
     const qa0 = $('#qa'),
       kept = qa0 && qa0.value ? { v: qa0.value, f: document.activeElement === qa0, s: qa0.selectionStart, e: qa0.selectionEnd } : null;
-    v.innerHTML = html;
+    // the same page redrawn (live sync, a plugin, the clock): change only what changed (idiomorph), so focus, scroll,
+    // open sections, hover and animations survive (2026-11-18). A different page, or no idiomorph: a full redraw.
+    if (window.Idiomorph && v.dataset.drawn === r && !morphOff()) {
+      try {
+        Idiomorph.morph(v, html, { morphStyle: 'innerHTML', ignoreActiveValue: true, restoreFocus: true, callbacks: {
+          // a section you opened or closed stays that way
+          beforeAttributeUpdated: (attr, el) => !(attr === 'open' && el.tagName === 'DETAILS'),
+        } });
+      } catch (e) { console.warn('morph', e); v.innerHTML = html; }
+    } else v.innerHTML = html;
+    v.dataset.drawn = r;
     bindQuickAdd();
     applyKb();
     if (kept) {
@@ -3617,9 +3629,14 @@
       inp.focus();
     });
   }
+  // (a morphed redraw keeps the same add box: its listeners are attached once)
+  const qaBound = new WeakSet();
+  // Settings → Developer can turn morphing off (localStorage cadence.morph = 'off'), to compare if something looks wrong
+  const morphOff = () => { try { return localStorage.getItem('cadence.morph') === 'off'; } catch (e) { return false; } };
   function bindQuickAdd() {
     const inp = $('#qa');
-    if (!inp) return;
+    if (!inp || qaBound.has(inp)) return;
+    qaBound.add(inp);
     const box = inp.closest('.qa'),
       ctx = JSON.parse(box.dataset.ctx || '{}'),
       chips = $('#qa-chips');

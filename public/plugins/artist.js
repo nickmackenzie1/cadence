@@ -95,6 +95,52 @@
     setTimeout(soundNext, 1500);
   }
   window.CadenceSound = { analyse: soundOf };
+  // ---- your Discogs records (2026-11-18): "In your records" / "On your wantlist" marks, an artist's records, the shelf ----
+  const DG = window.CadenceDiscogs = (() => {
+    let ix = null, loading = false, sum = null, sumAt = 0; const per = new Map(), E2 = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    // the same as the server's norm() (radar/lib/extract.mjs), so the marks line up
+    const nk = n => String(n).toLowerCase().trim().replace(/\s+(feat\.?|ft\.?|featuring|with|x|&|,)\s+.*$/, '').normalize('NFKD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9 ]/g, '').replace(/\s+/g, ' ').trim();
+    const key = (a, t) => nk(a) + '|' + nk(String(t || '').replace(/\s*\((deluxe|remaster(ed)?|expanded|anniversary)[^)]*\)/gi, ''));
+    const get = u => fetch(u).then(r => r.ok ? r.json() : null).catch(() => null);
+    const load = () => { if (loading || ix) return; loading = true;
+      get('api/radar/discogs?index=1').then(j => { ix = j ? { artists: new Set(j.artists), own: new Set(j.own), want: new Set(j.want) } : { artists: new Set(), own: new Set(), want: new Set() }; if (ix.artists.size || ix.want.size) DG.changed(); }).finally(() => { loading = false; }); };
+    const rec = r => `<a class="dg-rec" href="https://www.discogs.com/release/${+r.rid}" target="_blank" rel="noopener" title="${E2(r.artist + ' – ' + r.title + (r.year ? ' (' + r.year + ')' : ''))}">${r.thumb || r.cover ? `<img src="${E2(r.thumb || r.cover)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.style.visibility='hidden'">` : '<span class="dg-noimg"></span>'}<span><b>${E2(r.title)}</b><span class="muted">${[r.year, r.format].filter(Boolean).map(E2).join(' · ')}</span></span></a>`;
+    return {
+      changed: () => {},
+      // a small mark next to something you own or want (an album; or, with no album, an artist you own records by)
+      chip(artist, title) {
+        load(); if (!ix || !artist) return '';
+        const k = title ? key(artist, title) : null;
+        if (k && ix.own.has(k)) return '<span class="dg-chip own" title="On your Discogs collection">In your records</span>';
+        if (k && ix.want.has(k)) return '<span class="dg-chip" title="On your Discogs wantlist">On your wantlist</span>';
+        if (!title && ix.artists.has(nk(artist))) return '<span class="dg-chip own" title="You own records by them">In your records</span>';
+        return '';
+      },
+      owns: (a, t) => !!(ix && ix.own.has(key(a, t))), wants: (a, t) => !!(ix && ix.want.has(key(a, t))),
+      // on an artist's page: the records of theirs you own, and the ones on your wantlist
+      artistBlock(name) {
+        const c = per.get(name.toLowerCase());
+        if (!c) { per.set(name.toLowerCase(), { loading: true }); get('api/radar/discogs?artist=' + encodeURIComponent(name)).then(d => { per.set(name.toLowerCase(), d || { off: true }); if (d && ((d.own || []).length || (d.want || []).length)) DG.changed(); }); return ''; }
+        if (c.loading || c.off || c.pending || (!(c.own || []).length && !(c.want || []).length)) return '';
+        return `<div class="dg-ap">${c.own.length ? `<div><h4>In your records</h4><div class="dg-recs">${c.own.map(rec).join('')}</div></div>` : ''}${c.want.length ? `<div><h4>On your wantlist</h4><div class="dg-recs">${c.want.map(rec).join('')}</div></div>` : ''}</div>`;
+      },
+      // the "Your records" card on Music Radar: counts, the newest, and one pulled from the shelf (a different one each day)
+      card() {
+        if (!sum || Date.now() - sumAt > 5 * 60e3) { sumAt = Date.now(); get('api/radar/discogs').then(d => { const had = !!sum; sum = d; if (d && (d.on || had)) DG.changed(); }); }
+        if (!sum || sum.off) return '';
+        if (sum.pending) return '<section class="mr-card w12 dg-card"><h3>Your records</h3><p class="mr-sub">Copying your Discogs collection and wantlist. This takes a minute or two the first time.</p></section>';
+        return `<section class="mr-card w12 dg-card"><div class="mr-row" style="justify-content:space-between"><div><h3>Your records</h3><p class="mr-sub">${sum.records.toLocaleString()} in your Discogs collection · ${sum.wants.toLocaleString()} on your wantlist</p></div>
+          <button class="btn sm" data-dg-sync>Check Discogs now</button></div>
+          ${sum.shelf ? `<div class="dg-shelf"><span class="mr-small">Pulled from the shelf today</span>${rec(sum.shelf)}</div>` : ''}
+          ${sum.recent.length ? `<h4>Newest in your collection</h4><div class="dg-recs">${sum.recent.map(rec).join('')}</div>` : ''}</section>`;
+      },
+      async sync() { const r = await fetch('api/radar/discogs/sync', { method: 'POST' }).then(x => x.json()).catch(() => ({ error: true })); ix = null; per.clear(); sum = null; DG.changed(); return r; },
+      async want(artist, title, add = true) {
+        const r = await fetch('api/radar/discogs/want', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ artist, title, add }) }).then(x => x.json()).catch(() => ({ error: true }));
+        if (r.ok) { ix = null; per.delete(String(artist).toLowerCase()); } return r;
+      },
+    };
+  })();
   const sendListen = (it, secs, beacon) => {
     if (!it || secs < 1) return;
     if (it.kind === 'preview' && secs >= 8 && !beacon) soundOf(it);
@@ -169,6 +215,8 @@
       // play + want buttons for one pick (used by Music Radar and this page)
       window.CadencePreview.buttons = (artist, title, type, from) => { if (!artist) return ''; const on = window.CadencePreview.want.has(artist, title);
         return `<span class="pv-btns"><button class="pv-b" data-pv data-a="${E(artist)}" data-t="${E(title || '')}" aria-label="Play a preview of ${E(title || artist)}" title="Play a 30-second preview">${api.ui.icon('play')}</button><button class="pv-b${on ? ' on' : ''}" data-want data-a="${E(artist)}" data-t="${E(title || '')}" data-type="${E(type || '')}" data-from="${E(from || '')}" aria-label="${on ? 'Remove from' : 'Save to'} Want to hear" title="${on ? 'In Want to hear' : 'Save to Want to hear'}">${api.ui.icon(on ? 'bookmark-check' : 'bookmark-plus')}</button></span>`; };
+      DG.changed = () => { clearTimeout(DG._t); DG._t = setTimeout(() => api.ui.refresh(), 60); };
+      document.addEventListener('click', async e => { const b = e.target.closest('[data-dg-sync]'); if (!b) return; b.disabled = true; const r = await DG.sync(); api.ui.toast(r.error ? "Couldn't reach Discogs just now" : r.off ? 'Add DISCOGS_TOKEN to .env on the NAS' : `Discogs: ${r.records} records, ${r.wants} wanted`); });
       const onWant = () => { api.ui.refreshWidgets && api.ui.refreshWidgets(); const r = api.ui.currentRoute(); if (r === 'view-radar' || r === 'view-artist' || r === 'view-want' || r === 'view-artists') api.ui.refresh(); };
       window.addEventListener('cadence-want', onWant);
       window.addEventListener('cadence-follow', onWant);
@@ -404,7 +452,7 @@
               ${!MX.week ? `<button class="btn ghost" id="mx-again">${api.ui.icon('refresh-cw')}Make a new one</button>` : ''}
               ${(MX.weeks || []).length > 1 ? `<select class="inp" id="mx-week">${MX.weeks.map(w => `<option value="${E(w)}" ${w === d.week ? 'selected' : ''}>${E(day(w))}</option>`).join('')}</select>` : ''}</div></div>
           ${items.length ? GROUPS.map(([g, label]) => { const l = items.filter(x => x.group === g); return l.length ? `<h3>${label}</h3><ol class="mx-l">${l.map(x => `<li>${window.CadencePreview.buttons(x.artist, x.title, x.type, 'Friday mix')}
-              <div class="mx-t"><span><a class="ar-link" href="#view-artist" data-artist="${E(x.artist)}"><b>${E(x.artist)}</b></a>${x.title ? ' — ' + E(x.title) : ''}</span><span class="muted">${E(x.why)}</span></div>
+              <div class="mx-t"><span><a class="ar-link" href="#view-artist" data-artist="${E(x.artist)}"><b>${E(x.artist)}</b></a>${x.title ? ' — ' + E(x.title) : ''}${DG.chip(x.artist, x.title)}</span><span class="muted">${E(x.why)}</span></div>
               <a class="mx-bc" href="${E(bcUrl(x.artist))}" target="_blank" rel="noopener" title="Find ${E(x.artist)} on Bandcamp">${api.ui.logo('bandcamp.com', { size: 14 })}Bandcamp</a></li>`).join('')}</ol>` : ''; }).join('')
             : '<p class="muted">Nothing to put in it yet. Follow a few artists or let Music Radar run a couple of scans.</p>'}</div>`;
         const all = el.querySelector('#mx-all'); if (all) all.onclick = () => window.CadencePreview.playAll(items.map(x => ({ artist: x.artist, title: x.title })));
@@ -417,10 +465,16 @@
         const list = PV.want;
         if (!list) { el.innerHTML = '<p class="muted">Loading…</p>'; wantList(true).then(() => api.ui.refresh()); return; }
         el.innerHTML = `<div class="wh">${list.length ? `<button class="btn primary" id="wh-all">${api.ui.icon('play')}Play all previews</button>
-          <ul class="wh-l">${list.map(x => `<li>${window.CadencePreview.buttons(x.artist, x.title, x.type, x.from)}<div><span><a class="ar-link" href="#view-artist" data-artist="${E(x.artist)}"><b>${E(x.artist)}</b></a>${x.title ? ' — ' + E(x.title) : ''}</span>
-            <span class="muted">${x.from ? 'from ' + E(x.from) + ' · ' : ''}saved ${new Date(x.at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</span></div></li>`).join('')}</ul>`
+          <ul class="wh-l">${list.map(x => `<li>${window.CadencePreview.buttons(x.artist, x.title, x.type, x.from)}<div><span><a class="ar-link" href="#view-artist" data-artist="${E(x.artist)}"><b>${E(x.artist)}</b></a>${x.title ? ' — ' + E(x.title) : ''}${DG.chip(x.artist, x.title)}</span>
+            <span class="muted">${x.from ? 'from ' + E(x.from) + ' · ' : ''}saved ${new Date(x.at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</span></div>
+            ${x.title && window.CadenceDiscogs && !DG.owns(x.artist, x.title) ? `<button class="btn sm ghost dg-wb" data-dg-want="${E(x.artist)}" data-dg-title="${E(x.title)}" data-on="${DG.wants(x.artist, x.title) ? 1 : ''}">${DG.wants(x.artist, x.title) ? 'On your Discogs wantlist' : 'Add to my Discogs wantlist'}</button>` : ''}</li>`).join('')}</ul>`
           : '<p class="muted">Nothing saved yet. Use the bookmark next to any pick in Music Radar or on an artist page.</p>'}</div>`;
         const all = el.querySelector('#wh-all'); if (all) all.onclick = () => window.CadencePreview.playAll(list);
+        el.querySelectorAll('[data-dg-want]').forEach(b => b.onclick = async () => {
+          const on = !!b.dataset.on; b.disabled = true; const r = await DG.want(b.dataset.dgWant, b.dataset.dgTitle, !on);
+          api.ui.toast(r.ok ? (on ? 'Taken off your Discogs wantlist' : 'Added to your Discogs wantlist') : r.off ? 'Add DISCOGS_TOKEN to .env on the NAS to use your Discogs wantlist' : r.none ? "Discogs doesn't have that album" : "Couldn't reach Discogs just now. Try again in a moment.");
+          api.ui.refresh();
+        });
       } });
       // Pages you've opened are remembered in this browser (the last 40), so opening one again draws at once and then
       // updates quietly; the NAS keeps its own copy too and rebuilds it in the background (user, 2026-11-16).
@@ -495,7 +549,7 @@
               ${d.called && d.called.lead > 0 ? `<p class="ap-called">${api.ui.icon('trophy')}Radar spotted them on ${E(d.called.via)}, ${d.called.milestones.map(m => `${m.days} days before ${E(m.what)}`).join(' and ')}</p>` : ''}
               ${d.sound ? `<p class="muted ap-sound" title="Read from the previews you've played">${api.ui.icon('audio-waveform')}${E(d.sound.words)} <span>(from ${d.sound.songs} preview${d.sound.songs === 1 ? '' : 's'})</span></p>` : ''}
               ${tags.length ? `<div class="ap-tags">${tags.map(t => `<span>${E(t)}</span>`).join('')}</div>` : ''}
-              <div class="ap-links">${(() => { if (!window.CadenceFollow.loaded()) window.CadenceFollow.load(); const f = window.CadenceFollow.has(d.name); return `<button class="btn${f ? '' : ' primary'}" data-follow="${E(d.name)}" aria-pressed="${f}">${api.ui.icon(f ? 'user-check' : 'user-plus')}${f ? 'Following' : 'Follow'}</button>`; })()}<button class="btn" data-pv data-a="${E(d.name)}">${api.ui.icon('play')}Play a preview</button>${(() => { const on = window.CadencePreview.want.has(d.name, null);
+              ${DG.artistBlock(d.name)}<div class="ap-links">${(() => { if (!window.CadenceFollow.loaded()) window.CadenceFollow.load(); const f = window.CadenceFollow.has(d.name); return `<button class="btn${f ? '' : ' primary'}" data-follow="${E(d.name)}" aria-pressed="${f}">${api.ui.icon(f ? 'user-check' : 'user-plus')}${f ? 'Following' : 'Follow'}</button>`; })()}<button class="btn" data-pv data-a="${E(d.name)}">${api.ui.icon('play')}Play a preview</button>${(() => { const on = window.CadencePreview.want.has(d.name, null);
                 return `<button class="btn" data-want data-a="${E(d.name)}" data-type="artist" data-from="artist page">${api.ui.icon(on ? 'bookmark-check' : 'bookmark-plus')}${on ? 'In Want to hear' : 'Save to Want to hear'}</button>`; })()}${(() => { const no = window.CadenceNfm.has('artist', d.name);
                 return `<button class="btn ghost" data-nfm-type="artist" data-nfm-value="${E(d.name)}"${no ? ' data-nfm-off="1"' : ''} aria-pressed="${no}" title="${no ? 'Show them in Music Radar again' : 'Hide them in Music Radar, and For you learns from it'}">${api.ui.icon(no ? 'eye' : 'eye-off')}${no ? 'Not for me (undo)' : 'Not for me'}</button>`; })()}</div>
               ${(() => { const bc = links.find(l => /bandcamp\.com/.test(l.url)) || djBc; return `<div class="ap-links"><a class="btn" href="${E(bc ? bc.url : 'https://bandcamp.com/search?q=' + encodeURIComponent(d.name) + '&item_type=b')}" target="_blank" rel="noopener">${api.ui.logo('bandcamp.com', { size: 15 })}${bc ? 'Buy on Bandcamp' : 'Find on Bandcamp'}</a></div>`; })()}
@@ -556,7 +610,12 @@
         .ap-img{width:120px;height:120px;border-radius:var(--r-l);object-fit:cover;flex:none;background:var(--accent-soft)} .ap-noimg{display:grid;place-items:center;color:var(--accent)} .ap-noimg svg{width:40px;height:40px}
         .ap-head h2{margin:0 0 4px;font-size:26px} .ap-facts{margin:4px 0;color:var(--muted)}
         .ap-tags{display:flex;flex-wrap:wrap;gap:4px;margin:6px 0} .ap-tags span{font-size:12px;border:1px solid var(--line);border-radius:999px;padding:1px 8px}
-        .ap-links{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px} .ap-listen{align-items:center} .ap-sound{display:flex;align-items:center;gap:6px;margin:6px 0 0;font-size:13px} .ap-sound svg{width:14px;height:14px} .ap-listen>.muted{font-size:13px} .ap-links .btn{display:inline-flex;gap:6px;align-items:center;font-size:13px} .ap-links svg{width:14px;height:14px}
+        .ap-links{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px} .ap-listen{align-items:center} .dg-chip{display:inline-block;margin-left:6px;padding:0 7px;border-radius:999px;font-size:11px;line-height:18px;background:var(--accent-soft);color:var(--text);vertical-align:1px;white-space:nowrap}.dg-chip.own{background:color-mix(in srgb,var(--ok,#3a9a5b) 18%,transparent)}
+    .dg-ap{display:flex;flex-wrap:wrap;gap:16px;margin:12px 0}.dg-ap h4,.dg-card h4{margin:0 0 6px;font-size:13px;color:var(--muted);font-weight:600}
+    .dg-recs{display:flex;flex-wrap:wrap;gap:8px}.dg-rec{display:flex;align-items:center;gap:8px;max-width:260px;padding:4px 8px 4px 4px;border:1px solid var(--line);border-radius:10px;color:inherit;text-decoration:none}
+    .dg-rec:hover{border-color:var(--accent)}.dg-rec img,.dg-noimg{width:40px;height:40px;border-radius:6px;object-fit:cover;flex:none;background:var(--hover)}.dg-rec>span{display:flex;flex-direction:column;min-width:0}
+    .dg-rec b{font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.dg-rec .muted{font-size:12px}.dg-shelf{display:flex;flex-direction:column;gap:4px;margin:8px 0 12px}.dg-wb{margin-left:auto}
+    .ap-sound{display:flex;align-items:center;gap:6px;margin:6px 0 0;font-size:13px} .ap-sound svg{width:14px;height:14px} .ap-listen>.muted{font-size:13px} .ap-links .btn{display:inline-flex;gap:6px;align-items:center;font-size:13px} .ap-links svg{width:14px;height:14px}
         .ap-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:20px} .ap-wide{grid-column:1/-1} .ap h3{margin:0 0 8px;font-size:15px} .ap h4{margin:12px 0 6px;font-size:13px}
         .ap-rel{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:12px} .ap-r{display:flex;flex-direction:column;gap:2px;color:inherit;text-decoration:none;font-size:13px}
         .ap-cover{position:relative;aspect-ratio:1;border-radius:var(--r-m);background:var(--accent-soft);display:grid;place-items:center;overflow:hidden;color:var(--accent)} .ap-cover img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}

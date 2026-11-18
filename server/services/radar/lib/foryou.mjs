@@ -48,6 +48,13 @@ export function tasteProfile(state) {
   };
   for (const f of getKv("follows", []) || []) bump(f.name, 5, `you follow ${f.name}`);
   for (const x of getKv("wantToHear", []) || []) bump(x.artist, 3, `${x.artist} is in your Want to hear`);
+  // your records on Discogs: an artist you own counts (more records, a bit more), and one on your wantlist
+  const dg = getKv("discogs");
+  if (dg) {
+    const owned = new Map(); for (const r of dg.collection || []) for (const a of String(r.artist).split(/,\s*/)) owned.set(a, (owned.get(a) || 0) + 1);
+    for (const [a, n] of owned) if (!/^various/i.test(a)) bump(a, Math.min(5, 2 + n), `you own ${n === 1 ? 'a record' : n + ' records'} by ${a}`);
+    for (const r of dg.wants || []) for (const a of String(r.artist).split(/,\s*/)) if (!/^various/i.test(a)) bump(a, 3, `${a} is on your Discogs wantlist`);
+  }
   for (const p of state?.picks || []) { const v = state.feedback?.[p.id]; if (v) bump(p.artist, v > 0 ? 3 : -3, `you liked a pick by ${p.artist}`); }
   // listening: capped per artist so one long session doesn't swamp everything
   const per = new Map();
