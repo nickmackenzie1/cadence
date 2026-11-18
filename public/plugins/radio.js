@@ -279,7 +279,7 @@
           body = tabs + inner;
         }
         const mb = b => b == null ? '' : ' · ' + (b < 1048576 ? Math.max(1, Math.round(b / 1024)) + ' KB' : (b / 1048576).toFixed(b < 10485760 ? 1 : 0) + ' MB') + ' on your NAS';
-        el.innerHTML = `<div class="rd kx"><p class="muted kx-sum">${hist.plays ? `${n(hist.plays, 'song', 'songs')} saved since ${E(day(hist.since))}${mb(hist.bytes)}${hist.backfill === 'running' ? ` · still filling in ${hist.backDays === 'all' ? 'everything back to 2001' : 'the past ' + (hist.backDays >= 365 ? Math.round(hist.backDays / 365) + (hist.backDays >= 730 ? ' years' : ' year') : hist.backDays + ' days')}${hist.paused ? ' (resting while you browse the music pages)' : ', in the background'}` : ''}` : ''}</p>${body}</div>`;
+        el.innerHTML = `<div class="rd kx"><p class="muted kx-sum">${hist.moving ? `Moving KEXP history to its own file (${Math.min(100, Math.round(hist.moving.moved / Math.max(1, hist.moving.total) * 100))}%). Lists fill in as it goes. ` : ''}${hist.plays ?`${n(hist.plays, 'song', 'songs')} saved since ${E(day(hist.since))}${mb(hist.bytes)}${hist.backfill === 'running' ? ` · still filling in ${hist.backDays === 'all' ? 'everything back to 2001' : 'the past ' + (hist.backDays >= 365 ? Math.round(hist.backDays / 365) + (hist.backDays >= 730 ? ' years' : ' year') : hist.backDays + ' days')}${hist.paused ? ' (resting while you browse the music pages)' : ', in the background'}` : ''}` : ''}</p>${body}</div>`;
         const root = el.querySelector('.kx');
         root.onclick = e => {
           const b = e.target.closest('[data-k]'); if (!b || b.tagName === 'SUMMARY') return;

@@ -13,7 +13,8 @@ The whole Cadence folder on the NAS, usually `docker/cadence/`:
 | Folder / file | What it is | Why it matters |
 |---|---|---|
 | `data/` | your tasks, clients, plugin data, the daily snapshots in `data/backups/`, NAS fonts | everything you'd lose |
-| `.env` | your password, API keys (Anthropic, Reddit, Pocket Casts…) | secrets: the backup must be encrypted |
+| `data/kexp.db` | KEXP's play history (1 GB or more once it's all in) | optional: it downloads again by itself, so you can leave it out of the backup to save space |
+| `.env` | your password, API keys (Anthropic, Last.fm, Pocket Casts…) | secrets: the backup must be encrypted |
 | `certs/`, `.mkcert-ca/` | the HTTPS certificate and the private CA your devices trust | restoring these means devices don't need to re-trust a new certificate |
 
 The code itself doesn't need backing up: it comes back from GitHub on the next deploy.

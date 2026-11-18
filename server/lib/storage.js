@@ -233,7 +233,7 @@ function listConflicts(ids) {
 }
 // Daily backups copy everything that's yours, but not what can be fetched or built again (2026-11-16: the whole file,
 // KEXP's full history included, was copied every day and kept 30 days, which heads for tens of GB):
-//   kexp_*              KEXP's playlist history: downloads again by itself (the NAS starts over if it's missing)
+//   kexp_*              KEXP's playlist history (only in installs still moving it to kexp.db): downloads again
 //   radar_artist_pages  finished artist pages: rebuilt the next time each is opened
 // Everything else (tasks, clients, Music Radar's history, station plays, settings) is copied with its indexes.
 const { copyInto } = require('./backup-copy');
@@ -251,6 +251,28 @@ function dailyDbBackup() {
     backingUp = false; try { fs.unlinkSync(f + '.tmp'); } catch {}
     try { const all = fs.readdirSync(BACKUP_DIR).filter(x => /^cadence-\d{4}-\d{2}-\d{2}\.db$/.test(x)).sort(); while (all.length > KEEP_BACKUPS) fs.unlinkSync(path.join(BACKUP_DIR, all.shift())); } catch {}
   });
+}
+// Give free space back to the disk (2026-11-17): after KEXP history moved to kexp.db, cadence.db keeps its old size as
+// empty pages. When more than 128 MB and a third of the file is empty, VACUUM it between 2 and 5 am, in a worker
+// thread so the app keeps answering (a save in that moment waits a little). At most once a day. RECLAIM=0 turns it off.
+let reclaimDay = '', reclaiming = false;
+function freeSpace() {
+  try { const ps = db.prepare('PRAGMA page_size').get().page_size, pc = db.prepare('PRAGMA page_count').get().page_count, fl = db.prepare('PRAGMA freelist_count').get().freelist_count;
+    return { free: ps * fl, total: ps * pc }; } catch { return { free: 0, total: 0 }; }
+}
+function reclaim(force) {
+  if (!db || reclaiming || process.env.RECLAIM === '0') return false;
+  const h = new Date().getHours(), day = new Date().toISOString().slice(0, 10);
+  if (!force && (h < 2 || h >= 5 || reclaimDay === day)) return false;
+  const { free, total } = freeSpace();
+  if (!force && (free < 128 * 1048576 || free < total / 3)) return false;
+  reclaimDay = day; reclaiming = true; const t = Date.now();
+  const { Worker } = require('worker_threads');
+  let w; try { w = new Worker(path.join(__dirname, 'vacuum-worker.js'), { workerData: { file: DB_FILE } }); } catch (e) { reclaiming = false; console.error('reclaim failed', e.message); return false; }
+  w.once('message', m => { if (m && m.error) console.error('reclaim failed', m.error); else console.log(`reclaim: cadence.db ${(total / 1048576).toFixed(0)} MB → ${(fs.statSync(DB_FILE).size / 1048576).toFixed(0)} MB in ${((Date.now() - t) / 1000).toFixed(0)}s`); });
+  w.once('error', e => console.error('reclaim failed', e.message));
+  w.once('exit', () => { reclaiming = false; });
+  return true;
 }
 function readState() {
   if (db) { if (docStale) refreshDoc(); const r = db.prepare('SELECT json, updated_at FROM state WHERE id = 1').get(); return r ? { json: r.json, updatedAt: r.updated_at } : { json: null, updatedAt: 0 }; }
@@ -285,7 +307,7 @@ function dbInfo() {
   const life = db.prepare("SELECT COUNT(*) AS n FROM records WHERE space = 'life' AND kind = 'task' AND deleted = 0").get().n;
   const size = f => { try { return fs.statSync(f).size; } catch { return 0; } };
   return { storage, file: 'cadence.db', bytes: size(DB_FILE) + size(DB_FILE + '-wal'), schema: SCHEMA, sqlite: db.prepare('SELECT sqlite_version() AS v').get().v,
-    rows: { tasks: n('task'), clients: n('client'), meetings: n('meeting'), plugins: n('plugin') }, lifeTasks: life, rev: curRev(),
+    rows: { tasks: n('task'), clients: n('client'), meetings: n('meeting'), plugins: n('plugin') }, lifeTasks: life, rev: curRev(), free: freeSpace().free,
     deleted: db.prepare('SELECT COUNT(*) AS n FROM records WHERE deleted = 1').get().n,
     conflicts: db.prepare('SELECT COUNT(*) AS n FROM conflicts WHERE resolved = 0').get().n,
     devices: db.prepare("SELECT device, MAX(edited_at) AS at FROM records WHERE device != '' GROUP BY device ORDER BY at DESC LIMIT 10").all().map(r => ({ device: r.device, at: r.at })),
@@ -295,7 +317,7 @@ openDb();
 // daily upkeep also runs on a timer (a quiet day with no pushes still gets its backup), and the one-off compaction of
 // history that piled up before the plugin-history cap runs once, a minute after start
 if (db) {
-  setInterval(() => { maintain(); optimize(db); }, 3600e3).unref();
+  setInterval(() => { maintain(); optimize(db); reclaim(); }, 3600e3).unref();
   setTimeout(() => { try { if (!(db.prepare("SELECT value FROM meta WHERE key = 'compacted'").get() || {}).value) { compact(); db.prepare("INSERT OR REPLACE INTO meta (key, value) VALUES ('compacted', '1')").run(); } } catch (e) { console.error('compact failed', e.message); } }, 60e3).unref();
 }
 const closeDb = () => { try { if (db) { db.exec('PRAGMA wal_checkpoint(TRUNCATE)'); db.close(); db = null; } } catch {} };
@@ -311,4 +333,4 @@ const allDocs = () => db ? [assemble('work'), assemble('life')] : [readState()];
 // small read helpers for tests and the DB viewer
 const historyCount = (kind, id) => db.prepare('SELECT COUNT(*) AS n FROM history WHERE kind = ? AND id = ?').get(kind, id).n;
 const recordRev = (kind, id) => (db.prepare('SELECT rev FROM records WHERE kind = ? AND id = ?').get(kind, id) || {}).rev || 0;
-module.exports = { backupInto, compact, maintain, tidy, historyCount, recordRev, ARRAYS, DB_FILE, J, SCHEMA, allDocs, applyChanges, assemble, closeDb, curRev, dailyDbBackup, dailyJsonBackup, dbInfo, hasDb, importDoc, listConflicts, nextRev, openDb, putRecord, readState, refreshDoc, resolveConflicts, shred, storageInfo, syncPull, syncPush, titleOf, writeJsonMirror, writeState };
+module.exports = { reclaim, freeSpace, backupInto, compact, maintain, tidy, historyCount, recordRev, ARRAYS, DB_FILE, J, SCHEMA, allDocs, applyChanges, assemble, closeDb, curRev, dailyDbBackup, dailyJsonBackup, dbInfo, hasDb, importDoc, listConflicts, nextRev, openDb, putRecord, readState, refreshDoc, resolveConflicts, shred, storageInfo, syncPull, syncPush, titleOf, writeJsonMirror, writeState };

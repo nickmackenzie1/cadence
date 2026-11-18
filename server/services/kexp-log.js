@@ -8,8 +8,12 @@
      every 1.5 s (KEXP_BACKFILL_PAGE, KEXP_BACKFILL_EVERY) plus its shows, so a few hours instead of two days. Still one
      request at a time, and it backs off by itself when KEXP answers 429 or 5xx. Stops on its own; resumes after a restart.
    Off with KEXP_LOG=0. Under CI it's off unless KEXP_LOG=1 (tests point KEXP_API at a fake). */
+const fs = require('fs');
 const path = require('path');
 const { DATA_DIR } = require('../config');
+// KEXP history has its own database file (2026-11-17): millions of plays in cadence.db meant every backfill write took
+// the lock your tasks, Radar and Radio also need. Earlier installs kept it in cadence.db: moveOld() below brings it over.
+const FILE = path.join(DATA_DIR, 'kexp.db'), OLD_FILE = path.join(DATA_DIR, 'cadence.db');
 
 const API = (process.env.KEXP_API || 'https://api.kexp.org').replace(/\/$/, '');
 const ON = process.env.KEXP_LOG === '1' || (process.env.KEXP_LOG !== '0' && !process.env.CI);
@@ -23,8 +27,9 @@ let db = null, state = { running: false, error: null, lastCheck: 0, backfill: 'w
 function open() {
   if (db) return db;
   const { DatabaseSync } = require('node:sqlite');
-  db = new DatabaseSync(path.join(DATA_DIR, 'cadence.db'));
-  require('../lib/sqlite-tune').tune(db, { cacheMB: 32, mmapMB: 256 });   // waits for locks first (the app may be writing)
+  db = new DatabaseSync(FILE);
+  require('../lib/sqlite-tune').tune(db, { cacheMB: 32, mmapMB: 256 });
+  try { db.exec('PRAGMA journal_mode=WAL'); } catch {}
   db.exec(`CREATE TABLE IF NOT EXISTS kexp_plays (
       id INTEGER PRIMARY KEY, airdate INTEGER NOT NULL, artist TEXT, song TEXT, album TEXT, label TEXT, release_date TEXT,
       rotation TEXT, comment TEXT, live INTEGER, local INTEGER, request INTEGER, image TEXT, show_id INTEGER);
@@ -36,6 +41,7 @@ function open() {
     CREATE INDEX IF NOT EXISTS kexp_artists_first ON kexp_artists(first_at);
     CREATE TABLE IF NOT EXISTS kexp_shows (id INTEGER PRIMARY KEY, program TEXT, tags TEXT, hosts TEXT, start INTEGER, tagline TEXT, image TEXT);
     CREATE INDEX IF NOT EXISTS kexp_plays_show ON kexp_plays(show_id);`);
+  if (ON) try { adoptOld(db); } catch (e) { console.error('KEXP: reading the old history in cadence.db', e.message); }
   // 2026-11-16 (from kexp.fyi's write-up): KEXP's airdate_before includes that exact time, so asking for "before our
   // oldest play" returned it again and looked like the filter didn't work: undo that switch to offset paging once.
   try {
@@ -51,6 +57,59 @@ function open() {
     }
   } catch (e) { console.error('kexp-log migration', e.message); }
   return db;
+}
+// ---- bringing the history over from cadence.db (installs before 0.29.0) ----
+// open(): settings, shows and the artist summary are copied straight away (small). The plays move in moveOld(),
+// newest first, 5,000 at a time: copied into kexp.db, then deleted from cadence.db only once they're safely here, so a
+// restart part-way just carries on. Nothing else writes KEXP history until it's done (the artist summary's cursor
+// stays right that way). Then the empty tables are dropped; cadence.db hands the space back at the next quiet night
+// (storage.js reclaim()).
+const MOVE = { pending: false, total: 0, moved: 0 };
+const colsOf = (d, schema, table) => d.prepare(`PRAGMA ${schema}.table_info(${table})`).all().map(c => c.name);
+function adoptOld(d) {
+  if (!fs.existsSync(OLD_FILE)) return;
+  d.exec(`ATTACH DATABASE '${OLD_FILE.replace(/'/g, "''")}' AS old`);
+  const has = t => !!d.prepare("SELECT 1 FROM old.sqlite_master WHERE type = 'table' AND name = ?").get(t);
+  if (!has('kexp_plays') && !has('kexp_meta')) { d.exec('DETACH DATABASE old'); return; }
+  if (!d.prepare("SELECT v FROM kexp_meta WHERE k = 'moved_start'").get()) {
+    d.exec('BEGIN');
+    try {
+      for (const t of ['kexp_meta', 'kexp_shows', 'kexp_artists']) {
+        if (!has(t)) continue;
+        const mine = new Set(colsOf(d, 'main', t)), c = colsOf(d, 'old', t).filter(x => mine.has(x)).join(', ');
+        d.exec(`INSERT OR ${t === 'kexp_meta' ? 'REPLACE' : 'IGNORE'} INTO main.${t} (${c}) SELECT ${c} FROM old.${t}`);
+      }
+      d.prepare("INSERT OR REPLACE INTO kexp_meta (k, v) VALUES ('moved_start', ?)").run(String(Date.now()));
+      d.exec('COMMIT');
+    } catch (e) { try { d.exec('ROLLBACK'); } catch {} throw e; }
+    console.log('KEXP: history is moving from cadence.db to its own file, kexp.db');
+  }
+  MOVE.pending = has('kexp_plays') || has('kexp_meta') || has('kexp_shows') || has('kexp_artists');
+}
+async function moveOld() {
+  const d = open(); if (!MOVE.pending) return;
+  state.moving = true;
+  const BATCH = Math.max(500, +process.env.KEXP_MOVE_BATCH || 5000), hasPlays = !!d.prepare("SELECT 1 FROM old.sqlite_master WHERE name = 'kexp_plays'").get();
+  if (hasPlays) {
+    const mine = new Set(colsOf(d, 'main', 'kexp_plays')), c = colsOf(d, 'old', 'kexp_plays').filter(x => mine.has(x)).join(', ');
+    MOVE.total = MOVE.moved + ((d.prepare('SELECT COUNT(*) AS n FROM old.kexp_plays').get() || {}).n || 0);
+    const pick = d.prepare('SELECT MIN(id) AS lo, MAX(id) AS hi, COUNT(*) AS n FROM (SELECT id FROM old.kexp_plays ORDER BY id DESC LIMIT ?)');
+    const copy = d.prepare(`INSERT OR IGNORE INTO main.kexp_plays (${c}) SELECT ${c} FROM old.kexp_plays WHERE id BETWEEN ? AND ?`);
+    const drop = d.prepare('DELETE FROM old.kexp_plays WHERE id BETWEEN ? AND ? AND id IN (SELECT id FROM main.kexp_plays WHERE id BETWEEN ? AND ?)');
+    for (;;) {
+      const t0 = Date.now(), b = pick.get(BATCH);
+      if (!b || !b.n) break;
+      d.exec('BEGIN'); try { copy.run(b.lo, b.hi); d.exec('COMMIT'); } catch (e) { try { d.exec('ROLLBACK'); } catch {} throw e; }
+      drop.run(b.lo, b.hi, b.lo, b.hi);   // only what kexp.db now has
+      MOVE.moved += b.n;
+      const took = Date.now() - t0; slowNote('move to kexp.db', took);
+      await new Promise(r => setTimeout(r, Math.max(30, took * 2)));
+    }
+  }
+  for (const t of ['kexp_plays', 'kexp_shows', 'kexp_artists', 'kexp_meta']) d.exec(`DROP TABLE IF EXISTS old.${t}`);
+  d.exec('DETACH DATABASE old');
+  meta('moved_done', Date.now()); MOVE.pending = false; state.moving = false; countCache = { at: 0, n: 0, shows: 0 };
+  console.log(`KEXP: history moved to kexp.db (${MOVE.moved.toLocaleString('en-CA')} plays); cadence.db gives the space back on a quiet night`);
 }
 // ---- kexp_artists: one row per artist (plays, first and last play, first heavy rotation) ----
 // So per-artist numbers never group over millions of plays (user, 2026-11-17: "is there a metrics table…?").
@@ -78,6 +137,7 @@ function addToArtists(rows) {
 const ACHUNK = +process.env.KEXP_ARTISTS_CHUNK || 2000;
 function buildArtistsStep() {
   try {
+    if (MOVE.pending) return void setTimeout(buildArtistsStep, 30e3).unref();   // after the move to kexp.db
     const a = artistsState(); if (a.done) return;
     if (inUse()) return void setTimeout(buildArtistsStep, 15e3).unref();
     const t0 = Date.now(), d = open(), rows = d.prepare('SELECT id, artist, airdate, rotation FROM kexp_plays WHERE id > ? ORDER BY id LIMIT ?').all(a.cursor, ACHUNK);
@@ -207,6 +267,7 @@ async function backfillStep() {
   return 'running';
 }
 
+const fileBytes = () => { let b = 0; for (const f of [FILE, FILE + '-wal']) try { b += fs.statSync(f).size; } catch {} return b; };
 // space on disk for the kexp_* tables and their indexes (SQLite's dbstat; null if this SQLite doesn't have it)
 function kexpBytes(d) {
   try { return d.prepare("SELECT SUM(pgsize) AS b FROM dbstat WHERE name LIKE 'kexp\\_%' ESCAPE '\\' OR name IN (SELECT name FROM sqlite_master WHERE type = 'index' AND tbl_name LIKE 'kexp\\_%' ESCAPE '\\')").get().b || 0; }
@@ -227,10 +288,10 @@ async function status() {
       countCache.busy = true;
       rq1('SELECT COUNT(*) AS n FROM kexp_plays', []).then(x => { countCache = { at: Date.now(), n: x.n, busy: false }; }, () => { countCache.busy = false; });
     }
-    // size: an estimate from the count (measuring it reads every page of the table, seconds to minutes on the NAS)
-    bytesCache = { at: Date.now(), b: Math.round(countCache.n * 290 + countCache.shows * 400) };
+    // size: kexp.db's own file (and its write-ahead log) now that KEXP history has a file of its own
+    bytesCache = { at: Date.now(), b: fileBytes() };
     const r = { since: (d.prepare('SELECT MIN(airdate) AS t FROM kexp_plays').get() || {}).t, latest: (d.prepare('SELECT MAX(airdate) AS t FROM kexp_plays').get() || {}).t };
-    return { on: true, plays: countCache.n, since: r.since ? iso(r.since) : null, latest: r.latest ? iso(r.latest) : null, backfill: state.backfill, paused: !!state.paused, mode: meta('backfill_mode') || 'date', error: state.error, backDays: BACK_DAYS === Infinity ? 'all' : BACK_DAYS,
+    return { on: true, plays: countCache.n, since: r.since ? iso(r.since) : null, latest: r.latest ? iso(r.latest) : null, backfill: state.backfill, paused: !!state.paused, mode: meta('backfill_mode') || 'date', error: state.error, moving: state.moving ? { moved: MOVE.moved, total: MOVE.total } : null, file: 'kexp.db', backDays: BACK_DAYS === Infinity ? 'all' : BACK_DAYS,
       shows: (d.prepare('SELECT COUNT(*) AS n FROM kexp_shows').get() || {}).n || 0, bytes: bytesCache.b };
   } catch (e) { return { on: true, error: e.message }; }
 }
@@ -250,7 +311,13 @@ function start() {
     if (state.backfill !== 'done') setTimeout(tickBack, wait).unref();   // KEXP asked us to slow down: back off
   };
   const tickBack2 = async () => { try { if (await fillShows(6)) setTimeout(tickBack2, STEP).unref(); } catch {} };
-  setTimeout(async () => { await tickNew(); setInterval(tickNew, EVERY).unref(); setTimeout(tickBack, STEP).unref(); }, +process.env.KEXP_LOG_DELAY || 15e3).unref();
+  // the history moves out of cadence.db first (once; a few minutes); new plays and the backfill wait for it
+  const go = async () => {
+    try { open(); await moveOld(); }
+    catch (e) { state.moving = false; state.error = 'KEXP: moving history to kexp.db: ' + e.message; console.error(state.error); return void setTimeout(go, 60e3).unref(); }
+    await tickNew(); setInterval(tickNew, EVERY).unref(); setTimeout(tickBack, STEP).unref();
+  };
+  setTimeout(go, +process.env.KEXP_LOG_DELAY || 15e3).unref();
 }
 
 // ---------- search and stats over the saved plays (no AI: plain grouping and counts) ----------
@@ -270,7 +337,7 @@ let reader = null, rseq = 0; const rwait = new Map();
 function rq(sql, params = []) {
   if (!reader) {
     const { Worker } = require('worker_threads');
-    reader = new Worker(path.join(__dirname, '..', 'lib', 'sql-reader.js'), { workerData: { file: path.join(DATA_DIR, 'cadence.db') } });
+    reader = new Worker(path.join(__dirname, '..', 'lib', 'sql-reader.js'), { workerData: { file: FILE } });
     reader.on('message', ({ id, rows, error }) => { const w = rwait.get(id); if (!w) return; rwait.delete(id); if (!rwait.size) reader.unref(); error ? w.no(new Error(error)) : w.ok(rows); });
     const fail = e => { for (const w of rwait.values()) w.no(e instanceof Error ? e : new Error('KEXP reader stopped')); rwait.clear(); reader = null; };
     reader.on('error', fail); reader.on('exit', () => fail(new Error('KEXP reader stopped')));
@@ -415,4 +482,23 @@ async function djsFor(names) {
   return rq(`SELECT MIN(p.artist) AS artist, s.hosts AS hosts, s.program AS program, COUNT(*) AS plays FROM kexp_plays p JOIN kexp_shows s ON s.id = p.show_id
     WHERE p.artist COLLATE NOCASE IN (${list.map(() => '?').join(',')}) AND s.hosts IS NOT NULL GROUP BY p.artist COLLATE NOCASE, s.hosts, s.program ORDER BY plays DESC LIMIT 200`, list);
 }
-module.exports = { touch, inUse, djsFor, _save: save, buildArtistsStep, isOn, heavySince, heavyFirst, playCount, winners, playsSince, status, checkNew, backfillStep, fillShows, row, start, top, search, artist, song, around, recent, newArtists, onAir, open };
+// ---- read-only tables for the Database view (kexp.db) ----
+async function tables() {
+  if (!ON && !fs.existsSync(FILE)) return [];
+  const d = open(), list = d.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name LIKE 'kexp\\_%' ESCAPE '\\' ORDER BY name").all();
+  const out = [];
+  for (const { name } of list) {
+    let count = null;
+    if (name === 'kexp_plays') { if (!countCache.at) try { countCache = { ...countCache, at: Date.now(), n: (await rq1('SELECT COUNT(*) AS n FROM kexp_plays', [])).n }; } catch {} count = countCache.n; }
+    else count = d.prepare(`SELECT COUNT(*) AS n FROM ${name}`).get().n;
+    out.push({ name, count, bytes: name === 'kexp_plays' ? fileBytes() : null, file: 'kexp.db', columns: d.prepare(`PRAGMA table_info(${name})`).all().map(c => c.name) });
+  }
+  return out;
+}
+async function tableRows(name, { offset = 0, limit = 50 } = {}) {
+  const t = (await tables()).find(x => x.name === name); if (!t) return null;
+  const order = t.columns.includes('airdate') ? 'ORDER BY airdate DESC' : t.columns.includes('start') ? 'ORDER BY start DESC' : '';
+  const rows = await rq(`SELECT * FROM ${name} ${order} LIMIT ? OFFSET ?`, [limit, offset]);
+  return { name, total: t.count, offset, columns: t.columns, rows: rows.map(r => t.columns.map(c => r[c])) };
+}
+module.exports = { FILE, tables, tableRows, moveOld, touch, inUse, djsFor, _save: save, buildArtistsStep, isOn, heavySince, heavyFirst, playCount, winners, playsSince, status, checkNew, backfillStep, fillShows, row, start, top, search, artist, song, around, recent, newArtists, onAir, open };

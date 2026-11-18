@@ -90,13 +90,15 @@ function status() {
   const s = readSettings();
   return { ...s, job, log: log.slice(-40), keys: { ai: !!process.env.ANTHROPIC_API_KEY, lastfm: !!process.env.LASTFM_API_KEY, ntfy: !!process.env.NTFY_TOPIC, spotify: !!(process.env.SPOTIFY_CLIENT_ID && process.env.SPOTIFY_CLIENT_SECRET) } };
 }
-// ---- raw tables for the Database view (read-only): the radar_* tables in cadence.db ----
+// ---- raw tables for the Database view (read-only): the radar_* tables in cadence.db, KEXP's in kexp.db ----
 async function raw(name, offset = 0, limit = 50) {
   const { store } = await load();
-  const ts = store.tables();
-  if (!ts) return { storage: 'files', note: store.storageNote, tables: [] };
-  if (!name) return { storage: 'sqlite', file: path.basename(store.DB_FILE), tables: ts.map(t => ({ name: t.name, count: t.count, columns: t.columns })) };
-  const r = store.tableRows(name, { offset, limit });
+  let K = null; try { K = require('./kexp-log'); } catch (e) {}
+  const kt = K ? await K.tables().catch(() => []) : [];
+  const ts = (store.tables() || []).filter(t => !kt.some(k => k.name === t.name));
+  if (!store.tables() && !kt.length) return { storage: 'files', note: store.storageNote, tables: [] };
+  if (!name) return { storage: 'sqlite', file: path.basename(store.DB_FILE), tables: [...ts, ...kt].map(t => ({ name: t.name, count: t.count, bytes: t.bytes ?? null, file: t.file || path.basename(store.DB_FILE), columns: t.columns })) };
+  const r = kt.some(t => t.name === name) ? await K.tableRows(name, { offset, limit }) : store.tableRows(name, { offset, limit });
   if (!r) return null;
   r.rows = r.rows.map(row => row.map(v => (typeof v === 'string' && v.length > 600 ? v.slice(0, 600) + '…' : v)));
   return r;
@@ -145,7 +147,7 @@ async function calledIt() {
     let kexp = false; try { kexp = require('./kexp-log').isOn(); } catch (e) {}
     const { Worker } = require('worker_threads');
     try {
-      const w = new Worker(path.join(__dirname, 'radar', 'called-worker.mjs'), { workerData: { kexp, dbFile: path.join(require('../config').DATA_DIR, 'cadence.db') } });
+      const w = new Worker(path.join(__dirname, 'radar', 'called-worker.mjs'), { workerData: { kexp, dbFile: require('./kexp-log').FILE } });
       w.once('message', m => { if (m && m.v) { called.v = m.v; called.at = Date.now(); try { store.setKv('calledIt', { v: m.v, at: called.at }); } catch (e) {} } else if (m && m.error) console.error('radar called it', m.error); });
       w.once('error', e => console.error('radar called it', e.message));
       w.once('exit', () => { called.running = false; });

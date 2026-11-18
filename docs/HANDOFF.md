@@ -30,9 +30,6 @@ checking the code.
 - Music on the NAS: Navidrome (LAN-only, Subsonic API) or Cadence serving the folder itself.
 
 ## Next up (agreed)
-- KEXP history in its own database file (`kexp.db`). The user said "once the full backfill is done"; the backfill now
-  rests while music pages are in use, so finishing may take a week or more. Moving it sooner (while the table is
-  smaller) is worth suggesting, since KEXP writes are the likely cause of the Radar freezes.
 - Prune Radar's growing history tables.
 - README rewrite (after the rename, or now and rename later). Current README is out of date: sessions, the JSON
   mirror, Synology-only setup.
@@ -118,5 +115,11 @@ checking the code.
 - Music side: `server/music.js` in a child process (`lib/music-proxy.js`); `MUSIC_PROCESS=0` runs it in-process,
   `MUSIC_MAX_MB` caps its memory. Problems log: `data/problems.jsonl`, Problems page in System status.
 - KEXP writes pause while music pages are in use (`KEXP_QUIET_MS`, 2 min).
+- KEXP history lives in `data/kexp.db` (0.29.0). Older installs move it over from cadence.db on start (`moveOld()` in
+  kexp-log.js: 5,000 plays a step, copied then deleted, resumes after a restart; new plays and the backfill wait for it).
+  cadence.db's empty space is given back by `storage.reclaim()` (VACUUM in a worker, 2–5 am, when over 128 MB and a
+  third of the file is free; `RECLAIM=0` off). Check `deploy.log`/Problems for "KEXP: history moved to kexp.db".
+- Not pushed: a Radar history pruning commit (chart points 400 days, series 180, run logs 60–90, station history 400)
+  was built 2026-11-17 and set aside when the user said "just do db move". Rebuild it if asked.
 
 ## New ideas (add below)
