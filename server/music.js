@@ -10,7 +10,7 @@ const { NEXT, send } = require('./lib/http');
 const problems = require('./lib/problems');
 const KEY = process.env.MUSIC_KEY || '';
 problems.watchCrashes('Music side');
-require('./services/kexp-log');                       // keeps KEXP's play history
+const K = require('./services/kexp-log');             // keeps KEXP's play history (and steps aside while you use Radar)
 const routes = [require('./routes/radar'), require('./routes/radio')];
 
 const busy = new Map(); let seq = 0, tick = Date.now();
@@ -19,7 +19,7 @@ setInterval(() => { const lag = Date.now() - tick - 1000; tick = Date.now(); if 
 const server = http.createServer(async (req, res) => {
   if (!KEY || req.headers['x-cadence-music'] !== KEY) { res.writeHead(403); return res.end(); }
   const id = ++seq, t = Date.now(), url = new URL(req.url, 'http://x'), p = url.pathname.replace(/^.*?\/api\//, '/api/');
-  busy.set(id, p);
+  busy.set(id, p); if (!/\/(status|problems)$/.test(p)) K.touch();
   res.on('close', () => {
     busy.delete(id); const ms = Date.now() - t;
     if (ms > 2000 && !/\/stream$/.test(p)) { console.log(`slow: ${req.method} ${p} took ${(ms / 1000).toFixed(1)}s`); problems.record('slow', `${req.method} ${p} took ${(ms / 1000).toFixed(1)}s`, { path: p, ms }); }

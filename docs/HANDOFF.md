@@ -358,3 +358,14 @@ Cleaned up 2026-11-16 (0.8.2): items already built were moved out after checking
   Not covered: dashboard widgets' own redraws; iframes still reload (keep them outside views, like the Mixcloud dock).
 - Radar blogs: Pitchfork Best New Albums/Tracks (normal), Best New Reissues, track reviews, The Pitch, features (big).
   Saved lists equal to the previous defaults upgrade; edited lists are left alone.
+
+### 0.28.1: KEXP history steps aside while you use Radar
+- User (2026-11-17): Radar still crashing and slow; asked if the KEXP backlog was the cause. Likely yes: the backfill
+  saved 1,000 plays every 1.5 s and the artist summary builder 10,000 plays every 0.4 s, in the same process that answers
+  Radar and Radio, each holding cadence.db's write lock.
+- Now both wait while any music page was used in the last 2 minutes (`KEXP_QUIET_MS`), save in 200-play transactions
+  with a yield between, and rest 3–4x as long as the last write took (minimum 4 s / 1 s). Writes over 1.5 s are logged
+  in Problems as "KEXP history page took …". The KEXP page says "resting while you browse the music pages".
+- The backfill now runs mostly when nobody's browsing, so it will take longer to finish; the kexp.db move is still waiting on it.
+- Blog feeds (BrooklynVegan, My AMP Music, Indie Shuffle, Nialler9, Obscure Sound's Feedburner address) and the four
+  blog-reader upgrades were agreed and are next.

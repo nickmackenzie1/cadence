@@ -33,7 +33,7 @@ test.beforeAll(async () => {
   `], { env: { ...process.env, DATA_DIR: dir, KEXP_LOG: '0' }, encoding: 'utf8' });
   if (fill.status !== 0) throw new Error('filling the test database failed: ' + fill.stderr);
   server = spawn(process.execPath, ['--disable-warning=ExperimentalWarning', 'server.js'], { env: { ...process.env, PORT: String(PORT), DATA_DIR: dir,
-    KEXP_LOG: '1', KEXP_API: 'http://127.0.0.1:9', KEXP_LOG_DELAY: '99999999' }, stdio: 'ignore' });
+    KEXP_LOG: '1', KEXP_QUIET_MS: '1', KEXP_API: 'http://127.0.0.1:9', KEXP_LOG_DELAY: '99999999' }, stdio: 'ignore' });
   for (let i = 0; i < 150; i++) { try { if ((await fetch(B + '/api/health')).ok) return; } catch {} await new Promise(r => setTimeout(r, 100)); }
 });
 test.afterAll(() => { server && server.kill(); rmSync(dir, { recursive: true, force: true }); });

@@ -33,7 +33,7 @@ async function boot(honourDates) {
   const PORT = await freePort(), FAKE = await freePort(), dir = mkdtempSync(join(tmpdir(), 'cadence-kexp-'));
   const fake = fakeKexp(honourDates).listen(FAKE);
   const server = spawn(process.execPath, ['--disable-warning=ExperimentalWarning', 'server.js'], { env: { ...process.env, PORT: String(PORT), DATA_DIR: dir,
-    KEXP_LOG: '1', KEXP_API: `http://localhost:${FAKE}`, KEXP_LOG_DELAY: '100', KEXP_LOG_EVERY: '60000', KEXP_BACKFILL_EVERY: '50', KEXP_BACKFILL_DAYS: '3' }, stdio: 'ignore' });
+    KEXP_LOG: '1', KEXP_QUIET_MS: '1', KEXP_API: `http://localhost:${FAKE}`, KEXP_LOG_DELAY: '100', KEXP_LOG_EVERY: '60000', KEXP_BACKFILL_EVERY: '50', KEXP_BACKFILL_DAYS: '3' }, stdio: 'ignore' });
   const B = `http://localhost:${PORT}`;
   for (let i = 0; i < 150; i++) { try { if ((await fetch(B + '/api/health')).ok) break; } catch {} await new Promise(r => setTimeout(r, 100)); }
   return { B, stop: () => { server.kill(); fake.close(); rmSync(dir, { recursive: true, force: true }); } };

@@ -41,7 +41,7 @@ test.beforeAll(async () => {
     res.writeHead(404); res.end();
   }).listen(MB);
   server = spawn(process.execPath, ['--disable-warning=ExperimentalWarning', 'server.js'], { env: { ...env, PORT: String(PORT), TLS_DIR: join(dir, 'x'),
-    RADAR_MB: '1', RADAR_MB_API: `http://localhost:${MB}`, AUDIODB: '1', AUDIODB_API: `http://localhost:${MB}/adb`, AUDIODB_GAP: '20', RADAR_CAA_API: `http://localhost:${MB}`, RADAR_MB_GAP: '20', KEXP_LOG: '1', KEXP_API: 'http://127.0.0.1:9', KEXP_LOG_DELAY: '99999999', RADIO_WARM: '0' }, stdio: 'ignore' });
+    RADAR_MB: '1', RADAR_MB_API: `http://localhost:${MB}`, AUDIODB: '1', AUDIODB_API: `http://localhost:${MB}/adb`, AUDIODB_GAP: '20', RADAR_CAA_API: `http://localhost:${MB}`, RADAR_MB_GAP: '20', KEXP_LOG: '1', KEXP_QUIET_MS: '1', KEXP_API: 'http://127.0.0.1:9', KEXP_LOG_DELAY: '99999999', RADIO_WARM: '0' }, stdio: 'ignore' });
   for (let i = 0; i < 150; i++) { try { if ((await fetch(B + '/api/health')).ok) return; } catch {} await new Promise(r => setTimeout(r, 100)); }
 });
 test.afterAll(() => { server && server.kill(); mb && mb.close(); rmSync(dir, { recursive: true, force: true }); });
