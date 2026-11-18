@@ -47,6 +47,14 @@ export const DEFAULT_BLOGS = [
   { name: "Right Chord Music", url: "https://www.rightchordmusic.co.uk/feed/", tier: "small" },
   { name: "Indie Pulse Music", url: "https://indiepulsemusic.com/feed/", tier: "small" },
   { name: "Indie Rock Cafe", url: "https://feeds.feedburner.com/indierockcafe/ycjd", tier: "small" },
+  // user sent 2026-11-17: the rest of Pitchfork's feeds. Best New Albums/Tracks are their picks (normal weight); the
+  // others are a big outlet's everyday output (counts for less); reissues are mostly older music (counts for less)
+  { name: "Pitchfork Best New Albums", url: "https://pitchfork.com/feed/reviews/best/albums/rss" },
+  { name: "Pitchfork Best New Tracks", url: "https://pitchfork.com/feed/reviews/best/tracks/rss" },
+  { name: "Pitchfork Best New Reissues", url: "https://pitchfork.com/feed/reviews/best/reissues/rss", tier: "big" },
+  { name: "Pitchfork track reviews", url: "https://pitchfork.com/feed/feed-track-reviews/rss", tier: "big" },
+  { name: "Pitchfork: The Pitch", url: "https://pitchfork.com/feed/feed-the-pitch/rss", tier: "big" },
+  { name: "Pitchfork features", url: "https://pitchfork.com/feed/feed-features/rss", tier: "big" },
 ];
 // a saved list that is just the old six defaults gets the new ones; a list you changed yourself is left alone
 const SIX = ["Pitchfork reviews", "Pitchfork news", "Stereogum", "The Fader", "Gorilla vs. Bear", "Bandcamp Daily"];
@@ -54,7 +62,9 @@ const V080 = [...SIX, "Post-Trash", "Rosy Overdrive", "Aquarium Drunkard", "Obsc
 const V0101 = [...V080, "!earshot reviews", "Drowned in Sound"];
 const V0110 = [...V0101, "Said the Gramophone", "Spill Magazine", "Canadian Beats", "EARMILK"];
 // the defaults until 0.14.0 (before Under the Radar and Said the Gramophone lost their feeds); built after DEFAULT_BLOGS below
-export const OLD_DEFAULT_SETS = [SIX, V080, [...V080, "!earshot reviews"], V0101, V0110];
+// the defaults until 0.27.3 (before the extra Pitchfork feeds)
+const V0272 = [...V0110, "The Line of Best Fit", "!earshot reviews", "Drowned in Sound", "The Last Mixed Tape", "Right Chord Music", "Indie Pulse Music", "Indie Rock Cafe"];
+export const OLD_DEFAULT_SETS = [SIX, V080, [...V080, "!earshot reviews"], V0101, V0110, [...new Set(V0272)], DEFAULT_BLOGS.slice(0, -6).map((b) => b.name)];
 // feeds that moved or went away (checked 2026-11-16): saved lists follow these too. null = no feed any more.
 const MOVED = {
   "https://www.thefader.com/rss.xml": "https://www.thefader.com/feed.rss",

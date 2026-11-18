@@ -3142,7 +3142,68 @@
     return `<div class="empty"><div class="big">${icon}</div><b>${title}</b>${sub || ''}</div>`;
   }
 
+  // ---- keep what's already on screen across a redraw (user, 2026-11-17: no framework; redraws replaced everything,
+  // so pictures flashed, typing lost focus, and lists jumped back to the top). Pages still draw with innerHTML as
+  // before (their click handlers and logic are untouched); around each redraw the core:
+  //   - moves already-loaded pictures into the new page instead of loading them again (same address)
+  //   - on the same page: puts focus, cursor and unsaved typing back, restores the scroll of inner lists and strips,
+  //     and keeps fold-outs (<details>) you opened or closed
+  // data-fresh on an element opts it out (always the newly drawn one).
+  const KEEP = { route: null };
+  const keyOf = (el, root) => {
+    if (el.id) return '#' + el.id;
+    const nm = el.getAttribute && el.getAttribute('name'); if (nm) return el.tagName + '[name=' + nm + ']';
+    const path = []; let n = el;
+    while (n && n !== root && n.parentElement) { const p = n.parentElement; path.unshift(n.tagName + ':' + Array.prototype.indexOf.call(p.children, n)); if (p.id) { path.unshift('#' + p.id); break; } n = p; }
+    return path.join('/');
+  };
+  const findKey = (root, key) => {
+    if (key.startsWith('#')) { const parts = key.split('/'); let n = document.getElementById(parts[0].slice(1)); if (!n || !root.contains(n) && n !== root) return null; for (const step of parts.slice(1)) { const [tag, i] = step.split(':'); n = n && n.children[+i]; if (!n || n.tagName !== tag) return null; } return n; }
+    if (key.includes('[name=')) { const [tag, nm] = key.split('[name='); return root.querySelector(`${tag.toLowerCase()}[name="${CSS.escape(nm.slice(0, -1))}"]`); }
+    let n = root; for (const step of key.split('/')) { const [tag, i] = step.split(':'); n = n && n.children[+i]; if (!n || n.tagName !== tag) return null; } return n;
+  };
+  function keepBefore(v, r) {
+    const k = { same: KEEP.route === r, imgs: new Map(), focus: null, scroll: [], details: [] };
+    KEEP.route = r;
+    try {
+      for (const img of v.querySelectorAll('img')) if (img.complete && img.naturalWidth && !img.hasAttribute('data-fresh')) { const src = img.getAttribute('src'); if (!src) continue; const l = k.imgs.get(src) || []; l.push(img); k.imgs.set(src, l); }
+      if (!k.same) return k;
+      const a = document.activeElement;
+      if (a && v.contains(a) && a !== v) k.focus = { key: keyOf(a, v), value: 'value' in a ? a.value : null, def: 'defaultValue' in a ? a.defaultValue : null, s: a.selectionStart ?? null, e: a.selectionEnd ?? null };
+      for (const el of v.querySelectorAll('*')) if ((el.scrollTop > 0 || el.scrollLeft > 0) && el.scrollHeight > el.clientHeight - 1) k.scroll.push({ key: keyOf(el, v), t: el.scrollTop, l: el.scrollLeft });
+      for (const d of v.querySelectorAll('details')) { const sm = d.querySelector('summary'); k.details.push({ key: keyOf(d, v), text: sm ? sm.textContent.trim() : null, open: d.open }); }
+    } catch (e) { /* keeping is a nicety; never break a redraw */ }
+    return k;
+  }
+  function keepAfter(v, k) {
+    try {
+      if (k.imgs.size) for (const img of v.querySelectorAll('img')) {
+        if (img.hasAttribute('data-fresh')) continue;
+        const l = k.imgs.get(img.getAttribute('src')); if (!l || !l.length) continue;
+        const old = l.shift();
+        for (const at of [...old.attributes]) if (!img.hasAttribute(at.name)) old.removeAttribute(at.name);
+        for (const at of [...img.attributes]) if (old.getAttribute(at.name) !== at.value) old.setAttribute(at.name, at.value);
+        img.replaceWith(old);
+      }
+      if (!k.same) return;
+      for (const d of k.details) { const n = findKey(v, d.key); if (n && n.tagName === 'DETAILS') { const sm = n.querySelector('summary'); if (!d.text || (sm && sm.textContent.trim() === d.text)) n.open = d.open; } }
+      for (const sc of k.scroll) { const n = findKey(v, sc.key); if (n) { n.scrollTop = sc.t; n.scrollLeft = sc.l; } }
+      if (k.focus && !v.contains(document.activeElement)) {
+        const n = findKey(v, k.focus.key);
+        if (n && typeof n.focus === 'function') {
+          // typing that wasn't saved yet: put it back only if the page drew the same starting value
+          if (k.focus.value != null && 'value' in n && n.value === k.focus.def && k.focus.value !== k.focus.def) n.value = k.focus.value;
+          n.focus({ preventScroll: true });
+          if (k.focus.s != null && typeof n.setSelectionRange === 'function') try { n.setSelectionRange(k.focus.s, k.focus.e); } catch (e) {}
+        }
+      }
+    } catch (e) { /* never break a redraw */ }
+  }
   function renderView() {
+    const v = $('#view'), k = v ? keepBefore(v, route()) : null;
+    try { renderViewNow(); } finally { if (v && k) keepAfter(v, k); }
+  }
+  function renderViewNow() {
     const r = route(),
       v = $('#view'),
       t = todayKey(),

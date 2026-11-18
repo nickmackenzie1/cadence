@@ -349,3 +349,12 @@ Cleaned up 2026-11-16 (0.8.2): items already built were moved out after checking
   fold-out headings hidden inside a section.
 - deploy.sh `clear_stale`: removes leftover `<id>_cadence` containers (a Compose recreate that stopped halfway)
   before rebuilding or rolling back. Seen 2026-11-17; the user deleted it by hand and ensure_running restarted Cadence.
+
+### Redraws keep what's on screen; more Pitchfork feeds (2026-11-17, 0.28.0)
+- core.js renderView() now wraps renderViewNow() with keepBefore/keepAfter: loaded <img>s with the same src are moved
+  into the new page (no reload/flash; attributes synced from the new markup); on the same route, focus + cursor +
+  unsaved typing (only when the page redrew the same starting value), scroll of inner elements (keyed by id/name or
+  child-index path) and <details> open state are restored. `data-fresh` opts an element out. Plugins unchanged.
+  Not covered: dashboard widgets' own redraws; iframes still reload (keep them outside views, like the Mixcloud dock).
+- Radar blogs: Pitchfork Best New Albums/Tracks (normal), Best New Reissues, track reviews, The Pitch, features (big).
+  Saved lists equal to the previous defaults upgrade; edited lists are left alone.
