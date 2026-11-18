@@ -70,9 +70,15 @@
   const SITES = { claude: 'claude.ai', 'pocket-casts': 'pocketcasts.com', discord: 'discord.com', msn: 'msn.com', limewire: 'limewire.com', github: 'github.com', ipod: 'apple.com',
     xp: 'microsoft.com', seven: 'microsoft.com', geocities: 'geocities.ws', jurassic: 'jurassicworld.com', 'star-wars': 'starwars.com', 'spirited-away': 'ghibli.jp', totoro: 'ghibli.jp',
     'south-park': 'southparkstudios.com', 'garden-wall': 'cartoonnetwork.com', botw: 'zelda.com' };
-  const tmdbOf = t => t.tmdb ? [t.tmdb.type || 'movie', t.tmdb.title, t.tmdb.year || ''] : TMDB[t.id] || null;
-  const tmdbArt = new Map();   // theme id → promise of TMDB's answer, once a visit
-  const filmArt = t => { const m = tmdbOf(t); if (!m) return Promise.resolve(null); if (!tmdbArt.has(t.id)) tmdbArt.set(t.id, fetch(`api/tmdb/art?type=${m[0]}&q=${encodeURIComponent(m[1])}&year=${m[2]}`).then(r => r.ok ? r.json() : null).catch(() => null)); return tmdbArt.get(t.id); };
+  // game themes: their game (or console) on TheGamesDB (needs THEGAMESDB_API_KEY); NES is TheGamesDB platform 7
+  const GAMES = { botw: ['game', 'The Legend of Zelda: Breath of the Wild'], cyberpunk: ['game', 'Cyberpunk 2077'], nes: ['platform', '7'] };
+  // where a theme's pictures come from: [source, kind, title, year]; a theme can name its own (t.tmdb, t.game)
+  const tmdbOf = t => t.tmdb ? ['tmdb', t.tmdb.type || 'movie', t.tmdb.title, t.tmdb.year || ''] : t.game ? ['gdb', t.game.kind || 'game', t.game.title, ''] : TMDB[t.id] ? ['tmdb', ...TMDB[t.id]] : GAMES[t.id] ? ['gdb', ...GAMES[t.id], ''] : null;
+  const kindWord = m => m[0] === 'gdb' ? (m[1] === 'platform' ? 'console' : 'game') : m[1] === 'tv' ? 'show' : 'film';
+  const tmdbArt = new Map();   // theme id → promise of the answer, once a visit
+  const filmArt = t => { const m = tmdbOf(t); if (!m) return Promise.resolve(null);
+    const u = m[0] === 'gdb' ? `api/gdb/art?kind=${m[1]}&q=${encodeURIComponent(m[2])}${m[1] === 'platform' ? '&platform=' + m[2] : ''}` : `api/tmdb/art?type=${m[1]}&q=${encodeURIComponent(m[2])}&year=${m[3]}`;
+    if (!tmdbArt.has(t.id)) tmdbArt.set(t.id, fetch(u).then(r => r.ok ? r.json() : null).catch(() => null)); return tmdbArt.get(t.id); };
   // colours from a picture: the most common colour (darkened) for the background, the most colourful readable one for the accent
   function paletteOf(img) {
     const c = document.createElement('canvas'); c.width = c.height = 24; const g = c.getContext('2d'); g.drawImage(img, 0, 0, 24, 24);
@@ -130,9 +136,13 @@
         const pic = a.backdrops[(x.tmdbPick || 0) % a.backdrops.length], d2 = x.dim != null ? x.dim : 0.62;
         css.textContent = `html body{background-image:linear-gradient(color-mix(in srgb,var(--bg) ${Math.round(d2 * 100)}%,transparent),color-mix(in srgb,var(--bg) ${Math.round(d2 * 100)}%,transparent)),url("${pic}")!important;background-size:cover!important;background-position:center!important;background-attachment:fixed!important}
           html body .main{background:transparent!important}`;
-        const c = document.createElement('a'); c.className = 'th-credit'; c.href = a.link; c.target = '_blank'; c.rel = 'noopener'; c.textContent = 'Picture: ' + a.title + ' on TMDB';
+        const c = document.createElement('a'); c.className = 'th-credit'; c.href = a.link; c.target = '_blank'; c.rel = 'noopener'; c.textContent = 'Picture: ' + a.title + ' on ' + (a.source || 'TMDB');
         c.style.cssText = 'position:fixed;right:10px;bottom:6px;z-index:2;font-size:11px;color:var(--muted);opacity:.75;text-decoration:none;background:color-mix(in srgb,var(--bg) 70%,transparent);padding:1px 6px;border-radius:6px';
         document.body.appendChild(c); bits.push(() => c.remove());
+        // a game's title logo, small in the corner (unless you've put your own picture there)
+        if (a.logo && !x.corner) { const lg = document.createElement('img'); lg.className = 'th-gamelogo'; lg.src = a.logo; lg.alt = '';
+          lg.style.cssText = 'position:fixed;right:18px;top:14px;max-width:170px;max-height:70px;z-index:3;pointer-events:none;opacity:.9;filter:drop-shadow(0 2px 6px rgba(0,0,0,.35))';
+          lg.onerror = () => lg.remove(); document.body.appendChild(lg); bits.push(() => lg.remove()); }
         if (x.tmdbColors) {
           const im = new Image(); im.onload = () => { if (!live) return; try { const v = paletteOf(im); for (const [k, val] of Object.entries(v)) html.style.setProperty(k, val); bits.push(() => { for (const k of Object.keys(v)) html.style.removeProperty(k); custom(); }); } catch (e) {} }; im.src = pic;
         }
@@ -373,7 +383,7 @@
                   return slot('bg', 'Background picture', 'image/*', 'image') + slot('corner', 'Corner picture', 'image/*', 'image') + slot('sound', 'Sound when you finish', 'audio/*', 'music')
                     + (x.bg ? `<span class="th-slot"><label>Dim <input type="range" min="0" max="90" value="${Math.round((x.dim != null ? x.dim : 0.55) * 100)}" data-mine-dim></label></span>` : ''); })()}
                 ${t.photo && t.photo.credit ? `<span class="muted th-pc">Background photo: ${E(t.photo.credit)}</span>` : ''}
-                ${tmdbOf(t) ? `<span class="th-slot th-tmdb" data-tmdb-row><span class="muted">Pictures from the ${tmdbOf(t)[0] === 'tv' ? 'show' : 'film'}…</span></span>` : ''}</div>
+                ${tmdbOf(t) ? `<span class="th-slot th-tmdb" data-tmdb-row><span class="muted">Pictures from the ${kindWord(tmdbOf(t))}…</span></span>` : ''}</div>
             </div>`;
           const save = patch => { api.storage.set('custom', Object.assign({}, api.storage.get('custom') || {}, patch)); custom(); };
           box.querySelectorAll('[data-mode]').forEach(b => b.onclick = () => { keepPlace(b, () => api.ui.setColorMode(b.dataset.mode)); });
@@ -396,13 +406,15 @@
           const tr = box.querySelector('[data-tmdb-row]');
           if (tr) filmArt(t).then(a => {
             const x = (api.storage.get('extras') || {})[t.id] || {};
-            if (!a || a.off) { tr.innerHTML = `<span class="muted">Add <code>TMDB_API_KEY</code> (free, from themoviedb.org) to .env on the NAS for pictures from the ${tmdbOf(t)[0] === 'tv' ? 'show' : 'film'}.</span>`; return; }
-            if (a.none || !a.backdrops || !a.backdrops.length) { tr.innerHTML = '<span class="muted">TMDB has no pictures for this one.</span>'; return; }
-            tr.innerHTML = x.bg ? '<span class="muted">Your own background is on; remove it to see the film\'s pictures.</span>'
+            const m = tmdbOf(t), gdb = m[0] === 'gdb', src = gdb ? 'TheGamesDB' : 'TMDB';
+            if (!a || a.off) { tr.innerHTML = gdb ? `<span class="muted">Add <code>THEGAMESDB_API_KEY</code> to .env on the NAS (ask for one on forums.thegamesdb.net) for pictures from the ${kindWord(m)}.</span>`
+              : `<span class="muted">Add <code>TMDB_API_KEY</code> (free, from themoviedb.org) to .env on the NAS for pictures from the ${kindWord(m)}.</span>`; return; }
+            if (a.none || !a.backdrops || !a.backdrops.length) { tr.innerHTML = `<span class="muted">${src} has no pictures for this one.</span>`; return; }
+            tr.innerHTML = x.bg ? `<span class="muted">Your own background is on; remove it to see the ${kindWord(m)}'s pictures.</span>`
               : `<button class="btn" data-tm="next">${api.ui.icon('shuffle')}Another picture</button>
                  <label class="th-slot"><input type="checkbox" data-tm="colors" ${x.tmdbColors ? 'checked' : ''}> Colours from the picture</label>
                  <label class="th-slot"><input type="checkbox" data-tm="off" ${x.tmdb === false ? 'checked' : ''}> No pictures</label>
-                 <span class="muted th-pc">${E(a.title)} pictures from TMDB. This product uses the TMDB API but is not endorsed or certified by TMDB.</span>`;
+                 <span class="muted th-pc">${E(a.title)} pictures from ${src}.${gdb ? '' : ' This product uses the TMDB API but is not endorsed or certified by TMDB.'}</span>`;
             const nb = tr.querySelector('[data-tm=next]'); if (nb) nb.onclick = () => setMine({ tmdbPick: ((x.tmdbPick || 0) + 1) % a.backdrops.length });
             const cb = tr.querySelector('[data-tm=colors]'); if (cb) cb.onchange = () => setMine({ tmdbColors: cb.checked || null });
             const ob = tr.querySelector('[data-tm=off]'); if (ob) ob.onchange = () => setMine({ tmdb: ob.checked ? false : null });

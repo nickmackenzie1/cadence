@@ -182,5 +182,6 @@ checking the code.
   KEXP playlist page). The KEXP logo may be shown from their own site (logos allowed, 2026-11-16) but not redrawn.
   Pairs with Radio / KEXP history: show the current KEXP song in the Island while the theme is on.
 - Film and TV themes get pictures from TMDB when TMDB_API_KEY is in .env (server/services/tmdb.js; map in themes.js
-  TMDB). Still open: credited free-licence photos (theme `photo: {url, credit, link}`) for themes TMDB can't cover
-  (Breath of the Wild, Halloween, Camping); Commons' API wasn't reachable from the agent workspace.
+  TMDB); game themes from TheGamesDB with THEGAMESDB_API_KEY (server/services/gamesdb.js; map GAMES: botw, cyberpunk =
+  Cyberpunk 2077, nes = platform 7). New game themes (CS:GO, Half-Life, Borderlands, GTA) just add an entry to GAMES.
+  Still open: credited free-licence photos (theme `photo: {url, credit, link}`) for Halloween and Camping.
