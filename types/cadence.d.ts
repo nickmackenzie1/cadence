@@ -9,6 +9,7 @@ interface CadenceTask { id: string; title: string; clientId?: string | null; own
 interface CadenceClient { id: string; name: string; [k: string]: any }
 interface CadenceMeeting { id: string; clientId?: string | null; start?: number; [k: string]: any }
 type CadenceHtml = string;
+interface CadenceSearchHit { title: string; k?: string; run(): any }
 
 interface CadenceApiTasks {
   list(filter?: (t: CadenceTask) => any): CadenceTask[];
@@ -88,6 +89,7 @@ interface CadenceApi {
   meetings: CadenceApiMeetings;
   on(ev: string, fn: (...a: any[]) => any): void;
   commands: { add(c: { title: string; hint?: string; run: (api?: CadenceApi) => any; [k: string]: any }): void };
+  search: { add(fn: (q: string) => CadenceSearchHit[] | Promise<CadenceSearchHit[]>): void };
   views: { add(v: { id: string; title: string; render: (el: HTMLElement, ...a: any[]) => any; [k: string]: any }): void };
   db: { snapshot(): any };
   island: CadenceApiIsland;

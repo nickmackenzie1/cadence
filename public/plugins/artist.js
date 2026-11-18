@@ -273,6 +273,13 @@
         .ar-sg-im img{width:100%;height:100%;object-fit:cover} .ar-sg-im svg{width:16px;height:16px}
         .ar-sg-t{display:flex;flex-direction:column;min-width:0} .ar-sg-t b{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap} .ar-sg-t small{color:var(--muted);font-size:12px}`;
         document.head.appendChild(st); }
+      // artists in ⌘K, from the same search as the suggestions above (NAS only)
+      api.search.add(async q => {
+        if (api.system().mode !== 'nas') return [];
+        const r = await fetch('api/radar/find?q=' + encodeURIComponent(q)); if (!r.ok) return [];
+        return (await r.json()).slice(0, 4).map(a => ({ title: a.name, k: ['artist', a.kexp ? `KEXP ${a.kexp.toLocaleString('en-CA')} plays` : '', a.radar ? 'on Radar' : ''].filter(Boolean).join(' · '),
+          run: () => { window.CadenceArtist.open(a.name); location.hash = 'view-artist'; } }));
+      });
       api.views.add({ id: 'artists', group: 'music', order: 60, title: 'Artists', icon: '🎤', subtitle: 'Look anyone up, or go back to who you looked at', render: el => {
         let recent = []; try { recent = JSON.parse(localStorage.getItem('cadence.recentArtists') || '[]'); } catch (e) {}
         const saved = [...new Set((PV.want || []).map(x => x.artist))].filter(a => !recent.some(r => r.toLowerCase() === a.toLowerCase()));

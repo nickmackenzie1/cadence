@@ -1961,6 +1961,7 @@
   const Reg = {
     defs: [],
     commands: [],
+    searchers: [],
     views: [],
     parsers: [],
     extractors: [],
@@ -2361,6 +2362,9 @@
       },
       on: (ev, fn) => Reg.listeners.push({ pid, ev, fn }),
       commands: { add: c => Reg.commands.push({ ...c, pid }) },
+      /* more results in ⌘K: api.search.add(async q => [{ title, k?, run() }]). Asked once you've typed two letters (and
+         paused); slow or failing ones are left out. Up to 5 results each, shown after Cadence's own. */
+      search: { add: fn => Reg.searchers.push({ fn, pid }) },
       views: { add: v => Reg.views.push({ ...v, pid }) },
       db: { snapshot: () => clone(S) },
       /* the Island, for any plugin — falls back to a plain toast when the Island plugin is off */
@@ -2561,6 +2565,7 @@
   function rebuildPlugins() {
     for (const k of [
       'commands',
+      'searchers',
       'views',
       'parsers',
       'extractors',
@@ -4590,32 +4595,61 @@
   function openPalette() {
     const cmds = coreCommands();
     let sel = 0,
-      list = cmds;
+      list = cmds,
+      remote = [],
+      seq = 0,
+      timer = 0;
     $('#modal').className = 'modal pal';
-    $('#modal').innerHTML = `<input id="pal-in" placeholder="Type a command, client, or task…"><div class="pal-list" id="pal-list"></div>`;
+    $('#modal').innerHTML = `<input id="pal-in" placeholder="Type a command, client, task, note or meeting…"><div class="pal-list" id="pal-list"></div>`;
     $('#scrim').classList.add('open');
+    /* ⌘K finds everything (user, 2026-11-17): commands; tasks by title or notes (open ones first, then done); meetings
+       by their notes or client; then whatever plugins add (api.search, e.g. artists from Music). Every word you type
+       has to match, in any order. */
+    const lc = x => String(x || '').toLowerCase();
+    const short = (txt, w) => {
+      const t = String(txt || '').replace(/\s+/g, ' '),
+        i = lc(t).indexOf(w);
+      return i < 0 ? '' : (i > 20 ? '…' : '') + t.slice(Math.max(0, i - 20), i + 40).trim() + (i + 40 < t.length ? '…' : '');
+    };
+    const local = q => {
+      const words = q.split(/\s+/).filter(Boolean),
+        has = x => words.every(w => lc(x).includes(w));
+      if (q.length < 2) return [];
+      const tasks = S.tasks
+        .filter(t => has(t.title) || has(t.title + ' ' + (t.notes || '')))
+        .sort((a, b) => (a.done ? 1 : 0) - (b.done ? 1 : 0) || (has(b.title) ? 1 : 0) - (has(a.title) ? 1 : 0))
+        .slice(0, 8)
+        .map(t => ({
+          title: '↳ ' + t.title,
+          k: [client(t.clientId)?.name, t.done ? 'done' : '', !has(t.title) ? 'in notes: ' + short(t.notes, words[0]) : ''].filter(Boolean).join(' · '),
+          run: () => {
+            closeModal();
+            if (t.clientId) go('client-' + t.clientId);
+            else if (t.done) go('done');
+            setTimeout(() => openTask(t.id), 50);
+          }
+        }));
+      const meetings = S.meetings
+        .filter(m => has(m.notes) || has((client(m.clientId)?.name || '') + ' meeting ' + (m.notes || '')))
+        .sort((a, b) => (b.start || 0) - (a.start || 0))
+        .slice(0, 4)
+        .map(m => ({
+          title: 'Meeting' + (client(m.clientId) ? ' with ' + client(m.clientId).name : '') + (m.start ? ', ' + fmtDate(ymd(new Date(m.start))) : ''),
+          k: has(m.notes) ? short(m.notes, words[0]) : 'meeting',
+          run: () => {
+            closeModal();
+            go(m.clientId ? 'client-' + m.clientId : 'today');
+          }
+        }));
+      return tasks.concat(meetings);
+    };
     const draw = () => {
-      const q = $('#pal-in').value.toLowerCase().trim();
-      const taskHits =
-        q.length > 1
-          ? S.tasks
-              .filter(t => !t.done && t.title.toLowerCase().includes(q))
-              .slice(0, 6)
-              .map(t => ({
-                title: '↳ ' + t.title,
-                k: client(t.clientId)?.name,
-                run: () => {
-                  closeModal();
-                  if (t.clientId) go('client-' + t.clientId);
-                  setTimeout(() => openTask(t.id), 50);
-                }
-              }))
-          : [];
+      const q = lc($('#pal-in').value).trim();
       list = cmds
         .filter(c => !q || q.split(' ').every(w => c.title.toLowerCase().includes(w)))
-        .concat(taskHits)
+        .concat(local(q), remote)
         .slice(0, 40);
-      sel = Math.min(sel, list.length - 1);
+      sel = Math.max(0, Math.min(sel, list.length - 1));
       $('#pal-list').innerHTML =
         list
           .map(
@@ -4626,12 +4660,50 @@
       const on = $('#pal-list .pal-item.on');
       if (on) on.scrollIntoView({ block: 'nearest' });
     };
+    // plugins' results: asked after a short pause, each with 3 s to answer; only the newest question's answers count
+    const askPlugins = () => {
+      const q = $('#pal-in').value.trim(),
+        my = ++seq;
+      remote = [];
+      clearTimeout(timer);
+      if (q.length < 2 || !Reg.searchers.length) return;
+      timer = setTimeout(async () => {
+        const within = p => Promise.race([Promise.resolve(p), new Promise(r => setTimeout(() => r([]), 3000))]);
+        const got = await Promise.all(
+          Reg.searchers.map(s =>
+            within(
+              (async () => {
+                try {
+                  return await s.fn(q);
+                } catch (e) {
+                  return [];
+                }
+              })()
+            )
+          )
+        );
+        if (my !== seq || !$('#pal-in')) return;
+        remote = got
+          .flatMap(r => (Array.isArray(r) ? r.slice(0, 5) : []))
+          .filter(x => x && x.title && typeof x.run === 'function')
+          .map(x => ({
+            title: String(x.title),
+            k: x.k ? String(x.k) : '',
+            run: () => {
+              closeModal();
+              x.run();
+            }
+          }));
+        draw();
+      }, 180);
+    };
     const inp = $('#pal-in');
     draw();
     inp.focus();
     inp.addEventListener('input', () => {
       sel = 0;
       draw();
+      askPlugins();
     });
     inp.addEventListener('keydown', e => {
       if (e.key === 'ArrowDown') {
