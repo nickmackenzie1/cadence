@@ -195,17 +195,17 @@ test.describe('on a phone', () => {
     await page.evaluate(() => { location.hash = 'dev'; }); await page.waitForTimeout(200);
     const tops = await page.locator('.stats .stat').evaluateAll(els => els.map(e => Math.round(e.getBoundingClientRect().top)));
     expect(new Set(tops).size).toBe(2);
-    // the menu
-    await expect(page.locator('.nav-btn')).toBeVisible();
-    await page.tap('.nav-btn');
+    // the menu: in the tab bar along the bottom (0.36.2), in place of the corner button
+    await expect(page.locator('.nav-btn')).toBeHidden();
+    await page.tap('#tabbar [data-tb=menu]');
     await expect(page.locator('body.nav-open')).toHaveCount(1);
     await page.locator('.side a[href="#upcoming"], .side [data-r="upcoming"], .side .ntile', { hasText: 'Upcoming' }).first().tap();
     await expect(page.locator('body.nav-open')).toHaveCount(0);
-    // a meeting from the menu: the menu closes, its button hides, the bar wraps inside the screen
-    await page.tap('.nav-btn'); await page.locator('.side .meet-btn').tap();
+    // a meeting from the menu: the menu closes, the tab bar steps aside, the meeting bar wraps inside the screen
+    await page.tap('#tabbar [data-tb=menu]'); await page.locator('.side .meet-btn').tap();
     await expect(page.locator('#meeting.open')).toHaveCount(1);
     await expect(page.locator('body.nav-open')).toHaveCount(0);
-    await expect(page.locator('.nav-btn')).toBeHidden();
+    await expect(page.locator('#tabbar')).toBeHidden();   // out of the way during the meeting
     const head = await page.locator('#meeting .m-head').boundingBox();
     expect(head.x + head.width).toBeLessThanOrEqual(391);
     expect(errs).toEqual([]);

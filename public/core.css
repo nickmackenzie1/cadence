@@ -753,3 +753,29 @@ input[type=checkbox],input[type=radio],input[type=range],progress{accent-color:v
 .cx-logo{display:inline-block;flex:none;object-fit:contain;border-radius:3px;vertical-align:-3px;margin-right:6px}
 .cx-logo.h1-logo{vertical-align:-4px;margin-right:10px;border-radius:6px} .mus-tabs .cx-logo{vertical-align:-2px;margin-right:5px} .av-it .ic .cx-logo{margin:0;vertical-align:middle}
 .pl-ic.has-site{position:relative} .pl-ic.has-site .cx-logo{position:absolute;inset:0;width:100%;height:100%;margin:0;padding:18%;background:#fff;border-radius:inherit;object-fit:contain;box-shadow:inset 0 0 0 1px rgba(0,0,0,.08)}
+
+/* ---------- phone tab bar (2026-11-17): Today, Upcoming, Add, Search, Menu along the bottom ---------- */
+#tabbar{display:none}
+@media (max-width:640px){
+  body{--tabbar-h:calc(58px + env(safe-area-inset-bottom))}
+  #tabbar{display:grid;grid-template-columns:repeat(5,1fr);position:fixed;left:0;right:0;bottom:0;z-index:45;height:var(--tabbar-h);
+    padding:0 env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+    background:color-mix(in srgb,var(--panel) 92%,transparent);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border-top:1px solid var(--line)}
+  #tabbar button{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;border:0;background:none;color:var(--muted);
+    font:inherit;font-size:11px;letter-spacing:.01em;cursor:pointer;touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+  #tabbar svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+  #tabbar button.on{color:var(--accent)}
+  #tabbar button:focus-visible{outline:2px solid var(--accent);outline-offset:-4px;border-radius:var(--r)}
+  #tabbar .tb-add svg{width:26px;height:26px;padding:3px;border-radius:50%;background:var(--accent);color:var(--panel);stroke:var(--panel);stroke-width:2.2}
+  /* the menu moves into the bar; things that sat at the bottom sit above it */
+  .nav-btn{display:none!important}
+  .wrap{padding-bottom:calc(100px + var(--tabbar-h))!important}
+  #pc-mini{bottom:calc(var(--tabbar-h) + 8px)!important}
+  .toasts{bottom:calc(var(--tabbar-h) + 12px)!important}
+  #upd-bar{bottom:calc(var(--tabbar-h) + 12px)!important}
+  /* out of the way during a meeting, and under the slide-over menu, dialogs and the task editor */
+  body:has(#meeting.open) #tabbar{display:none}
+  body:has(.drawer.open) #tabbar,body:has(#scrim.open) #tabbar{display:none}
+  body:has(#meeting.open) .wrap{padding-bottom:calc(100px + env(safe-area-inset-bottom))!important}
+}
+

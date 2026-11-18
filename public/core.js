@@ -6418,6 +6418,59 @@
         Store.init();
       });
   } else Store.init();
+  /* phones (user, 2026-11-17): a tab bar along the bottom, within thumb reach. Today, Upcoming, Add (quick add on
+     Today, ready to type), Search (⌘K) and Menu (the slide-over sidebar, in place of the corner button). Plain icons
+     and labels, no counts. Shown by core.css at 640 px and narrower; hidden during a meeting. */
+  (() => {
+    const bar = document.createElement('nav');
+    bar.id = 'tabbar';
+    bar.setAttribute('aria-label', 'Main');
+    const glass =
+      '<svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/></svg>';
+    const plus = '<svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>';
+    const menu = '<svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></svg>';
+    bar.innerHTML = [
+      ['today', NAV_ICONS.today, 'Today'],
+      ['upcoming', NAV_ICONS.upcoming, 'Upcoming'],
+      ['add', plus, 'Add'],
+      ['search', glass, 'Search'],
+      ['menu', menu, 'Menu']
+    ]
+      .map(([k, ic, label]) => `<button type="button" data-tb="${k}" class="tb-${k}">${ic}<span>${label}</span></button>`)
+      .join('');
+    document.body.appendChild(bar);
+    const focusAdd = (n = 0) => {
+      const i = document.getElementById('qa');
+      if (!i) return void (n < 20 && setTimeout(() => focusAdd(n + 1), 60));
+      i.focus();
+      i.scrollIntoView({ block: 'center', behavior: reducedMotion() ? 'auto' : 'smooth' });
+    };
+    bar.addEventListener('click', e => {
+      const b = e.target.closest('[data-tb]');
+      if (!b) return;
+      const k = b.dataset.tb;
+      if (k === 'menu') return void document.body.classList.toggle('nav-open');
+      document.body.classList.remove('nav-open');
+      if (k === 'search') return void openPalette();
+      if (k === 'add') {
+        if (route() !== 'today') go('today');
+        return void setTimeout(focusAdd, 0);
+      }
+      go(k);
+    });
+    const mark = () => {
+      const r = route();
+      bar.querySelectorAll('[data-tb]').forEach(b => {
+        const on = b.dataset.tb === r || (b.dataset.tb === 'menu' && document.body.classList.contains('nav-open'));
+        b.classList.toggle('on', on);
+        if (b.dataset.tb === r) b.setAttribute('aria-current', 'page');
+        else b.removeAttribute('aria-current');
+      });
+    };
+    addEventListener('hashchange', mark);
+    new MutationObserver(mark).observe(document.body, { attributes: true, attributeFilter: ['class'] });
+    mark();
+  })();
   /* narrow layout: slide-over sidebar */
   $('#nav-btn') && $('#nav-btn').addEventListener('click', () => document.body.classList.toggle('nav-open'));
   $('#nav-scrim') && $('#nav-scrim').addEventListener('click', () => document.body.classList.remove('nav-open'));

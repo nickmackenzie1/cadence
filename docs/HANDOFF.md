@@ -35,8 +35,6 @@ checking the code.
   mirror, Synology-only setup.
 
 ## Upkeep
-- Flaky tests: `tests/more.spec.mjs` fails a different test under a busy full run (camping, games, kids); each passes
-  alone. CI's two retries hide it.
 - Page weight: with everything on, `bundle.js` is ~1.9 MB (560 KB gzipped). `ALWAYS` in `server/lib/bundle.js` loads
   ten plugins even when they're off; `artist.js` is 66 KB.
 - Dark mode check after the design passes.
@@ -71,7 +69,7 @@ checking the code.
 
 ## Look and feel
 - Colour-blind modes (protanopia, deuteranopia, tritanopia, achromatopsia): remap palette, add shape/pattern cues.
-- Phones: a ⌘K button, swipe gestures, a bottom tab bar.
+- Phones: swipe gestures (the tab bar with Search shipped in 0.36.2).
 
 ## Everyday app
 - File browser for NAS shares (read-only, LAN-only, path-jailed).
@@ -133,6 +131,16 @@ checking the code.
   search (no key, kept a day, 2.5 s limit). Not yet in ⌘K: a plugin search hook for the palette was planned, not built.
 - Share target (0.30.3): manifest `share_target` → `./?share_title&share_text&share_url` → `takeShare()` in core.js
   fills quick add. Android and desktop Chrome/Edge only; iPhone doesn't support it for web apps.
+
+- Live sync (0.31.0): `server/lib/live.js` SSE at /api/events; one tab per browser holds it (Web Lock `cadence-live`) and
+  relays on BroadcastChannel; each push carries the tab id (TAB_ID) so a tab ignores its own echo. 20 s poll stays.
+- ⌘K (0.31.1): `api.search.add(async q => [{ title, k, run }])` for plugin results (artist.js adds artists). Declared in
+  types/cadence.d.ts.
+- Harper runs as WorkerLinter (0.36.1): readiness = worker answers AND the page's binary (`bin.inner`) loads, 45 s limit,
+  retry with a fresh binary (`createBinaryModuleFromUrl(url?retry=N)`). The vendored index.js has one patch
+  (CADENCE_QUIET). sw.js dedupes concurrent first downloads of the same file. These were the cause of the form-test flakes.
+- Phone tab bar (≤640 px): `#tabbar` built in core.js, styles at the end of core.css; replaces `.nav-btn` on phones;
+  hides during meetings, the task editor and dialogs. Things fixed to the bottom go above `var(--tabbar-h)`.
 
 ## New ideas (add below)
 - Radar as its own thing (user asked 2026-11-17 what it would take): step 1 its own database file radar.db (KEXP already moved to kexp.db, 0.31),
