@@ -165,7 +165,14 @@
 
       // ---------------- KEXP history: every play the NAS has saved, grouped and counted (no AI) ----------------
       const K = { wby: api.storage.get('wby') || 'artist', wper: api.storage.get('wper') || 'month', tab: api.storage.get('kTab') || 'top', by: api.storage.get('kBy') || 'artist', period: api.storage.get('kPeriod') || 'month', q: '', group: 'artist', detail: null, cache: {} };
+      // what this page has already shown stays on screen when you come back; a fresh copy is asked for behind it
+      // (2026-11-17: "stuff needs to be snappier")
       const kget = (qs, key = qs) => {
+        if (K.cache[key] !== undefined && K.cache[key] !== null && K.stale && K.stale.has(key)) {
+          K.stale.delete(key); const had = K.cache[key];
+          getJson('api/radio/kexp?' + qs).then(v => { K.cache[key] = v; if (JSON.stringify(v) !== JSON.stringify(had) && api.ui.currentRoute() === 'view-kexp-history') api.ui.refresh(); }, () => {});
+          return had;
+        }
         if (K.cache[key] !== undefined) return K.cache[key];
         K.cache[key] = null;
         getJson('api/radio/kexp?' + qs).then(v => { K.cache[key] = v; }, e => { K.cache[key] = { error: e.message }; }).then(() => { if (api.ui.currentRoute() === 'view-kexp-history') api.ui.refresh(); });
@@ -247,7 +254,8 @@
       // the artist page's "Every KEXP play" opens this view on that artist
       window.CadenceKexpHistory = { artist: name => { K.detail = { type: 'artist', artist: name }; K.stack = []; K.away = false; api.ui.navigate('view-kexp-history'); } };
       api.views.add({ id: 'kexp-history', site: 'kexp.org', group: 'music', order: 30, title: 'KEXP history', icon: '🎼', subtitle: 'Every song KEXP plays, kept on your NAS', wide: true, render: el => {
-        if (K.away) { K.away = false; K.cache = {}; hist = null; }
+        if (K.away) { K.away = false; for (const k of Object.keys(K.cache)) if (!K.cache[k] || K.cache[k].error) delete K.cache[k]; K.stale = new Set(Object.keys(K.cache));
+          if (hist) getJson('api/radio/kexp-history').then(h => { hist = h; }, () => {}); }
         if (!hist) { el.innerHTML = '<div class="rd"><p class="muted">Loading…</p></div>'; getJson('api/radio/kexp-history').then(h => { hist = h; }, () => { hist = { on: false }; }).then(() => api.ui.refresh()); return; }
         let body;
         if (!hist.on) body = `<p class="muted">Saving KEXP's playlist is turned off on your NAS (KEXP_LOG=0 in .env).</p>`;

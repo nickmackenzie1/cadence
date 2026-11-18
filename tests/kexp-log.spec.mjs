@@ -90,3 +90,42 @@ test('the per-artist summary matches the plays, including plays saved while it w
   expect(r.heavy).toBe(r.heavyReal);
   expect(r.first).toBe(r.firstReal);
 });
+
+test('plays per month, the year-by-year race, and lists kept ready (served at once, made again in the background)', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'cadence-kexpmon-'));
+  const out = spawnSync(process.execPath, ['--disable-warning=ExperimentalWarning', '-e', `
+    const K = require('./server/services/kexp-log.js'), d = K.open();
+    const ins = d.prepare('INSERT INTO kexp_plays VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)');
+    const mk = (id, artist, t) => K.row({ id, play_type: 'trackplay', airdate: new Date(t).toISOString(), artist, song: 's' + id });
+    // 18 months: Alvvays big early, Big Thief big later, Various Artists and air breaks never count
+    let id = 0;
+    for (let m = 0; m < 18; m++) for (let i = 0; i < 20; i++) {
+      const t = Date.UTC(2019, m, 10, 12) + i * 60e3, a = i < (m < 9 ? 12 : 4) ? 'Alvvays' : i < 18 ? 'Big Thief' : i === 18 ? 'Various Artists' : 'Air break';
+      const rw = mk(++id * 2, a, t); if (rw) ins.run(...rw);
+    }
+    for (let i = 0; i < 20; i++) K.buildMonthlyStep();
+    // a play arriving after the builder passed it is counted once
+    K._save([{ id: 1, play_type: 'trackplay', airdate: new Date(Date.UTC(2019, 0, 10, 13)).toISOString(), artist: 'ALVVAYS', song: 'late' }]);
+    (async () => {
+      const r = await K.race(), w = await K.winners({ by: 'artist', per: 'year' });
+      const t0 = Date.now(); const again = await K.winners({ by: 'artist', per: 'year' }); const quick = Date.now() - t0;
+      const kept = d.prepare("SELECT COUNT(*) n FROM kexp_kept").get().n;
+      const jan = d.prepare("SELECT plays FROM kexp_monthly WHERE month = '2019-01' AND key = 'alvvays'").get().plays;
+      console.log(JSON.stringify({ ready: K.monthlyReady(), jan, months: r.months.length, first: r.months[0], last: r.months.at(-1),
+        roll0: r.roll[0], all17: r.all[17], roll17: r.roll[17], hasVA: JSON.stringify(r).includes('Various') || JSON.stringify(r).toLowerCase().includes('air break'),
+        win: w.list.map(x => [x.period, x.winner.artist, x.winner.plays]), same: JSON.stringify(w) === JSON.stringify(again), quick, kept }));
+    })();
+  `], { env: { ...process.env, DATA_DIR: dir, TZ: 'UTC', KEXP_LOG: '1', KEXP_LOG_DELAY: '99999999', KEXP_MONTHLY_DELAY: '99999999', KEXP_LISTS_DELAY: '99999999', KEXP_ARTISTS_DELAY: '99999999', KEXP_API: 'http://127.0.0.1:9' }, encoding: 'utf8' });
+  rmSync(dir, { recursive: true, force: true });
+  expect(out.status, out.stderr).toBe(0);
+  const r = JSON.parse(out.stdout.trim().split('\n').pop());
+  expect(r.ready).toBe(true);
+  expect(r.jan).toBe(13);                                       // 12 + the late one
+  expect([r.months, r.first, r.last]).toEqual([18, '2019-01', '2020-06']);
+  expect(r.roll0).toEqual([['Alvvays', 13], ['Big Thief', 6]]);
+  expect(r.hasVA).toBe(false);
+  expect(r.all17[0][0]).toBe('Big Thief');                     // overtook Alvvays over 18 months: 6*9+14*9 = 180 vs 13+12*8+4*9 = 145
+  expect(r.roll17).toEqual([['Big Thief', 144], ['Alvvays', 72]]);   // the last 12 months only: 3×6 + 9×14, 3×12 + 9×4
+  expect(r.win).toEqual([['2020', 'Big Thief', 84], ['2019', 'Alvvays', 121]]);
+  expect(r.same).toBe(true); expect(r.quick).toBeLessThan(50); expect(r.kept).toBeGreaterThanOrEqual(2);
+});

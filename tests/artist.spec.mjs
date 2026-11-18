@@ -156,9 +156,9 @@ test('Music home: one tile, tabs on every music page, and it reopens the tab you
   await page.goto(B + '/');
   await page.click('[data-act="space"][data-s="life"]');
   await page.evaluate(() => { location.hash = 'music'; });
-  await expect(page).toHaveURL(/#view-(radar|radio|kexp-history|want|shows|stg|artists)$/);   // the last music tab (settings sync, so another test may have chosen one)
+  await expect(page).toHaveURL(/#view-(radar|radio|kexp-history|kexp-years|want|shows|stg|artists)$/);   // the last music tab (settings sync, so another test may have chosen one)
   const tabs = page.locator('.mus-tabs a');
-  await expect(tabs).toHaveText(['Music Radar', 'Friday mix', 'Radio', 'KEXP history', 'Want to hear', 'Shows', 'Said the Gramophone', 'Artists', 'Your year']);
+  await expect(tabs).toHaveText(['Music Radar', 'Friday mix', 'Radio', 'KEXP history', 'KEXP through the years', 'Want to hear', 'Shows', 'Said the Gramophone', 'Artists', 'Your year']);
   await expect(page.locator('#view h1')).toHaveText('Music');
   await tabs.filter({ hasText: 'Radio' }).first().click();
   await expect(page).toHaveURL(/#view-radio$/);

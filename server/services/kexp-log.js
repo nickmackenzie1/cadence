@@ -40,6 +40,8 @@ function open() {
     CREATE TABLE IF NOT EXISTS kexp_artists (key TEXT PRIMARY KEY, artist TEXT, plays INTEGER NOT NULL, first_at INTEGER, last_at INTEGER, first_heavy INTEGER);
     CREATE INDEX IF NOT EXISTS kexp_artists_heavy ON kexp_artists(first_heavy) WHERE first_heavy IS NOT NULL;
     CREATE INDEX IF NOT EXISTS kexp_artists_first ON kexp_artists(first_at);
+    CREATE TABLE IF NOT EXISTS kexp_monthly (month TEXT NOT NULL, key TEXT NOT NULL, artist TEXT, plays INTEGER NOT NULL, PRIMARY KEY (month, key)) WITHOUT ROWID;
+    CREATE TABLE IF NOT EXISTS kexp_kept (k TEXT PRIMARY KEY, at INTEGER NOT NULL, v TEXT NOT NULL);
     CREATE TABLE IF NOT EXISTS kexp_shows (id INTEGER PRIMARY KEY, program TEXT, tags TEXT, hosts TEXT, start INTEGER, tagline TEXT, image TEXT);
     CREATE INDEX IF NOT EXISTS kexp_plays_show ON kexp_plays(show_id);`);
   // full-text search (2026-11-17): an FTS5 index over artist, song and album, filled in by ftsStep() in id order and
@@ -149,6 +151,91 @@ function buildArtistsStep() {
   const took = Date.now() - t0; slowNote('artist summary step', took);
   return a.done ? { done: true, note: 'artist summary ready' } : { again: Math.max(+process.env.KEXP_ARTISTS_GAP || 1000, took * 4) };
 }
+// ---- kexp_monthly: plays per artist per month (2026-11-17), for Winners, the yearly Top artists and the year-by-year
+// race. Built like kexp_artists (its own cursor), kept current by save() for plays the builder has passed.
+const MON = { cursor: null, done: false, ready: false };
+function monthlyState() { if (!MON.ready) { MON.cursor = +(meta('monthly_cursor') || 0); MON.done = meta('monthly_done') === '1'; MON.ready = true; } return MON; }
+const monthlyCover = id => { const m = monthlyState(); return m.done || id <= m.cursor; };
+const monthOf = sec => { const d = new Date(sec * 1000); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0'); };
+const VA = /^\(?various( artists?)?\)?$/i;
+function addToMonthly(rows) {
+  const m = new Map();
+  for (const r of rows) {
+    if (!r.artist || AIRBREAK.test(r.artist) || VA.test(r.artist.trim())) continue;
+    const k = monthOf(r.airdate) + '|' + AKEY(r.artist), x = m.get(k) || { artist: r.artist, n: 0 }; x.n++; m.set(k, x);
+  }
+  const up = open().prepare(`INSERT INTO kexp_monthly (month, key, artist, plays) VALUES (?, ?, ?, ?) ON CONFLICT(month, key) DO UPDATE SET plays = plays + excluded.plays`);
+  for (const [k, x] of m) { const i = k.indexOf('|'); up.run(k.slice(0, i), k.slice(i + 1), x.artist, x.n); }
+}
+function buildMonthlyStep() {
+  if (movePending()) return { again: 30e3 };
+  const st = monthlyState(); if (st.done) return { done: true };
+  const t0 = Date.now(), d = open(), rows = d.prepare('SELECT id, artist, airdate FROM kexp_plays WHERE id > ? ORDER BY id LIMIT ?').all(st.cursor, 5000);
+  d.exec('BEGIN');
+  try {
+    addToMonthly(rows);
+    const last = rows.length ? rows[rows.length - 1].id : st.cursor, done = rows.length < 5000;
+    meta('monthly_cursor', last); if (done) meta('monthly_done', '1');
+    d.exec('COMMIT'); st.cursor = last; st.done = done;
+  } catch (e) { try { d.exec('ROLLBACK'); } catch {} throw e; }
+  const took = Date.now() - t0; slowNote('monthly summary step', took);
+  if (st.done) { console.log('KEXP: monthly summary ready'); return { done: true, note: 'monthly summary ready' }; }
+  return { again: Math.max(1000, took * 4) };
+}
+const monthlyReady = () => ON && monthlyState().done;
+
+// ---- kept lists (2026-11-17, user: "it shouldn't query the winners page every time, that should be calculated
+// already"): every Top / Winners list is kept in kexp.db with when it was made. A page gets the kept copy at once;
+// if it's older than its freshness, a new one is made in the background for next time. Survives restarts.
+const keptBusy = new Map();
+function kept(k, ttl, make) {
+  let row = null; try { row = open().prepare('SELECT at, v FROM kexp_kept WHERE k = ?').get(k); } catch {}
+  const refresh = () => {
+    if (!keptBusy.has(k)) keptBusy.set(k, Promise.resolve().then(make).then(v => { try { open().prepare('INSERT OR REPLACE INTO kexp_kept (k, at, v) VALUES (?, ?, ?)').run(k, Date.now(), JSON.stringify(v)); } catch {} return v; }).finally(() => keptBusy.delete(k)));
+    return keptBusy.get(k);
+  };
+  if (row) { if (Date.now() - row.at > ttl) refresh().catch(() => {}); return Promise.resolve(JSON.parse(row.v)); }
+  return refresh();
+}
+const keptAge = k => { try { const r = open().prepare('SELECT at FROM kexp_kept WHERE k = ?').get(k); return r ? Date.now() - r.at : Infinity; } catch { return Infinity; } };
+// the lists the pages open with, made ahead of time (quiet: waits while you use Cadence; one at a time)
+const TTL = { week: 10 * 60e3, month: 30 * 60e3, year: 3 * 3600e3, all: 6 * 3600e3, winners: 6 * 3600e3 };
+const warmList = () => [
+  ...['artist', 'song', 'album', 'show', 'dj'].flatMap(by => ['week', 'month', 'year', 'all'].map(period => ({ k: topKey({ by, period, limit: 100 }), ttl: TTL[period], make: () => topNow({ by, period, limit: 100 }) }))),
+  ...['artist', 'song', 'album'].flatMap(by => ['month', 'year'].map(per => ({ k: winKey({ by, per }), ttl: TTL.winners, make: () => winnersNow({ by, per }) }))),
+];
+async function warmLists() {
+  if (movePending()) return { again: 60e3 };
+  const due = [...warmList(), { k: 'race', ttl: TTL.all, make: raceNow }].filter(w => (w.k !== 'race' || monthlyReady()) && keptAge(w.k) > w.ttl);
+  if (!due.length) return undefined;
+  const w = due[0], t0 = Date.now();
+  await kept(w.k, 0, w.make);
+  slowNote('list ' + w.k, Date.now() - t0);
+  return due.length > 1 ? { again: Math.max(2000, (Date.now() - t0) * 2) } : undefined;
+}
+
+// ---- KEXP through the years (2026-11-17): who KEXP played most, month by month, for the animated race ----
+// Two views per month: the last 12 months (who's big right now) and everything so far. Worked out a month at a time
+// (one small read each, a pause between), kept like the lists above, made again every few hours.
+function race() { if (!monthlyReady()) return Promise.resolve({ ready: false, progress: monthlyProgress() }); return kept('race', TTL.all, raceNow); }
+function monthlyProgress() { try { const d = open(), hi = (d.prepare('SELECT MAX(id) AS m FROM kexp_plays').get() || {}).m || 0, lo = (d.prepare('SELECT MIN(id) AS m FROM kexp_plays').get() || {}).m || 0; return hi > lo ? Math.max(0, Math.min(1, (monthlyState().cursor - lo) / (hi - lo))) : 0; } catch { return 0; } }
+async function raceNow({ top: N = 12 } = {}) {
+  const months = (await rq('SELECT DISTINCT month FROM kexp_monthly ORDER BY month', [])).map(r => r.month);
+  const roll = new Map(), all = new Map(), names = new Map(), recent = [], out = { ready: true, months: [], roll: [], all: [], totals: [] };
+  const best = (m) => { const t = []; for (const [k, v] of m) { if (t.length < N) { t.push([k, v]); if (t.length === N) t.sort((a, b) => b[1] - a[1]); } else if (v > t[N - 1][1]) { t[N - 1] = [k, v]; t.sort((a, b) => b[1] - a[1]); } } if (t.length < N) t.sort((a, b) => b[1] - a[1]); return t.map(([k, v]) => [names.get(k), v]); };
+  for (const m of months) {
+    const rows = await rq('SELECT key, artist, plays FROM kexp_monthly WHERE month = ?', [m]);
+    let total = 0;
+    for (const r of rows) { roll.set(r.key, (roll.get(r.key) || 0) + r.plays); all.set(r.key, (all.get(r.key) || 0) + r.plays); names.set(r.key, r.artist); total += r.plays; }
+    recent.push(rows);
+    if (recent.length > 12) for (const r of recent.shift()) { const v = roll.get(r.key) - r.plays; if (v > 0) roll.set(r.key, v); else roll.delete(r.key); }
+    out.months.push(m); out.totals.push(total); out.roll.push(best(roll)); out.all.push(best(all));
+    await new Promise(r => setImmediate(r));
+  }
+  out.made = new Date().toISOString();
+  return out;
+}
+
 // one step of the search index: the next FTS_CHUNK plays in id order (the scheduler calls it until it's done)
 const FTS_CHUNK = +process.env.KEXP_FTS_CHUNK || 20000;
 function ftsStep() {
@@ -200,8 +287,10 @@ function save(plays) {
   const d = open(), ins = d.prepare('INSERT OR IGNORE INTO kexp_plays VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)');
   let n = 0; const added = []; d.exec('BEGIN');
   try {
-    for (const p of plays) { const r = row(p); if (r && ins.run(...r).changes) { n++; if (artistsCover(r[0])) added.push({ artist: r[2], airdate: r[1], rotation: r[7] }); } }
+    const addedM = [];
+    for (const p of plays) { const r = row(p); if (r && ins.run(...r).changes) { n++; if (artistsCover(r[0])) added.push({ artist: r[2], airdate: r[1], rotation: r[7] }); if (monthlyCover(r[0])) addedM.push({ artist: r[2], airdate: r[1] }); } }
     if (added.length) addToArtists(added);
+    if (addedM.length) addToMonthly(addedM);
     d.exec('COMMIT');
   } catch (e) { d.exec('ROLLBACK'); throw e; }
   if (countCache.at) countCache.n += n;   // keep the kept count right without recounting
@@ -336,6 +425,8 @@ function start() {
       { label: 'KEXP: new plays', every: EVERY, first: 0 });
     sched.add('kexp-backfill', backfillJob, { label: 'KEXP: filling in the past', heavy: true, quiet: true, every: STEP, first: STEP });
     sched.add('kexp-fts', ftsStep, { label: 'KEXP: search index', heavy: true, quiet: true, every: 1000, first: +process.env.KEXP_FTS_DELAY || 90e3, retry: 60e3 });
+    sched.add('kexp-monthly', buildMonthlyStep, { label: 'KEXP: plays per month', heavy: true, quiet: true, every: 1000, first: +process.env.KEXP_MONTHLY_DELAY || 75e3, retry: 60e3 });
+    sched.add('kexp-lists', warmLists, { label: 'KEXP: Top and Winners lists, made ahead', heavy: true, quiet: true, every: 5 * 60e3, first: +process.env.KEXP_LISTS_DELAY || 45e3, retry: 5 * 60e3 });
     sched.add('kexp-artists', buildArtistsStep, { label: 'KEXP: artist summary', heavy: true, quiet: true, every: 1000, first: +process.env.KEXP_ARTISTS_DELAY || 60e3, retry: 60e3 });
     return { done: true };
   }, { label: 'KEXP: moving history to kexp.db', heavy: true, first: +process.env.KEXP_LOG_DELAY || 15e3, retry: 60e3 });
@@ -367,15 +458,15 @@ function rq(sql, params = []) {
   return new Promise((ok, no) => { const id = ++rseq; rwait.set(id, { ok, no }); reader.ref(); reader.postMessage({ id, sql, params }); });   // kept alive only while a query waits
 }
 const rq1 = async (sql, params) => (await rq(sql, params))[0];
-function top(o = {}) {
-  const k = JSON.stringify([o.by, o.period, o.limit]), c = topCache.get(k), ttl = o.period === 'all' || o.period === 'year' ? 30 * 60e3 : 3 * 60e3;
-  if (c && Date.now() - c.at < ttl) return c.v;
-  const v = topNow(o); topCache.set(k, { at: Date.now(), v }); if (topCache.size > 60) topCache.delete(topCache.keys().next().value);
-  v.catch(() => topCache.delete(k));
-  return v;
-}
+function topKey(o) { return 'top|' + (o.by || 'artist') + '|' + (PERIODS[o.period] !== undefined ? o.period : 'month') + '|' + lim(o.limit, 50, 200); }
+function top(o = {}) { return kept(topKey(o), TTL[o.period] || TTL.month, () => topNow(o)); }
 async function topNow({ by = 'artist', period = 'month', limit = 50 } = {}) {
   const d = open(), t = since(period), n = lim(limit, 50, 200);
+  // artists over all time or a year: from the summaries (no pass over every play)
+  if (by === 'artist' && period === 'all' && summary())
+    return (await rq(`SELECT artist, plays, last_at AS last FROM kexp_artists WHERE ${NOT_VA} ORDER BY plays DESC, last_at DESC LIMIT ?`, [n])).map(r => ({ ...r, last: iso(r.last) }));
+  if (by === 'artist' && period === 'year' && monthlyReady())
+    return (await rq(`SELECT MAX(artist) AS artist, SUM(plays) AS plays FROM kexp_monthly WHERE month >= ? GROUP BY key ORDER BY plays DESC LIMIT ?`, [monthOf(t), n]));
   if (by === 'song') return (await rq(`SELECT MIN(artist) AS artist, MIN(song) AS song, COUNT(*) AS plays, MAX(airdate) AS last, MAX(image) AS image FROM kexp_plays
     WHERE airdate >= ? AND song IS NOT NULL GROUP BY artist COLLATE NOCASE, song COLLATE NOCASE ORDER BY plays DESC, last DESC LIMIT ?`, [t, n])).map(r => ({ ...r, last: iso(r.last) }));
   if (by === 'show') return (await rq(`SELECT s.program AS program, COUNT(*) AS plays, COUNT(DISTINCT p.show_id) AS shows, MAX(p.airdate) AS last, MAX(s.image) AS image FROM kexp_plays p JOIN kexp_shows s ON s.id = p.show_id
@@ -389,14 +480,20 @@ async function topNow({ by = 'artist', period = 'month', limit = 50 } = {}) {
 }
 // winners (idea from kexp.fyi): the most-played artist, song or album of each month or year, for the whole station or
 // one program / DJ, with the runner-up. Groups over every saved play, so it's cached like the top lists.
-function winners(o = {}) {
-  const k = 'w' + JSON.stringify([o.by, o.per, o.program, o.dj]), c = topCache.get(k);
-  if (c && Date.now() - c.at < 30 * 60e3) return c.v;
-  const v = winnersNow(o); topCache.set(k, { at: Date.now(), v }); if (topCache.size > 60) topCache.delete(topCache.keys().next().value);
-  v.catch(() => topCache.delete(k));
-  return v;
-}
+function winKey(o) { return 'win|' + (o.by || 'artist') + '|' + (o.per === 'year' ? 'year' : 'month') + '|' + (o.program || '') + '|' + (o.dj || ''); }
+function winners(o = {}) { return kept(winKey(o), TTL.winners, () => winnersNow(o)); }
 async function winnersNow({ by = 'artist', per = 'month', program = null, dj = null } = {}) {
+  // whole-station artist winners: from plays per month
+  if (by === 'artist' && !program && !dj && monthlyReady()) {
+    const pk = per === 'year' ? 'substr(month, 1, 4)' : 'month';
+    const rows = await rq(`WITH g AS (SELECT ${pk} AS period, key, MAX(artist) AS artist, SUM(plays) AS plays FROM kexp_monthly GROUP BY period, key),
+      r AS (SELECT *, ROW_NUMBER() OVER (PARTITION BY period ORDER BY plays DESC, artist) AS n, SUM(plays) OVER (PARTITION BY period) AS total FROM g)
+      SELECT * FROM r WHERE n <= 2 ORDER BY period DESC, n`, []);
+    const out = [];
+    for (const x of rows) { const it = { artist: x.artist, song: null, album: null, plays: x.plays };
+      if (x.n === 1) out.push({ period: x.period, total: x.total, winner: it, runnerUp: null }); else if (out.length && out[out.length - 1].period === x.period) out[out.length - 1].runnerUp = it; }
+    return { by, per, program, dj, list: out };
+  }
   const d = open(), fmt = per === 'year' ? '%Y' : '%Y-%m';
   const key = by === 'song' ? 'p.artist COLLATE NOCASE, p.song COLLATE NOCASE' : by === 'album' ? 'p.artist COLLATE NOCASE, p.album COLLATE NOCASE' : 'p.artist COLLATE NOCASE';
   const notNull = by === 'song' ? 'p.song IS NOT NULL' : by === 'album' ? "p.album IS NOT NULL AND p.album NOT LIKE '%live on kexp%'" : 'p.artist IS NOT NULL';
@@ -523,4 +620,4 @@ async function tableRows(name, { offset = 0, limit = 50 } = {}) {
   const rows = await rq(`SELECT * FROM ${name} ${order} LIMIT ? OFFSET ?`, [limit, offset]);
   return { name, total: t.count, offset, columns: t.columns, rows: rows.map(r => t.columns.map(c => r[c])) };
 }
-module.exports = { ftsStep, ftsReady, FILE, tables, tableRows, moveOld, touch, inUse, djsFor, _save: save, buildArtistsStep, isOn, heavySince, heavyFirst, playCount, winners, playsSince, status, checkNew, backfillStep, fillShows, row, start, top, search, artist, song, around, recent, newArtists, onAir, open };
+module.exports = { buildMonthlyStep, monthlyReady, warmLists, kept, race, ftsStep, ftsReady, FILE, tables, tableRows, moveOld, touch, inUse, djsFor, _save: save, buildArtistsStep, isOn, heavySince, heavyFirst, playCount, winners, playsSince, status, checkNew, backfillStep, fillShows, row, start, top, search, artist, song, around, recent, newArtists, onAir, open };
