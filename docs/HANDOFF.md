@@ -189,3 +189,9 @@ checking the code.
   TMDB); game themes from TheGamesDB with THEGAMESDB_API_KEY (server/services/gamesdb.js; map GAMES: botw, cyberpunk =
   Cyberpunk 2077, nes = platform 7). New game themes (CS:GO, Half-Life, Borderlands, GTA) just add an entry to GAMES.
   Still open: credited free-licence photos (theme `photo: {url, credit, link}`) for Halloween and Camping.
+
+- **Theme checks** (tests/themes-health.spec.mjs, 2026-11-18): every theme is applied to the demo data and checked for
+  readable text (contrast measured from the screenshot's pixels), sideways scrolling, a squashed view, missing task rows
+  or quick add, and errors. Pictures of every theme are in CI's "themes" artifact. Its KNOWN list holds ten themes whose
+  unselected sidebar tiles are faint (2.5 to 3:1): XP, Minty, Quartz, Solar and six daisyUI ones. It already found two
+  bugs: LimeWire's quick-add text stayed on every theme after it, and the quick-add hint was the browser's grey (gone on dark themes).

@@ -325,9 +325,12 @@
     const fake = e => { const t = e.detail || {}; const name = (t.title || 'task').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 40) + '.mp3'; dl = { name, p: 0 };
       const step = () => { if (!dl) return; dl.p = Math.min(100, dl.p + Math.ceil(Math.random() * 18)); draw(); if (dl.p < 100) setTimeout(step, 180 + Math.random() * 260); else setTimeout(() => { dl = null; draw(); }, 2600); }; step(); };
     document.addEventListener('cadence:task-complete', fake);
-    const ph = () => { const q = document.getElementById('qa'); if (q && !q.dataset.lw) { q.dataset.lw = 1; q.placeholder = 'Search for tasks… or add one: “Send SOW @acme fri”'; } };
+    const LW_PH = 'Search for tasks… or add one: “Send SOW @acme fri”';
+    const ph = () => { const q = document.getElementById('qa'); if (q && q.placeholder !== LW_PH) { q.dataset.lwWas = q.placeholder; q.placeholder = LW_PH; } };
     const mo = new MutationObserver(ph); const v = document.getElementById('view'); v && mo.observe(v, { childList: true }); ph();
-    return () => { clearInterval(iv); document.removeEventListener('cadence:task-complete', fake); mo.disconnect(); bar.remove(); };
+    return () => { clearInterval(iv); document.removeEventListener('cadence:task-complete', fake); mo.disconnect(); bar.remove();
+      // leaving LimeWire: quick add gets its own words back (they stayed on every theme after it)
+      const q = document.getElementById('qa'); if (q && q.placeholder === LW_PH) q.placeholder = q.dataset.lwWas || 'Send SOW @acme 3pm'; };
   };
   const LIME = '#4fa312';
   R({ id: 'limewire', name: 'LimeWire', category: 'Fun', tagline: 'Peer-to-peer task sharing, circa 2005. Turbo-Charged.',
