@@ -171,3 +171,7 @@ checking the code.
   table), your own listens, and an import of Spotify's extended streaming history (JSON) or Last.fm / ListenBrainz.
   Drawn in the browser with D3 (ISC, vendored, ~90 KB); "Save as video" records the canvas (MediaRecorder, WebM)
   with no server work.
+- KEXP theme (user, 2026-11-18): KEXP's look in CSS: its orange accent on near-black and warm off-white, bold condensed
+  headings (a lookalike font, licence permitting), the "on air" feel (a now-playing strip, DJ photo, song cards like the
+  KEXP playlist page). The KEXP logo may be shown from their own site (logos allowed, 2026-11-16) but not redrawn.
+  Pairs with Radio / KEXP history: show the current KEXP song in the Island while the theme is on.

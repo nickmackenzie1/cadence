@@ -29,6 +29,7 @@ test.beforeAll(async () => {
     P(25, 'Wednesday', 'Bleeds', 'Bleeds', { show: 8 });
     P(20, 'Brand New Band', 'First Single', 'Demo', { is_local: true });
     P(15, 'Brand New Band', 'Second Single', 'Demo');
+    P(12, 'Elias Rahbani', 'Dance of Maria', 'Mosaic of the Orient', { release_date: '1972-01-01' });
     for (let i = 0; i < 7; i++) P(14 - i, 'Various Artists', 'Comp ' + i, 'Compilation');   // a bucket, not a band: never a winner
   `], { env: { ...process.env, DATA_DIR: dir, KEXP_LOG: '0' }, encoding: 'utf8' });
   if (fill.status !== 0) throw new Error('filling the test database failed: ' + fill.stderr);
@@ -40,7 +41,7 @@ test.afterAll(() => { server && server.kill(); rmSync(dir, { recursive: true, fo
 
 test('KEXP history: top artists and songs, an artist, a song, the songs around a play, DJ comments, search', async ({ page }) => {
   await page.goto(B + '/#view-kexp-history');
-  await expect(page.locator('.kx-sum')).toContainText('17 songs saved since');
+  await expect(page.locator('.kx-sum')).toContainText('18 songs saved since');
   // Top: artists this month, Jay Som first with 5 plays
   await expect(page.locator('.kx-row').first()).toContainText('Jay Som');
   await expect(page.locator('.kx-row').first().locator('.kx-n')).toHaveText('5');
@@ -127,4 +128,14 @@ test('KEXP winners: most-played each month and year, for the station and for one
   await page.locator('[data-k=wper][data-v=year]').click();
   await page.locator('[data-k=wby][data-v=song]').click();
   await expect(page.locator('.kx-win li').first()).toContainText('Appointments');
+});
+
+test('Crate digging: old records KEXP played lately, with the decade and year', async ({ page }) => {
+  await page.route(u => u.pathname.endsWith('/api/radio/kexp') && u.searchParams.get('view') === 'hosts', r => r.fulfill({ json: { 'John Richards': { image: null, active: true } } }));
+  await page.goto(B + '/#view-kexp-history'); await expect(page.locator('#sync')).toBeVisible({ timeout: 10000 });
+  await page.locator('.kx-chip[data-k=tab][data-v=crate]').click();
+  await expect(page.locator('.kx-dec span')).toContainText(['1970s']);
+  const row = page.locator('.kx-play', { hasText: 'Dance of Maria' });
+  await expect(row).toContainText('from 1972');
+  await expect(page.locator('.kx-play', { hasText: 'Bleeds' })).toHaveCount(0);   // new music isn't crate digging
 });

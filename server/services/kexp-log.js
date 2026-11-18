@@ -539,8 +539,68 @@ function artist(name) {
   // which shows and DJs play them most
   const djs = d.prepare(`SELECT s.hosts AS hosts, s.program AS program, COUNT(*) AS plays FROM kexp_plays p JOIN kexp_shows s ON s.id = p.show_id
     WHERE p.artist = ? COLLATE NOCASE AND s.hosts IS NOT NULL GROUP BY s.hosts, s.program ORDER BY plays DESC LIMIT 8`).all(a);
-  return { artist: name0, plays: sum.plays, first: iso(sum.first), last: iso(sum.last), image: sum.image, songs, months, recent: plays, djs };
+  let links = []; try { links = commentLinks(name0); } catch {}
+  return { artist: name0, plays: sum.plays, first: iso(sum.first), last: iso(sum.last), image: sum.image, songs, months, recent: plays, djs, links };
 }
+// ---- links in DJ comments (2026-11-17): most end with the record's Bandcamp page, some with YouTube or Instagram ----
+// The comment is about the song played, so player and store links are taken as the artist's; an Instagram handle or
+// another website only when it carries the artist's name.
+const URL_RE = /https?:\/\/[^\s"'<>)\]]+/gi;
+function linkKind(u) {
+  let x; try { x = new URL(u); } catch { return null; }
+  const h = x.hostname.replace(/^www\./, '').toLowerCase(), p = x.pathname;
+  if (/\.bandcamp\.com$/.test(h)) return 'bandcamp';
+  if (h === 'youtube.com' || h === 'youtu.be' || h === 'm.youtube.com' || h === 'music.youtube.com') return /^\/(watch|shorts\/|playlist|@|channel\/)/.test(p) || (h === 'youtu.be' && /^\/[\w-]{6,}$/.test(p)) ? 'youtube' : null;
+  if (h === 'soundcloud.com') return 'soundcloud';
+  if (h === 'open.spotify.com') return 'spotify';
+  if (h === 'music.apple.com') return 'apple';
+  if (h === 'instagram.com') return 'instagram';
+  return 'website';
+}
+const nameBits = name => String(name || '').toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g, '').replace(/\b(the|and|feat|ft)\b/g, ' ').split(/[^a-z0-9]+/).filter(w => w.length >= 3);
+function commentLinks(name) {
+  if (!name) return [];
+  const rows = open().prepare(`SELECT comment FROM kexp_plays WHERE artist = ? COLLATE NOCASE AND (comment LIKE '%http%' OR comment LIKE '%instagram%') ORDER BY airdate DESC LIMIT 40`).all(String(name));
+  const bits = nameBits(name), squash = String(name).toLowerCase().replace(/[^a-z0-9]/g, ''), mine = u => { const s = u.toLowerCase().replace(/[^a-z0-9]/g, ''); return (squash.length >= 4 && s.includes(squash)) || bits.some(b => b.length >= 4 && s.includes(b)); };
+  const out = [], seen = new Set(), per = {};
+  const add = (kind, url) => { url = url.replace(/[.,;:!?]+$/, '').replace(/^http:/, 'https:'); const k = url.toLowerCase(); if (seen.has(k) || (per[kind] || 0) >= (kind === 'bandcamp' || kind === 'youtube' ? 2 : 1)) return; seen.add(k); per[kind] = (per[kind] || 0) + 1; out.push({ kind, url }); };
+  for (const r of rows) {
+    for (const u of String(r.comment).match(URL_RE) || []) {
+      const kind = linkKind(u); if (!kind) continue;
+      if ((kind === 'website' || kind === 'instagram') && !mine(u)) continue;
+      add(kind, u);
+    }
+    const ig = String(r.comment).match(/instagram\s*:?\s*@([a-z0-9._]{2,30})/i); if (ig) add('instagram', 'https://instagram.com/' + ig[1]);
+  }
+  const order = ['bandcamp', 'website', 'spotify', 'apple', 'youtube', 'soundcloud', 'instagram'];
+  return out.sort((a, b) => order.indexOf(a.kind) - order.indexOf(b.kind)).slice(0, 8);
+}
+// ---- crate digging (2026-11-17): old records KEXP's DJs played lately (released 20+ years before the play) ----
+function crate({ period = 'month' } = {}) {
+  const per = PERIODS[period] !== undefined && period !== 'all' ? period : 'month';
+  return kept('crate|' + per, 30 * 60e3, async () => {
+    const t = since(per), cut = new Date().getFullYear() - 20;
+    const rows = await rq(`SELECT * FROM kexp_plays WHERE airdate >= ? AND release_date IS NOT NULL AND CAST(substr(release_date, 1, 4) AS INTEGER) BETWEEN 1900 AND ? ORDER BY airdate DESC LIMIT 300`, [t, cut]);
+    const decades = {};
+    for (const r of rows) { const d = Math.floor(+String(r.release_date).slice(0, 4) / 10) * 10; decades[d] = (decades[d] || 0) + 1; }
+    return { period: per, decades: Object.entries(decades).map(([d, n]) => ({ decade: +d, plays: n })).sort((a, b) => a.decade - b.decade), plays: rows.map(play) };
+  });
+}
+// ---- DJs (2026-11-17): KEXP's host list (photo, still on air or not), from the older API, kept a week ----
+function hosts() {
+  return kept('hosts', 7 * 86400e3, async () => {
+    const out = {}; let url = `${API}/v1/host/?format=json&limit=100`;
+    for (let i = 0; url && i < 10; i++) {
+      const j = await get(url);
+      for (const h of j.results || []) if (h.name) out[h.name] = { image: h.newimageuri || h.imageuri || null, active: !!h.isactive };
+      // the next page, always asked of KEXP's own API (whatever address the answer gives)
+      let nx = null; try { nx = j.next ? new URL(j.next) : null; } catch {}
+      url = nx && nx.hostname === new URL(API).hostname ? API + nx.pathname + nx.search : null;
+    }
+    return out;
+  });
+}
+
 // one program (e.g. "The Morning Show") or one DJ: what they play most, and their recent plays
 async function onAir({ program, dj, period = 'all' } = {}) {
   const d = open(), t = since(period), W = program ? 's.program = ?' : "(', ' || s.hosts || ', ') LIKE ? ESCAPE '\\'", v = program ? String(program) : like(', ' + String(dj || '') + ', ').replace(/^%|%$/g, '%');
@@ -620,4 +680,4 @@ async function tableRows(name, { offset = 0, limit = 50 } = {}) {
   const rows = await rq(`SELECT * FROM ${name} ${order} LIMIT ? OFFSET ?`, [limit, offset]);
   return { name, total: t.count, offset, columns: t.columns, rows: rows.map(r => t.columns.map(c => r[c])) };
 }
-module.exports = { buildMonthlyStep, monthlyReady, warmLists, kept, race, ftsStep, ftsReady, FILE, tables, tableRows, moveOld, touch, inUse, djsFor, _save: save, buildArtistsStep, isOn, heavySince, heavyFirst, playCount, winners, playsSince, status, checkNew, backfillStep, fillShows, row, start, top, search, artist, song, around, recent, newArtists, onAir, open };
+module.exports = { commentLinks, crate, hosts, buildMonthlyStep, monthlyReady, warmLists, kept, race, ftsStep, ftsReady, FILE, tables, tableRows, moveOld, touch, inUse, djsFor, _save: save, buildArtistsStep, isOn, heavySince, heavyFirst, playCount, winners, playsSince, status, checkNew, backfillStep, fillShows, row, start, top, search, artist, song, around, recent, newArtists, onAir, open };

@@ -164,7 +164,7 @@
       } });
 
       // ---------------- KEXP history: every play the NAS has saved, grouped and counted (no AI) ----------------
-      const K = { wby: api.storage.get('wby') || 'artist', wper: api.storage.get('wper') || 'month', tab: api.storage.get('kTab') || 'top', by: api.storage.get('kBy') || 'artist', period: api.storage.get('kPeriod') || 'month', q: '', group: 'artist', detail: null, cache: {} };
+      const K = { cper: api.storage.get('cper') || 'month', wby: api.storage.get('wby') || 'artist', wper: api.storage.get('wper') || 'month', tab: api.storage.get('kTab') || 'top', by: api.storage.get('kBy') || 'artist', period: api.storage.get('kPeriod') || 'month', q: '', group: 'artist', detail: null, cache: {} };
       // what this page has already shown stays on screen when you come back; a fresh copy is asked for behind it
       // (2026-11-17: "stuff needs to be snappier")
       const kget = (qs, key = qs) => {
@@ -184,17 +184,24 @@
       const go = (detail, back) => { if (!back && K.detail) (K.stack = K.stack || []).push(K.detail); if (!detail) K.stack = []; K.detail = detail; api.ui.refresh(); const v = document.getElementById('view'); if (v) v.scrollTop = 0; scrollTo(0, 0); };
       const enc = encodeURIComponent;
       // artwork only when KEXP has it (a placeholder on every row is just noise); the header always gets one
+      // the 500px cover where the address has one (Cover Art Archive, Internet Archive), for the big picture at the top
+      const bigArt = u => String(u || '').replace(/-250\.jpg$/, '-500.jpg').replace(/_thumb250\.jpg$/, '_thumb500.jpg') || null;
+      // "from 1972" when a record is much older than the play (crate digging); nothing for new music
+      const yearOf = p => { const y = +String(p.release || '').slice(0, 4), at = new Date(p.at).getFullYear(); return y > 1900 && at - y >= 3 ? y : null; };
+      // KEXP's DJs: photo, and whether they're still on air (loaded once a visit; kept a week on the NAS)
+      const hostOf = name => { if (!K.hosts) { K.hosts = {}; getJson('api/radio/kexp?view=hosts').then(h => { K.hosts = h || {}; if (api.ui.currentRoute() === 'view-kexp-history') api.ui.refresh(); }, () => {}); } return K.hosts[name] || null; };
+      const djFace = (name, big) => { const h = hostOf(name); return h && h.image ? `<img class="kx-dj${big ? ' big' : ''}" src="${E(h.image)}" alt="" loading="lazy" onerror="this.remove()">` : ''; };
       const art = (img, head) => img ? `<img src="${E(img)}" alt="" loading="lazy" onerror="this.style.visibility='hidden'">` : head ? `<i class="rd-noart">${api.ui.icon('list-music')}</i>` : '';
       const aBtn = a => `<button class="kx-link" data-k="artist" data-a="${E(a)}">${E(a)}</button>`;
       const rowArtist = r => `<li class="kx-row" data-k="artist" data-a="${E(r.artist)}">${art(r.image)}<div class="rd-t"><b>${E(r.artist)}</b><span class="muted">${n(r.plays, 'play', 'plays')}${r.songs ? ' · ' + n(r.songs, 'song', 'songs') : ''} · last ${ago(r.last)}</span></div><span class="kx-n">${(+r.plays).toLocaleString()}</span></li>`;
       const rowSong = r => `<li class="kx-row" data-k="song" data-a="${E(r.artist)}" data-s="${E(r.song)}">${art(r.image)}<div class="rd-t"><b>${E(r.song)}</b><span class="muted">${E(r.artist)} · ${n(r.plays, 'play', 'plays')} · last ${ago(r.last)}</span></div><span class="kx-n">${(+r.plays).toLocaleString()}</span></li>`;
       const rowAlbum = r => `<li class="kx-row" data-k="artist" data-a="${E(r.artist)}">${art(r.image)}<div class="rd-t"><b>${E(r.album)}</b><span class="muted">${E(r.artist)}${r.label ? ' · ' + E(r.label) : ''} · last ${ago(r.last)}</span></div><span class="kx-n">${(+r.plays).toLocaleString()}</span></li>`;
       const rowShow = r => `<li class="kx-row" data-k="program" data-v="${E(r.program)}">${art(r.image)}<div class="rd-t"><b>${E(r.program)}</b><span class="muted">${n(r.shows, 'show', 'shows')} · last ${ago(r.last)}</span></div><span class="kx-n">${(+r.plays).toLocaleString()}</span></li>`;
-      const rowDj = r => `<li class="kx-row" data-k="dj" data-v="${E(String(r.hosts).split(', ')[0])}"><div class="rd-t"><b>${E(r.hosts)}</b><span class="muted">${E(r.programs || '')} · ${n(r.shows, 'show', 'shows')} · last ${ago(r.last)}</span></div><span class="kx-n">${(+r.plays).toLocaleString()}</span></li>`;
+      const rowDj = r => `<li class="kx-row" data-k="dj" data-v="${E(String(r.hosts).split(', ')[0])}">${djFace(String(r.hosts).split(', ')[0])}<div class="rd-t"><b>${E(r.hosts)}</b><span class="muted">${(hostOf(String(r.hosts).split(', ')[0]) || {}).active === false ? 'former KEXP DJ · ' : ''}${E(r.programs || '')} · ${n(r.shows, 'show', 'shows')} · last ${ago(r.last)}</span></div><span class="kx-n">${(+r.plays).toLocaleString()}</span></li>`;
       const inArchive = at => { const t = Date.parse(at); return isFinite(t) && Date.now() - t < 336 * 3600e3 - 20 * 60e3 && Date.now() - t > 5 * 60e3; };
       const rowPlay = (p, hl) => `<li class="kx-play${hl ? ' hl' : ''}"><span class="kx-when">${E(when(p.at))}</span>
         <div class="rd-t"><b><button class="kx-link" data-k="song" data-a="${E(p.artist)}" data-s="${E(p.song || '')}">${E(p.song || '(untitled)')}</button></b>
-          <span class="muted">${aBtn(p.artist)}${p.album ? ' · ' + E(p.album) : ''}${p.label ? ' · ' + E(p.label) : ''}${p.rotation ? ' · ' + E(p.rotation) + ' rotation' : ''}${p.live ? ' · live in studio' : ''}${p.local ? ' · local' : ''}${p.request ? ' · request' : ''}</span>
+          <span class="muted">${aBtn(p.artist)}${p.album ? ' · ' + E(p.album) : ''}${yearOf(p) ? ` · <span class="kx-yr" title="Released ${yearOf(p)}">from ${yearOf(p)}</span>` : ''}${p.label ? ' · ' + E(p.label) : ''}${p.rotation ? ' · ' + E(p.rotation) + ' rotation' : ''}${p.live ? ' · live in studio' : ''}${p.local ? ' · local' : ''}${p.request ? ' · request' : ''}</span>
           ${p.show ? `<span class="muted kx-show">on <button class="kx-link" data-k="program" data-v="${E(p.show.program)}">${E(p.show.program)}</button>${p.show.hosts ? ' with ' + p.show.hosts.split(', ').map(h => `<button class="kx-link" data-k="dj" data-v="${E(h)}">${E(h)}</button>`).join(', ') : ''}</span>` : ''}
           ${p.comment ? `<details class="kx-c"><summary>DJ comment</summary><p>${E(p.comment)}</p></details>` : ''}</div>
         ${inArchive(p.at) ? `<button class="pc-ib" data-kx-arch="${E(p.at)}" data-title="${E((p.artist ? p.artist + ' – ' : '') + (p.song || ''))}" data-show="${E(p.show ? p.show.program : 'KEXP')}" aria-label="Listen from here, in KEXP's archive" title="Listen from here (KEXP keeps two weeks)">${api.ui.icon('headphones')}</button>` : ''}
@@ -219,7 +226,7 @@
           const a = kget('view=artist&artist=' + enc(d.artist));
           if (!a) return back + '<p class="muted">Loading…</p>';
           if (a.error || a === null) return back + `<p class="muted">Nothing saved for ${E(d.artist)} yet.</p>`;
-          return `${back}<div class="kx-head">${art(a.image, true)}<div><h3>${E(a.artist)}</h3><p class="muted">${n(a.plays, 'play', 'plays')} · first ${E(when(a.first))} · last ${E(when(a.last))}</p>
+          return `${back}<div class="kx-head">${art(bigArt(a.image), true)}<div><h3>${E(a.artist)}</h3><p class="muted">${n(a.plays, 'play', 'plays')} · first ${E(when(a.first))} · last ${E(when(a.last))}</p>
             <a class="btn kx-full" href="#view-artist" data-artist="${E(a.artist)}">${api.ui.icon('mic-vocal')}Everything about ${E(a.artist)}</a></div></div>
             ${a.months.length > 1 ? bars(a.months) : ''}
             <h4 class="rd-h">Songs</h4>${list(a.songs.map(s => ({ ...s, artist: a.artist, image: null })), rowSong, '')}
@@ -229,7 +236,7 @@
           const s = kget(`view=song&artist=${enc(d.artist)}&song=${enc(d.song)}`);
           if (!s) return back + '<p class="muted">Loading…</p>';
           if (s.error) return back + `<p class="muted">Nothing saved for that song yet.</p>`;
-          return `${back}<div class="kx-head">${art(s.plays[0] && s.plays[0].image, true)}<div><h3>${E(s.song)}</h3><p class="muted">${aBtn(s.artist)}${s.album ? ' · ' + E(s.album) : ''} · ${n(s.plays.length, 'play', 'plays')}</p></div></div>
+          return `${back}<div class="kx-head">${art(s.plays[0] && bigArt(s.plays[0].image), true)}<div><h3>${E(s.song)}</h3><p class="muted">${aBtn(s.artist)}${s.album ? ' · ' + E(s.album) : ''} · ${n(s.plays.length, 'play', 'plays')}</p></div></div>
             ${list(s.plays, p => rowPlay(p), '')}`;
         }
         if (d.type === 'program' || d.type === 'dj') {
@@ -238,7 +245,8 @@
           if (r.error) return back + `<p class="muted">Nothing saved for ${E(d.name)} yet.</p>`;
           const who = d.type === 'program' ? (r.hosts ? 'with ' + r.hosts.split(',').map(h => h.trim()).filter((h, i, a) => a.indexOf(h) === i).slice(0, 6).map(h => `<button class="kx-link" data-k="dj" data-v="${E(h)}">${E(h)}</button>`).join(', ') : '')
             : 'on ' + String(r.programs || '').split(',').slice(0, 6).map(x => `<button class="kx-link" data-k="program" data-v="${E(x)}">${E(x)}</button>`).join(', ');
-          return `${back}<div class="kx-head">${art(r.image, true)}<div><h3>${E(d.name)}</h3><p class="muted">${who}</p><p class="muted">${n(r.plays, 'play', 'plays')} across ${n(r.shows, 'show', 'shows')} · last ${E(when(r.last))}${r.tags ? ' · ' + E(r.tags) : ''}</p></div></div>
+          const face = d.type === 'dj' && hostOf(d.name) && hostOf(d.name).image ? `<img src="${E(hostOf(d.name).image)}" alt="" onerror="this.style.visibility='hidden'">` : art(r.image, true);
+          return `${back}<div class="kx-head">${face}<div><h3>${E(d.name)}</h3><p class="muted">${d.type === 'dj' && (hostOf(d.name) || {}).active === false ? 'A former KEXP DJ · ' : ''}${who}</p><p class="muted">${n(r.plays, 'play', 'plays')} across ${n(r.shows, 'show', 'shows')} · last ${E(when(r.last))}${r.tags ? ' · ' + E(r.tags) : ''}</p></div></div>
             <div class="kx-two"><div><h4 class="rd-h">Artists they play most</h4>${list(r.artists, rowArtist, '')}</div><div><h4 class="rd-h">Songs they play most</h4>${list(r.songs, rowSong, '')}</div></div>
             <h4 class="rd-h">Their favourite artist each month</h4>${winnersHtml(kget(`view=winners&by=artist&per=month&${d.type}=${enc(d.name)}`), 12)}
             <h4 class="rd-h">Recent plays</h4>${list(r.recent, p => rowPlay(p), '')}`;
@@ -330,7 +338,7 @@
         else if (!hist.plays) body = `<p class="muted">Your NAS starts saving KEXP's playlist a few seconds after it starts. Check back in a few minutes.</p>`;
         else if (K.detail) body = detailHtml();
         else {
-          const tabs = chips('tab', K.tab, [['top', 'Top'], ['winners', 'Winners'], ['recent', 'Recent'], ['new', 'New to KEXP'], ['search', 'Search']]);
+          const tabs = chips('tab', K.tab, [['top', 'Top'], ['winners', 'Winners'], ['recent', 'Recent'], ['new', 'New to KEXP'], ['crate', 'Crate digging'], ['search', 'Search']]);
           let inner = '';
           if (K.tab === 'top') {
             const rows = kget(`view=top&by=${K.by}&period=${K.period}&limit=100`);
@@ -342,6 +350,12 @@
           } else if (K.tab === 'recent') {
             const c = api.storage.get('kComments') === true;
             inner = `<label class="kx-tog"><input type="checkbox" id="kx-com" ${c ? 'checked' : ''}> Only plays with a DJ comment</label>${list(kget('view=recent&limit=100' + (c ? '&comments=1' : '')), p => rowPlay(p), 'Nothing yet.')}`;
+          } else if (K.tab === 'crate') {
+            const r = kget(`view=crate&period=${K.cper || 'month'}`), top = r && r.decades ? Math.max(1, ...r.decades.map(x => x.plays)) : 1;
+            inner = `<div class="kx-bar">${chips('cper', K.cper || 'month', [['week', 'This week'], ['month', 'This month'], ['year', 'This year']])}</div>
+              <p class="muted">Records at least 20 years old that KEXP's DJs played: the gems they dug out.</p>
+              ${r && r.decades && r.decades.length ? `<div class="kx-dec">${r.decades.map(x => `<span title="${x.plays} plays"><i style="height:${Math.max(4, Math.round(x.plays / top * 56))}px"></i>${x.decade}s</span>`).join('')}</div>` : ''}
+              ${!r ? '<p class="muted">Loading…</p>' : r.error ? `<p class="pc-note">${E(r.error)}</p>` : list(r.plays, p => rowPlay(p), 'No old records in this stretch yet.')}`;
           } else if (K.tab === 'new') {
             const r = kget('view=new&days=14');
             inner = !r ? '<p class="muted">Loading…</p>' : r.error ? `<p class="pc-note">${E(r.error)}</p>` : !r.ready ? `<p class="muted">This needs a month of history to compare with. It will fill in as your NAS saves more.</p>`
@@ -361,7 +375,7 @@
           const b = e.target.closest('[data-k]'); if (!b || b.tagName === 'SUMMARY') return;
           const k = b.dataset.k;
           if (k === 'tab') { K.tab = b.dataset.v; api.storage.set('kTab', K.tab); K.detail = null; K.stack = []; api.ui.refresh(); }
-          else if (k === 'wby' || k === 'wper') { K[k] = b.dataset.v; api.storage.set(k, b.dataset.v); api.ui.refresh(); }
+          else if (k === 'wby' || k === 'wper' || k === 'cper') { K[k] = b.dataset.v; api.storage.set(k, b.dataset.v); api.ui.refresh(); }
           else if (k === 'by' || k === 'period' || k === 'group') { K[k] = b.dataset.v; if (k !== 'group') api.storage.set(k === 'by' ? 'kBy' : 'kPeriod', b.dataset.v); api.ui.refresh(); }
           else if (k === 'artist') go({ type: 'artist', artist: b.dataset.a });
           else if (k === 'song' && b.dataset.s) go({ type: 'song', artist: b.dataset.a, song: b.dataset.s });
@@ -383,6 +397,8 @@
   const css = document.createElement('style');
   css.textContent = `.rd{max-width:880px;display:flex;flex-direction:column;gap:10px}
     .rd-h{margin:14px 0 2px;font-size:15px}
+    .kx-dj{width:36px;height:36px;border-radius:50%;object-fit:cover;flex:none} .kx-yr{color:var(--accent)}
+    .kx-dec{display:flex;align-items:flex-end;gap:8px;margin:6px 0 10px;min-height:76px}.kx-dec span{display:flex;flex-direction:column;align-items:center;gap:4px;font-size:11px;color:var(--muted)}.kx-dec i{display:block;width:22px;border-radius:4px 4px 0 0;background:var(--accent);opacity:.7}
     .rd-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:8px}
     .rd-st{display:flex;align-items:center;gap:10px;padding:8px 10px;border:1px solid var(--line);border-radius:var(--radius,10px);background:var(--card)}
     .rd-st.on{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent) inset}

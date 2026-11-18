@@ -129,3 +129,45 @@ test('plays per month, the year-by-year race, and lists kept ready (served at on
   expect(r.win).toEqual([['2020', 'Big Thief', 84], ['2019', 'Alvvays', 121]]);
   expect(r.same).toBe(true); expect(r.quick).toBeLessThan(50); expect(r.kept).toBeGreaterThanOrEqual(2);
 });
+
+test('DJ comment links, crate digging and the DJ list', async () => {
+  const { createServer } = await import('node:http');
+  const fake = createServer((req, res) => {
+    const u = new URL(req.url, 'http://x');
+    if (u.pathname === '/v1/host/') { res.writeHead(200, { 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify(u.searchParams.get('offset') ? { next: null, results: [{ name: 'Chilly', imageuri: 'https://www.kexp.org/media/chilly.jpg', isactive: false }] }
+        : { next: `http://127.0.0.1:${fake.address().port}/v1/host/?format=json&limit=100&offset=100`, results: [{ name: 'Cheryl Waters', newimageuri: 'https://www.kexp.org/media/cheryl.jpg', imageuri: '', isactive: true }] })); }
+    res.writeHead(404); res.end();
+  });
+  await new Promise(r => fake.listen(0, '127.0.0.1', r));
+  const dir = mkdtempSync(join(tmpdir(), 'cadence-kexplinks-'));
+  try {
+    const out = await new Promise((ok, no) => { const c = spawn(process.execPath, ['--disable-warning=ExperimentalWarning', '-e', `
+      const K = require('./server/services/kexp-log.js'), d = K.open();
+      const ins = d.prepare('INSERT INTO kexp_plays (id, airdate, artist, song, release_date, comment) VALUES (?,?,?,?,?,?)'), t = Math.floor(Date.now() / 1000);
+      ins.run(1, t - 3600, 'IREKE', 'Abanije', '2026-02-01', 'IREKE is a French project.\\n\\nhttps://ireke.bandcamp.com/album/ayo-dele');
+      ins.run(2, t - 7200, 'IREKE', 'Tout est bizarre', '2026-02-01', 'Sugar cane. https://ireke.bandcamp.com/track/tout-est-bizarre. Also https://youtu.be/EmVFBIyFI7c?si=x and a review at https://pitchfork.com/reviews/x');
+      ins.run(3, t - 9000, 'DAM', 'Ya weli', '2019-05-01', 'Palestinian hip-hop.\\n\\nInstagram: @dampalestine');
+      ins.run(4, t - 5000, 'Elias Rahbani', 'Dance of Maria', '1972-01-01', 'Lebanese psych. https://nowagainrecords.bandcamp.com/track/dance-of-maria');
+      ins.run(5, t - 6000, 'Los Hijos del Sol', 'Carinito', '1981', null);
+      ins.run(6, t - 86400 * 400, 'Old Play', 'x', '1960', null);
+      (async () => {
+        const c = await K.crate({ period: 'month' }), h = await K.hosts();
+        console.log(JSON.stringify({ ireke: K.commentLinks('ireke'), dam: K.commentLinks('DAM'), elias: K.commentLinks('Elias Rahbani'), art: K.artist('IREKE').links.length,
+          crate: c.plays.map(p => p.artist), decades: c.decades, hosts: h }));
+      })();
+    `], { env: { ...process.env, DATA_DIR: dir, KEXP_LOG: '1', KEXP_LOG_DELAY: '99999999', KEXP_API: `http://127.0.0.1:${fake.address().port}` } });
+      let o = '', e = ''; c.stdout.on('data', x => o += x); c.stderr.on('data', x => e += x); c.on('exit', code => code ? no(new Error(e)) : ok(o)); });
+    const r = JSON.parse(out.trim().split('\n').pop());
+    // the artist's Bandcamp first (both releases), YouTube kept, a review site that isn't theirs left out
+    expect(r.ireke).toEqual([{ kind: 'bandcamp', url: 'https://ireke.bandcamp.com/album/ayo-dele' }, { kind: 'bandcamp', url: 'https://ireke.bandcamp.com/track/tout-est-bizarre' }, { kind: 'youtube', url: 'https://youtu.be/EmVFBIyFI7c?si=x' }]);
+    expect(r.dam).toEqual([{ kind: 'instagram', url: 'https://instagram.com/dampalestine' }]);
+    expect(r.elias).toEqual([{ kind: 'bandcamp', url: 'https://nowagainrecords.bandcamp.com/track/dance-of-maria' }]);   // a label's page for the record
+    expect(r.art).toBe(3);
+    // crate digging: 20+ years old, played this month, newest play first; the decades counted
+    expect(r.crate).toEqual(['Elias Rahbani', 'Los Hijos del Sol']);
+    expect(r.decades).toEqual([{ decade: 1970, plays: 1 }, { decade: 1980, plays: 1 }]);
+    // DJs, every page of the list
+    expect(r.hosts).toEqual({ 'Cheryl Waters': { image: 'https://www.kexp.org/media/cheryl.jpg', active: true }, Chilly: { image: 'https://www.kexp.org/media/chilly.jpg', active: false } });
+  } finally { fake.close(); rmSync(dir, { recursive: true, force: true }); }
+});

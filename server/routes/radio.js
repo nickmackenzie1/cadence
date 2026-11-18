@@ -33,6 +33,8 @@ module.exports = async function radioRoutes(req, res, { url, p }) {
       if (v === 'onair') return K.onAir(q);
       if (v === 'winners') return K.winners(q);
       if (v === 'race') return K.race();
+      if (v === 'crate') return K.crate(q);
+      if (v === 'hosts') return K.hosts();
       if (v === 'archive') return require('../services/kexp-archive').archiveAt(q.at);
       throw Object.assign(new Error('unknown view'), { code: 400 });
     });
