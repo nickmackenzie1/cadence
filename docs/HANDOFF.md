@@ -158,3 +158,8 @@ checking the code.
     drag now, which fingers can't do).
   - uFuzzy (MIT, ~7 KB): typo-tolerant matching in ⌘K ("wnsdy" finds Wednesday).
   - uPlot (MIT, ~50 KB): real axes and hover readouts for Your year and Radar's Rising charts (hand-drawn SVG now).
+- Animated "top artists through the years" charts (user, 2026-11-17): bar chart race, bump chart (rank lines),
+  streamgraph. Data: KEXP history (2001 on, plays per artist per month, built by a quiet background job into a small
+  table), your own listens, and an import of Spotify's extended streaming history (JSON) or Last.fm / ListenBrainz.
+  Drawn in the browser with D3 (ISC, vendored, ~90 KB); "Save as video" records the canvas (MediaRecorder, WebM)
+  with no server work.
