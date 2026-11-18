@@ -15,9 +15,9 @@ checking the code.
   words ("overdue", "late", "behind"), no red for unfinished work (red = real errors only), nothing punishes unfinished
   work by itself. Accountability plugins stay opt-in and off by default.
 - No emoji in the UI: Lucide icons via api.ui.icon.
-- Themes: lookalike fonts (licence permitting), palettes, textures, UI chrome and props in CSS are fine. Logos are
-  allowed now (user, 2026-11-16: "there can be logos, lets remove that rule"), but Claude itself doesn't redraw a brand's
-  real logo or wordmark; real artwork the user brings (skins, images) is fine. No quotes, and Claude doesn't draw actual characters. Rebuilt items stay generic (a gem, not a rupee).
+- Themes: rules lifted (user, 2026-11-18: "remove those rules"). Any look, real logos and brand fonts where licensed.
+  Claude itself still doesn't draw, copy or download copyrighted characters, stills, artwork or quotes, or redraw a logo.
+  It uses logos fetched from the brand's own site, credited free-licence photos, and images or sounds the user adds.
 - Reddit: removed completely 2026-11-16 ("I don't like Reddit anymore"): no fetching, archive, subreddit list,
   suggestions, keys or Reddit theme. Old radar_history / Reddit picks stay in the database untouched. Don't add it back.
 - Keep all history (user, 2026-11-18: "no i want data"): never prune Radar's tables (chart points, snapshots, genres,

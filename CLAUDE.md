@@ -9,7 +9,7 @@ A self-hosted to-do app with Work and Life spaces, running in Docker on the user
 - **Every push gets a new release number:** run `npm run bump` (or `npm run bump minor` for a big batch) before committing.
 - **Calm, anxiety-safe UI:** no alarming red, no countdown pressure, no badge counts. Use plain labels.
 - **No emoji in the UI.** Use Lucide icons via `api.ui.icon(name)`. To add icons: `node scripts/build-icons.mjs /tmp/lu/package <names>`.
-- **Themes:** CSS recreations, lookalike fonts and props are fine. Logos are allowed (user, 2026-11-16). No quotes. Don't draw actual characters.
+- **Themes:** the user lifted the theme rules (2026-11-18): any look, real logos, film and show themes. Claude itself still doesn't draw, copy or download copyrighted characters, stills, artwork or quotes, or redraw a logo; it shows logos from the brand's own site, credited free-licence photos (Wikimedia Commons) and images or sounds the user adds.
 - When the user mentions an idea, add it to the bottom of `docs/HANDOFF.md`.
 
 ## Layout
