@@ -60,3 +60,19 @@ test('follow from the artist page; a station playing them becomes a note, listed
   await page.click('[data-unfollow="Jay Som"]');
   await expect(page.locator('.fw-l')).toHaveCount(0);
 });
+
+test('Follow knows an artist you follow under another spelling, changes at once, and says so when it can\'t save', async ({ page }) => {
+  await post('/api/radar/follow', { add: 'Black Country New Road' });   // e.g. followed from a blog's spelling
+  await page.goto(B + '/'); await expect(page.locator('#sync')).toContainText('NAS', { timeout: 10000 });
+  await page.evaluate(() => { window.CadenceArtist.open('Black Country, New Road'); location.hash = 'view-artist'; });
+  const btn = page.locator('[data-follow="Black Country, New Road"]');
+  await expect(btn).toHaveText('Following');                             // was "Follow", and clicking did nothing
+  await btn.click();
+  await expect(btn).toHaveText('Follow');
+  expect((await (await fetch(B + '/api/radar/follow')).json()).follows.map(f => f.key)).not.toContain('black country new road');
+  // the NAS can't be reached: a plain message, and the button goes back
+  await page.route('**/api/radar/follow', r => r.request().method() === 'POST' ? r.fulfill({ status: 502, body: '' }) : r.continue());
+  await btn.click();
+  await expect(page.getByText("Couldn't reach Music Radar just now").first()).toBeVisible();
+  await expect(btn).toHaveText('Follow');
+});

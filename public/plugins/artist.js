@@ -23,13 +23,34 @@
     return true;
   };
   // ---- following artists: the list and what's new are kept on the NAS (api/radar/follow) ----
-  const FW = { d: null, at: 0 };
-  const fwLoad = async (body) => { try { const r = await fetch('api/radar/follow', body ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) } : {}); if (r.ok) { FW.d = await r.json(); FW.at = Date.now(); } } catch (e) {} window.dispatchEvent(new Event('cadence-follow')); return FW.d; };
+  // the same name matching the NAS uses (radar/lib/extract.mjs norm): "Black Country, New Road" = "black country new road"
+  // (2026-11-17: comparing plain lowercase made Follow look like it did nothing when the names were spelled differently)
+  const norm = n => String(n).toLowerCase().trim().replace(/\s+(feat\.?|ft\.?|featuring|with|x|&|,)\s+.*$/, '')
+    .normalize('NFKD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9 ]/g, '').replace(/\s+/g, ' ').trim();
+  const FW = { d: null, at: 0, pending: new Map() };
+  const fwLoad = async (body) => {
+    let ok = false;
+    try {
+      const r = await fetch('api/radar/follow', body ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) } : {});
+      if (r.ok) { const d = await r.json(); FW.d = body && body.news === false ? { ...d, news: (FW.d && FW.d.news) || [] } : d; FW.at = Date.now(); ok = true; }
+    } catch (e) {}
+    window.dispatchEvent(new Event('cadence-follow'));
+    return ok ? FW.d : null;
+  };
+  // follow / unfollow: the button changes at once; the NAS answers without working out the news (that comes after)
+  const fwChange = async (name, add) => {
+    const k = norm(name); FW.pending.set(k, add); window.dispatchEvent(new Event('cadence-follow'));
+    const d = await fwLoad(add ? { add: name, news: false } : { remove: name, news: false });
+    FW.pending.delete(k);
+    if (d) setTimeout(() => fwLoad(), 1500); else window.dispatchEvent(new Event('cadence-follow'));
+    return d;
+  };
   window.CadenceFollow = {
     peek: () => FW.d || { follows: [], news: [] },
     load: (force) => (!force && FW.d && Date.now() - FW.at < 60e3 ? Promise.resolve(FW.d) : fwLoad()),
-    has: name => { if (!FW.d || !name) return false; const n = String(name).toLowerCase(); return FW.d.follows.some(f => f.name.toLowerCase() === n || f.key === n); },
-    add: name => fwLoad({ add: name }), remove: name => fwLoad({ remove: name }), seen: (name) => fwLoad({ seen: name || true })
+    loaded: () => !!FW.d,
+    has: name => { if (!name) return false; const k = norm(name); if (FW.pending.has(k)) return FW.pending.get(k); return !!FW.d && FW.d.follows.some(f => f.key === k || norm(f.name) === k); },
+    add: name => fwChange(name, true), remove: name => fwChange(name, false), seen: (name) => fwLoad({ seen: name || true })
   };
   window.CadencePreview = {
     play: (artist, title) => { PV.queue = []; return playOne(artist, title); },
@@ -113,8 +134,12 @@
       if (nb.closest('.modal')) { const li = nb.closest('li'); if (li) li.remove(); }
       return; }
     const fb = e.target.closest('[data-follow]');
-    if (fb) { e.preventDefault(); e.stopPropagation(); const n = fb.dataset.follow, on = window.CadenceFollow.has(n);
-      await (on ? window.CadenceFollow.remove(n) : window.CadenceFollow.add(n)); PV.toast(on ? 'Stopped following ' + n : 'Following ' + n + '. You\'ll get a note when they turn up.'); return; }
+    if (fb) { e.preventDefault(); e.stopPropagation(); if (fb.disabled) return;
+      const n = fb.dataset.follow;
+      if (!window.CadenceFollow.loaded()) await window.CadenceFollow.load();   // know where you stand before changing it
+      const on = window.CadenceFollow.has(n); fb.disabled = true;
+      const d = await (on ? window.CadenceFollow.remove(n) : window.CadenceFollow.add(n)); fb.disabled = false;
+      PV.toast(!d ? 'Couldn\'t reach Music Radar just now. Try again in a moment.' : on ? 'Stopped following ' + n : 'Following ' + n + '. You\'ll get a note when they turn up.'); return; }
     const b = e.target.closest('[data-pv],[data-want]'); if (!b) return;
     e.preventDefault(); e.stopPropagation(); hook();
     const a = b.dataset.a, t = b.dataset.t || null;
@@ -467,7 +492,7 @@
               ${d.called && d.called.lead > 0 ? `<p class="ap-called">${api.ui.icon('trophy')}Radar spotted them on ${E(d.called.via)}, ${d.called.milestones.map(m => `${m.days} days before ${E(m.what)}`).join(' and ')}</p>` : ''}
               ${d.sound ? `<p class="muted ap-sound" title="Read from the previews you've played">${api.ui.icon('audio-waveform')}${E(d.sound.words)} <span>(from ${d.sound.songs} preview${d.sound.songs === 1 ? '' : 's'})</span></p>` : ''}
               ${tags.length ? `<div class="ap-tags">${tags.map(t => `<span>${E(t)}</span>`).join('')}</div>` : ''}
-              <div class="ap-links">${(() => { const f = window.CadenceFollow.has(d.name); return `<button class="btn${f ? '' : ' primary'}" data-follow="${E(d.name)}" aria-pressed="${f}">${api.ui.icon(f ? 'user-check' : 'user-plus')}${f ? 'Following' : 'Follow'}</button>`; })()}<button class="btn" data-pv data-a="${E(d.name)}">${api.ui.icon('play')}Play a preview</button>${(() => { const on = window.CadencePreview.want.has(d.name, null);
+              <div class="ap-links">${(() => { if (!window.CadenceFollow.loaded()) window.CadenceFollow.load(); const f = window.CadenceFollow.has(d.name); return `<button class="btn${f ? '' : ' primary'}" data-follow="${E(d.name)}" aria-pressed="${f}">${api.ui.icon(f ? 'user-check' : 'user-plus')}${f ? 'Following' : 'Follow'}</button>`; })()}<button class="btn" data-pv data-a="${E(d.name)}">${api.ui.icon('play')}Play a preview</button>${(() => { const on = window.CadencePreview.want.has(d.name, null);
                 return `<button class="btn" data-want data-a="${E(d.name)}" data-type="artist" data-from="artist page">${api.ui.icon(on ? 'bookmark-check' : 'bookmark-plus')}${on ? 'In Want to hear' : 'Save to Want to hear'}</button>`; })()}${(() => { const no = window.CadenceNfm.has('artist', d.name);
                 return `<button class="btn ghost" data-nfm-type="artist" data-nfm-value="${E(d.name)}"${no ? ' data-nfm-off="1"' : ''} aria-pressed="${no}" title="${no ? 'Show them in Music Radar again' : 'Hide them in Music Radar, and For you learns from it'}">${api.ui.icon(no ? 'eye' : 'eye-off')}${no ? 'Not for me (undo)' : 'Not for me'}</button>`; })()}</div>
               ${(() => { const bc = links.find(l => /bandcamp\.com/.test(l.url)); return `<div class="ap-links"><a class="btn" href="${E(bc ? bc.url : 'https://bandcamp.com/search?q=' + encodeURIComponent(d.name) + '&item_type=b')}" target="_blank" rel="noopener">${api.ui.logo('bandcamp.com', { size: 15 })}${bc ? 'Buy on Bandcamp' : 'Find on Bandcamp'}</a></div>`; })()}

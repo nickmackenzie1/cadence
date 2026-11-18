@@ -445,7 +445,7 @@ async function follow(input = {}) {
   if (input.add) { const name = String(input.add).trim().slice(0, 120), key = X.norm(name);
     if (key && !list.some(f => f.key === key)) list = [{ name, key, since: now }, ...list].slice(0, 500); }
   if (input.remove) { const key = X.norm(String(input.remove)); list = list.filter(f => f.key !== key); }
-  if (input.add || input.remove) store.setKv('follows', list);
+  if (input.add || input.remove) { store.setKv('follows', list); bust(); }
   // following someone takes them off your mainstream list (and the automatic checks skip them: mainstream.mjs)
   if (input.add) { try { const M = await import(pathToFileURL(path.join(__dirname, 'radar', 'lib', 'mainstream.mjs')).href), c = M.mainstreamCfg(), key = X.norm(String(input.add));
     if (c.list.some(n => X.norm(n) === key)) M.saveMainstreamCfg({ ...c, list: c.list.filter(n => X.norm(n) !== key) }); } catch (e) { console.warn('follow: mainstream list', e.message); } }
