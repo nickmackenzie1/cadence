@@ -4133,6 +4133,33 @@
     true
   );
   let floatStack = 0;
+  /* Shared from the phone's share menu (user, 2026-11-17). manifest.webmanifest's share_target opens
+     ./?share_title=…&share_text=…&share_url=… ; whatever came is put in quick add on Today, ready to check and add with
+     Enter (nothing is saved by itself). Links become link cards like a pasted one. Android and desktop Chrome/Edge show
+     Cadence in the share menu once it's installed; iPhone doesn't offer this to web apps. */
+  function takeShare() {
+    let q;
+    try { q = new URLSearchParams(location.search); } catch (e) { return; }
+    if (!['share_title', 'share_text', 'share_url'].some(k => q.has(k))) return;
+    const title = (q.get('share_title') || '').trim(), text = (q.get('share_text') || '').trim();
+    let url = (q.get('share_url') || '').trim();
+    if (!url) { const m = text.match(/https?:\/\/\S+/); if (m) url = m[0]; }   // many apps put the link inside the text
+    const firstLine = text.replace(url, '').split('\n').map(x => x.trim()).find(Boolean) || '';
+    const words = (title || firstLine).replace(/\s+/g, ' ').trim().slice(0, 200);
+    const line = [words, url].filter(Boolean).join(' ');
+    history.replaceState(null, '', location.pathname + '#today');
+    if (route() !== 'today') go('today');
+    if (!line) return;
+    const fill = (n = 0) => {
+      const i = document.getElementById('qa');
+      if (!i) return void (n < 40 && setTimeout(() => fill(n + 1), 100));
+      i.value = line;
+      i.dispatchEvent(new Event('input', { bubbles: true }));
+      i.focus(); i.setSelectionRange(i.value.length, i.value.length);
+      toast('Shared into quick add. Press Enter to add it.');
+    };
+    setTimeout(fill, 0);
+  }
   function toast(msg, actions = [], opts = {}) {
     // contextual: a toast caused by a click appears as a bubble right where you clicked
     const at = opts.at || (!opts.sticky && !opts.bottom && Date.now() - lastPointer.t < 900 ? lastPointer : null);
@@ -6139,6 +6166,7 @@
   noteOff(SPACE, S);
   render();
   renderWidgets();
+  takeShare();
   // the service worker keeps an offline copy of the app (sw.js), so Cadence opens away from the NAS from this
   // browser's own data. HTTPS (or localhost) only, as browsers require; not in the demo.
   if ('serviceWorker' in navigator && window.isSecureContext && !DEMO)
