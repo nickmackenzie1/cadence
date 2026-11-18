@@ -17,7 +17,7 @@ module.exports = async function systemRoutes(req, res, { url, p }) {
     const size = f => { try { return fs.statSync(f).size; } catch { return 0; } };
     const count = d => { try { return fs.readdirSync(d).length; } catch { return 0; } };
     return send(res, 200, { ok: true, https: !!TLS && !!req.socket.encrypted, build: buildId(), ai: !!API_KEY, model: API_KEY ? MODEL : null, version: appVersion(), uptime: Math.round((Date.now() - STARTED) / 1000), node: process.version,
-      dataBytes: hasDb() ? size(DB_FILE) + size(DB_FILE + '-wal') : size(STATE_FILE), ...storageInfo(), backups: count(BACKUP_DIR), logos: fs.readdirSync(ICON_DIR).filter(f => f.endsWith('.img')).length, companies: count(COMPANY_DIR), auth: !!PASSWORD, time: Date.now() });
+      dataBytes: hasDb() ? size(DB_FILE) + size(DB_FILE + '-wal') : size(STATE_FILE), ...storageInfo(), backups: count(BACKUP_DIR), logos: fs.readdirSync(ICON_DIR).filter(f => f.endsWith('.img')).length, companies: count(COMPANY_DIR), auth: !!PASSWORD, live: require('../lib/live').count(), time: Date.now() });
   }
 
   // ---- DB viewer: read-only look at the data folder (secrets are never listed by content) ----

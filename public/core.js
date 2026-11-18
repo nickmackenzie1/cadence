@@ -126,6 +126,8 @@
   })();
   if (DEMO) document.documentElement.classList.add('demo');
   const LS_KEY = DEMO ? 'cadence.demo.v1' : 'cadence.v1';
+  // this tab, so live sync can tell its own changes from another tab's or device's (Live below)
+  const TAB_ID = Math.random().toString(36).slice(2, 10);
   const blank = () => ({
     v: 1,
     clients: [],
@@ -455,7 +457,7 @@
       const body = out;
       out = {};
       try {
-        await fetch('api/prefs', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+        await fetch('api/prefs?tab=' + TAB_ID, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
       } catch (e) {
         Object.assign(out, body);
       }
@@ -688,6 +690,7 @@
         if (DEMO) return; // demo data never touches the NAS copy
         this.mode = info.storage === 'sqlite' ? 'records' : 'doc';
         await this.pull(true);
+        Live.start();
         setInterval(() => this.pull(false), 20000);
         document.addEventListener('visibilitychange', () => {
           if (!document.hidden) this.pull(false);
@@ -804,7 +807,7 @@
         const r = await fetch('api/sync', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ device: Sync.device(), since: Sync.st.cursor, changes })
+          body: JSON.stringify({ device: Sync.device(), tab: TAB_ID, since: Sync.st.cursor, changes })
         });
         if (r.status === 501) {
           this.mode = 'doc';
@@ -856,6 +859,59 @@
         this.setStatus('local');
         emit('sync', { phase: 'error', error: String(e.message || e) });
       }
+    }
+  };
+
+  /* ---------- live sync (user, 2026-11-17): changes from other devices arrive within a second ----------
+     The NAS sends "something changed" on GET /api/events (server/lib/live.js) whenever a device saves; we pull then.
+     One tab per browser holds that stream (a Web Lock; when it closes, the next tab takes over) and passes each message
+     to the other tabs over a BroadcastChannel, so ten open tabs still use one connection. Each tab ignores its own
+     changes (TAB_ID). The 20-second check stays as a safety net. Not in the demo. */
+  const Live = {
+    started: false,
+    connected: false,
+    ch: null,
+    timer: 0,
+    start() {
+      if (this.started || DEMO || typeof EventSource === 'undefined') return;
+      this.started = true;
+      try {
+        this.ch = new BroadcastChannel('cadence-live');
+        this.ch.onmessage = e => this.got(e.data, false);
+      } catch (e) {}
+      const hold = () =>
+        new Promise(() => {
+          const es = new EventSource('api/events');
+          es.onopen = () => {
+            // (re)connected: catch up on anything missed while the stream was down
+            if (this.connected === false && this.everConnected) this.got({ kind: 'sync' }, true);
+            this.connected = this.everConnected = true;
+          };
+          es.onerror = () => {
+            this.connected = false;
+          };
+          es.onmessage = e => {
+            let d;
+            try {
+              d = JSON.parse(e.data);
+            } catch (er) {
+              return;
+            }
+            this.got(d, true);
+          };
+        });
+      if (navigator.locks && navigator.locks.request) navigator.locks.request('cadence-live', hold).catch(() => {});
+      else hold();
+    },
+    got(d, fromStream) {
+      if (!d || !d.kind) return;
+      if (fromStream && this.ch) this.ch.postMessage(d);
+      if (d.tab && d.tab === TAB_ID) return; // our own change
+      clearTimeout(this.timer);
+      this.timer = setTimeout(() => {
+        if (d.kind === 'prefs') Prefs.pull();
+        else Store.pull(false);
+      }, 120);
     }
   };
 

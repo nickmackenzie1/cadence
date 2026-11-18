@@ -7,7 +7,7 @@ const { DATA_DIR } = require('../config');
 const { NEXT, readBody, send } = require('../lib/http');
 
 // (req, res, { url, p, leaf }) → answers the request, or returns NEXT
-module.exports = async function filesRoutes(req, res, { p }) {
+module.exports = async function filesRoutes(req, res, { url, p }) {
   if (p === '/api/shots' && req.method === 'POST') {
     const type = String(req.headers['content-type'] || ''), ext = /png/.test(type) ? 'png' : /jpe?g/.test(type) ? 'jpg' : /webp/.test(type) ? 'webp' : null;
     if (!ext) return send(res, 400, { error: 'Images only' });
@@ -40,7 +40,8 @@ module.exports = async function filesRoutes(req, res, { p }) {
     if (req.method === 'PUT') {
       const b = JSON.parse(await readBody(req, 256 * 1024)); let n = 0;
       for (const [k, x] of Object.entries(b || {})) { if (!/^cadence\.[\w.-]{1,60}$/.test(k) || !x || typeof x.at !== 'number') continue; if (!d[k] || d[k].at < x.at) { d[k] = { v: x.v == null ? null : String(x.v).slice(0, 64 * 1024), at: x.at }; n++; } }
-      if (n) fs.writeFileSync(F, JSON.stringify(d)); return send(res, 200, { ok: true, changed: n });
+      if (n) { fs.writeFileSync(F, JSON.stringify(d)); require('../lib/live').broadcast({ kind: 'prefs', tab: String(url.searchParams.get('tab') || '').slice(0, 24) }); }
+      return send(res, 200, { ok: true, changed: n });
     }
   }
   return NEXT;   // not ours
