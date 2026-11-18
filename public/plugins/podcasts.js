@@ -132,14 +132,22 @@
     // player skin"): a gunmetal body, black LCD with big green time and a scrolling title, spectrum, seek and volume.
     // A recreation in CSS only: the title bar says Cadence, no logo, no slogan.
     let L, R, line, W = null;
+    // where it sits (user, 2026-11-18: "make the mini player go away somehow … maybe it snaps to the sidebar"):
+    // float (the bar at the bottom), side (in the sidebar, on wide screens) or tuck (a small round button)
+    const wide = matchMedia('(min-width: 900px)');
+    const place = () => { const p = lsGet('place', 'float'); return p === 'side' && !wide.matches ? 'float' : p; };
+    const look = () => place() === 'tuck' || place() === 'side' ? 'calm' : skin();   // the classic look only floats
+    const key = () => look() + ':' + place();
+    const seat = () => { const side = document.getElementById('side'), want = place() === 'side' && side ? side : document.documentElement; if (bar.parentNode !== want) want.appendChild(bar); };
+    wide.addEventListener('change', () => { build(); draw(); });
     const build = () => {
-      const look = skin(); bar.dataset.skin = look; bar.className = look === 'classic' ? 'pc-wa' : '';
-      if (look === 'classic') {
+      const lk = look(); bar.dataset.skin = skin(); bar.dataset.key = key(); bar.dataset.place = place(); bar.className = lk === 'classic' ? 'pc-wa' : place() === 'tuck' ? 'pc-tuck' : ''; seat();
+      if (lk === 'classic') {
         P.setViz(true);   // its little spectrum always moves, like the original: the sound goes through the NAS relay
         // after the user's own recreation (2026-11-16): gold title pills, lime-on-black time, cream seek bar with a gold
         // thumb, bevelled buttons where the active one lights up, and a playlist that folds open from its title
         const bt = (act, ic, label) => `<button data-pc="${act}" aria-label="${label}" title="${label}">${api.ui.icon(ic)}</button>`;
-        bar.innerHTML = `<div class="wa-box"><div class="wa-tt"><i class="wa-ln"></i><b>Cadence</b><i class="wa-ln"></i><button class="wa-x" data-pc="skin" title="Back to the calm look" aria-label="Back to the calm look">${api.ui.icon('minimize-2')}</button></div>
+        bar.innerHTML = `<div class="wa-box"><div class="wa-tt"><i class="wa-ln"></i><b>Cadence</b><i class="wa-ln"></i><button class="wa-x" data-pc="tuck" title="Tuck the player away" aria-label="Tuck the player away">${api.ui.icon('chevron-down')}</button><button class="wa-x" data-pc="skin" title="Back to the calm look" aria-label="Back to the calm look">${api.ui.icon('minimize-2')}</button></div>
           <div class="wa-cmd"><div class="wa-row"><div class="wa-left"><div class="wa-time"><span class="wa-st"></span><span class="wa-t"></span></div><button class="wa-vis" data-pc="viz" title="Visualizer" aria-label="Open the visualizer"><canvas data-style="classic"></canvas></button></div>
             <div class="wa-right"><div class="wa-mq"><span></span></div><div class="wa-meta"><span class="wa-f wa-kind"></span><span class="wa-f wa-rate"></span><span class="wa-led wa-vled">vis</span><button class="wa-led wa-lled" data-pc="level" title="Even out the volume between stations" aria-label="Even out the volume between stations">lvl</button>${'' }</div>
               <input class="wa-vol" type="range" min="0" max="100" step="1" aria-label="Volume" title="Volume"></div></div>
@@ -194,6 +202,7 @@
       }
     };
     const ib = (act, ic, label, extra = '') => `<button class="pc-ib" data-pc="${act}" aria-label="${E(label)}" title="${E(label)}"${extra}>${api.ui.icon(ic)}</button>`;
+    const where = () => place() === 'tuck' ? ib('unfold', 'chevron-up', 'Bring the player back') : `${place() === 'side' ? ib('place-float', 'maximize-2', 'Put the player back at the bottom') : wide.matches ? ib('place-side', 'panel-left', 'Put the player in the sidebar') : ''}${ib('tuck', 'chevron-down', 'Tuck the player away')}`;
     const extras = () => `${P.canCast ? ib('cast', P.audio.webkitShowPlaybackTargetPicker ? 'airplay' : 'cast', 'Play on a speaker') : ''}${ib('level', 'audio-lines', P.level ? 'Even volume is on' : 'Even out the volume between stations', ` aria-pressed="${P.level}"${P.level ? ' data-on="1"' : ''}`)}`;
     const play = a => `<button class="pc-ib pc-play${a.paused ? '' : ' on'}" data-pc="toggle" aria-label="${a.paused ? 'Play' : 'Pause'}">${api.ui.icon(a.paused ? 'play' : 'pause')}</button>`;
     const art = (src, ic) => (src ? `<img src="${E(src)}" alt="" onerror="this.style.visibility='hidden'">` : `<i class="pc-noart">${api.ui.icon(ic)}</i>`);
@@ -201,24 +210,24 @@
     const put = (el, html) => { if (el.dataset.h !== html) { el.dataset.h = html; el.innerHTML = html; } };
     const draw = () => {
       const c = P.current; bar.hidden = !c; if (!c) return;
-      if (bar.dataset.skin !== skin()) build();
+      if (bar.dataset.key !== key()) build();
       const a = P.audio; let pct = 0;
       if (W) { bar.style.fontFamily = ''; return classic(c, a); }
       bar.style.fontFamily = getComputedStyle(document.body).fontFamily;
       if (c.live) {
         const n = c.now && !c.now.airbreak ? c.now : null, state = P.failed ? "Can't reach this station right now" : !a.paused && a.readyState < 3 ? 'Tuning in…' : a.paused ? 'Paused' : 'Live';
         put(L, `${n && n.art ? art(n.art, 'radio') : `<span class="pc-lg"><i class="pc-noart">${api.ui.icon('radio')}</i>${c.art || c.home ? api.ui.logo(c.home, { img: c.art, size: 42 }) : ''}</span>`}<div class="pc-m-t"><b>${E(n ? n.song : c.title)}</b><span>${n && n.artist ? `<a class="ar-link" href="#view-artist" data-artist="${E(n.artist)}">${E(n.artist)}</a> · ` : ''}${E(n ? c.title : c.podcastTitle || '')}</span></div>`);
-        put(R, `${play(a)}<span class="pc-m-time${!a.paused && !P.failed ? ' live' : ''}">${E(state)}</span>${extras()}<a class="pc-ib" href="#view-radio" aria-label="Open Radio" title="Open Radio">${api.ui.icon('radio')}</a>`);
+        put(R, `${play(a)}<span class="pc-m-time${!a.paused && !P.failed ? ' live' : ''}">${E(state)}</span>${extras()}${where()}<a class="pc-ib" href="#view-radio" aria-label="Open Radio" title="Open Radio">${api.ui.icon('radio')}</a>`);
         if (api.ui.currentRoute() === 'view-radio' && bar.dataset.cur !== c.uuid + ':' + a.paused) { bar.dataset.cur = c.uuid + ':' + a.paused; setTimeout(() => api.ui.refresh(), 0); }
       } else if (c.preview) {
         const d = isFinite(a.duration) && a.duration ? a.duration : 30, t = a.currentTime || 0; pct = t / d;
         put(L, `${art(c.art, 'music')}<div class="pc-m-t"><b>${E(c.title)}</b><span><a class="ar-link" href="#view-artist" data-artist="${E(c.podcastTitle)}">${E(c.podcastTitle)}</a> · 30-second preview</span></div>`);
-        put(R, `${play(a)}${P.hasNextPreview && P.hasNextPreview() ? ib('nextpv', 'skip-forward', 'Next preview') : ''}<span class="pc-m-time">${fmt(t)} / ${fmt(d)}</span>${extras()}${c.link ? `<a class="pc-ib" href="${E(c.link)}" target="_blank" rel="noopener" aria-label="Full song on Deezer" title="Full song on Deezer">${api.ui.icon('external-link')}</a>` : ''}`);
+        put(R, `${play(a)}${P.hasNextPreview && P.hasNextPreview() ? ib('nextpv', 'skip-forward', 'Next preview') : ''}<span class="pc-m-time">${fmt(t)} / ${fmt(d)}</span>${extras()}${where()}${c.link ? `<a class="pc-ib" href="${E(c.link)}" target="_blank" rel="noopener" aria-label="Full song on Deezer" title="Full song on Deezer">${api.ui.icon('external-link')}</a>` : ''}`);
       } else {
         const d = isFinite(a.duration) && a.duration ? a.duration : c.duration || 0, t = a.currentTime || c.position || 0; pct = d ? t / d : 0;
         if (api.ui.currentRoute() === 'view-podcasts' && bar.dataset.cur !== c.uuid + ':' + a.paused) { bar.dataset.cur = c.uuid + ':' + a.paused; setTimeout(() => api.ui.refresh(), 0); }
         put(L, `${art(c.art, 'podcast')}<div class="pc-m-t"><b>${E(c.title)}</b><span>${E(c.podcastTitle)}</span></div>`);
-        put(R, `${ib('back', 'rotate-ccw', `Back ${SK().b} seconds`)}${play(a)}${ib('fwd', 'rotate-cw', `Forward ${SK().f} seconds`)}<span class="pc-m-time">${fmt(t)} / ${fmt(d)}</span>${extras()}<a class="pc-ib" href="#view-podcasts" aria-label="Open Podcasts" title="Open Podcasts">${api.ui.icon('podcast')}</a>`);
+        put(R, `${ib('back', 'rotate-ccw', `Back ${SK().b} seconds`)}${play(a)}${ib('fwd', 'rotate-cw', `Forward ${SK().f} seconds`)}<span class="pc-m-time">${fmt(t)} / ${fmt(d)}</span>${extras()}${where()}<a class="pc-ib" href="#view-podcasts" aria-label="Open Podcasts" title="Open Podcasts">${api.ui.icon('podcast')}</a>`);
       }
       line.style.width = (Math.max(0, Math.min(1, pct)) * 100).toFixed(2) + '%';
       bar.classList.toggle('pc-live', !!c.live);
@@ -228,11 +237,14 @@
     bar.onclick = e => {
       const seek = e.target.closest('[data-pc-seek]');
       if (seek) { const c = P.current, a = P.audio; if (c && !c.live && isFinite(a.duration) && a.duration) { const r = seek.getBoundingClientRect(); a.currentTime = Math.max(0, Math.min(1, (e.clientX - r.left) / r.width)) * a.duration; } return; }
+      if (place() === 'tuck' && e.target.closest('.pc-m-l')) { lsSet('place', lsGet('placeWas', 'float')); build(); draw(); return; }   // tap the cover to bring it back
       const b = e.target.closest('[data-pc]'); if (!b) return;
+      const go = pl => { if (pl === 'tuck') lsSet('placeWas', place()); lsSet('place', pl); build(); draw(); };
       if (b.dataset.pc === 'fwd' && P.current && P.current.preview) return P.onPreviewEnded && P.onPreviewEnded(P.current);
       ({ back: () => P.skip(-SK().b), fwd: () => P.skip(SK().f), toggle: () => P.toggle(),
         play: () => P.play(), pause: () => P.pause(), stop: () => { P.pause(); if (P.current && !P.current.live) P.audio.currentTime = 0; },
         skin: () => { lsSet('skin', 'calm'); build(); draw(); },
+        'place-side': () => go('side'), 'place-float': () => go('float'), tuck: () => go('tuck'), unfold: () => go(lsGet('placeWas', 'float')),
         pl: () => { if (!W) return; W.plbox.hidden = !W.plbox.hidden; lsSet('waPl', !W.plbox.hidden); W.list.dataset.k = ''; draw(); }, nextpv: () => P.onPreviewEnded && P.onPreviewEnded(P.current),
         level: () => { P.setLevel(!P.level); api.ui.toast(P.level ? 'Even volume on: quiet and loud stations land closer together' : 'Even volume off'); }, cast: () => P.cast(), viz: () => { window.CadenceViz && window.CadenceViz.toggle(); draw(); } })[b.dataset.pc]();
     };
@@ -396,6 +408,16 @@
     .pc-wa .wa-tr.on{color:#f5f5f5} .pc-wa .wa-tr[data-q]:hover{background:#0b2a0b} .pc-wa .wa-empty{color:#4fae4f}
     .pc-wa button:focus-visible,.pc-wa a:focus-visible,.pc-wa input:focus-visible,.pc-wa [tabindex]:focus-visible{outline:1px dotted lime;outline-offset:1px}
     @media (min-width:900px){#pc-mini{left:calc(50% + 138px)}}
+    /* in the sidebar: part of it, under everything else there */
+    #side > #pc-mini{position:relative;left:auto;bottom:auto;transform:none;width:auto;flex:none;flex-wrap:wrap;gap:6px 8px;min-height:0;margin:10px -2px 2px;padding:8px;box-shadow:none;z-index:auto}
+    #side > #pc-mini .pc-m-l{flex:1 1 100%}#side > #pc-mini .pc-m-r{flex:1 1 100%;justify-content:space-between;flex-wrap:wrap}#side > #pc-mini .pc-m-viz{display:none}
+    #side > #pc-mini img,#side > #pc-mini .pc-noart{width:36px;height:36px}#side > #pc-mini .pc-m-time{font-size:11px}
+    /* tucked away: a small round button with the cover and play; tap the cover to bring the bar back */
+    #pc-mini.pc-tuck{left:auto;right:16px;transform:none;width:auto;min-height:0;padding:5px;gap:4px;border-radius:999px}
+    #pc-mini.pc-tuck .pc-m-t,#pc-mini.pc-tuck .pc-m-viz,#pc-mini.pc-tuck .pc-m-line,#pc-mini.pc-tuck .pc-m-r > :not(.pc-play):not([data-pc=unfold]),#pc-mini.pc-tuck .pc-lg > :not(:first-child){display:none}
+    #pc-mini.pc-tuck .pc-m-l{flex:none;cursor:pointer}#pc-mini.pc-tuck img,#pc-mini.pc-tuck .pc-noart{width:38px;height:38px;border-radius:50%}
+    /* out of the way while a window (a recipe, settings) is open; the sidebar one stays, under the shade */
+    html:has(#scrim.open) > #pc-mini,html:has(#meeting.open) > #pc-mini{visibility:hidden}
     .pc{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:16px;padding-bottom:80px} @media (max-width:900px){.pc{grid-template-columns:1fr}}
     .pc-main,.pc-side{display:flex;flex-direction:column;gap:14px;min-width:0}
     .pc-card{background:var(--panel);border:1px solid var(--line);border-radius:var(--r,10px);padding:12px 14px}

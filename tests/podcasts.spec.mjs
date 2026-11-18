@@ -77,3 +77,31 @@ test('search (⌘K) finds plugin views that aren\'t pinned, like Podcasts, in bo
     await expect(page.locator('#view')).toContainText('Pocket Casts');
   }
 });
+
+// user, 2026-11-18: "make the mini player go away somehow, sometimes it gets in the way of modals (recipe) and maybe it snaps to the sidebar?"
+test('the player: in the sidebar, tucked away, back again, and out of the way of open windows', async ({ page }) => {
+  const errs = []; page.on('pageerror', e => errs.push(String(e)));
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.goto(B + '/#view-podcasts'); await expect(page.locator('#sync')).toContainText('NAS', { timeout: 10000 });
+  await page.locator('.pc-ep', { hasText: 'Brand new episode' }).first().locator('[data-act-pc=play]').click();
+  const bar = page.locator('#pc-mini'); await expect(bar).toBeVisible();
+  // a window opens: the bar steps aside, and comes back when it closes
+  await page.evaluate(() => document.querySelector('[data-act=settings]').click());
+  await expect(bar).toBeHidden(); await page.keyboard.press('Escape'); await expect(bar).toBeVisible();
+  // into the sidebar
+  await bar.locator('[data-pc=place-side]').click();
+  await expect(page.locator('#side > #pc-mini')).toBeVisible();
+  // tucked: a small round button; tapping the cover brings it back where it was
+  await bar.locator('[data-pc=tuck]').click();
+  await expect(bar).toHaveClass(/pc-tuck/); await expect(page.locator('html > #pc-mini')).toBeVisible();
+  expect((await bar.boundingBox()).width).toBeLessThan(160);
+  await bar.locator('[data-pc=unfold]').click();
+  await expect(page.locator('#side > #pc-mini')).toBeVisible();
+  // and it remembers, after a reload
+  await page.reload(); await page.goto(B + '/#view-podcasts');
+  await page.locator('.pc-ep', { hasText: 'Brand new episode' }).first().locator('[data-act-pc=play]').click();
+  await expect(page.locator('#side > #pc-mini')).toBeVisible();
+  await page.locator('#pc-mini [data-pc=place-float]').click();
+  await expect(page.locator('html > #pc-mini')).toBeVisible();
+  expect(errs).toEqual([]);
+});
