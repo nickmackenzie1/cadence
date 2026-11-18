@@ -22,6 +22,31 @@ module.exports = async function filesRoutes(req, res, { url, p }) {
     res.writeHead(200, { 'Content-Type': id.endsWith('png') ? 'image/png' : id.endsWith('webp') ? 'image/webp' : 'image/jpeg', 'Cache-Control': 'private, max-age=31536000, immutable' });
     return res.end(fs.readFileSync(f));
   }
+  // pictures and sounds you add to a theme (2026-11-18): data/theme-media, images up to 12 MB, sounds up to 5 MB
+  if (p === '/api/theme-media' && req.method === 'POST') {
+    const type = String(req.headers['content-type'] || '').toLowerCase();
+    const ext = /png/.test(type) ? 'png' : /jpe?g/.test(type) ? 'jpg' : /webp/.test(type) ? 'webp' : /gif/.test(type) ? 'gif' : /mpeg|mp3/.test(type) ? 'mp3' : /ogg/.test(type) ? 'ogg' : /wav/.test(type) ? 'wav' : /mp4|m4a|aac/.test(type) ? 'm4a' : null;
+    if (!ext) return send(res, 400, { error: 'Pictures (PNG, JPEG, WebP, GIF) or sounds (MP3, OGG, WAV, M4A) only' });
+    const max = /mp3|ogg|wav|m4a/.test(ext) ? 5 : 12;
+    let buf; try { buf = await new Promise((resolve, reject) => { let n = 0; const ch = []; req.on('data', c => { n += c.length; if (n > max * 1024 * 1024) { reject(new Error(`Too large (${max} MB max)`)); req.destroy(); } else ch.push(c); }); req.on('end', () => resolve(Buffer.concat(ch))); req.on('error', reject); }); }
+    catch (e) { return send(res, 413, { error: e.message }); }
+    const dir = path.join(DATA_DIR, 'theme-media'); fs.mkdirSync(dir, { recursive: true });
+    const id = crypto.randomBytes(9).toString('hex') + '.' + ext; fs.writeFileSync(path.join(dir, id), buf);
+    return send(res, 200, { url: 'api/theme-media/' + id });
+  }
+  if (p.startsWith('/api/theme-media/') && req.method === 'GET') {
+    const id = p.slice(17); if (!/^[a-f0-9]{18}\.(png|jpg|webp|gif|mp3|ogg|wav|m4a)$/.test(id)) return send(res, 404, { error: 'Not found' });
+    const f = path.join(DATA_DIR, 'theme-media', id); if (!fs.existsSync(f)) return send(res, 404, { error: 'Not found' });
+    const ext = id.split('.').pop();
+    res.writeHead(200, { 'Content-Type': { png: 'image/png', jpg: 'image/jpeg', webp: 'image/webp', gif: 'image/gif', mp3: 'audio/mpeg', ogg: 'audio/ogg', wav: 'audio/wav', m4a: 'audio/mp4' }[ext], 'Cache-Control': 'private, max-age=31536000, immutable', 'X-Content-Type-Options': 'nosniff' });
+    return res.end(fs.readFileSync(f));
+  }
+  // film and TV pictures for themes (TMDB; needs TMDB_API_KEY)
+  if (p === '/api/tmdb/art' && req.method === 'GET') {
+    try { return send(res, 200, await require('../services/tmdb').art(Object.fromEntries(url.searchParams))); }
+    catch (e) { return send(res, e.code === 400 ? 400 : 502, { error: e.code === 400 ? e.message : "Couldn't reach TMDB just now" }); }
+  }
+  { const m = /^\/api\/tmdb\/img\/(w\d+)\/([^/]+)$/.exec(p); if (m && req.method === 'GET') return require('../services/tmdb').img(m[1], m[2], res); }
   // fonts you add yourself (ones Cadence can't ship, e.g. fan fonts for themes): drop the file into the NAS data/fonts
   // folder; api/fonts/hylia-serif finds HyliaSerif*.otf/.ttf/.woff/.woff2 there. Missing → 404 and the theme falls back.
   if (p.startsWith('/api/fonts/') && req.method === 'GET') {

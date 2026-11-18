@@ -175,3 +175,6 @@ checking the code.
   headings (a lookalike font, licence permitting), the "on air" feel (a now-playing strip, DJ photo, song cards like the
   KEXP playlist page). The KEXP logo may be shown from their own site (logos allowed, 2026-11-16) but not redrawn.
   Pairs with Radio / KEXP history: show the current KEXP song in the Island while the theme is on.
+- Film and TV themes get pictures from TMDB when TMDB_API_KEY is in .env (server/services/tmdb.js; map in themes.js
+  TMDB). Still open: credited free-licence photos (theme `photo: {url, credit, link}`) for themes TMDB can't cover
+  (Breath of the Wild, Halloween, Camping); Commons' API wasn't reachable from the agent workspace.

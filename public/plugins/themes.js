@@ -58,6 +58,88 @@
     else if (fo) fo.remove();
   }
 
+  // ---- making a theme yours (2026-11-18): your own background picture, a picture in the corner and a sound when you
+  // finish something, kept per theme (pictures and sounds live on the NAS: api/theme-media). Themes may also name their
+  // brand's site (the sidebar shows that site's own logo) and a credited free-licence photo as their own background.
+  let mine = null;
+  // film and TV themes: their title on TMDB (pictures come through the NAS when TMDB_API_KEY is set)
+  const TMDB = { jurassic: ['movie', 'Jurassic Park', 1993], 'star-wars': ['movie', 'Star Wars', 1977], shining: ['movie', 'The Shining', 1980], 'kill-bill': ['movie', 'Kill Bill: Vol. 1', 2003],
+    'titan-ae': ['movie', 'Titan A.E.', 2000], matrix: ['movie', 'The Matrix', 1999], 'spirited-away': ['movie', 'Spirited Away', 2001], totoro: ['movie', 'My Neighbor Totoro', 1988],
+    simpsons: ['tv', 'The Simpsons', 1989], 'family-guy': ['tv', 'Family Guy', 1999], 'south-park': ['tv', 'South Park', 1997], 'garden-wall': ['tv', 'Over the Garden Wall', 2014] };
+  // brand themes: the site whose own logo shows in the sidebar while the theme is on
+  const SITES = { claude: 'claude.ai', 'pocket-casts': 'pocketcasts.com', discord: 'discord.com', msn: 'msn.com', limewire: 'limewire.com', github: 'github.com', ipod: 'apple.com',
+    xp: 'microsoft.com', seven: 'microsoft.com', geocities: 'geocities.ws', jurassic: 'jurassicworld.com', 'star-wars': 'starwars.com', 'spirited-away': 'ghibli.jp', totoro: 'ghibli.jp',
+    'south-park': 'southparkstudios.com', 'garden-wall': 'cartoonnetwork.com', botw: 'zelda.com' };
+  const tmdbOf = t => t.tmdb ? [t.tmdb.type || 'movie', t.tmdb.title, t.tmdb.year || ''] : TMDB[t.id] || null;
+  const tmdbArt = new Map();   // theme id → promise of TMDB's answer, once a visit
+  const filmArt = t => { const m = tmdbOf(t); if (!m) return Promise.resolve(null); if (!tmdbArt.has(t.id)) tmdbArt.set(t.id, fetch(`api/tmdb/art?type=${m[0]}&q=${encodeURIComponent(m[1])}&year=${m[2]}`).then(r => r.ok ? r.json() : null).catch(() => null)); return tmdbArt.get(t.id); };
+  // colours from a picture: the most common colour (darkened) for the background, the most colourful readable one for the accent
+  function paletteOf(img) {
+    const c = document.createElement('canvas'); c.width = c.height = 24; const g = c.getContext('2d'); g.drawImage(img, 0, 0, 24, 24);
+    const d = g.getImageData(0, 0, 24, 24).data, bins = new Map();
+    const hslOf = (r, gg, b) => { r /= 255; gg /= 255; b /= 255; const mx = Math.max(r, gg, b), mn = Math.min(r, gg, b), l = (mx + mn) / 2; let h = 0, sat = 0; if (mx !== mn) { const dd = mx - mn; sat = l > 0.5 ? dd / (2 - mx - mn) : dd / (mx + mn); h = (mx === r ? (gg - b) / dd + (gg < b ? 6 : 0) : mx === gg ? (b - r) / dd + 2 : (r - gg) / dd + 4) * 60; } return [h, sat, l]; };
+    for (let i = 0; i < d.length; i += 4) { const [h, sat, l] = hslOf(d[i], d[i + 1], d[i + 2]); const k = `${Math.round(h / 24)}|${Math.round(sat * 4)}|${Math.round(l * 4)}`, b = bins.get(k) || { n: 0, h: 0, s: 0, l: 0 }; b.n++; b.h += h; b.s += sat; b.l += l; bins.set(k, b); }
+    const cols = [...bins.values()].map(b => ({ n: b.n, h: b.h / b.n, s: b.s / b.n, l: b.l / b.n })).sort((a, b) => b.n - a.n), base = cols[0], f = (h, sat, l) => `hsl(${Math.round(h)} ${Math.round(sat * 100)}% ${Math.round(l * 100)}%)`;
+    const acc = cols.filter(x => x.l > 0.25 && x.l < 0.85).sort((a, b) => b.s * Math.sqrt(b.n) - a.s * Math.sqrt(a.n))[0] || base, bs = Math.min(0.45, base.s);
+    return { '--bg': f(base.h, bs, 0.09), '--panel': f(base.h, bs, 0.13), '--side': f(base.h, bs, 0.075), '--line': f(base.h, bs * 0.8, 0.21), '--hover': f(base.h, bs, 0.17), '--text': f(base.h, Math.min(0.25, bs), 0.93),
+      '--muted': f(base.h, Math.min(0.2, bs), 0.68), '--faint': f(base.h, Math.min(0.15, bs), 0.45), '--accent': f(acc.h, Math.max(0.45, Math.min(0.8, acc.s)), Math.max(0.55, Math.min(0.7, acc.l))), '--accent-soft': f(acc.h, 0.35, 0.2), '--on-accent': '#111' };
+  }
+  function makeMine(t) {
+    if (mine) { try { mine(); } catch (e) {} mine = null; }
+    const x = (stored('extras') || {})[t.id] || {}, bits = [];
+    const css = document.getElementById('cadence-skin-mine') || Object.assign(document.createElement('style'), { id: 'cadence-skin-mine' });
+    if (!css.parentNode) document.head.appendChild(css);
+    const bg = x.bg || (t.photo && t.photo.url), dim = x.bg ? (x.dim != null ? x.dim : 0.55) : (t.photo && t.photo.dim != null ? t.photo.dim : 0.6);
+    css.textContent = bg ? `html body{background-image:linear-gradient(color-mix(in srgb,var(--bg) ${Math.round(dim * 100)}%,transparent),color-mix(in srgb,var(--bg) ${Math.round(dim * 100)}%,transparent)),url("${String(bg).replace(/["\\]/g, '')}")!important;background-size:cover!important;background-position:center!important;background-attachment:fixed!important}
+      html body .main{background:transparent!important}` : '';
+    if (bg && !x.bg && t.photo && t.photo.credit) {
+      const c = document.createElement('a'); c.className = 'th-credit'; c.href = t.photo.link || '#'; c.target = '_blank'; c.rel = 'noopener'; c.textContent = 'Photo: ' + t.photo.credit;
+      c.style.cssText = 'position:fixed;right:10px;bottom:6px;z-index:2;font-size:11px;color:var(--muted);opacity:.75;text-decoration:none;background:color-mix(in srgb,var(--bg) 70%,transparent);padding:1px 6px;border-radius:6px';
+      document.body.appendChild(c); bits.push(() => c.remove());
+    }
+    if (x.corner) {
+      const im = document.createElement('img'); im.className = 'th-corner'; im.src = x.corner; im.alt = '';
+      im.style.cssText = `position:fixed;${x.cornerSide === 'left' ? 'left:290px' : 'right:16px'};bottom:16px;max-width:${x.cornerSize || 180}px;max-height:${x.cornerSize || 180}px;z-index:20;pointer-events:none;filter:drop-shadow(0 6px 14px rgba(0,0,0,.25))`;
+      document.body.appendChild(im); bits.push(() => im.remove());
+    }
+    if (x.sound) {
+      const play = () => { try { const a = new Audio(x.sound); a.volume = x.volume != null ? x.volume : 0.6; a.play().catch(() => {}); } catch (e) {} };
+      document.addEventListener('cadence:task-complete', play); bits.push(() => document.removeEventListener('cadence:task-complete', play));
+    }
+    // the brand's own logo from its site, in place of Cadence's, while the theme is on
+    // (the sidebar can be redrawn after the theme applies, or before the plugin API is ready: it puts itself back)
+    const site = t.site || SITES[t.id];
+    if (site) {
+      let had = null;
+      const put = () => {
+        const logo = document.querySelector('#side-head .brand .logo'); if (!logo || logo.classList.contains('th-brand') || !apiRef || !apiRef.ui.logo) return;
+        const img = apiRef.ui.logo(site, { size: 20 }); if (!img) return;
+        had = logo.innerHTML; logo.innerHTML = img; logo.classList.add('th-brand'); logo.dataset.site = site;
+      };
+      put();
+      const head = document.getElementById('side-head'), mo = head ? new MutationObserver(put) : null; if (mo) mo.observe(head, { childList: true, subtree: true });
+      const iv = setInterval(put, 1000);
+      bits.push(() => { if (mo) mo.disconnect(); clearInterval(iv); const logo = document.querySelector('#side-head .brand .logo.th-brand'); if (logo) { logo.innerHTML = had || ''; logo.classList.remove('th-brand'); delete logo.dataset.site; } });
+    }
+    // the film's own picture (TMDB), unless you've set your own; and its colours when you ask for them
+    const film = tmdbOf(t);
+    if (film && !x.bg && x.tmdb !== false) {
+      let live = true; bits.push(() => { live = false; });
+      filmArt(t).then(a => {
+        if (!live || !a || !a.backdrops || !a.backdrops.length) return;
+        const pic = a.backdrops[(x.tmdbPick || 0) % a.backdrops.length], d2 = x.dim != null ? x.dim : 0.62;
+        css.textContent = `html body{background-image:linear-gradient(color-mix(in srgb,var(--bg) ${Math.round(d2 * 100)}%,transparent),color-mix(in srgb,var(--bg) ${Math.round(d2 * 100)}%,transparent)),url("${pic}")!important;background-size:cover!important;background-position:center!important;background-attachment:fixed!important}
+          html body .main{background:transparent!important}`;
+        const c = document.createElement('a'); c.className = 'th-credit'; c.href = a.link; c.target = '_blank'; c.rel = 'noopener'; c.textContent = 'Picture: ' + a.title + ' on TMDB';
+        c.style.cssText = 'position:fixed;right:10px;bottom:6px;z-index:2;font-size:11px;color:var(--muted);opacity:.75;text-decoration:none;background:color-mix(in srgb,var(--bg) 70%,transparent);padding:1px 6px;border-radius:6px';
+        document.body.appendChild(c); bits.push(() => c.remove());
+        if (x.tmdbColors) {
+          const im = new Image(); im.onload = () => { if (!live) return; try { const v = paletteOf(im); for (const [k, val] of Object.entries(v)) html.style.setProperty(k, val); bits.push(() => { for (const k of Object.keys(v)) html.style.removeProperty(k); custom(); }); } catch (e) {} }; im.src = pic;
+        }
+      });
+    }
+    mine = () => bits.forEach(f => { try { f(); } catch (e) {} });
+  }
   function apply(id, opts = {}) {
     const t = T.get(id) || T.get('cadence');
     for (const f of [fx, enh]) if (f) { try { f(); } catch (e) { console.warn('theme cleanup', e); } }
@@ -70,6 +152,7 @@
     for (const href of t.stylesheets || []) { const l = document.createElement('link'); l.rel = 'stylesheet'; l.href = href; document.head.appendChild(l); links.push(l); }
     for (const src of t.scripts || []) if (!loadedScripts.has(src)) { loadedScripts.add(src); const s = document.createElement('script'); s.src = src; document.head.appendChild(s); }
     custom();
+    makeMine(t);
     // enhance: DOM tweaks that are part of the look (always on); effects: motion and overlays (Effects setting)
     if (t.enhance) { try { enh = t.enhance({ tokens: token, isDark, api: apiRef }) || null; } catch (e) { console.warn('theme enhance', e); } }
     const level = stored('effects') || 'full';
@@ -177,6 +260,9 @@
           .th-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px}
           .th-card{border:1px solid var(--line);border-radius:14px;overflow:hidden;cursor:pointer;background:var(--panel);transition:transform .15s,box-shadow .2s,border-color .2s;text-align:left;padding:0;display:block;width:100%}
           .th-card:hover{transform:translateY(-2px);box-shadow:var(--shadow)}
+          .th-mine{grid-column:1/-1;display:flex;flex-wrap:wrap;align-items:center;gap:10px;padding-top:8px;border-top:1px solid var(--line)}.th-mine>label{width:100%}
+          .th-slot{display:inline-flex;align-items:center;gap:6px}.th-slot img{width:40px;height:40px;object-fit:cover;border-radius:8px;border:1px solid var(--line)}.th-pc{width:100%;font-size:12px}
+          .th-brand img,.th-brand svg{width:20px;height:20px;border-radius:5px}
           .th-card.on{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent)}
           .th-mini{height:92px;display:grid;grid-template-columns:52px 1fr;background:var(--p-bg);font-family:var(--p-font,inherit);position:relative;overflow:hidden}
           .th-mini .s{background:var(--p-side);border-right:1px solid var(--p-line);padding:9px 7px;display:flex;flex-direction:column;gap:5px}
@@ -280,6 +366,14 @@
               <div><label>Corners: <span id="th-rv">${cc.radius != null ? cc.radius + 'px' : "theme's own"}</span></label><input type="range" id="th-radius" min="0" max="22" value="${cc.radius != null ? cc.radius : 10}"></div>
               <div><label>Effects</label><select class="inp" id="th-fx">${[['full', 'Full'], ['low', 'Gentle'], ['off', 'Off']].map(([k, n]) => `<option value="${k}" ${level === k ? 'selected' : ''}>${n}</option>`).join('')}</select></div>
               <div style="display:flex;align-items:flex-end"><button class="btn" id="th-reset">Reset tweaks</button></div>
+              <div class="th-mine"><label>Make ${E(t.name)} yours: your own pictures and sound, kept on your NAS</label>
+                ${(() => { const x = (api.storage.get('extras') || {})[t.id] || {};
+                  const slot = (k, label, acc, ic) => `<span class="th-slot">${x[k] ? (k === 'sound' ? `<button class="btn" data-mine-play>${api.ui.icon('play')}${label}</button>` : `<img src="${E(x[k])}" alt="">`) : ''}
+                    <label class="btn">${api.ui.icon(ic)}${x[k] ? 'Change' : label}<input type="file" accept="${acc}" data-mine="${k}" hidden></label>${x[k] ? `<button class="btn ghost" data-mine-rm="${k}" aria-label="Remove ${label.toLowerCase()}">${api.ui.icon('x')}</button>` : ''}</span>`;
+                  return slot('bg', 'Background picture', 'image/*', 'image') + slot('corner', 'Corner picture', 'image/*', 'image') + slot('sound', 'Sound when you finish', 'audio/*', 'music')
+                    + (x.bg ? `<span class="th-slot"><label>Dim <input type="range" min="0" max="90" value="${Math.round((x.dim != null ? x.dim : 0.55) * 100)}" data-mine-dim></label></span>` : ''); })()}
+                ${t.photo && t.photo.credit ? `<span class="muted th-pc">Background photo: ${E(t.photo.credit)}</span>` : ''}
+                ${tmdbOf(t) ? `<span class="th-slot th-tmdb" data-tmdb-row><span class="muted">Pictures from the ${tmdbOf(t)[0] === 'tv' ? 'show' : 'film'}…</span></span>` : ''}</div>
             </div>`;
           const save = patch => { api.storage.set('custom', Object.assign({}, api.storage.get('custom') || {}, patch)); custom(); };
           box.querySelectorAll('[data-mode]').forEach(b => b.onclick = () => { keepPlace(b, () => api.ui.setColorMode(b.dataset.mode)); });
@@ -290,6 +384,30 @@
           box.querySelector('#th-radius').oninput = e => { save({ radius: +e.target.value }); box.querySelector('#th-rv').textContent = e.target.value + 'px'; };
           box.querySelector('#th-fx').onchange = e => { api.storage.set('effects', e.target.value); apply(current); };
           box.querySelector('#th-reset').onclick = () => { api.storage.set('custom', {}); custom(); now(); };
+          const setMine = patch => { const all = api.storage.get('extras') || {}; const x = Object.assign({}, all[t.id] || {}, patch); for (const k of Object.keys(x)) if (x[k] == null) delete x[k]; all[t.id] = x; api.storage.set('extras', all); makeMine(t); now(); };
+          box.querySelectorAll('[data-mine]').forEach(inp => inp.onchange = async () => {
+            const f = inp.files && inp.files[0]; if (!f) return;
+            try { const r = await fetch('api/theme-media', { method: 'POST', headers: { 'Content-Type': f.type || 'application/octet-stream' }, body: f }); const j = await r.json(); if (!r.ok) throw new Error(j.error || 'HTTP ' + r.status); setMine({ [inp.dataset.mine]: j.url }); api.ui.toast('Added to ' + t.name); }
+            catch (e) { api.ui.toast("Couldn't add that: " + e.message); }
+          });
+          box.querySelectorAll('[data-mine-rm]').forEach(b => b.onclick = () => setMine({ [b.dataset.mineRm]: null }));
+          const dm = box.querySelector('[data-mine-dim]'); if (dm) dm.onchange = () => setMine({ dim: +dm.value / 100 });
+          // TMDB: next picture, colours from the picture, or none
+          const tr = box.querySelector('[data-tmdb-row]');
+          if (tr) filmArt(t).then(a => {
+            const x = (api.storage.get('extras') || {})[t.id] || {};
+            if (!a || a.off) { tr.innerHTML = `<span class="muted">Add <code>TMDB_API_KEY</code> (free, from themoviedb.org) to .env on the NAS for pictures from the ${tmdbOf(t)[0] === 'tv' ? 'show' : 'film'}.</span>`; return; }
+            if (a.none || !a.backdrops || !a.backdrops.length) { tr.innerHTML = '<span class="muted">TMDB has no pictures for this one.</span>'; return; }
+            tr.innerHTML = x.bg ? '<span class="muted">Your own background is on; remove it to see the film\'s pictures.</span>'
+              : `<button class="btn" data-tm="next">${api.ui.icon('shuffle')}Another picture</button>
+                 <label class="th-slot"><input type="checkbox" data-tm="colors" ${x.tmdbColors ? 'checked' : ''}> Colours from the picture</label>
+                 <label class="th-slot"><input type="checkbox" data-tm="off" ${x.tmdb === false ? 'checked' : ''}> No pictures</label>
+                 <span class="muted th-pc">${E(a.title)} pictures from TMDB. This product uses the TMDB API but is not endorsed or certified by TMDB.</span>`;
+            const nb = tr.querySelector('[data-tm=next]'); if (nb) nb.onclick = () => setMine({ tmdbPick: ((x.tmdbPick || 0) + 1) % a.backdrops.length });
+            const cb = tr.querySelector('[data-tm=colors]'); if (cb) cb.onchange = () => setMine({ tmdbColors: cb.checked || null });
+            const ob = tr.querySelector('[data-tm=off]'); if (ob) ob.onchange = () => setMine({ tmdb: ob.checked ? false : null });
+          });
+          const pl = box.querySelector('[data-mine-play]'); if (pl) pl.onclick = () => { const x = (api.storage.get('extras') || {})[t.id] || {}; if (x.sound) new Audio(x.sound).play().catch(() => {}); };
         }
         now();
 

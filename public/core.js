@@ -170,7 +170,7 @@
       createdAt: Date.now() + i
     }));
     d.pluginData = { themes: { theme: 'calm' } };
-    d.disabled = ['haunted', 'havoc']; // Life starts calm; switch them on in Plugins if you like
+    d.disabled = ['haunted']; // Life starts calm; switch it on in Plugins if you like (Havoc is on in Life too: user, 2026-11-18)
     try {
       const w = lsRead(LS_KEY) || {};
       if (w.settings && w.settings.myName) d.settings.myName = w.settings.myName;
@@ -322,6 +322,7 @@
       if (raw) {
         const d = Object.assign(blank(), raw);
         migrateOwners(d);
+        if (space === 'life') havocInLife(d);
         return d;
       }
     } catch (e) {}
@@ -1563,6 +1564,12 @@
     if (!t.dueTime) return null;
     const lead = t.remindMode === 'at' ? 0 : t.remindMode === '60' ? 60 : (S.settings.remindLead ?? 10);
     return dueMs(t) - lead * 60000;
+  }
+  // Havoc used to start switched off in Life; once, switch it on there (user, 2026-11-18: "havok should be available in life too")
+  function havocInLife(doc) {
+    if (!doc || !doc.settings || doc.settings.havocLife || !Array.isArray(doc.disabled)) return;
+    doc.settings.havocLife = 1;
+    doc.disabled = doc.disabled.filter(x => x !== 'havoc');
   }
   function migrateOwners(doc) {
     for (const t of (doc && doc.tasks) || [])
@@ -6398,6 +6405,7 @@
           if (!v) continue;
           const d = Object.assign(blank(), v);
           migrateOwners(d);
+          if (k === 'life') havocInLife(d);
           setDoc(k, d);
         }
       })

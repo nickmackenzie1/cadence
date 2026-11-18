@@ -1,0 +1,66 @@
+'use strict';
+/* Film and TV pictures for themes, from TMDB (user, 2026-11-18). Needs TMDB_API_KEY (a free v3 key, or the v4 read
+   token) in .env; without it themes simply don't get them. A title is looked up once (kept 30 days in
+   data/tmdb.json); pictures come through the NAS (kept in data/tmdb-img), so the browser can read their colours.
+   "This product uses the TMDB API but is not endorsed or certified by TMDB." */
+const fs = require('fs');
+const path = require('path');
+const { DATA_DIR } = require('../config');
+const { safeFetch } = require('../lib/net');
+
+const API = () => (process.env.TMDB_API || 'https://api.themoviedb.org').replace(/\/$/, '');
+const IMG = () => (process.env.TMDB_IMG || 'https://image.tmdb.org').replace(/\/$/, '');
+const KEY = () => String(process.env.TMDB_API_KEY || process.env.TMDB_TOKEN || '').trim();
+const on = () => !!KEY();
+// the real TMDB through the public-hosts-only fetch; a test's stand-in (TMDB_API set) directly
+async function get(url, headers = {}, max = 2 * 1024 * 1024) {
+  if (process.env.TMDB_API || process.env.TMDB_IMG) { const r = await fetch(url, { headers, signal: AbortSignal.timeout(10000) }); if (!r.ok) throw new Error('HTTP ' + r.status); return { type: r.headers.get('content-type') || '', buf: Buffer.from(await r.arrayBuffer()) }; }
+  return safeFetch(url, { headers, timeout: 10000 }, max);
+}
+async function api(p, q = {}) {
+  const k = KEY(), v4 = k.length > 60, qs = new URLSearchParams({ ...q, ...(v4 ? {} : { api_key: k }) });
+  const r = await get(`${API()}/3${p}?${qs}`, { Accept: 'application/json', ...(v4 ? { Authorization: 'Bearer ' + k } : {}) });
+  return JSON.parse(r.buf.toString('utf8'));
+}
+const CACHE = () => path.join(DATA_DIR, 'tmdb.json');
+const readCache = () => { try { return JSON.parse(fs.readFileSync(CACHE(), 'utf8')); } catch { return {}; } };
+
+// a title's pictures: backdrops without words on them first (TMDB's "no language"), best rated first
+async function art({ type = 'movie', q = '', year = '' } = {}) {
+  if (!on()) return { off: true };
+  type = type === 'tv' ? 'tv' : 'movie'; q = String(q).trim().slice(0, 120); year = String(year).replace(/\D/g, '').slice(0, 4);
+  if (!q) throw Object.assign(new Error('Which title?'), { code: 400 });
+  const key = `${type}|${q.toLowerCase()}|${year}`, c = readCache();
+  if (c[key] && Date.now() - c[key].at < 30 * 86400e3) return c[key].v;
+  const s = await api(`/search/${type}`, { query: q, include_adult: 'false', ...(year ? (type === 'tv' ? { first_air_date_year: year } : { primary_release_year: year }) : {}) });
+  const hit = (s.results || [])[0];
+  let v = { none: true };
+  if (hit) {
+    const im = await api(`/${type}/${hit.id}/images`, { include_image_language: 'null,en' });
+    const bd = (im.backdrops || []).filter(b => b.file_path).sort((a, b) => (a.iso_639_1 ? 1 : 0) - (b.iso_639_1 ? 1 : 0) || (b.vote_average || 0) - (a.vote_average || 0) || (b.width || 0) - (a.width || 0));
+    const po = (im.posters || []).filter(p => p.file_path && (p.iso_639_1 === 'en' || !p.iso_639_1)).sort((a, b) => (b.vote_average || 0) - (a.vote_average || 0));
+    const title = hit.title || hit.name, yr = String(hit.release_date || hit.first_air_date || '').slice(0, 4);
+    const pic = (size, fp) => `api/tmdb/img/${size}${fp}`;
+    v = { title, year: yr, link: `https://www.themoviedb.org/${type}/${hit.id}`,
+      backdrops: bd.slice(0, 8).map(b => pic('w1280', b.file_path)), poster: po[0] ? pic('w500', po[0].file_path) : null,
+      credit: `${title}${yr ? ' (' + yr + ')' : ''}, picture from TMDB` };
+  }
+  c[key] = { at: Date.now(), v }; try { fs.writeFileSync(CACHE(), JSON.stringify(c)); } catch {}
+  return v;
+}
+// one picture, kept on the NAS after the first time
+async function img(size, file, res) {
+  if (!['w300', 'w500', 'w780', 'w1280'].includes(size) || !/^[A-Za-z0-9_-]{6,64}\.(jpg|jpeg|png|webp)$/.test(file)) { res.writeHead(404); return res.end(); }
+  const dir = path.join(DATA_DIR, 'tmdb-img'), f = path.join(dir, size + '_' + file);
+  let buf; try { buf = fs.readFileSync(f); } catch {}
+  if (!buf) {
+    if (!on()) { res.writeHead(404); return res.end(); }
+    try { const r = await get(`${IMG()}/t/p/${size}/${file}`, { Accept: 'image/*' }, 8 * 1024 * 1024); buf = r.buf; fs.mkdirSync(dir, { recursive: true }); fs.writeFileSync(f, buf); }
+    catch (e) { res.writeHead(502, { 'Content-Type': 'application/json' }); return res.end(JSON.stringify({ error: "Couldn't get that picture from TMDB" })); }
+  }
+  // the type from the picture's own first bytes
+  const type = buf[0] === 0x89 && buf[1] === 0x50 ? 'image/png' : buf.slice(8, 12).toString() === 'WEBP' ? 'image/webp' : 'image/jpeg';
+  res.writeHead(200, { 'Content-Type': type, 'Cache-Control': 'private, max-age=2592000', 'X-Content-Type-Options': 'nosniff' });
+  res.end(buf);
+}
+module.exports = { on, art, img };
