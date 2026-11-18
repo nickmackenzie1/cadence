@@ -20,6 +20,9 @@ checking the code.
   real logo or wordmark; real artwork the user brings (skins, images) is fine. No quotes, and Claude doesn't draw actual characters. Rebuilt items stay generic (a gem, not a rupee).
 - Reddit: removed completely 2026-11-16 ("I don't like Reddit anymore"): no fetching, archive, subreddit list,
   suggestions, keys or Reddit theme. Old radar_history / Reddit picks stay in the database untouched. Don't add it back.
+- Keep all history (user, 2026-11-18: "no i want data"): never prune Radar's tables (chart points, snapshots, genres,
+  terms, run logs), station history or KEXP history. If size becomes a problem, move it to its own file (like kexp.db)
+  or leave it out of the daily backups, but don't delete it.
 - User location: Amherstview, Ontario (Loyalist Township). Garbage: Tuesday east of Speers Blvd, Wednesday west.
 
 ## Waiting on the user
@@ -30,7 +33,6 @@ checking the code.
 - Music on the NAS: Navidrome (LAN-only, Subsonic API) or Cadence serving the folder itself.
 
 ## Next up (agreed)
-- Prune Radar's growing history tables.
 - README rewrite (after the rename, or now and rename later). Current README is out of date: sessions, the JSON
   mirror, Synology-only setup.
 
@@ -117,8 +119,6 @@ checking the code.
   kexp-log.js: 5,000 plays a step, copied then deleted, resumes after a restart; new plays and the backfill wait for it).
   cadence.db's empty space is given back by `storage.reclaim()` (VACUUM in a worker, 2–5 am, when over 128 MB and a
   third of the file is free; `RECLAIM=0` off). Check `deploy.log`/Problems for "KEXP: history moved to kexp.db".
-- Not pushed: a Radar history pruning commit (chart points 400 days, series 180, run logs 60–90, station history 400)
-  was built 2026-11-17 and set aside when the user said "just do db move". Rebuild it if asked.
 
 - Background work goes through `server/lib/scheduler.js` (0.30.0): `sched.add(name, fn, { label, every, first, heavy,
   quiet, hours, retry })`; fn may return `{ again: ms }`, `{ done: true }`, `{ note }`. Heavy jobs take turns; quiet ones
