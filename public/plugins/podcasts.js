@@ -23,7 +23,18 @@
     let cur = lsGet('current', null), lastSent = 0, sleepAt = 0, sleepTimer = 0;
     // visualizer on: everything plays through the NAS relay (api/radio/stream, seeking passes through), because a browser
     // can only analyse sound from its own server. Once the sound engine exists it stays in the path, so keep relaying.
-    let viz = !!lsGet('viz', false), actx = null, an = null, anL = null, anR = null;
+    let viz = !!lsGet('viz', false), actx = null, an = null, anL = null, anR = null, comp = null, gain = null, level = !!lsGet('level', false);
+    // Even volume (2026-11-17, off by default): a gentle compressor with a little make-up gain, so a quiet station and a
+    // loud one land near each other. It lives in the same sound engine as the visualizer, so it plays through the relay too.
+    const setLevelNodes = () => { if (!comp) return; const t = actx.currentTime;
+      comp.threshold.setValueAtTime(level ? -30 : 0, t); comp.knee.setValueAtTime(level ? 20 : 0, t); comp.ratio.setValueAtTime(level ? 3.5 : 1, t);
+      comp.attack.setValueAtTime(0.02, t); comp.release.setValueAtTime(0.4, t); gain.gain.setTargetAtTime(level ? 1.6 : 1, t, 0.1); };
+    let castOK = false;
+    audio.setAttribute('x-webkit-airplay', 'allow');
+    if (window.WebKitPlaybackTargetAvailabilityEvent) audio.addEventListener('webkitplaybacktargetavailabilitychanged', e => { castOK = e.availability === 'available'; emit(); });
+    else if (audio.remote && audio.remote.watchAvailability) audio.remote.watchAvailability(a => { castOK = !!a; emit(); }).catch(() => {});
+    // the sound engine starts on a click: when even volume is on, the first Play builds it
+    audio.addEventListener('play', () => { if (level && window.CadencePodcasts) window.CadencePodcasts.analyser(); });
     const own = u => { try { return new URL(u, location.href).origin === location.origin; } catch (e) { return true; } };
     const via = u => ((viz || actx) && u && !own(u) ? 'api/radio/stream?u=' + encodeURIComponent(u) : u);
     const setSrc = u => { const r = via(u); audio.crossOrigin = r && own(r) && (viz || actx) ? 'anonymous' : null; audio.src = r; };
@@ -75,13 +86,19 @@
             const src = actx.createMediaElementSource(audio), sp = actx.createChannelSplitter(2);
             an = actx.createAnalyser(); an.fftSize = 2048; an.smoothingTimeConstant = 0.72;
             anL = actx.createAnalyser(); anR = actx.createAnalyser(); anL.fftSize = anR.fftSize = 1024;
-            src.connect(an); an.connect(actx.destination); src.connect(sp); sp.connect(anL, 0); sp.connect(anR, 1);
+            comp = actx.createDynamicsCompressor(); gain = actx.createGain(); setLevelNodes();
+            src.connect(comp); comp.connect(gain); gain.connect(an); an.connect(actx.destination); gain.connect(sp); sp.connect(anL, 0); sp.connect(anR, 1);
           } catch (e) { console.warn('visualizer: no sound engine', e); actx = null; return null; }
         }
         if (actx.state === 'suspended') actx.resume().catch(() => {});
         return { an, anL, anR, ctx: actx };
       },
       get viz() { return viz; },
+      get level() { return level; },
+      setLevel(on) { level = !!on; lsSet('level', level); if (level) { this.setViz(true); if (!audio.paused) this.analyser(); } setLevelNodes(); emit(); },
+      // another speaker: AirPlay (Safari) or the Remote Playback picker (Chrome on Android: Cast)
+      get canCast() { return castOK; },
+      cast() { try { if (audio.webkitShowPlaybackTargetPicker) audio.webkitShowPlaybackTargetPicker(); else if (audio.remote) audio.remote.prompt().catch(() => {}); } catch (e) {} },
       setViz(on) {
         on = !!on; if (on === viz) return; viz = on; lsSet('viz', viz);
         // switch what's playing over to the relay without losing your place
@@ -121,11 +138,11 @@
         const bt = (act, ic, label) => `<button data-pc="${act}" aria-label="${label}" title="${label}">${api.ui.icon(ic)}</button>`;
         bar.innerHTML = `<div class="wa-box"><div class="wa-tt"><i class="wa-ln"></i><b>Cadence</b><i class="wa-ln"></i><button class="wa-x" data-pc="skin" title="Back to the calm look" aria-label="Back to the calm look">${api.ui.icon('minimize-2')}</button></div>
           <div class="wa-cmd"><div class="wa-row"><div class="wa-left"><div class="wa-time"><span class="wa-st"></span><span class="wa-t"></span></div><button class="wa-vis" data-pc="viz" title="Visualizer" aria-label="Open the visualizer"><canvas data-style="classic"></canvas></button></div>
-            <div class="wa-right"><div class="wa-mq"><span></span></div><div class="wa-meta"><span class="wa-f wa-kind"></span><span class="wa-f wa-rate"></span><span class="wa-led wa-vled">vis</span></div>
+            <div class="wa-right"><div class="wa-mq"><span></span></div><div class="wa-meta"><span class="wa-f wa-kind"></span><span class="wa-f wa-rate"></span><span class="wa-led wa-vled">vis</span><button class="wa-led wa-lled" data-pc="level" title="Even out the volume between stations" aria-label="Even out the volume between stations">lvl</button>${'' }</div>
               <input class="wa-vol" type="range" min="0" max="100" step="1" aria-label="Volume" title="Volume"></div></div>
             <input class="wa-seek" type="range" min="0" max="1000" step="1" aria-label="Seek">
             <div class="wa-btns"><div class="wa-b1">${bt('back', 'skip-back', 'Back')}${bt('play', 'play', 'Play')}${bt('pause', 'pause', 'Pause')}${bt('stop', 'square', 'Stop')}${bt('fwd', 'skip-forward', 'Forward')}</div>
-              <button class="wa-wide" data-pc="pl" aria-label="Show Up next">Up next</button><a class="wa-open" aria-label="Open where this came from" title="Open where this came from">${api.ui.icon('external-link')}</a></div></div></div>
+              <button class="wa-wide" data-pc="pl" aria-label="Show Up next">Up next</button><button class="wa-cast" data-pc="cast" hidden aria-label="Play on a speaker" title="Play on a speaker">${api.ui.icon('cast')}</button><a class="wa-open" aria-label="Open where this came from" title="Open where this came from">${api.ui.icon('external-link')}</a></div></div></div>
           <div class="wa-box wa-plbox"><div class="wa-tt wa-tt-s" data-pc="pl" role="button" tabindex="0" aria-label="Fold Up next"><i class="wa-ln"></i><b>Up next</b><i class="wa-ln"></i></div><div class="wa-list"></div></div>`;
         W = { st: bar.querySelector('.wa-st'), time: bar.querySelector('.wa-t'), mq: bar.querySelector('.wa-mq span'), kind: bar.querySelector('.wa-kind'), rate: bar.querySelector('.wa-rate'),
           visLed: bar.querySelector('.wa-vled'), vol: bar.querySelector('.wa-vol'), seek: bar.querySelector('.wa-seek'), open: bar.querySelector('.wa-open'), list: bar.querySelector('.wa-list'), plbox: bar.querySelector('.wa-plbox'), dragging: false };
@@ -151,6 +168,8 @@
       W.time.textContent = live && P.failed ? '--:--' : mmss(t);
       W.kind.textContent = live ? 'LIVE' : c.preview ? 'PREV' : 'POD'; W.rate.textContent = (a.playbackRate || 1).toFixed(1) + 'x';
       W.visLed.classList.toggle('lit', !!(window.CadenceViz && window.CadenceViz.isOpen));
+      const ll = bar.querySelector('.wa-lled'); ll.classList.toggle('lit', P.level); ll.setAttribute('aria-pressed', P.level);
+      const cb = bar.querySelector('.wa-cast'); if (cb) cb.hidden = !P.canCast;
       if (document.activeElement !== W.vol) W.vol.value = Math.round(a.volume * 100);
       W.vol.style.setProperty('--v', (a.volume * 100).toFixed(0) + '%');
       W.seek.disabled = live; if (!W.dragging) W.seek.value = d && !live ? Math.round(t / d * 1000) : 0;
@@ -172,6 +191,7 @@
       }
     };
     const ib = (act, ic, label, extra = '') => `<button class="pc-ib" data-pc="${act}" aria-label="${E(label)}" title="${E(label)}"${extra}>${api.ui.icon(ic)}</button>`;
+    const extras = () => `${P.canCast ? ib('cast', P.audio.webkitShowPlaybackTargetPicker ? 'airplay' : 'cast', 'Play on a speaker') : ''}${ib('level', 'audio-lines', P.level ? 'Even volume is on' : 'Even out the volume between stations', ` aria-pressed="${P.level}"${P.level ? ' data-on="1"' : ''}`)}`;
     const play = a => `<button class="pc-ib pc-play${a.paused ? '' : ' on'}" data-pc="toggle" aria-label="${a.paused ? 'Play' : 'Pause'}">${api.ui.icon(a.paused ? 'play' : 'pause')}</button>`;
     const art = (src, ic) => (src ? `<img src="${E(src)}" alt="" onerror="this.style.visibility='hidden'">` : `<i class="pc-noart">${api.ui.icon(ic)}</i>`);
     // write a part only when it changed: rebuilding the artwork 4 times a second made it flash (user, 2026-11-16)
@@ -185,17 +205,17 @@
       if (c.live) {
         const n = c.now && !c.now.airbreak ? c.now : null, state = P.failed ? "Can't reach this station right now" : !a.paused && a.readyState < 3 ? 'Tuning in…' : a.paused ? 'Paused' : 'Live';
         put(L, `${n && n.art ? art(n.art, 'radio') : `<span class="pc-lg"><i class="pc-noart">${api.ui.icon('radio')}</i>${c.art || c.home ? api.ui.logo(c.home, { img: c.art, size: 42 }) : ''}</span>`}<div class="pc-m-t"><b>${E(n ? n.song : c.title)}</b><span>${n && n.artist ? `<a class="ar-link" href="#view-artist" data-artist="${E(n.artist)}">${E(n.artist)}</a> · ` : ''}${E(n ? c.title : c.podcastTitle || '')}</span></div>`);
-        put(R, `${play(a)}<span class="pc-m-time${!a.paused && !P.failed ? ' live' : ''}">${E(state)}</span><a class="pc-ib" href="#view-radio" aria-label="Open Radio" title="Open Radio">${api.ui.icon('radio')}</a>`);
+        put(R, `${play(a)}<span class="pc-m-time${!a.paused && !P.failed ? ' live' : ''}">${E(state)}</span>${extras()}<a class="pc-ib" href="#view-radio" aria-label="Open Radio" title="Open Radio">${api.ui.icon('radio')}</a>`);
         if (api.ui.currentRoute() === 'view-radio' && bar.dataset.cur !== c.uuid + ':' + a.paused) { bar.dataset.cur = c.uuid + ':' + a.paused; setTimeout(() => api.ui.refresh(), 0); }
       } else if (c.preview) {
         const d = isFinite(a.duration) && a.duration ? a.duration : 30, t = a.currentTime || 0; pct = t / d;
         put(L, `${art(c.art, 'music')}<div class="pc-m-t"><b>${E(c.title)}</b><span><a class="ar-link" href="#view-artist" data-artist="${E(c.podcastTitle)}">${E(c.podcastTitle)}</a> · 30-second preview</span></div>`);
-        put(R, `${play(a)}${P.hasNextPreview && P.hasNextPreview() ? ib('nextpv', 'skip-forward', 'Next preview') : ''}<span class="pc-m-time">${fmt(t)} / ${fmt(d)}</span>${c.link ? `<a class="pc-ib" href="${E(c.link)}" target="_blank" rel="noopener" aria-label="Full song on Deezer" title="Full song on Deezer">${api.ui.icon('external-link')}</a>` : ''}`);
+        put(R, `${play(a)}${P.hasNextPreview && P.hasNextPreview() ? ib('nextpv', 'skip-forward', 'Next preview') : ''}<span class="pc-m-time">${fmt(t)} / ${fmt(d)}</span>${extras()}${c.link ? `<a class="pc-ib" href="${E(c.link)}" target="_blank" rel="noopener" aria-label="Full song on Deezer" title="Full song on Deezer">${api.ui.icon('external-link')}</a>` : ''}`);
       } else {
         const d = isFinite(a.duration) && a.duration ? a.duration : c.duration || 0, t = a.currentTime || c.position || 0; pct = d ? t / d : 0;
         if (api.ui.currentRoute() === 'view-podcasts' && bar.dataset.cur !== c.uuid + ':' + a.paused) { bar.dataset.cur = c.uuid + ':' + a.paused; setTimeout(() => api.ui.refresh(), 0); }
         put(L, `${art(c.art, 'podcast')}<div class="pc-m-t"><b>${E(c.title)}</b><span>${E(c.podcastTitle)}</span></div>`);
-        put(R, `${ib('back', 'rotate-ccw', `Back ${SK().b} seconds`)}${play(a)}${ib('fwd', 'rotate-cw', `Forward ${SK().f} seconds`)}<span class="pc-m-time">${fmt(t)} / ${fmt(d)}</span><a class="pc-ib" href="#view-podcasts" aria-label="Open Podcasts" title="Open Podcasts">${api.ui.icon('podcast')}</a>`);
+        put(R, `${ib('back', 'rotate-ccw', `Back ${SK().b} seconds`)}${play(a)}${ib('fwd', 'rotate-cw', `Forward ${SK().f} seconds`)}<span class="pc-m-time">${fmt(t)} / ${fmt(d)}</span>${extras()}<a class="pc-ib" href="#view-podcasts" aria-label="Open Podcasts" title="Open Podcasts">${api.ui.icon('podcast')}</a>`);
       }
       line.style.width = (Math.max(0, Math.min(1, pct)) * 100).toFixed(2) + '%';
       bar.classList.toggle('pc-live', !!c.live);
@@ -210,7 +230,8 @@
       ({ back: () => P.skip(-SK().b), fwd: () => P.skip(SK().f), toggle: () => P.toggle(),
         play: () => P.play(), pause: () => P.pause(), stop: () => { P.pause(); if (P.current && !P.current.live) P.audio.currentTime = 0; },
         skin: () => { lsSet('skin', 'calm'); build(); draw(); },
-        pl: () => { if (!W) return; W.plbox.hidden = !W.plbox.hidden; lsSet('waPl', !W.plbox.hidden); W.list.dataset.k = ''; draw(); }, nextpv: () => P.onPreviewEnded && P.onPreviewEnded(P.current), viz: () => { window.CadenceViz && window.CadenceViz.toggle(); draw(); } })[b.dataset.pc]();
+        pl: () => { if (!W) return; W.plbox.hidden = !W.plbox.hidden; lsSet('waPl', !W.plbox.hidden); W.list.dataset.k = ''; draw(); }, nextpv: () => P.onPreviewEnded && P.onPreviewEnded(P.current),
+        level: () => { P.setLevel(!P.level); api.ui.toast(P.level ? 'Even volume on: quiet and loud stations land closer together' : 'Even volume off'); }, cast: () => P.cast(), viz: () => { window.CadenceViz && window.CadenceViz.toggle(); draw(); } })[b.dataset.pc]();
     };
     // redraw at most ~4 times a second
     let q = 0; const off = P.on(() => { if (q) return; q = setTimeout(() => { q = 0; draw(); }, 250); }); draw();
@@ -307,7 +328,7 @@
     .pc-lg{position:relative;width:42px;height:42px;flex:none} .pc-lg .cx-logo{position:absolute;inset:0;width:100%;height:100%;margin:0;object-fit:contain;background:#fff;border-radius:var(--r-m,8px);padding:3px}
     .pc-m-t{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px} .pc-m-t b,.pc-m-t span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis} .pc-m-t b{font-size:13px;font-weight:600} .pc-m-t span{font-size:12px;color:var(--muted)}
     .pc-m-t .ar-link{color:inherit}
-    .pc-m-r{display:flex;align-items:center;gap:2px;flex:none}
+    .pc-m-r{display:flex;align-items:center;gap:2px;flex:none} .pc-m-r [data-pc=level][data-on]{color:var(--accent)} #pc-mini .wa-lled{border:0;padding:0;font-family:inherit;cursor:pointer;background:transparent}
     .pc-m-time{font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums;min-width:74px;text-align:center;white-space:nowrap}
     .pc-m-time.live::before{content:'';display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--accent);margin-right:6px;vertical-align:1px;animation:pc-pulse 2s ease-in-out infinite}
     @keyframes pc-pulse{50%{opacity:.35}} @media (prefers-reduced-motion:reduce){.pc-m-time.live::before{animation:none}}
@@ -362,7 +383,7 @@
     .pc-wa .wa-btns svg{width:13px;height:13px;stroke-width:2.6}
     .pc-wa .wa-btns button.lit,.pc-wa .wa-btns button:active,.pc-wa .wa-open:active{color:#0a0;border-style:inset} .pc-wa .wa-btns button.lit svg{color:lime;filter:drop-shadow(0 0 1px #050)}
     .pc-wa .wa-btns button:disabled{opacity:.5;cursor:default}
-    .pc-wa .wa-wide{width:auto!important;padding:0 10px!important;font-size:13px!important;font-weight:700;text-transform:uppercase;letter-spacing:.04em} .pc-wa .wa-wide.lit{color:#060!important}
+    .pc-wa .wa-wide{width:auto!important;padding:0 10px!important;font-size:13px!important;font-weight:700;text-transform:uppercase;letter-spacing:.04em} .pc-wa .wa-wide.lit{color:#060!important} .pc-wa .wa-cast[hidden]{display:none!important}
     .pc-wa .wa-open{margin-left:auto}
     .pc-wa .wa-plbox{border-top:0} .pc-wa .wa-plbox[hidden]{display:none}
     .pc-wa .wa-list{margin:0 8px 8px;padding:6px 8px;color:lime;max-height:150px;overflow:auto;position:relative;z-index:1;font-size:13px;line-height:1.35}

@@ -66,3 +66,28 @@ test('Wikidata hometowns: batched query, distance from home, Kingston Jamaica is
     expect(await O.originWarm([{ name: 'Island Band', mbid: 'm-wolfe' }])).toBe(0);   // kept
   } finally { globalThis.fetch = real; }
 });
+
+test('ListenBrainz scrobbling: only real radio listens, sent with your token, kept when it fails', async () => {
+  const store = await import('../server/services/radar/lib/store.mjs');
+  const S = await import('../server/services/radar/lib/scrobble.mjs');
+  const row = (o) => ({ ts: 1_800_000_000, artist: 'Wet Leg', title: 'Chaise Longue', kind: 'live', station: 'CFRC', secs: 200, skipped: false, ...o });
+  expect(S.worthSending(row())).toBe(true);
+  expect(S.worthSending(row({ kind: 'preview', secs: 30 }))).toBe(false);
+  expect(S.worthSending(row({ secs: 60 }))).toBe(false);
+  expect(S.worthSending(row({ title: null }))).toBe(false);
+  expect(S.listenPayload(row())).toMatchObject({ listened_at: 1_800_000_000 - 200, track_metadata: { artist_name: 'Wet Leg', track_name: 'Chaise Longue', additional_info: { music_service_name: 'CFRC', submission_client: 'Cadence' } } });
+  delete process.env.LISTENBRAINZ_TOKEN;
+  expect(await S.scrobble(row())).toEqual({ sent: 0, off: true });
+  process.env.LISTENBRAINZ_TOKEN = 'tok';
+  const real = globalThis.fetch, sent = []; let fail = true;
+  globalThis.fetch = async (u, o) => { if (fail) return new Response('busy', { status: 503 }); sent.push({ u: String(u), auth: o.headers.Authorization, body: JSON.parse(o.body) }); return new Response('{"status":"ok"}', { headers: { 'content-type': 'application/json' } }); };
+  try {
+    expect((await S.scrobble(row())).sent).toBe(0);
+    expect(store.getKv('lbScrobbleQueue')).toHaveLength(1);   // waits for the next one
+    fail = false;
+    expect((await S.scrobble(row({ title: 'Wet Dream' }))).sent).toBe(2);
+    expect(sent[0]).toMatchObject({ u: 'https://api.listenbrainz.org/1/submit-listens', auth: 'Token tok', body: { listen_type: 'import' } });
+    expect(sent[0].body.payload.map(p => p.track_metadata.track_name)).toEqual(['Chaise Longue', 'Wet Dream']);
+    expect(store.getKv('lbScrobbleQueue')).toEqual([]);
+  } finally { globalThis.fetch = real; delete process.env.LISTENBRAINZ_TOKEN; }
+});

@@ -125,7 +125,10 @@ async function listen(b = {}) {
   const artist = String(b.artist || '').trim().slice(0, 120), kind = ['preview', 'live', 'kexp'].includes(b.kind) ? b.kind : null;
   const secs = Math.max(0, Math.min(3 * 3600, Math.round(+b.secs || 0)));
   if (!artist || !kind || secs < 1) return { ok: false };
-  store.addListen({ ts: Math.floor(Date.now() / 1000), artist, artist_key: norm(artist), title: b.title ? String(b.title).slice(0, 200) : null, kind, station: b.station ? String(b.station).slice(0, 80) : null, secs, skipped: !!b.skipped });
+  const row = { ts: Math.floor(Date.now() / 1000), artist, artist_key: norm(artist), title: b.title ? String(b.title).slice(0, 200) : null, kind, station: b.station ? String(b.station).slice(0, 80) : null, secs, skipped: !!b.skipped };
+  store.addListen(row);
+  // and to ListenBrainz, when you've given Cadence your token (in the background: the page doesn't wait)
+  if (process.env.LISTENBRAINZ_TOKEN) import(pathToFileURL(path.join(__dirname, 'radar', 'lib', 'scrobble.mjs')).href).then(S => S.worthSending(row) && S.scrobble(row)).catch(() => {});
   return { ok: true };
 }
 async function notForMe(b) {

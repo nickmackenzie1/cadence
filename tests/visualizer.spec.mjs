@@ -121,3 +121,48 @@ test('Classic player skin: Winamp-style LCD, scrolling title, spectrum, seek and
   expect(await page.evaluate(() => CadencePodcasts.audio.volume)).toBeCloseTo(0.4, 2);
   expect(errs).toEqual([]);
 });
+
+test('Waterfall and MilkDrop styles, the theme pulse, and even volume', async ({ page }) => {
+  const errs = []; page.on('pageerror', e => errs.push(String(e)));
+  await page.route(EP, r => r.fulfill({ status: 200, contentType: 'audio/wav', body: wav, headers: { 'Access-Control-Allow-Origin': '*' } }));
+  await page.route(u => u.pathname.endsWith('/api/radio/stream'), r => r.fulfill(ranged(r)));
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.goto(B + '/#today'); await expect(page.locator('#sync')).toBeVisible({ timeout: 10000 });
+  await page.evaluate(ep => CadencePodcasts.load({ uuid: 'x1', url: ep, title: 'Tone', podcastTitle: 'Test Show', duration: 20 }, true), EP);
+  const bar = page.locator('#pc-mini');
+  await bar.locator('[data-pc=viz]').click();
+  const win = page.locator('#pc-viz'); await expect(win).toBeVisible();
+  await expect.poll(() => page.evaluate(() => !CadencePodcasts.audio.paused), { timeout: 8000 }).toBe(true);
+  // Waterfall paints columns
+  await win.locator('[data-vz=fall]').click();
+  await expect.poll(() => page.evaluate(() => { const c = document.querySelector('#pc-viz .vz-2d'), d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data; let n = 0; for (let i = 0; i < d.length; i += 4) if (d[i] + d[i + 1] + d[i + 2] > 150) n++; return n; }), { timeout: 6000 }).toBeGreaterThan(20);
+  await win.screenshot({ path: 'test-results/viz-fall.png' });
+  // MilkDrop: the scripts load only now, a look is chosen and named, "Another look" changes it
+  expect(await page.evaluate(() => !!window.butterchurn)).toBe(false);
+  await win.locator('[data-vz=milk]').click();
+  await expect(win.locator('.vz-gl')).toBeVisible();
+  await expect.poll(() => page.evaluate(() => !!window.butterchurn && !!window.butterchurnPresets), { timeout: 10000 }).toBe(true);
+  const hasGL = await page.evaluate(() => !!document.createElement('canvas').getContext('webgl2'));
+  if (hasGL) {
+    await expect(win.locator('.vz-name')).not.toHaveText('', { timeout: 8000 });
+    const first = await win.locator('.vz-name').textContent();
+    await win.locator('[data-vz-act=next]').click();
+    await expect(win.locator('.vz-name')).not.toHaveText(first);
+    await page.waitForTimeout(1500); await win.screenshot({ path: 'test-results/viz-milkdrop.png' });
+  } else await expect(win.locator('.vz-note')).toContainText('WebGL 2');
+  // Pulse: off by default; on, the page gets --beat from the music
+  await expect(page.locator('html')).not.toHaveClass(/cz-pulse/);
+  await win.locator('[data-vz-act=pulse]').click();
+  await expect(page.locator('html')).toHaveClass(/cz-pulse/);
+  await expect.poll(() => page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--beat') !== ''), { timeout: 5000 }).toBe(true);
+  await win.locator('[data-vz-act=pulse]').click();
+  await expect(page.locator('html')).not.toHaveClass(/cz-pulse/);
+  // Even volume: a toggle on the player, remembered, and the compressor engages
+  await win.locator('[data-vz-act=close]').click();
+  await bar.locator('[data-pc=level]').click();
+  await expect(bar.locator('[data-pc=level]')).toHaveAttribute('aria-pressed', 'true');
+  expect(await page.evaluate(() => [CadencePodcasts.level, JSON.parse(localStorage.getItem('cadence.pc.level'))])).toEqual([true, true]);
+  await bar.locator('[data-pc=level]').click();
+  await expect(bar.locator('[data-pc=level]')).toHaveAttribute('aria-pressed', 'false');
+  expect(errs).toEqual([]);
+});

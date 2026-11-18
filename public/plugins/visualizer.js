@@ -5,6 +5,10 @@
        Scope (green oscilloscope trace)
        VU    (two needle meters on a cream face)
        Ring  (a circular spectrum in your theme's colour)
+       Waterfall (2026-11-17: a scrolling picture of the sound, low notes at the bottom)
+       MilkDrop  (2026-11-17: Winamp's MilkDrop, through Butterchurn, MIT, vendored and loaded only when picked; a new
+                  look every 30 seconds, blended; WebGL 2; not run when your device asks for reduced motion)
+     "Pulse" (off by default): your theme gently pulses with the beat. It sets --beat (0–1) on the page; themes can use it.
      "Pop out" moves it into a real mini window that floats over other apps (Document Picture-in-Picture: Chrome, Edge).
    - mini(canvas): the little live bars inside the player itself.
    The sound comes from CadencePodcasts.analyser(): while a visualizer is on, the player plays everything through the
@@ -12,7 +16,7 @@
 (() => {
   'use strict';
   const P = () => window.CadencePodcasts;
-  const MODES = [['bars', 'Bars'], ['scope', 'Scope'], ['vu', 'VU'], ['ring', 'Ring']];
+  const MODES = [['bars', 'Bars'], ['scope', 'Scope'], ['vu', 'VU'], ['ring', 'Ring'], ['fall', 'Waterfall'], ['milk', 'MilkDrop']];
   const LS = 'cadence.viz.';
   const get = (k, d) => { try { const v = localStorage.getItem(LS + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } };
   const set = (k, v) => { try { localStorage.setItem(LS + k, JSON.stringify(v)); } catch (e) {} };
@@ -20,17 +24,21 @@
   let box = null, cv = null, mode = get('mode', 'bars'), raf = 0, pip = null, peaks = [], hold = [], vu = [0, 0];
 
   const CSS = `
-  #pc-viz{position:fixed;z-index:41;width:340px;height:210px;display:flex;flex-direction:column;border-radius:var(--r-l,12px);overflow:hidden;
+  #pc-viz{position:fixed;z-index:41;width:420px;max-width:calc(100vw - 16px);height:236px;display:flex;flex-direction:column;border-radius:var(--r-l,12px);overflow:hidden;
     background:#0b0d0b;border:1px solid var(--line,#333);box-shadow:var(--shadow,0 10px 30px rgba(0,0,0,.35));font:12px/1.2 system-ui,sans-serif;color:#cfd6cf}
   #pc-viz[hidden]{display:none}
-  #pc-viz .vz-top{display:flex;align-items:center;gap:2px;padding:5px 6px;background:#161a16;cursor:grab;user-select:none;touch-action:none}
+  #pc-viz .vz-top{display:flex;align-items:center;gap:1px;overflow-x:auto;scrollbar-width:none;padding:5px 6px;background:#161a16;cursor:grab;user-select:none;touch-action:none}
   #pc-viz .vz-top:active{cursor:grabbing}
-  #pc-viz .vz-m{border:0;background:transparent;color:#8f998f;font:inherit;padding:3px 8px;border-radius:999px;cursor:pointer}
+  #pc-viz .vz-m{border:0;background:transparent;color:#8f998f;font:inherit;padding:3px 6px;white-space:nowrap;border-radius:999px;cursor:pointer}
   #pc-viz .vz-m:hover{color:#e6ece6}#pc-viz .vz-m.on{background:#2a312a;color:#e6ece6}
   #pc-viz .vz-sp{flex:1}
   #pc-viz .vz-b{display:inline-grid;place-items:center;width:24px;height:24px;border:0;border-radius:6px;background:transparent;color:#8f998f;cursor:pointer}
   #pc-viz .vz-b:hover{background:#2a312a;color:#e6ece6}#pc-viz .vz-b svg{width:14px;height:14px}
-  #pc-viz canvas{flex:1;width:100%;min-height:0;display:block}
+  #pc-viz canvas{flex:1;width:100%;min-height:0;display:block}#pc-viz canvas[hidden]{display:none}
+  #pc-viz .vz-b.on{background:#2a312a;color:#e6ece6}#pc-viz .vz-b[hidden]{display:none}
+  #pc-viz .vz-name{position:absolute;left:8px;bottom:6px;max-width:70%;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;color:rgba(230,236,230,.55);font-size:10px;pointer-events:none}
+  html.cz-pulse #pc-mini{box-shadow:0 0 calc(var(--beat,0) * 22px) color-mix(in srgb,var(--accent,#5b8) 55%,transparent)}
+  html.cz-pulse .island,html.cz-pulse #island{box-shadow:0 0 calc(var(--beat,0) * 16px) color-mix(in srgb,var(--accent,#5b8) 45%,transparent)}
   #pc-viz .vz-note{position:absolute;left:0;right:0;bottom:8px;text-align:center;color:#8f998f;pointer-events:none;font-size:11px}
   body.vz-pip{margin:0;background:#0b0d0b}body.vz-pip #pc-viz{position:static;width:100vw;height:100vh;border:0;border-radius:0;box-shadow:none}`;
   const icon = n => (window.CadenceKit && CadenceKit.icon ? CadenceKit.icon(n) : '');
@@ -40,15 +48,19 @@
     if (!document.getElementById('pc-viz-css')) { const s = document.createElement('style'); s.id = 'pc-viz-css'; s.textContent = CSS; document.head.appendChild(s); }
     box = document.createElement('div'); box.id = 'pc-viz'; box.hidden = true; box.setAttribute('role', 'dialog'); box.setAttribute('aria-label', 'Visualizer');
     box.innerHTML = `<div class="vz-top">${MODES.map(([k, l]) => `<button class="vz-m" data-vz="${k}">${l}</button>`).join('')}<span class="vz-sp"></span>
+      <button class="vz-b" data-vz-act="next" hidden title="Another look" aria-label="Another MilkDrop look">${icon('shuffle') || '»'}</button>
+      <button class="vz-b${get('pulse', false) ? ' on' : ''}" data-vz-act="pulse" aria-pressed="${get('pulse', false)}" title="Let your theme pulse with the beat" aria-label="Let your theme pulse with the beat">${icon('activity') || '~'}</button>
       ${'documentPictureInPicture' in window ? `<button class="vz-b" data-vz-act="pip" title="Pop out into a mini window" aria-label="Pop out into a mini window">${icon('picture-in-picture-2') || '⧉'}</button>` : ''}
-      <button class="vz-b" data-vz-act="close" title="Close" aria-label="Close the visualizer">${icon('x') || '×'}</button></div><canvas></canvas><div class="vz-note" hidden></div>`;
-    cv = box.querySelector('canvas');
+      <button class="vz-b" data-vz-act="close" title="Close" aria-label="Close the visualizer">${icon('x') || '×'}</button></div><canvas class="vz-2d"></canvas><canvas class="vz-gl" hidden></canvas><div class="vz-name" hidden></div><div class="vz-note" hidden></div>`;
+    cv = box.querySelector('.vz-2d'); gl.cv = box.querySelector('.vz-gl');
     document.documentElement.appendChild(box);
     const pos = get('pos', null); place(pos ? pos.x : null, pos ? pos.y : null);
     box.addEventListener('click', e => {
       const m = e.target.closest('[data-vz]'); if (m) { mode = m.dataset.vz; set('mode', mode); peaks = []; hold = []; marks(); return; }
       const a = e.target.closest('[data-vz-act]'); if (!a) return;
-      if (a.dataset.vzAct === 'close') close(); else if (a.dataset.vzAct === 'pip') popOut();
+      const act = a.dataset.vzAct;
+      if (act === 'close') close(); else if (act === 'pip') popOut(); else if (act === 'next') milkNext(2.7);
+      else if (act === 'pulse') { const on = !get('pulse', false); set('pulse', on); a.classList.toggle('on', on); a.setAttribute('aria-pressed', on); if (on) { const p = P(); if (p) { p.setViz(true); p.analyser(); } } pulseLoop(); }
     });
     // drag by the top strip (not inside the mini window: the system moves that)
     const top = box.querySelector('.vz-top');
@@ -64,7 +76,7 @@
     return box;
   }
   function place(x, y) {
-    const w = 340, h = 210, W = innerWidth, H = innerHeight;
+    const r = box.getBoundingClientRect(), w = r.width || 420, h = r.height || 236, W = innerWidth, H = innerHeight;
     if (x == null) { x = W - w - 20; y = H - h - 96; }   // above the player, on the right
     box.style.left = Math.max(8, Math.min(W - w - 8, x)) + 'px'; box.style.top = Math.max(8, Math.min(H - h - 8, y)) + 'px';
   }
@@ -134,10 +146,108 @@
   const accent = () => getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#5b8';
 
   function draw() {
-    const s = sound(), [g, w, h] = size(cv), p = P();
+    const milk = mode === 'milk'; cv.hidden = milk; gl.cv.hidden = !milk;
+    box.querySelector('[data-vz-act="next"]').hidden = !milk; box.querySelector('.vz-name').hidden = !milk || !gl.name;
+    const p = P();
+    if (milk) return milkDraw(p);
+    const s = sound(), [g, w, h] = size(cv);
     note(!p || !p.current ? 'Play something to see it here' : p.audio.paused ? 'Paused' : !s ? 'Starting…' : '');
-    ({ bars, scope, vu: meters, ring })[mode](g, w, h, s);
+    ({ bars, scope, vu: meters, ring, fall })[mode](g, w, h, s);
   }
+  // ---- Waterfall: each frame a new column on the right, older sound drifts left; quiet is dark, loud is your accent ----
+  const fallBuf = { c: null, pal: null, acc: '' };
+  function fall(g, w, h, s) {
+    const d = (pip ? pip.devicePixelRatio : devicePixelRatio) || 1, W = Math.round(w * d), H = Math.round(h * d);
+    let b = fallBuf.c; if (!b || b.width !== W || b.height !== H) { b = fallBuf.c = document.createElement('canvas'); b.width = W; b.height = H; const x = b.getContext('2d'); x.fillStyle = '#05070a'; x.fillRect(0, 0, W, H); }
+    const acc = accent(); if (fallBuf.acc !== acc) { fallBuf.acc = acc; fallBuf.pal = palette(acc); }
+    const step = Math.max(1, Math.round(d * (reduce() ? 0.5 : 1.5)));
+    if (s) {
+      // shift through a second canvas (drawing a canvas onto itself isn't dependable), then swap them
+      let t = fallBuf.t; if (!t || t.width !== W || t.height !== H) { t = fallBuf.t = document.createElement('canvas'); t.width = W; t.height = H; }
+      const tx = t.getContext('2d'); tx.fillStyle = '#05070a'; tx.fillRect(W - step, 0, step, H); tx.drawImage(b, -step, 0);
+      fallBuf.t = b; fallBuf.c = b = t;
+    }
+    const x = b.getContext('2d');
+    if (s) {
+      const rows = Math.min(160, Math.round(h)), v = bands(s, rows), rh = H / rows;
+      for (let i = 0; i < rows; i++) { x.fillStyle = fallBuf.pal[Math.min(255, Math.round(Math.pow(v[i], 1.3) * 255))]; x.fillRect(W - step, H - (i + 1) * rh, step, Math.ceil(rh)); }
+    }
+    g.setTransform(1, 0, 0, 1, 0, 0); g.drawImage(b, 0, 0); g.setTransform(d, 0, 0, d, 0, 0);
+  }
+  // dark blue-black → deep teal → your accent → soft cream: 256 steps
+  function palette(acc) {
+    const hex = c => { const m = String(c).match(/^#?([0-9a-f]{3}|[0-9a-f]{6})$/i); if (!m) return [85, 187, 136]; let h = m[1]; if (h.length === 3) h = h.replace(/./g, '$&$&'); return [0, 2, 4].map(i => parseInt(h.slice(i, i + 2), 16)); };
+    const stops = [[0, [5, 7, 10]], [0.35, [14, 60, 70]], [0.75, hex(acc)], [1, [246, 236, 210]]], out = [];
+    for (let i = 0; i < 256; i++) { const t = i / 255; let k = 0; while (k < stops.length - 2 && t > stops[k + 1][0]) k++;
+      const [t0, c0] = stops[k], [t1, c1] = stops[k + 1], f = (t - t0) / (t1 - t0); out.push(`rgb(${c0.map((v, j) => Math.round(v + (c1[j] - v) * f)).join(',')})`); }
+    return out;
+  }
+
+  // ---- MilkDrop, through Butterchurn: scripts load the first time it's picked ----
+  const gl = { cv: null, viz: null, loading: null, names: [], presets: null, name: '', at: 0, w: 0, h: 0, ctx: null, failed: '' };
+  const loadScript = src => new Promise((ok, no) => { const sc = document.createElement('script'); sc.src = src; sc.onload = ok; sc.onerror = () => no(new Error('could not load ' + src)); document.head.appendChild(sc); });
+  function milkLoad() {
+    if (!gl.loading) gl.loading = (async () => {
+      if (!window.butterchurn) await loadScript('vendor/butterchurn/butterchurn.min.js');
+      if (!window.butterchurnPresets) await loadScript('vendor/butterchurn/butterchurnPresets.min.js');
+      const bp = window.butterchurnPresets.default || window.butterchurnPresets;
+      gl.presets = bp.getPresets ? bp.getPresets() : bp; gl.names = Object.keys(gl.presets);
+    })().catch(e => { gl.failed = 'MilkDrop could not load. Try another style.'; gl.loading = null; throw e; });
+    return gl.loading;
+  }
+  function milkNext(blend) {
+    if (!gl.viz || !gl.names.length) return;
+    let n; do { n = gl.names[Math.floor(Math.random() * gl.names.length)]; } while (gl.names.length > 1 && n === gl.name);
+    gl.name = n; gl.at = performance.now(); gl.viz.loadPreset(gl.presets[n], blend);
+    const el = box.querySelector('.vz-name'); el.textContent = n; el.hidden = false;
+  }
+  function milkDraw(p) {
+    if (reduce()) return note('MilkDrop is off while your device asks for reduced motion');
+    // asked once: every test context counts against the browser's limit, and too many knock out MilkDrop's own
+    if (gl.webgl2 == null) gl.webgl2 = (() => { try { const c = document.createElement('canvas'), x = c.getContext('webgl2'); if (x) { const l = x.getExtension('WEBGL_lose_context'); if (l) l.loseContext(); } return !!x; } catch (e) { return false; } })();
+    if (!gl.webgl2) return note("This browser can't show MilkDrop (it needs WebGL 2)");
+    if (gl.failed) return note(gl.failed);
+    const a = p && p.viz && p.analyser && p.analyser();
+    if (!p || !p.current) return note('Play something to see it here');
+    if (!gl.presets) { note('Loading MilkDrop…'); milkLoad().catch(() => {}); return; }
+    if (!a) return note('Starting…');
+    const d = (pip ? pip.devicePixelRatio : devicePixelRatio) || 1, w = Math.max(1, Math.round(gl.cv.clientWidth * d)), h = Math.max(1, Math.round(gl.cv.clientHeight * d));
+    if (!gl.viz || gl.ctx !== a.ctx) {
+      const B = window.butterchurn.default || window.butterchurn;
+      gl.cv.width = w; gl.cv.height = h;
+      try { gl.viz = B.createVisualizer(a.ctx, gl.cv, { width: w, height: h, pixelRatio: 1 }); gl.viz.connectAudio(a.an); gl.ctx = a.ctx; gl.w = w; gl.h = h; milkNext(0); }
+      catch (e) { gl.failed = "MilkDrop couldn't start here."; console.warn('milkdrop', e); return; }
+    }
+    if (w !== gl.w || h !== gl.h) { gl.cv.width = w; gl.cv.height = h; gl.viz.setRendererSize(w, h); gl.w = w; gl.h = h; }
+    note(p.audio.paused ? 'Paused' : '');
+    if (!p.audio.paused && performance.now() - gl.at > 30000) milkNext(2.7);
+    gl.viz.render();
+  }
+
+  // ---- Pulse: a gentle glow on the beat (off by default; never with reduced motion) ----
+  // Bass energy against its own recent average; a beat sets --beat to 1, then it fades. About 30 times a second,
+  // only while something plays and the tab is showing.
+  let pulseRaf = 0, beat = 0, avg = 0, lastBeat = 0;
+  function pulseLoop() {
+    if (pulseRaf) return;
+    const root = document.documentElement;
+    const tick = () => {
+      pulseRaf = 0;
+      const on = get('pulse', false) && !reduce();
+      root.classList.toggle('cz-pulse', on);
+      if (!on) { root.style.removeProperty('--beat'); return; }
+      const s = !document.hidden ? sound() : null;
+      if (s) {
+        const b = bands(s, 24), e = (b[0] + b[1] + b[2] + b[3]) / 4, now = performance.now();
+        avg = avg ? avg * 0.94 + e * 0.06 : e;
+        if (e > 0.3 && e > avg * 1.25 && now - lastBeat > 280) { beat = 1; lastBeat = now; }
+      }
+      beat *= 0.86; root.style.setProperty('--beat', beat.toFixed(3));
+      pulseRaf = setTimeout(() => requestAnimationFrame(tick), 33);
+    };
+    pulseRaf = setTimeout(tick, 0);
+  }
+  if (get('pulse', false)) setTimeout(pulseLoop, 1500);
   // Winamp-ish: segmented bars, green → yellow → amber (no alarming red), peak caps that hang then fall
   function bars(g, w, h, s) {
     g.fillStyle = '#000'; g.fillRect(0, 0, w, h);
