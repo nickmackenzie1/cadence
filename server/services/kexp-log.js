@@ -23,6 +23,7 @@ const BD = process.env.KEXP_BACKFILL_DAYS;
 const BACK_DAYS = BD == null || BD === '' || /^all$/i.test(BD) ? Infinity : +BD;
 const PAGE = 200, BPAGE = Math.max(50, Math.min(1000, +process.env.KEXP_BACKFILL_PAGE || 1000));
 
+const FTS_COVERS = r => `((SELECT v FROM kexp_meta WHERE k = 'fts_done') = '1' OR ${r}.id <= CAST(COALESCE((SELECT v FROM kexp_meta WHERE k = 'fts_cursor'), '0') AS INTEGER))`;
 let db = null, state = { running: false, error: null, lastCheck: 0, backfill: 'waiting' };
 function open() {
   if (db) return db;
@@ -41,6 +42,16 @@ function open() {
     CREATE INDEX IF NOT EXISTS kexp_artists_first ON kexp_artists(first_at);
     CREATE TABLE IF NOT EXISTS kexp_shows (id INTEGER PRIMARY KEY, program TEXT, tags TEXT, hosts TEXT, start INTEGER, tagline TEXT, image TEXT);
     CREATE INDEX IF NOT EXISTS kexp_plays_show ON kexp_plays(show_id);`);
+  // full-text search (2026-11-17): an FTS5 index over artist, song and album, filled in by ftsStep() in id order and
+  // kept up to date by these triggers for every play the builder has already passed (or all of them once it's done)
+  db.exec(`CREATE VIRTUAL TABLE IF NOT EXISTS kexp_fts USING fts5(artist, song, album, content='kexp_plays', content_rowid='id', tokenize='unicode61 remove_diacritics 2');
+    CREATE TRIGGER IF NOT EXISTS kexp_fts_ai AFTER INSERT ON kexp_plays WHEN ${FTS_COVERS('new')} BEGIN
+      INSERT INTO kexp_fts (rowid, artist, song, album) VALUES (new.id, new.artist, new.song, new.album); END;
+    CREATE TRIGGER IF NOT EXISTS kexp_fts_ad AFTER DELETE ON kexp_plays WHEN ${FTS_COVERS('old')} BEGIN
+      INSERT INTO kexp_fts (kexp_fts, rowid, artist, song, album) VALUES ('delete', old.id, old.artist, old.song, old.album); END;
+    CREATE TRIGGER IF NOT EXISTS kexp_fts_au AFTER UPDATE ON kexp_plays WHEN ${FTS_COVERS('old')} BEGIN
+      INSERT INTO kexp_fts (kexp_fts, rowid, artist, song, album) VALUES ('delete', old.id, old.artist, old.song, old.album);
+      INSERT INTO kexp_fts (rowid, artist, song, album) VALUES (new.id, new.artist, new.song, new.album); END;`);
   if (ON) try { adoptOld(db); } catch (e) { console.error('KEXP: reading the old history in cadence.db', e.message); }
   // 2026-11-16 (from kexp.fyi's write-up): KEXP's airdate_before includes that exact time, so asking for "before our
   // oldest play" returned it again and looked like the filter didn't work: undo that switch to offset paging once.
@@ -106,7 +117,7 @@ async function moveOld() {
       await new Promise(r => setTimeout(r, Math.max(30, took * 2)));
     }
   }
-  for (const t of ['kexp_plays', 'kexp_shows', 'kexp_artists', 'kexp_meta']) d.exec(`DROP TABLE IF EXISTS old.${t}`);
+  for (const t of ['kexp_plays', 'kexp_shows', 'kexp_artists', 'kexp_meta', 'kexp_fts']) d.exec(`DROP TABLE IF EXISTS old.${t}`);
   d.exec('DETACH DATABASE old');
   meta('moved_done', Date.now()); MOVE.pending = false; state.moving = false; countCache = { at: 0, n: 0, shows: 0 };
   console.log(`KEXP: history moved to kexp.db (${MOVE.moved.toLocaleString('en-CA')} plays); cadence.db gives the space back on a quiet night`);
@@ -151,6 +162,26 @@ function buildArtistsStep() {
   const took = Date.now() - t0; slowNote('artist summary step', took);
   return a.done ? { done: true, note: 'artist summary ready' } : { again: Math.max(+process.env.KEXP_ARTISTS_GAP || 1000, took * 4) };
 }
+// one step of the search index: the next FTS_CHUNK plays in id order (the scheduler calls it until it's done)
+const FTS_CHUNK = +process.env.KEXP_FTS_CHUNK || 20000;
+function ftsStep() {
+  if (MOVE.pending) return { again: 30e3 };
+  if (meta('fts_done') === '1') return { done: true };
+  const d = open(), cur = +(meta('fts_cursor') || 0), t0 = Date.now();
+  d.exec('BEGIN');
+  try {
+    const r = d.prepare('SELECT MAX(id) AS hi, COUNT(*) AS n FROM (SELECT id FROM kexp_plays WHERE id > ? ORDER BY id LIMIT ?)').get(cur, FTS_CHUNK);
+    if (r.n) d.prepare('INSERT INTO kexp_fts (rowid, artist, song, album) SELECT id, artist, song, album FROM kexp_plays WHERE id > ? AND id <= ?').run(cur, r.hi);
+    meta('fts_cursor', r.n ? r.hi : cur); if (r.n < FTS_CHUNK) meta('fts_done', '1');
+    d.exec('COMMIT');
+    const took = Date.now() - t0; slowNote('search index step', took);
+    if (r.n < FTS_CHUNK) { console.log('KEXP: search index ready'); return { done: true, note: 'search index ready' }; }
+    return { again: Math.max(500, took * 3) };
+  } catch (e) { try { d.exec('ROLLBACK'); } catch {} throw e; }
+}
+const ftsReady = () => { try { return meta('fts_done') === '1'; } catch { return false; } };
+// words → an FTS5 query: every word must appear (in the artist, song or album), each as a prefix ("big thi" finds Big Thief)
+const ftsQuery = q => { const w = String(q || '').toLowerCase().match(/[\p{L}\p{N}]+/gu) || []; return w.length ? w.slice(0, 8).map(t => `"${t}"*`).join(' ') : null; };
 const summary = () => ON && artistsState().done;
 // ---- stepping aside (user, 2026-11-17: "radar is still crashing and slow, is it the KEXP backlog?") ----
 // The history backfill and the artist summary write to cadence.db from the same process that answers Radar and Radio.
@@ -317,6 +348,7 @@ function start() {
     sched.add('kexp-new', async () => { try { await checkNew(); await fillShows(12, { sinceSec: Date.now() / 1000 - 14 * 86400 }); } catch (e) { state.error = 'KEXP: ' + e.message; throw e; } },
       { label: 'KEXP: new plays', every: EVERY, first: 0 });
     sched.add('kexp-backfill', backfillJob, { label: 'KEXP: filling in the past', heavy: true, quiet: true, every: STEP, first: STEP });
+    sched.add('kexp-fts', ftsStep, { label: 'KEXP: search index', heavy: true, quiet: true, every: 1000, first: +process.env.KEXP_FTS_DELAY || 90e3, retry: 60e3 });
     sched.add('kexp-artists', buildArtistsStep, { label: 'KEXP: artist summary', heavy: true, quiet: true, every: 1000, first: +process.env.KEXP_ARTISTS_DELAY || 60e3, retry: 60e3 });
     return { done: true };
   }, { label: 'KEXP: moving history to kexp.db', heavy: true, first: +process.env.KEXP_LOG_DELAY || 15e3, retry: 60e3 });
@@ -402,12 +434,14 @@ async function winnersNow({ by = 'artist', per = 'month', program = null, dj = n
 // q matches artist, song or album; group: artist | song | play
 async function search({ q, group = 'artist', limit = 100 } = {}) {
   q = String(q || '').trim(); if (q.length < 2) return [];
-  const d = open(), L = like(q), n = lim(limit, 100, 500), W = `(artist LIKE ? ESCAPE '\\' OR song LIKE ? ESCAPE '\\' OR album LIKE ? ESCAPE '\\')`;
-  if (group === 'play') return (await rq(`SELECT * FROM kexp_plays WHERE ${W} ORDER BY airdate DESC LIMIT ?`, [L, L, L, n])).map(play);
+  // the search index once it's built (instant, word starts); until then, or for a query with no words, the old full scan
+  const d = open(), L = like(q), n = lim(limit, 100, 500), fq = ftsReady() && ftsQuery(q);
+  const [W, P] = fq ? ['id IN (SELECT rowid FROM kexp_fts WHERE kexp_fts MATCH ?)', [fq]] : [`(artist LIKE ? ESCAPE '\\' OR song LIKE ? ESCAPE '\\' OR album LIKE ? ESCAPE '\\')`, [L, L, L]];
+  if (group === 'play') return (await rq(`SELECT * FROM kexp_plays WHERE ${W} ORDER BY airdate DESC LIMIT ?`, [...P, n])).map(play);
   if (group === 'song') return (await rq(`SELECT MIN(artist) AS artist, MIN(song) AS song, COUNT(*) AS plays, MIN(airdate) AS first, MAX(airdate) AS last, MAX(image) AS image FROM kexp_plays
-    WHERE ${W} AND song IS NOT NULL GROUP BY artist COLLATE NOCASE, song COLLATE NOCASE ORDER BY plays DESC, last DESC LIMIT ?`, [L, L, L, n])).map(r => ({ ...r, first: iso(r.first), last: iso(r.last) }));
+    WHERE ${W} AND song IS NOT NULL GROUP BY artist COLLATE NOCASE, song COLLATE NOCASE ORDER BY plays DESC, last DESC LIMIT ?`, [...P, n])).map(r => ({ ...r, first: iso(r.first), last: iso(r.last) }));
   return (await rq(`SELECT MIN(artist) AS artist, COUNT(*) AS plays, COUNT(DISTINCT song) AS songs, MIN(airdate) AS first, MAX(airdate) AS last, MAX(image) AS image FROM kexp_plays
-    WHERE ${W} GROUP BY artist COLLATE NOCASE ORDER BY plays DESC, last DESC LIMIT ?`, [L, L, L, n])).map(r => ({ ...r, first: iso(r.first), last: iso(r.last) }));
+    WHERE ${W} GROUP BY artist COLLATE NOCASE ORDER BY plays DESC, last DESC LIMIT ?`, [...P, n])).map(r => ({ ...r, first: iso(r.first), last: iso(r.last) }));
 }
 function artist(name) {
   const d = open(), a = String(name || '');
@@ -486,7 +520,7 @@ async function djsFor(names) {
 // ---- read-only tables for the Database view (kexp.db) ----
 async function tables() {
   if (!ON && !fs.existsSync(FILE)) return [];
-  const d = open(), list = d.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name LIKE 'kexp\\_%' ESCAPE '\\' ORDER BY name").all();
+  const d = open(), list = d.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name LIKE 'kexp\\_%' ESCAPE '\\' AND name NOT LIKE 'kexp\\_fts%' ESCAPE '\\' ORDER BY name").all();   // not the search index's own tables
   const out = [];
   for (const { name } of list) {
     let count = null;
@@ -502,4 +536,4 @@ async function tableRows(name, { offset = 0, limit = 50 } = {}) {
   const rows = await rq(`SELECT * FROM ${name} ${order} LIMIT ? OFFSET ?`, [limit, offset]);
   return { name, total: t.count, offset, columns: t.columns, rows: rows.map(r => t.columns.map(c => r[c])) };
 }
-module.exports = { FILE, tables, tableRows, moveOld, touch, inUse, djsFor, _save: save, buildArtistsStep, isOn, heavySince, heavyFirst, playCount, winners, playsSince, status, checkNew, backfillStep, fillShows, row, start, top, search, artist, song, around, recent, newArtists, onAir, open };
+module.exports = { ftsStep, ftsReady, FILE, tables, tableRows, moveOld, touch, inUse, djsFor, _save: save, buildArtistsStep, isOn, heavySince, heavyFirst, playCount, winners, playsSince, status, checkNew, backfillStep, fillShows, row, start, top, search, artist, song, around, recent, newArtists, onAir, open };
