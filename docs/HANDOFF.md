@@ -203,3 +203,7 @@ checking the code.
   card lists the other matches, plus "Not a film", which puts back what you typed. Next ideas from the same list: a
   "Tonight" picker, quiet release reminders, a reward shelf, and a year in review.
 - Artist pages: show an artist's albums like Cover Flow or flipping through a record-shop bin, instead of a plain list (user, 2026-11-18).
+- Havoc (user, 2026-11-18): a dragon that flies around the page and sets things on fire (its fire is Elements fire, so
+  it spreads and burns real page bits); and marry Havoc's two screens, Physics (Matter.js) and Elements (falling sand),
+  into one, so pieces knocked loose fall into sand, water and fire and burn, float or sink. Ties in with the Havok
+  physics item above. The dragon is Cadence's own design, not a known character.
