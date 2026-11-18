@@ -40,8 +40,9 @@ checking the code.
 - Page weight: with everything on, `bundle.js` is ~1.9 MB (560 KB gzipped). `ALWAYS` in `server/lib/bundle.js` loads
   ten plugins even when they're off; `artist.js` is 66 KB.
 - Dark mode check after the design passes.
-- Redraws: dashboard widgets' own redraws don't keep focus/scroll yet; iframes inside views reload on redraw (keep
-  them outside views, like the Mixcloud dock).
+- Redraws: core views morph in place with idiomorph (0.41.0; `localStorage cadence.morph = off` turns it off).
+  Plugin views (data-binding their own handlers) and dashboard widgets still redraw in full, so they don't keep
+  focus/scroll yet, and iframes inside them reload (keep those outside views, like the Mixcloud dock).
 - `docs/BACKUP.md` still mentions a Reddit key in `.env`.
 
 ## Check from the NAS (the agent workspace can't reach these)
