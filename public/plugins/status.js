@@ -133,7 +133,11 @@
       // ---- Problems: what went wrong on the NAS or in this browser, newest first (user, 2026-11-17) ----
       const PR = { d: null, at: 0 };
       const KIND = { error: ['Error', 'circle-alert'], failed: ['Failed request', 'circle-alert'], stopped: ['Stopped unexpectedly', 'power'], stuck: ['Froze', 'hourglass'], slow: ['Slow', 'clock'], browser: ['In the browser', 'monitor'] };
-      const prLoad = async () => { try { PR.d = await (await fetch('api/problems')).json(); } catch (e) { PR.d = { error: e.message }; } PR.at = Date.now(); if (api.ui.currentRoute() === 'view-problems') api.ui.refresh(); };
+      const prLoad = async () => {
+        // background jobs on the NAS (server/lib/scheduler.js): the app's and the music side's
+        const jobs = async u => { try { const r = await fetch(u); return r.ok ? await r.json() : []; } catch (e) { return []; } };
+        PR.jobs = [...await jobs('api/jobs'), ...await jobs('api/radar/jobs')];
+        try { PR.d = await (await fetch('api/problems')).json(); } catch (e) { PR.d = { error: e.message }; } PR.at = Date.now(); if (api.ui.currentRoute() === 'view-problems') api.ui.refresh(); };
       api.views.add({ id: 'problems', title: 'Problems', icon: '🩺', subtitle: 'Errors, freezes and slow spots on the NAS and in this browser', render: el => {
         if (api.system().mode !== 'nas') { el.innerHTML = '<p class="muted">The Problems log lives on the NAS.</p>'; return; }
         if (!PR.d || Date.now() - PR.at > 15e3) { prLoad(); if (!PR.d) { el.innerHTML = '<p class="muted">Loading…</p>'; return; } }
@@ -148,15 +152,34 @@
           <ul class="pr-l">${shown.map(x => { const [label, ic] = KIND[x.kind] || [x.kind, 'circle-alert'];
             return `<li class="pr-${E(x.kind)}"><span class="pr-ic">${api.ui.icon(ic)}</span><div><div class="pr-h"><b>${E(label)}</b><span class="muted">${E(new Date(x.at).toLocaleString())}${x.mb ? ` · ${x.mb} MB in use` : ''}</span></div><div class="pr-m">${E(x.msg)}</div>
               ${x.stack || x.where || x.doing || x.before || x.lastMb ? `<details><summary>Details</summary><pre>${E([x.where && 'Page: ' + x.where, x.doing && 'Was serving: ' + x.doing, x.lastMb && 'Memory in use before it stopped: ' + x.lastMb + ' MB', x.lastVersion && 'Version: ' + x.lastVersion, x.version && 'Version: ' + x.version, x.before, x.stack].filter(Boolean).join('\n'))}</pre></details>` : ''}</div></li>`; }).join('')}</ul>`}</div>`;
+        el.querySelector('.pr').insertAdjacentHTML('beforeend', jobsHtml(PR.jobs || []));
         el.querySelectorAll('[data-pf]').forEach(b => b.onclick = () => { PR.f = b.dataset.pf; api.ui.refresh(); });
         const re = el.querySelector('#pr-re'); if (re) re.onclick = () => { PR.d = null; prLoad(); };
         const cl = el.querySelector('#pr-clear'); if (cl) cl.onclick = async () => { await fetch('api/problems', { method: 'DELETE' }); PR.d = null; prLoad(); api.ui.toast('Cleared the Problems log'); };
       } });
+      // Background work: one line per job, plain words (no red, no countdowns): what it is, what it's doing, when it last ran
+      const ago = t => { const m = Math.round((Date.now() - t) / 60e3); return m < 1 ? 'just now' : m < 60 ? m + ' min ago' : m < 1440 ? Math.round(m / 60) + ' h ago' : Math.round(m / 1440) + ' d ago'; };
+      const until = t => { const m = Math.round((t - Date.now()) / 60e3); return m < 1 ? 'in a moment' : m < 60 ? 'in ' + m + ' min' : m < 1440 ? 'in ' + Math.round(m / 60) + ' h' : 'in ' + Math.round(m / 1440) + ' d'; };
+      const dur = ms => ms < 1000 ? ms + ' ms' : ms < 60e3 ? (ms / 1000).toFixed(1) + ' s' : Math.round(ms / 60e3) + ' min';
+      function jobsHtml(list) {
+        if (!list.length) return '';
+        const E = api.ui.esc, order = { running: 0, waiting: 1, scheduled: 2, finished: 3, stopped: 4 };
+        const now = j => j.state === 'running' ? 'Running now' : j.state === 'waiting' ? (j.waiting ? j.waiting.charAt(0).toUpperCase() + j.waiting.slice(1) : 'Waiting its turn') : j.state === 'finished' ? 'Finished' : j.state === 'stopped' ? 'Stopped' : j.next ? 'Next ' + until(j.next) : '';
+        const last = j => !j.last ? 'Not run yet' : `Last ran ${ago(j.last.at)}, took ${dur(j.last.ms)}${j.last.ok ? (j.last.note ? ' · ' + j.last.note : '') : ' · didn’t finish: ' + j.last.error}`;
+        return `<h3 class="pr-jh">Background work</h3><p class="muted pr-sum">Heavy jobs take turns, one at a time, and wait while you're using Cadence.</p>
+          <ul class="pr-jobs">${list.slice().sort((a, b) => (order[a.state] - order[b.state]) || a.label.localeCompare(b.label)).map(j => `<li class="${j.last && !j.last.ok ? 'pr-jfail' : ''}">
+            <span class="pr-ic">${api.ui.icon(j.state === 'running' ? 'loader' : j.state === 'waiting' ? 'hourglass' : j.state === 'finished' ? 'check' : 'clock')}</span>
+            <div><div class="pr-h"><b>${E(j.label)}</b><span class="muted">${j.where === 'music' ? 'Music side' : 'App'}${j.heavy ? ' · takes turns' : ''}</span></div>
+            <div class="pr-m">${E(now(j))} · ${E(last(j))}</div></div></li>`).join('')}</ul>`;
+      }
       api.commands.add({ title: 'Problems', run: () => api.ui.navigate('view-problems') });
       if (!document.getElementById('pr-css')) { const st = document.createElement('style'); st.id = 'pr-css'; st.textContent = `
         .pr-bar{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:8px} .pr-f{display:flex;gap:6px;flex-wrap:wrap}
         .pr-l{list-style:none;padding:0;margin:8px 0;display:flex;flex-direction:column;gap:8px} .pr-l li{display:flex;gap:10px;border:1px solid var(--line);border-radius:var(--r-l);padding:10px 12px;background:var(--panel)}
         .pr-ic{color:var(--muted);flex:none} .pr-ic svg{width:16px;height:16px} .pr-error .pr-ic,.pr-stopped .pr-ic,.pr-failed .pr-ic{color:var(--warn,#c08a2c)} .pr-stuck .pr-ic{color:var(--accent)}
+        .pr-jh{font-size:14px;margin:20px 0 2px} .pr-jobs{list-style:none;padding:0;margin:8px 0;display:flex;flex-direction:column;gap:6px}
+        .pr-jobs li{display:flex;gap:10px;border:1px solid var(--line);border-radius:var(--r-l);padding:8px 12px;background:var(--panel)} .pr-jobs li>div{flex:1;min-width:0}
+        .pr-jfail .pr-ic{color:var(--warn,#c08a2c)}
         .pr-l li>div{flex:1;min-width:0} .pr-h{display:flex;gap:10px;flex-wrap:wrap;align-items:baseline;font-size:13px} .pr-h .muted{font-size:12px} .pr-m{font-size:13px;margin-top:2px;word-break:break-word}
         .pr-l pre{white-space:pre-wrap;word-break:break-word;font-size:11px;background:var(--hover);padding:8px;border-radius:var(--r-s);max-height:260px;overflow:auto} .pr-l summary{cursor:pointer;font-size:12px;color:var(--muted)}`;
         document.head.appendChild(st); }

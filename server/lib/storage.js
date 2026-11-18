@@ -317,7 +317,7 @@ openDb();
 // daily upkeep also runs on a timer (a quiet day with no pushes still gets its backup), and the one-off compaction of
 // history that piled up before the plugin-history cap runs once, a minute after start
 if (db) {
-  setInterval(() => { maintain(); optimize(db); reclaim(); }, 3600e3).unref();
+  require('./scheduler').add('db-upkeep', () => { maintain(); optimize(db); return { note: reclaim() ? 'giving free space back' : null }; }, { label: 'Database upkeep: backup, tidy, free space', heavy: true, quiet: true, every: 3600e3 });
   setTimeout(() => { try { if (!(db.prepare("SELECT value FROM meta WHERE key = 'compacted'").get() || {}).value) { compact(); db.prepare("INSERT OR REPLACE INTO meta (key, value) VALUES ('compacted', '1')").run(); } } catch (e) { console.error('compact failed', e.message); } }, 60e3).unref();
 }
 const closeDb = () => { try { if (db) { db.exec('PRAGMA wal_checkpoint(TRUNCATE)'); db.close(); db = null; } } catch {} };

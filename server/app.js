@@ -47,6 +47,10 @@ async function handle(req, res) {
     const iconish = /^\/icons\/icon-\d+\.png$/.test(url.pathname.replace(/^.*(\/icons\/)/, '/icons/'));
     if (req.method !== 'GET' && req.method !== 'HEAD' && !sameOrigin(req)) return send(res, 403, { error: 'Cross-site request refused' });
 
+    // someone is using Cadence: quiet background jobs wait (lib/scheduler.js). That's opening the app, anything the
+    // browser asks for while you're active (auth.js adds X-Cadence-Active) and audio playing through the NAS; not an
+    // open tab's automatic checks, health checks or icons.
+    if (req.headers['x-cadence-active'] || /^\/api\/(radio\/stream|podcasts\/stream)/.test(p) || (!p.startsWith('/api/') && /(^\/$|\.html$|\/bundle\.js$|^\/[^.]*$)/.test(url.pathname.replace(/^.*\//, '/')))) require('./lib/scheduler').touch();
     const ctx = { url, p, leaf };
     // routes that work before signing in
     if (await routes.auth(req, res, ctx) !== NEXT) return;

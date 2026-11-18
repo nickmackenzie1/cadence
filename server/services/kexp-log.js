@@ -135,33 +135,30 @@ function addToArtists(rows) {
   for (const [k, x] of m) up.run(k, x.artist, x.plays, x.first, x.last, x.heavy);
 }
 const ACHUNK = +process.env.KEXP_ARTISTS_CHUNK || 2000;
+// one chunk of the summary; the scheduler (start() below) calls it again until it says done
 function buildArtistsStep() {
+  if (MOVE.pending) return { again: 30e3 };   // after the move to kexp.db
+  const a = artistsState(); if (a.done) return { done: true };
+  const t0 = Date.now(), d = open(), rows = d.prepare('SELECT id, artist, airdate, rotation FROM kexp_plays WHERE id > ? ORDER BY id LIMIT ?').all(a.cursor, ACHUNK);
+  d.exec('BEGIN');
   try {
-    if (MOVE.pending) return void setTimeout(buildArtistsStep, 30e3).unref();   // after the move to kexp.db
-    const a = artistsState(); if (a.done) return;
-    if (inUse()) return void setTimeout(buildArtistsStep, 15e3).unref();
-    const t0 = Date.now(), d = open(), rows = d.prepare('SELECT id, artist, airdate, rotation FROM kexp_plays WHERE id > ? ORDER BY id LIMIT ?').all(a.cursor, ACHUNK);
-    d.exec('BEGIN');
-    try {
-      addToArtists(rows);
-      const last = rows.length ? rows[rows.length - 1].id : a.cursor, done = rows.length < ACHUNK;
-      meta('artists_cursor', last); if (done) meta('artists_done', '1');
-      d.exec('COMMIT'); a.cursor = last; a.done = done;
-      if (done) console.log('KEXP: artist summary ready');
-    } catch (e) { try { d.exec('ROLLBACK'); } catch {} throw e; }
-    const took = Date.now() - t0; slowNote('artist summary step', took);
-    if (!a.done) setTimeout(buildArtistsStep, Math.max(+process.env.KEXP_ARTISTS_GAP || 1000, took * 4)).unref();
-  } catch (e) { console.error('KEXP artist summary', e.message); setTimeout(buildArtistsStep, 60e3).unref(); }
+    addToArtists(rows);
+    const last = rows.length ? rows[rows.length - 1].id : a.cursor, done = rows.length < ACHUNK;
+    meta('artists_cursor', last); if (done) meta('artists_done', '1');
+    d.exec('COMMIT'); a.cursor = last; a.done = done;
+    if (done) console.log('KEXP: artist summary ready');
+  } catch (e) { try { d.exec('ROLLBACK'); } catch {} throw e; }
+  const took = Date.now() - t0; slowNote('artist summary step', took);
+  return a.done ? { done: true, note: 'artist summary ready' } : { again: Math.max(+process.env.KEXP_ARTISTS_GAP || 1000, took * 4) };
 }
 const summary = () => ON && artistsState().done;
 // ---- stepping aside (user, 2026-11-17: "radar is still crashing and slow, is it the KEXP backlog?") ----
 // The history backfill and the artist summary write to cadence.db from the same process that answers Radar and Radio.
 // While you're using those pages (any request in the last two minutes), both wait; when they run, they write in small
 // transactions and rest in proportion to how long the last write took, so a slow NAS disk gets slower pacing.
-const QUIET_MS = +process.env.KEXP_QUIET_MS || 120e3;
-let lastUse = 0;
-const touch = () => { lastUse = Date.now(); };
-const inUse = () => Date.now() - lastUse < QUIET_MS;
+// (2026-11-17) "in use" now comes from the shared scheduler (lib/scheduler.js), which runs the heavy KEXP jobs one at a time
+const sched = require('../lib/scheduler');
+const touch = sched.touch, inUse = sched.inUse;
 const slowNote = (what, ms) => { if (ms > 1500) try { require('../lib/problems').record('slow', `KEXP ${what} took ${(ms / 1000).toFixed(1)}s`, { ms }); } catch {} };
 const meta = (k, v) => { const d = open(); if (v === undefined) return (d.prepare('SELECT v FROM kexp_meta WHERE k = ?').get(k) || {}).v; d.prepare('INSERT OR REPLACE INTO kexp_meta (k, v) VALUES (?, ?)').run(k, String(v)); };
 
@@ -291,33 +288,38 @@ async function status() {
     // size: kexp.db's own file (and its write-ahead log) now that KEXP history has a file of its own
     bytesCache = { at: Date.now(), b: fileBytes() };
     const r = { since: (d.prepare('SELECT MIN(airdate) AS t FROM kexp_plays').get() || {}).t, latest: (d.prepare('SELECT MAX(airdate) AS t FROM kexp_plays').get() || {}).t };
-    return { on: true, plays: countCache.n, since: r.since ? iso(r.since) : null, latest: r.latest ? iso(r.latest) : null, backfill: state.backfill, paused: !!state.paused, mode: meta('backfill_mode') || 'date', error: state.error, moving: state.moving ? { moved: MOVE.moved, total: MOVE.total } : null, file: 'kexp.db', backDays: BACK_DAYS === Infinity ? 'all' : BACK_DAYS,
+    return { on: true, plays: countCache.n, since: r.since ? iso(r.since) : null, latest: r.latest ? iso(r.latest) : null, backfill: state.backfill, paused: state.backfill === 'running' && inUse(), mode: meta('backfill_mode') || 'date', error: state.error, moving: state.moving ? { moved: MOVE.moved, total: MOVE.total } : null, file: 'kexp.db', backDays: BACK_DAYS === Infinity ? 'all' : BACK_DAYS,
       shows: (d.prepare('SELECT COUNT(*) AS n FROM kexp_shows').get() || {}).n || 0, bytes: bytesCache.b };
   } catch (e) { return { on: true, error: e.message }; }
 }
 
+// Background work goes through the scheduler (lib/scheduler.js): the move to kexp.db first (once), then new plays
+// every 5 minutes, and the two heavy ones (filling in the past, the artist summary) one at a time, only while nobody is
+// using Cadence. Each shows on the Problems page with its last run.
+async function backfillJob() {
+  if (state.backfill === 'done') return (await fillShows(6)) ? { again: STEP } : { done: true, note: 'all of KEXP is in' };   // then name older plays' shows
+  const t0 = Date.now();
+  try {
+    state.pageShows = null; state.backfill = await backfillStep(); if (state.pageShows) await fillShows(8, { ids: state.pageShows });
+    state.slow = 0; const took = Date.now() - t0; slowNote('history page', took);
+    return { again: Math.max(STEP, took * 3) };
+  } catch (e) {
+    state.error = 'KEXP history: ' + e.message;
+    if (/HTTP (429|5\d\d)/.test(e.message)) { state.slow = Math.min(6, (state.slow || 0) + 1); return { again: STEP * 2 ** state.slow, note: 'KEXP asked us to slow down' }; }   // back off
+    throw e;
+  }
+}
 function start() {
   if (!ON || state.running) return; state.running = true;
-  const tickNew = async () => { try { await checkNew(); await fillShows(12, { sinceSec: Date.now() / 1000 - 14 * 86400 }); } catch (e) { state.error = 'KEXP: ' + e.message; } };
-  const tickBack = async () => {
-    if (state.backfill === 'done') return;
-    if (inUse()) { state.paused = true; return void setTimeout(tickBack, 15e3).unref(); }
-    state.paused = false;
-    let wait = STEP; const t0 = Date.now();
-    try { state.pageShows = null; state.backfill = await backfillStep(); if (state.pageShows) await fillShows(8, { ids: state.pageShows }); state.slow = 0; const took = Date.now() - t0; slowNote('history page', took); wait = Math.max(STEP, took * 3); }
-    catch (e) { state.error = 'KEXP history: ' + e.message; if (/HTTP (429|5\d\d)/.test(e.message)) { state.slow = Math.min(6, (state.slow || 0) + 1); wait = STEP * 2 ** state.slow; } }
-    // once the past is filled in, keep naming the shows of older plays a few at a time
-    if (state.backfill === 'done') { try { if (await fillShows(6)) return void setTimeout(tickBack2, STEP).unref(); } catch {} }
-    if (state.backfill !== 'done') setTimeout(tickBack, wait).unref();   // KEXP asked us to slow down: back off
-  };
-  const tickBack2 = async () => { try { if (await fillShows(6)) setTimeout(tickBack2, STEP).unref(); } catch {} };
-  // the history moves out of cadence.db first (once; a few minutes); new plays and the backfill wait for it
-  const go = async () => {
-    try { open(); await moveOld(); }
-    catch (e) { state.moving = false; state.error = 'KEXP: moving history to kexp.db: ' + e.message; console.error(state.error); return void setTimeout(go, 60e3).unref(); }
-    await tickNew(); setInterval(tickNew, EVERY).unref(); setTimeout(tickBack, STEP).unref();
-  };
-  setTimeout(go, +process.env.KEXP_LOG_DELAY || 15e3).unref();
+  sched.add('kexp-move', async () => {
+    try { open(); await moveOld(); } catch (e) { state.moving = false; state.error = 'KEXP: moving history to kexp.db: ' + e.message; throw e; }
+    // the history is where it belongs: the rest can start
+    sched.add('kexp-new', async () => { try { await checkNew(); await fillShows(12, { sinceSec: Date.now() / 1000 - 14 * 86400 }); } catch (e) { state.error = 'KEXP: ' + e.message; throw e; } },
+      { label: 'KEXP: new plays', every: EVERY, first: 0 });
+    sched.add('kexp-backfill', backfillJob, { label: 'KEXP: filling in the past', heavy: true, quiet: true, every: STEP, first: STEP });
+    sched.add('kexp-artists', buildArtistsStep, { label: 'KEXP: artist summary', heavy: true, quiet: true, every: 1000, first: +process.env.KEXP_ARTISTS_DELAY || 60e3, retry: 60e3 });
+    return { done: true };
+  }, { label: 'KEXP: moving history to kexp.db', heavy: true, first: +process.env.KEXP_LOG_DELAY || 15e3, retry: 60e3 });
 }
 
 // ---------- search and stats over the saved plays (no AI: plain grouping and counts) ----------
@@ -469,7 +471,6 @@ async function newArtists({ days = 14, limit = 50 } = {}) {
 }
 
 start();
-if (ON) setTimeout(buildArtistsStep, +process.env.KEXP_ARTISTS_DELAY || 60e3).unref();
 // how many times KEXP has played someone (cheap: the artist index), for "where they've turned up"
 function playCount(name) { try { if (summary()) return (open().prepare('SELECT plays FROM kexp_artists WHERE key = ?').get(AKEY(name)) || {}).plays || 0; return open().prepare('SELECT COUNT(*) AS n FROM kexp_plays WHERE artist = ? COLLATE NOCASE').get(String(name || '')).n; } catch (e) { return 0; } }
 // when KEXP first put someone in heavy rotation (unix seconds), for Music Radar's "Called it"

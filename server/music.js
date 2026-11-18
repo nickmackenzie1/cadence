@@ -19,7 +19,7 @@ setInterval(() => { const lag = Date.now() - tick - 1000; tick = Date.now(); if 
 const server = http.createServer(async (req, res) => {
   if (!KEY || req.headers['x-cadence-music'] !== KEY) { res.writeHead(403); return res.end(); }
   const id = ++seq, t = Date.now(), url = new URL(req.url, 'http://x'), p = url.pathname.replace(/^.*?\/api\//, '/api/');
-  busy.set(id, p); if (!/\/(status|problems)$/.test(p)) K.touch();
+  busy.set(id, p); if (req.headers['x-cadence-active'] || /\/stream$/.test(p)) require('./lib/scheduler').touch();   // you, not an open tab's automatic checks (see auth.js)
   res.on('close', () => {
     busy.delete(id); const ms = Date.now() - t;
     if (ms > 2000 && !/\/stream$/.test(p)) { console.log(`slow: ${req.method} ${p} took ${(ms / 1000).toFixed(1)}s`); problems.record('slow', `${req.method} ${p} took ${(ms / 1000).toFixed(1)}s`, { path: p, ms }); }

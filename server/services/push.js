@@ -70,6 +70,6 @@ async function pushTick() {
   for (const [k, at] of Object.entries(d.sent)) if (now - at > 2 * 864e5) { delete d.sent[k]; changed = true; }
   if (changed) { const cur = readPush(); cur.sent = d.sent; writePush(cur); }
 }
-setInterval(() => pushTick().catch(e => console.error('pushTick', e.message)), 30000).unref();
+require('../lib/scheduler').add('reminders', pushTick, { label: 'Reminders and notifications', every: 30000, retry: 30000 });
 
 module.exports = { PUSH_FILE, b64u, encryptPush, hkdf, inQuiet, pushAll, pushTick, readPush, sendPush, unb64u, vapidAuth, writePush, wxCache };

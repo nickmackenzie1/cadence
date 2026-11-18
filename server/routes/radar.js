@@ -13,6 +13,7 @@ module.exports = async function radarRoutes(req, res, { url, p }) {
   const body = async () => { try { return JSON.parse(await readBody(req, 64 * 1024) || '{}'); } catch { return {}; } };
 
   if (req.method === 'POST' && p.startsWith('/api/radar/')) radar.bust();   // a change: the kept page data starts fresh
+  if (p === '/api/radar/jobs' && req.method === 'GET') return send(res, 200, require('../lib/scheduler').list('music'));
   if (p === '/api/radar/status' && req.method === 'GET') return send(res, 200, radar.status());
   if (p === '/api/radar/settings' && req.method === 'POST') { const b = await body(); radar.settings({ on: !!b.on }); return send(res, 200, radar.status()); }
   if (p === '/api/radar/run' && req.method === 'POST') {

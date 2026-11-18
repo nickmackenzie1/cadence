@@ -33,6 +33,7 @@ const log = [];
 const note = line => { log.push(`${new Date().toISOString().slice(11, 19)} ${line}`); if (log.length > 60) log.shift(); };
 // Everything the scanner prints during a job (Reddit refusals included) goes into the log, and each job is kept
 // in the radar_jobs table so the Database view can show what happened even after a restart.
+let jobDone = Promise.resolve();   // the running scan/digest, so the scheduler can wait for it
 function runJob(kind, fn) {
   if (job) return false;
   job = { kind, since: Date.now() };
@@ -54,7 +55,7 @@ function runJob(kind, fn) {
     load().then(({ store }) => store.addJob({ ts: Date.now(), kind, ok: !problem, ms, errors: errors.length, problem, lines: lines.slice(-80) })).catch(e => console.error('radar job log', e));
     job = null;
   };
-  Promise.resolve().then(fn).then(() => { bust(); finish(true); }, e => { console.error('radar', kind, e); bust(); finish(false, e); });
+  jobDone = Promise.resolve().then(fn).then(() => { bust(); finish(true); }, e => { console.error('radar', kind, e); bust(); finish(false, e); });
   return true;
 }
 const runSources = async only => { const { store, sources, srcData } = await load(); console.log('Checking other sources…'); await sources.runSources(srcData.sourcesCfg(), { store, state: store.loadState(), only }); };
@@ -79,12 +80,15 @@ async function sourcesSettings(patch) {
 }
 const digestNow = () => runJob('digest', async () => { const { digest } = await load(); await digest.digest({}); settings({ lastDigest: Date.now() }); });
 
-// the schedule: checked every 10 minutes, only while switched on
-setInterval(() => {
-  const s = readSettings(); if (!s.on || job) return;
-  if (Date.now() - s.lastScan >= SCAN_EVERY) scan();
-  else if (s.lastScan && Date.now() - s.lastDigest >= DIGEST_EVERY) digestNow();
-}, 10 * 60e3).unref();
+// the schedule: checked every 10 minutes, only while switched on. Through the shared scheduler (lib/scheduler.js), so
+// a scan waits while you're using Cadence and never runs at the same time as KEXP's heavy work (2026-11-17).
+const sched = require('../lib/scheduler');
+sched.add('radar-scan', async () => {
+  const s = readSettings(); if (!s.on) return { note: 'Radar is switched off' }; if (job) return { note: 'a scan was already running' };
+  const started = Date.now() - s.lastScan >= SCAN_EVERY ? scan() : s.lastScan && Date.now() - s.lastDigest >= DIGEST_EVERY ? digestNow() : false;
+  if (!started) return { note: 'nothing due' };
+  await jobDone; return { note: job ? null : 'done' };
+}, { label: 'Music Radar: scans and the weekly digest', heavy: true, quiet: true, every: 10 * 60e3 });
 
 function status() {
   const s = readSettings();
@@ -309,7 +313,7 @@ if (!process.env.CI && process.env.ARTIST_WARM !== '0') {
       for (const r of S.pagesToRefresh(55 * 60e3, 40)) { if (r.name) { await artist(r.name, { fresh: true }).catch(() => {}); await new Promise(f => setTimeout(f, 3000).unref()); } }
     } catch (e) { console.error('artist warm', e.message); }
   };
-  setTimeout(warm, 120e3).unref(); setInterval(warm, 3600e3).unref();
+  sched.add('artist-warm', warm, { label: 'Artist pages: keeping recent ones fresh', heavy: true, quiet: true, every: 3600e3, first: 120e3 });
 }
 async function buildArtist(name) {
   const A = await import(pathToFileURL(path.join(__dirname, 'radar', 'lib', 'artist.mjs')).href);
@@ -325,9 +329,7 @@ async function buildArtist(name) {
 const stgLib = () => import(pathToFileURL(path.join(__dirname, 'radar', 'lib', 'stg.mjs')).href);
 const STG_ON = process.env.STG === '1' || (process.env.STG !== '0' && !process.env.CI);
 if (STG_ON) {
-  const run = () => stgLib().then(S => S.stgImport()).catch(e => console.error('stg import', e.message));
-  setTimeout(run, Number(process.env.STG_DELAY_MS || 90e3)).unref();
-  setInterval(run, 24 * 3600e3).unref();
+  sched.add('stg', () => stgLib().then(S => S.stgImport()), { label: "Said the Gramophone's best-of lists", heavy: true, quiet: true, every: 24 * 3600e3, first: Number(process.env.STG_DELAY_MS || 90e3), retry: 3600e3 });
 }
 async function stg({ year, refresh } = {}) {
   const S = await stgLib();

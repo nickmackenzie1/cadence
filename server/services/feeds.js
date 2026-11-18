@@ -50,10 +50,11 @@ function logFeed(u, data, asked) {
   const ks = Object.keys(f.seen); if (ks.length > 3000) for (const k of ks.slice(0, ks.length - 3000)) delete f.seen[k];
   saveFeedLog();
 }
-setInterval(async () => {
+// feed history: recent feeds checked every 30 minutes, through the scheduler (one heavy job at a time, waits while you use Cadence)
+require('../lib/scheduler').add('feeds', async () => {
   const L = readFeedLog();
   for (const [u, f] of Object.entries(L)) { if (Date.now() - (f.asked || 0) > 14 * 864e5) continue;
     try { const r = await safeFetch(u, { headers: { Accept: 'application/rss+xml, application/atom+xml, application/xml, text/xml, */*' } }, 3 * 1024 * 1024); logFeed(u, parseFeed(r.buf.toString('utf8'), r.url), false); } catch {} }
-}, 30 * 60e3).unref();
+}, { label: 'Feeds: checking for new items', heavy: true, quiet: true, every: 30 * 60e3 });
 
 module.exports = { FEEDLOG, addPrices, feedCache, feedLog, feedLogT, logFeed, pagePrice, parseFeed, priceCache, readFeedLog, saveFeedLog };

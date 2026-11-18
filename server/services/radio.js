@@ -227,7 +227,7 @@ function follow({ id, name, url, on }) {
 const FOLLOW_EVERY = +process.env.RADIO_FOLLOW_EVERY || 120e3;
 if (process.env.RADIO_HISTORY === '1' || (!process.env.CI && process.env.RADIO_HISTORY !== '0')) {
   const tick = async () => { try { for (const f of hist().prepare('SELECT station, url FROM radio_follow').all()) await stationNow(f.station, f.url).catch(() => {}); } catch (e) { console.warn('radio follow', e.message); } };
-  setTimeout(() => { tick(); setInterval(tick, FOLLOW_EVERY).unref(); }, +process.env.RADIO_FOLLOW_DELAY || 30000).unref();
+  require('../lib/scheduler').add('radio-follow', tick, { label: "Radio: what your kept stations are playing", every: FOLLOW_EVERY, first: +process.env.RADIO_FOLLOW_DELAY || 30000 });
 }
 
 // ---- relay an http:// stream (only public addresses; follows a few redirects; .pls/.m3u resolved to their first entry) ----
