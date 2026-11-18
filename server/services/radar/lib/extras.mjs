@@ -23,15 +23,26 @@ const myArtists = () => {
 
 // ---- Out this week: releases in the last 7 days or the next 60, by artists you follow or saved ----
 export function releases({ back = 7, ahead = 60 } = {}) {
-  const t = now(), mine = myArtists(), out = new Map(), today = iso(t), from = iso(t - back * DAY), to = iso(t + ahead * DAY);
+  const t = now(), mine = myArtists(), out = new Map(), announced = new Map(), today = iso(t), from = iso(t - back * DAY), to = iso(t + ahead * DAY);
   const add = (r) => { if (!r.date || r.date < from || r.date > to) return; const k = norm(r.artist) + "|" + norm(r.title); if (!out.has(k)) out.set(k, r); };
   for (const [key, a] of mine) {
     const mb = artistInfo(a.name);   // queues a MusicBrainz look-up if it's missing; its answer shows next time
     for (const r of mb.info?.releases || []) add({ artist: a.name, title: r.title, type: (r.type || "release").toLowerCase(), date: String(r.date || "").slice(0, 10), why: a.why, source: "MusicBrainz", cover: r.cover, url: `https://musicbrainz.org/release-group/${r.id}` });
-    for (const s of signalsFor(key, 100)) if (s.date && /album|ep|single|release|track/.test(s.type || "")) add({ artist: a.name, title: s.title, type: s.type, date: String(s.date).slice(0, 10), why: a.why, source: s.source, cover: s.image, url: s.url });
+    for (const s of signalsFor(key, 100)) {
+      // a blog announcing a record: its release day when the post gives one; otherwise "announced", without a day
+      if (s.announce) {
+        const r = { artist: a.name, title: s.title, type: s.type === "ep" ? "ep" : "album", why: a.why, source: s.feed || s.source, cover: s.image, url: s.url, announced: true };
+        if (s.announce.release) add({ ...r, date: s.announce.release });
+        else if (s.first_seen > t - 21 * DAY) announced.set(norm(a.name) + "|" + norm(s.title), { ...r, date: String(s.date ? new Date(Date.parse(s.date) || s.first_seen * 1000).toISOString() : iso(s.first_seen)).slice(0, 10) });
+        continue;
+      }
+      if (s.date && /album|ep|single|release|track/.test(s.type || "")) add({ artist: a.name, title: s.title, type: s.type, date: String(s.date).slice(0, 10), why: a.why, source: s.source, cover: s.image, url: s.url });
+    }
   }
   const list = [...out.values()].sort((a, b) => a.date.localeCompare(b.date));
-  return { today, thisWeek: list.filter((r) => r.date <= iso(t + 7 * DAY)), soon: list.filter((r) => r.date > iso(t + 7 * DAY)), pending: [...mine.values()].some((a) => artistInfo(a.name, { queue: false }).pending) };
+  return { today, thisWeek: list.filter((r) => r.date <= iso(t + 7 * DAY)), soon: list.filter((r) => r.date > iso(t + 7 * DAY)),
+    announced: [...announced.values()].filter((r) => !list.some((x) => norm(x.artist) === norm(r.artist))).sort((a, b) => b.date.localeCompare(a.date)).slice(0, 8),
+    pending: [...mine.values()].some((a) => artistInfo(a.name, { queue: false }).pending) };
 }
 
 // ---- Called it: Radar's first sighting vs the Apple chart and KEXP's heavy rotation ----

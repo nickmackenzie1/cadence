@@ -1,7 +1,7 @@
 // Sounds like (user, 2026-11-16): artists to wander to from an artist page.
 //   mentioned together  the same communities and posts talk about both (Radar's "sounds like" graph)
 //   Last.fm similar     listeners' similar-artist list (needs LASTFM_API_KEY on the NAS), kept 30 days
-import { getKv, setKv, neighbors } from "./store.mjs";
+import { getKv, setKv, neighbors, alikeFor } from "./store.mjs";
 import { httpJson } from "./http.mjs";
 import { norm } from "./extract.mjs";
 
@@ -20,6 +20,10 @@ async function lastfm(name) {
 export async function similar(name, { limit = 12 } = {}) {
   const me = norm(name), out = new Map();
   for (const n of neighbors(me, 12)) if (n.key !== me) out.set(n.key, { name: n.name || titled(n.key), why: `mentioned together ${n.n} time${n.n === 1 ? "" : "s"}`, from: "radar" });
+  // writers saying so (Indie Shuffle's "Sounds like" lines and the like) come first
+  let said = []; try { said = alikeFor(me, 8); } catch {}
+  for (const n of said.reverse()) { if (n.key === me) continue; const why = `${n.feeds.split(",")[0]} says they sound alike`, x = out.get(n.key); out.delete(n.key); out.set(n.key, x ? { ...x, why: why + ", and " + x.why } : { name: n.name || titled(n.key), why, from: "blogs" }); }
+  const ordered = [...out.entries()].reverse(); out.clear(); for (const [k, v] of ordered) out.set(k, v);
   for (const a of await lastfm(name)) { const k = norm(a.name); if (k === me) continue; const x = out.get(k); if (x) x.why += ", and Last.fm says they're alike"; else out.set(k, { name: a.name, why: `Last.fm: ${Math.round(a.match * 100)}% alike`, from: "lastfm" }); }
   return [...out.values()].slice(0, limit);
 }

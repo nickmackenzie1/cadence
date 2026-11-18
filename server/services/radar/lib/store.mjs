@@ -6,6 +6,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { createRequire } from "node:module";
 import { DATA, now, DAY } from "./config.mjs";
+import { norm } from "./extract.mjs";
 
 const STATE = path.join(DATA, "state.json");
 const HISTORY = path.join(DATA, "history.json");
@@ -200,12 +201,15 @@ export function upsertSignals(rows, ts) {
     const ins = db.prepare(`INSERT INTO radar_signals (source, uid, first_seen, last_seen, seen, artist, artist_key, title, type, feed, rank, best_rank, metric, genres, date, url, image, json)
       VALUES (?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
     const upd = db.prepare("UPDATE radar_signals SET last_seen = ?, seen = seen + 1, rank = ?, best_rank = MIN(COALESCE(best_rank, ?), COALESCE(?, best_rank)), metric = COALESCE(?, metric) WHERE id = ?");
+    alikeTable();
+    const al = db.prepare("INSERT INTO radar_alike (a, b, feed, ts) VALUES (?, ?, ?, ?) ON CONFLICT(a, b, feed) DO UPDATE SET ts = excluded.ts");
     const pt = db.prepare("INSERT INTO radar_chart_points (ts, source, uid, artist, title, feed, rank, metric) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
     for (const r of rows) {
       const g = list(r.genres), had = get.get(r.source, r.uid), rank = r.rank ?? null, metric = r.metric ?? null;
       if (had) upd.run(ts, rank, rank, rank, metric, had.id);
       else { ins.run(r.source, r.uid, ts, ts, r.artist, r.artist_key, r.title ?? null, r.type ?? null, r.feed ?? null, rank, rank, metric, g || null, r.date ?? null, r.url ?? null, r.image ?? null, J(r)); fresh++; }
       if (rank != null) pt.run(ts, r.source, r.uid, r.artist, r.title ?? null, r.feed ?? null, rank, metric);
+      for (const o of r.soundsLike || []) { const b = norm(o); if (b && b !== r.artist_key) al.run(r.artist_key, b, r.feed || r.source, ts); }
     }
   });
   return fresh;
@@ -220,9 +224,24 @@ export function signals({ since = 0, source = null, limit = 5000 } = {}) {
 // everything any source has said about one artist (by normalised name), newest first
 export function signalsFor(artistKey, limit = 300) {
   if (!open()) return [];
-  return db.prepare(`SELECT source, uid, first_seen, last_seen, seen, artist, artist_key, title, type, feed, rank, best_rank, metric, genres, date, url, image
-    FROM radar_signals WHERE artist_key = ? ORDER BY last_seen DESC, id DESC LIMIT ?`).all(artistKey, limit);
+  // blog posts also bring their extras (listen links, release announcements), kept in the row's json
+  return db.prepare(`SELECT source, uid, first_seen, last_seen, seen, artist, artist_key, title, type, feed, rank, best_rank, metric, genres, date, url, image,
+    CASE WHEN source = 'blogs' THEN json END AS extra
+    FROM radar_signals WHERE artist_key = ? ORDER BY last_seen DESC, id DESC LIMIT ?`).all(artistKey, limit).map(({ extra, ...r }) => {
+      if (extra) try { const j = JSON.parse(extra); if (j.listen?.length) r.listen = j.listen; if (j.announce) r.announce = { release: j.release || null }; } catch {}
+      return r;
+    });
 }
+// ---- "sounds like" lines from blog posts (2026-11-17): a writer naming similar artists, one row per pair per blog ----
+function alikeTable() { db.exec("CREATE TABLE IF NOT EXISTS radar_alike (a TEXT NOT NULL, b TEXT NOT NULL, feed TEXT NOT NULL, ts INTEGER, PRIMARY KEY (a, b, feed)); CREATE INDEX IF NOT EXISTS radar_alike_b ON radar_alike(b)"); }
+export function alikeFor(key, limit = 12) {
+  if (!open()) return [];
+  alikeTable();
+  return db.prepare(`SELECT CASE WHEN l.a = ? THEN l.b ELSE l.a END AS key, COUNT(*) AS n, GROUP_CONCAT(DISTINCT l.feed) AS feeds, a.name AS name
+    FROM radar_alike l LEFT JOIN radar_artists a ON a.key = (CASE WHEN l.a = ? THEN l.b ELSE l.a END) WHERE l.a = ? OR l.b = ? GROUP BY 1 ORDER BY n DESC LIMIT ?`).all(key, key, key, key, limit);
+}
+// every pair (For you's taste links); small: a few per post
+export function alikeAll() { if (!open()) return []; alikeTable(); return db.prepare("SELECT a, b, COUNT(*) AS n FROM radar_alike GROUP BY a, b").all(); }
 export function chartPoints({ since = 0, uids = null } = {}) {
   if (!open()) return [];
   return db.prepare("SELECT ts, source, uid, artist, title, feed, rank, metric FROM radar_chart_points WHERE ts >= ? ORDER BY ts").all(since).filter((p) => !uids || uids.has(p.source + "|" + p.uid));

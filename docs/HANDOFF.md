@@ -30,8 +30,6 @@ checking the code.
 - Music on the NAS: Navidrome (LAN-only, Subsonic API) or Cadence serving the folder itself.
 
 ## Next up (agreed)
-- Blog feeds for Radar: BrooklynVegan, My AMP Music, Indie Shuffle, Nialler9, Obscure Sound (Feedburner address), plus
-  the four blog-reader upgrades.
 - KEXP history in its own database file (`kexp.db`). The user said "once the full backfill is done"; the backfill now
   rests while music pages are in use, so finishing may take a week or more. Moving it sooner (while the table is
   smaller) is worth suggesting, since KEXP writes are the likely cause of the Radar freezes.

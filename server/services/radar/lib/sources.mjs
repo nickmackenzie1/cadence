@@ -31,7 +31,7 @@ export const DEFAULT_BLOGS = [
   { name: "Post-Trash", url: "https://post-trash.com/news?format=rss", tier: "small" },
   { name: "Rosy Overdrive", url: "https://rosyoverdrive.com/feed/", tier: "small" },
   { name: "Aquarium Drunkard", url: "https://aquariumdrunkard.com/feed/", tier: "small" },
-  { name: "Obscure Sound", url: "https://www.obscuresound.com/feed/", tier: "small" },
+  { name: "Obscure Sound", url: "https://feeds.feedburner.com/ObscureSound", tier: "small" },   // the address the user sent (2026-11-17)
   { name: "Under the Radar", url: "https://www.undertheradarmag.com/site/rss", tier: "small" },
   { name: "Said the Gramophone", url: "https://feeds.feedburner.com/saidthegramophone/stg", tier: "small" },
   { name: "The Line of Best Fit", url: "https://bestfitmusic.substack.com/feed", tier: "small" },
@@ -55,6 +55,12 @@ export const DEFAULT_BLOGS = [
   { name: "Pitchfork track reviews", url: "https://pitchfork.com/feed/feed-track-reviews/rss", tier: "big" },
   { name: "Pitchfork: The Pitch", url: "https://pitchfork.com/feed/feed-the-pitch/rss", tier: "big" },
   { name: "Pitchfork features", url: "https://pitchfork.com/feed/feed-features/rss", tier: "big" },
+  // user sent 2026-11-17 (checked: all post often; The Line of Best Fit's Feedburner feed stopped in September, so the
+  // Substack one above stays). skip: posts that aren't about one artist
+  { name: "BrooklynVegan", url: "https://www.brooklynvegan.com/feed/", tier: "big" },
+  { name: "My AMP Music", url: "https://myampmusic.co/feed/", tier: "small" },
+  { name: "Indie Shuffle", url: "https://feeds.feedburner.com/indieshuffle", tier: "small" },
+  { name: "Nialler9", url: "https://feeds.feedburner.com/nialler9/rss", tier: "small", skip: "gig guide|gigs? (?:this|of the) week|what'?s on" },
 ];
 // a saved list that is just the old six defaults gets the new ones; a list you changed yourself is left alone
 const SIX = ["Pitchfork reviews", "Pitchfork news", "Stereogum", "The Fader", "Gorilla vs. Bear", "Bandcamp Daily"];
@@ -64,20 +70,23 @@ const V0110 = [...V0101, "Said the Gramophone", "Spill Magazine", "Canadian Beat
 // the defaults until 0.14.0 (before Under the Radar and Said the Gramophone lost their feeds); built after DEFAULT_BLOGS below
 // the defaults until 0.27.3 (before the extra Pitchfork feeds)
 const V0272 = [...V0110, "The Line of Best Fit", "!earshot reviews", "Drowned in Sound", "The Last Mixed Tape", "Right Chord Music", "Indie Pulse Music", "Indie Rock Cafe"];
-export const OLD_DEFAULT_SETS = [SIX, V080, [...V080, "!earshot reviews"], V0101, V0110, [...new Set(V0272)], DEFAULT_BLOGS.slice(0, -6).map((b) => b.name)];
+// the defaults until 0.28.1 (before BrooklynVegan, My AMP Music, Indie Shuffle and Nialler9)
+const V0281 = [...new Set(V0272), "Pitchfork Best New Albums", "Pitchfork Best New Tracks", "Pitchfork Best New Reissues", "Pitchfork track reviews", "Pitchfork: The Pitch", "Pitchfork features"];
+export const OLD_DEFAULT_SETS = [SIX, V080, [...V080, "!earshot reviews"], V0101, V0110, [...new Set(V0272)], V0281];
 // feeds that moved or went away (checked 2026-11-16): saved lists follow these too. null = no feed any more.
 const MOVED = {
   "https://www.thefader.com/rss.xml": "https://www.thefader.com/feed.rss",
   "https://www.thelineofbestfit.com/feeds/rss": "https://bestfitmusic.substack.com/feed",
   "https://www.undertheradarmag.com/rss.xml": "https://www.undertheradarmag.com/site/rss",   // address from the user
   "https://www.saidthegramophone.com/feed/": "https://feeds.feedburner.com/saidthegramophone/stg",   // the feed linked in the blog's footer
+  "https://www.obscuresound.com/feed/": "https://feeds.feedburner.com/ObscureSound",   // address from the user, 2026-11-17
 };
-OLD_DEFAULT_SETS.push(DEFAULT_BLOGS.filter((b) => b.name !== "Under the Radar" && b.name !== "Said the Gramophone").map((b) => b.name));   // 0.14.0, briefly without them
+OLD_DEFAULT_SETS.push(V0281.filter((n) => n !== "Under the Radar" && n !== "Said the Gramophone"));   // 0.14.0, briefly without them
 export function blogList(cfg) {
   const b0 = cfg?.blogs, b = b0 && b0.map((x) => (x.url in MOVED ? (MOVED[x.url] ? { ...x, url: MOVED[x.url] } : null) : x)).filter(Boolean);
   if (b0?.length && OLD_DEFAULT_SETS.some((set) => b0.length === set.length && b0.every((x) => set.includes(x.name)))) return DEFAULT_BLOGS;
   if (!b?.length) return DEFAULT_BLOGS;
-  return b.map((x) => ({ ...x, tier: x.tier || DEFAULT_BLOGS.find((d) => d.url === x.url || d.name === x.name)?.tier }));
+  return b.map((x) => { const d = DEFAULT_BLOGS.find((d) => d.url === x.url || d.name === x.name); return { ...x, tier: x.tier || d?.tier, skip: x.skip || d?.skip }; });
 }
 export const DEFAULT_CFG = {
   on: { listenbrainz: true, apple: true, audius: true, lastfm: true, bandcamp: true, hypem: true, blogs: true, kexp: true, earshot: true, kexpchart: true },
@@ -248,7 +257,10 @@ export const SOURCES = {
       if (!parseFeed) throw new Error("feed parser not available");
       const items = [], errors = [];
       for (const b of blogList(cfg)) {
-        try { const f = parseFeed(await httpText(b.url), b.url); for (const it of f.items.slice(0, 40)) items.push({ ...it, feed: b.name }); }
+        try {
+          const f = parseFeed(await httpText(b.url), b.url), skip = b.skip ? new RegExp(b.skip, "i") : null;
+          for (const it of f.items.slice(0, 40)) if (!skip || !(skip.test(it.title) || (it.categories || []).some((c) => skip.test(c)))) items.push({ ...it, feed: b.name });
+        }
         catch (e) { errors.push(`${b.name}: ${e.message}`); }
       }
       if (!items.length && errors.length) throw new Error(errors.join("; "));
@@ -396,9 +408,39 @@ export function fromHeadline(title) {
   }
   return null;
 }
+// a post's tags: the writer's own words for the artist and the genre. These say nothing about either:
+const PLAIN_TAGS = /^(?:news|music|new music|music news|featured|uncategori[sz]ed|tracks?|albums?|albums? & eps|eps?|singles?|reviews?|album reviews?|track reviews?|videos?|music videos?|interviews?|features?|premieres?|live|live reviews?|tours?|tour dates|concerts?|festivals?|best new music|song of the day|playlists?|lists|spotlight|artist spotlight|stream|listen|watch|mp3|free download|downloads?|news & tours|irish music|international|local|nyc|[0-9]{4}s?)$/i;
+const tagsOf = (it) => (it.categories || []).map((c) => c.trim()).filter((c) => c && !PLAIN_TAGS.test(c));
+// the tag that is the artist: one the headline names (case aside), longest first
+function tagArtist(it) {
+  const t = String(it.title).toLowerCase();
+  return tagsOf(it).filter((c) => c.length > 1 && t.includes(c.toLowerCase())).sort((a, b) => b.length - a.length)[0] || null;
+}
+// "announces new album" posts (user, 2026-11-17: release news for artists you follow), with the date when it's given
+const ANNOUNCE = /\b(?:announces?|unveils?|details|reveals?|confirms?|shares? details of)\b[^.]*\b(?:album|lp|ep|record|debut)\b|\b(?:new|debut|next) (?:album|lp|ep)\b[^.]*\b(?:out|due|arrives?|coming)\b/i;
+const MONTHS = "jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|june?|july?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?";
+export function releaseDate(text, posted) {
+  const m = String(text).match(new RegExp(`\\b(?:out|due|arrives?|arriving|released?|drops?|available|lands?)\\b(?: (?:on|via [^,.]{1,40}(?: on)?))?\\s+(?:(?:mon|tues|wednes|thurs|fri|satur|sun)day,?\\s+)?(${MONTHS})\\.?\\s+(\\d{1,2})(?:st|nd|rd|th)?(?:,?\\s+(\\d{4}))?`, "i"));
+  if (!m) return null;
+  const mon = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"].indexOf(m[1].slice(0, 3).toLowerCase()), day = +m[2];
+  if (mon < 0 || day < 1 || day > 31) return null;
+  const p = new Date(Date.parse(posted) || Date.now());
+  let y = m[3] ? +m[3] : p.getUTCFullYear();
+  // no year: the next time that date comes round after the post
+  if (!m[3] && Date.UTC(y, mon, day) < Date.UTC(p.getUTCFullYear(), p.getUTCMonth(), p.getUTCDate()) - 7 * 86400e3) y++;
+  return `${y}-${String(mon + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+}
 async function headlines(items) {
-  const out = [], add = (it, f) => out.push({ uid: it.link || `${it.feed}|${it.title}`, artist: f.artist, title: f.title || it.title, type: f.type || "article",
-    url: it.link || null, image: it.image || null, date: it.date || null, feed: it.feed, headline: it.title, genres: (f.genres || []).slice(0, 3) });
+  const out = [], add = (it, f) => {
+    const artist = (tagsOf(it).find((c) => c.toLowerCase() === String(f.artist).toLowerCase())) || f.artist;   // the tag's spelling
+    const genres = [...(f.genres || []), ...tagsOf(it).filter((c) => c.toLowerCase() !== artist.toLowerCase() && !String(it.title).toLowerCase().includes(c.toLowerCase()) && c.split(" ").length <= 3).map((c) => c.toLowerCase())];
+    const announce = ANNOUNCE.test(it.title), release = announce ? releaseDate(`${it.title}. ${it.summary || ""}`, it.date) : null;
+    out.push({ uid: it.link || `${it.feed}|${it.title}`, artist, title: f.title || it.title, type: f.type || "article",
+      url: it.link || null, image: it.image || null, date: it.date || null, feed: it.feed, headline: it.title, genres: [...new Set(genres)].slice(0, 3),
+      ...(it.listen?.length ? { listen: it.listen } : {}), ...(it.soundsLike?.length ? { soundsLike: it.soundsLike } : {}), ...(announce ? { announce: true, release } : {}) });
+  };
+  // the rules, helped by the post's tags when the headline alone doesn't say who it's about
+  const byRules = (it) => { const f = fromHeadline(it.title); if (f) return f; const a = tagArtist(it); return a ? { artist: a, title: it.title, type: ANNOUNCE.test(it.title) ? "album" : "article" } : null; };
   if (hasAI() && items.length) {
     // Claude reads the headlines in batches: better than the rules for things like "Pitchfork's 30 best albums of…"
     for (let i = 0; i < items.length; i += 40) {
@@ -406,15 +448,15 @@ async function headlines(items) {
       try {
         const res = parseJson(await claude("For each music headline, give the main artist it's about and the song/album title if any. "
           + 'Skip lists, roundups and non-music headlines. Reply with JSON only: [{"i":0,"artist":"…","title":"…","type":"album|ep|track|article","genres":["…"]}].\n\n'
-          + batch.map((it, k) => `${k}. [${it.feed}] ${it.title}${it.summary ? " — " + it.summary.slice(0, 140) : ""}`).join("\n"), 2500));
+          + batch.map((it, k) => `${k}. [${it.feed}] ${it.title}${tagsOf(it).length ? " (tags: " + tagsOf(it).slice(0, 6).join(", ") + ")" : ""}${it.summary ? " — " + it.summary.slice(0, 140) : ""}`).join("\n"), 2500));
         for (const r of arr(res)) { const it = batch[r.i]; if (it && r.artist) add(it, r); }
         continue;
       } catch (e) { console.log(`  ! AI headline reading failed (using rules): ${e.message}`); }
-      for (const it of batch) { const f = fromHeadline(it.title); if (f) add(it, f); }
+      for (const it of batch) { const f = byRules(it); if (f) add(it, f); }
     }
     return out;
   }
-  for (const it of items) { const f = fromHeadline(it.title); if (f) add(it, f); }
+  for (const it of items) { const f = byRules(it); if (f) add(it, f); }
   return out;
 }
 

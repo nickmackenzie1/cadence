@@ -6,7 +6,7 @@
 // Those artists' genres become your genre weights; artists mentioned alongside ones you like get a bump.
 // "Not for me" (artists, genres, sources) hides them everywhere in Radar and counts against them here.
 import { now, DAY } from "./config.mjs";
-import { getKv, setKv, listensSince, signalsFor } from "./store.mjs";
+import { getKv, setKv, listensSince, signalsFor, alikeAll } from "./store.mjs";
 import { norm, cleanGenre } from "./extract.mjs";
 import { UMBRELLA } from "./sources-data.mjs";
 
@@ -85,6 +85,12 @@ export function forYou(state, pool, { limit = 12 } = {}) {
     const l = likedKeys.get(other); if (!l) continue; const w = l.w * Math.min(3, e.n || 1), cur = nearBy.get(me);
     if (!cur || w > cur.w) nearBy.set(me, { l, w });
   }
+  // a blog writer saying "sounds like" someone you like counts as much as being talked about together three times
+  let alike = []; try { alike = alikeAll(); } catch {}
+  for (const e of alike) for (const [me, other] of [[e.a, e.b], [e.b, e.a]]) {
+    const l = likedKeys.get(other); if (!l) continue; const w = l.w * Math.min(4, 2 + e.n), cur = nearBy.get(me);
+    if (!cur || w > cur.w) nearBy.set(me, { l, w, said: true });
+  }
   const maxBuzz = Math.max(1, ...pool.map((x) => x.score || 0));
   const seen = new Set(), out = [];
   for (const x of pool) {
@@ -92,7 +98,7 @@ export function forYou(state, pool, { limit = 12 } = {}) {
     const mine = P.artists.get(k);
     if (mine && (mine.w >= 3 || mine.w < 0)) continue;   // already yours (followed, saved), or not for you
     // mentioned alongside someone you like
-    const nb = nearBy.get(k), near = nb ? nb.l : null, nearW = nb ? nb.w : 0;
+    const nb = nearBy.get(k), near = nb ? nb.l : null, nearW = nb ? nb.w : 0, said = !!nb?.said;
     const g = genresOf(k, state); let gScore = 0, gBest = null, gBestW = 0;
     for (const [name, n] of g) { const w = P.genres.get(name) || 0; gScore += w * Math.min(1, n / 2); if (w > gBestW) { gBest = name; gBestW = w; } }
     if ([...g.keys()].some((name) => (P.genres.get(name) || 0) <= -10)) continue;   // a genre you said no to
@@ -100,7 +106,7 @@ export function forYou(state, pool, { limit = 12 } = {}) {
     const buzz = (x.score || 0) / maxBuzz;
     const score = buzz * 0.6 + gScore * 0.9 + (near ? Math.min(1.5, nearW / 5) : 0) + (mine ? mine.w * 0.15 : 0);
     if (score <= 0.35 || (!near && gScore <= 0.05 && !(mine && mine.w > 0))) continue;
-    const why = near ? `mentioned alongside ${near.name}` : mine && mine.w > 0 ? mine.why : gBest ? `you like ${gBest}` : "climbing on Radar";
+    const why = near ? (said ? `a blog says they sound like ${near.name}` : `mentioned alongside ${near.name}`) : mine && mine.w > 0 ? mine.why : gBest ? `you like ${gBest}` : "climbing on Radar";
     out.push({ artist: x.artist, title: x.title || x.album || null, type: x.type || null, score: +score.toFixed(3), why, because: near ? near.name : null, genre: gBest });
   }
   out.sort((a, b) => b.score - a.score);
