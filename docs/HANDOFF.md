@@ -142,6 +142,12 @@ checking the code.
 - Phone tab bar (≤640 px): `#tabbar` built in core.js, styles at the end of core.css; replaces `.nav-btn` on phones;
   hides during meetings, the task editor and dialogs. Things fixed to the bottom go above `var(--tabbar-h)`.
 
+- Speed, measured 2026-11-18 (phone-speed = CPU 4x slower): first screen after a reload is about 1.1–1.4 s. Leaving the
+  theme packs and music files out of the bundle cut code by a quarter but saved only ~0.25 s; plain script tags
+  (?nobundle) are no faster than the bundle. Most start-up time is the browser's own work plus core.js setup and first
+  draw. The user chose to leave start-up speed there. Idle cost was the real problem: the effects layer now sleeps
+  (0.38.1, tests/fx-sleep.spec.mjs); don't add loops that ask for frames forever.
+
 ## New ideas (add below)
 - Radar as its own thing (user asked 2026-11-17 what it would take): step 1 its own database file radar.db (KEXP already moved to kexp.db, 0.31),
   step 2 its own container on the NAS that Cadence proxies to (no new port to the outside, same login), Radar pages stay
