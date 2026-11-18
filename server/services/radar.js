@@ -164,6 +164,18 @@ async function calledIt() {
 //   Canada    the !earshot campus charts, Canadian campus stations' plays, MusicBrainz / TheAudioDB country
 // "Local and rising": the same artists ranked by how much they're being talked about across Radar's sources.
 const KINGSTON_STATIONS = ['cfrc', 'cjai'], CANADA_STATIONS = ['ciut', 'cjru', 'chry', 'ckut'];
+// Wikidata hometowns for Close to home's artists (and the ones you like), twice a day; the page reads only what's kept
+let closeCandidates = [];
+if (!process.env.CI && process.env.RADAR_WIKIDATA !== '0') {
+  sched.add('wd-origin', async () => {
+    const { store } = await load(), O = await import(pathToFileURL(path.join(__dirname, 'radar', 'lib', 'origin.mjs')).href), F = await fyLib();
+    if (!closeCandidates.length) await closeToHome().catch(() => {});
+    const liked = [...F.tasteProfile(store.loadState()).artists.values()].filter(a => a.w > 0).map(a => ({ name: a.name, mbid: (store.getKv('mba:' + a.key) || {}).mbid })).filter(a => a.mbid);
+    const n = await O.originWarm([...closeCandidates, ...liked]);
+    if (n) bust();
+    return n ? { note: `Wikidata: hometowns for ${n} artists` } : undefined;
+  }, { label: 'Wikidata: where artists are from (Close to home)', quiet: true, every: 12 * 3600e3, first: 8 * 60e3, retry: 3600e3 });
+}
 async function closeToHome() {
   const { store } = await load(), { norm } = await import(pathToFileURL(path.join(__dirname, 'radar', 'lib', 'extract.mjs')).href);
   const t = Math.floor(Date.now() / 1000), A = new Map();
@@ -180,13 +192,18 @@ async function closeToHome() {
   for (const s of store.signals({ since: t - 60 * 86400, source: 'earshot', limit: 2000 })) hit(s.artist, 'canada', `on the !earshot charts${s.best_rank ? ' (best #' + s.best_rank + ')' : ''}`, 2);
   // MusicBrainz / TheAudioDB answers already kept for these (no new look-ups from here)
   for (const a of A.values()) {
-    const mb = store.getKv('mba:' + a.key) || {}, ad = store.getKv('adb:' + a.key) || {};
-    if (/kingston/i.test(mb.from || '')) { a.kingston += 3; a.why.unshift('from Kingston'); }
+    const mb = store.getKv('mba:' + a.key) || {}, ad = store.getKv('adb:' + a.key) || {}, wd = store.getKv('wdo:' + a.key);
+    // Wikidata's place, by distance from home, when known (2026-11-17); otherwise MusicBrainz's area, Jamaica aside
+    if (wd && !wd.none) {
+      if (wd.km <= 60) { a.kingston += 4; a.why.unshift(wd.km < 5 ? `from ${wd.place}` : `from ${wd.place}, ${wd.km} km away`); }
+      else if (wd.canada) { a.canada += 2; a.why.unshift(`from ${wd.place}`); }
+    } else if (/kingston/i.test(mb.from || '') && mb.country !== 'JM') { a.kingston += 3; a.why.unshift('from Kingston'); }
     else if (mb.country === 'CA' || /canada/i.test(ad.country || '')) { a.canada += 2; a.why.unshift('Canadian'); }
   }
   // how much Radar's sources are talking about them: mentions in the last 30 days
   const buzz = new Map(); try { for (const r of store.signals({ since: t - 30 * 86400, limit: 50000 })) { const k = r.artist_key || norm(r.artist); if (A.has(k)) buzz.set(k, (buzz.get(k) || 0) + 1); } } catch (e) {}
   let nfm = new Set(); try { nfm = new Set((await fyLib()).nfmCfg().artists.map(norm)); } catch (e) {}
+  closeCandidates = [...A.values()].map(a => ({ name: a.artist, mbid: (store.getKv('mba:' + a.key) || {}).mbid })).filter(a => a.mbid);
   const list = [...A.values()].filter(a => !nfm.has(a.key)).map(a => ({ ...a, buzz: buzz.get(a.key) || 0, why: a.why.slice(0, 3) }));
   const rank = (x, y) => (y.buzz - x.buzz) || ((y.kingston + y.canada) - (x.kingston + x.canada));
   return {
@@ -314,6 +331,16 @@ if (!process.env.CI && process.env.ARTIST_WARM !== '0') {
     } catch (e) { console.error('artist warm', e.message); }
   };
   sched.add('artist-warm', warm, { label: 'Artist pages: keeping recent ones fresh', heavy: true, quiet: true, every: 3600e3, first: 120e3 });
+}
+// ListenBrainz similar artists for the ones you like (For you's links), a few a second, every 6 hours
+if (!process.env.CI && process.env.RADAR_LB_SIMILAR !== '0') {
+  sched.add('lb-similar', async () => {
+    const { store } = await load(), F = await fyLib(), Sim = await import(pathToFileURL(path.join(__dirname, 'radar', 'lib', 'similar.mjs')).href);
+    const liked = [...F.tasteProfile(store.loadState()).artists.values()].filter(a => a.w > 0).sort((a, b) => b.w - a.w).map(a => a.name);
+    const n = await Sim.lbWarm(liked);
+    if (n) bust();
+    return n ? { note: `ListenBrainz: similar artists for ${n} of yours` } : undefined;
+  }, { label: 'ListenBrainz: similar artists for the ones you like', quiet: true, every: 6 * 3600e3, first: 5 * 60e3, retry: 3600e3 });
 }
 async function buildArtist(name) {
   const A = await import(pathToFileURL(path.join(__dirname, 'radar', 'lib', 'artist.mjs')).href);
