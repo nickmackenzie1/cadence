@@ -46,6 +46,7 @@ module.exports = async function radarRoutes(req, res, { url, p }) {
   if (p === '/api/radar/releases') return send(res, 200, await radar.releases());
   if (p === '/api/radar/calledit') return send(res, 200, await radar.calledIt());
   if (p === '/api/radar/listen' && req.method === 'POST') return send(res, 200, await radar.listen(await body()));
+  if (p === '/api/radar/sound' && req.method === 'POST') return send(res, 200, await radar.sound(await body()));
   if (p === '/api/radar/nfm') return send(res, 200, await radar.notForMe(req.method === 'POST' ? await body() : null));
   if (p === '/api/radar/want') return send(res, 200, await radar.want(req.method === 'POST' ? await body() : null));
   if (p === '/api/radar/community') return send(res, 200, await radar.community(req.method === 'POST' ? await body() : null));

@@ -131,6 +131,11 @@ async function listen(b = {}) {
   if (process.env.LISTENBRAINZ_TOKEN) import(pathToFileURL(path.join(__dirname, 'radar', 'lib', 'scrobble.mjs')).href).then(S => S.worthSending(row) && S.scrobble(row)).catch(() => {});
   return { ok: true };
 }
+// the sound of a song, read from its preview in your browser (Essentia.js): tempo, key, danceability, loudness
+async function sound(b = {}) {
+  const S = await import(pathToFileURL(path.join(__dirname, 'radar', 'lib', 'sound.mjs')).href);
+  const r = S.keepSound(b); if (r.ok) bust(); return r;
+}
 async function notForMe(b) {
   const F = await fyLib();
   if (b && b.type) F.setNfm(String(b.type), b.value, b.on !== false);
@@ -541,4 +546,4 @@ async function digestFile(name) {
 }
 async function spotify() { const { spotify } = await load(); return spotify; }
 
-module.exports = { find, bust, mixcloud, yearInMusic, closeToHome, releases, mix, calledIt, listen, notForMe, artist, stg, shows, follow, preview, want, community, sourcesNow, sourcesSettings, raw, settings, status, scan, digestNow, data, feedback, rss, digestFile, spotify };
+module.exports = { sound, find, bust, mixcloud, yearInMusic, closeToHome, releases, mix, calledIt, listen, notForMe, artist, stg, shows, follow, preview, want, community, sourcesNow, sourcesSettings, raw, settings, status, scan, digestNow, data, feedback, rss, digestFile, spotify };

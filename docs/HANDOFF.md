@@ -135,7 +135,7 @@ checking the code.
   fills quick add. Android and desktop Chrome/Edge only; iPhone doesn't support it for web apps.
 
 ## New ideas (add below)
-- Radar as its own thing (user asked 2026-11-17 what it would take): step 1 own database files (radar.db, kexp.db),
+- Radar as its own thing (user asked 2026-11-17 what it would take): step 1 its own database file radar.db (KEXP already moved to kexp.db, 0.31),
   step 2 its own container on the NAS that Cadence proxies to (no new port to the outside, same login), Radar pages stay
   inside Cadence. Also asked about other tech worth using: idiomorph for redraws, Uptime Kuma/Dozzle on the LAN, a memory
   limit per container.
@@ -146,3 +146,10 @@ checking the code.
     DSM Web API (`/webapi/entry.cgi`, `SYNO.API.Info` lists what the NAS has). Storage and Hyper Backup calls need an
     admin account, so consider SNMP (read-only, no password) for disk and volume health; Photos (`SYNO.Foto.*`, unofficial
     docs: github.com/zeichensatz/SynologyPhotosAPI) works with a normal user. Calls stay on the LAN.
+- Music tech (user, 2026-11-17, "go for it"): built in 0.32–0.34 except these two.
+  - Whole-house radio with Snapcast: needs snapserver running on the NAS (its own container) and snapclient on each
+    speaker device. Cadence would feed it the relay's stream (ffmpeg → Snapcast's pipe or TCP source) and get a
+    "Play everywhere" button. LAN only.
+  - Naming songs on stations that send no titles: AcoustID can't do it (it only matches whole files, not a clip from
+    the middle of a song: acoustid.org/faq). Services that can (AudD, ACRCloud) are paid with small free tiers; ask
+    the user before adding a key.

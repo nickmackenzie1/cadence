@@ -6,6 +6,7 @@ import { signalsFor, chartPointsFor, artistRecord, picksForArtist } from "./stor
 import { norm, isArtist } from "./extract.mjs";
 import { artistInfo, artFor } from "./coverart.mjs";
 import { audiodbFor } from "./audiodb.mjs";
+import { soundOfArtist } from "./sound.mjs";
 import { SOURCES, blogList } from "./sources.mjs";
 import { sourcesCfg } from "./sources-data.mjs";
 import { isMainstream } from "./mainstream.mjs";
@@ -49,6 +50,7 @@ export function artistData(name, { kexp = null } = {}) {
     genres: [...genres.entries()].sort((x, y) => y[1] - x[1]).slice(0, 8).map(([g]) => g),
     // players and links blog posts carried (Bandcamp, Spotify, SoundCloud), newest first, one of each address
     listen: sig.flatMap((s) => (s.listen || []).map((l) => ({ ...l, feed: s.feed, title: s.title }))).filter((l, i, all) => all.findIndex((x) => x.url === l.url) === i).slice(0, 6),
+    sound: (() => { try { return soundOfArtist(name); } catch { return null; } })(),
     picks, mentions, sources: [...new Set(mentions.map((m) => m.sourceName))],
     mb: mb.info, mbPending: mb.pending, adb: adb.info, adbPending: adb.pending, art, kexp,
   };

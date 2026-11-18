@@ -43,13 +43,41 @@
   const LST = { id: null, it: null, secs: 0, tick: 0 };
   const listenOf = c => {
     if (!c) return null;
-    if (c.preview) return { id: 'pv|' + c.podcastTitle + '|' + c.title, kind: 'preview', artist: c.podcastTitle, title: c.title };
+    if (c.preview) return { id: 'pv|' + c.podcastTitle + '|' + c.title, kind: 'preview', artist: c.podcastTitle, title: c.title, url: c.url };
     if (c.live && c.now && c.now.artist && !c.now.airbreak) return { id: 'lv|' + c.station + '|' + c.now.artist + '|' + c.now.song, kind: c.station === 'kexp' ? 'kexp' : 'live', artist: c.now.artist, title: c.now.song, station: c.title };
     return null;
   };
+  // ---- the sound of a song (2026-11-17): a preview you let play is read once for tempo, key and energy (Essentia.js, in a
+  // worker, in your browser), and the numbers go to the NAS for the artist page and the Friday mix's running order ----
+  const SND = { worker: null, busy: false, queue: [], seq: 0, wait: new Map() };
+  const sndDone = () => { try { return new Set(JSON.parse(localStorage.getItem('cadence.snd.done') || '[]')); } catch (e) { return new Set(); } };
+  const sndMark = id => { const d = [...sndDone(), id].slice(-3000); try { localStorage.setItem('cadence.snd.done', JSON.stringify(d)); } catch (e) {} };
+  function soundOf(it) {
+    if (!it || !it.url || !window.Worker || !window.OfflineAudioContext || sndDone().has(it.id) || SND.queue.some(x => x.id === it.id)) return;
+    SND.queue.push(it); if (!SND.busy) soundNext();
+  }
+  async function soundNext() {
+    const it = SND.queue.shift(); if (!it) { SND.busy = false; return; }
+    SND.busy = true;
+    try {
+      // through the NAS relay: a browser may only decode sound it fetched from its own server
+      const r = await fetch('api/radio/stream?u=' + encodeURIComponent(it.url)); if (!r.ok) throw new Error('preview ' + r.status);
+      const buf = await r.arrayBuffer();
+      const dec = await new OfflineAudioContext(1, 44100 * 31, 44100).decodeAudioData(buf);
+      const ch = dec.getChannelData(0), pcm = new Float32Array(ch.length); pcm.set(ch);
+      if (dec.numberOfChannels > 1) { const c2 = dec.getChannelData(1); for (let i = 0; i < pcm.length; i++) pcm[i] = (pcm[i] + c2[i]) / 2; }
+      if (!SND.worker) { SND.worker = new Worker('sound-worker.js'); SND.worker.onmessage = e => { const f = SND.wait.get(e.data.id); if (f) { SND.wait.delete(e.data.id); f(e.data); } }; }
+      const id = ++SND.seq, out = await new Promise(ok => { SND.wait.set(id, ok); SND.worker.postMessage({ id, pcm }, [pcm.buffer]); setTimeout(() => { if (SND.wait.has(id)) { SND.wait.delete(id); ok({ error: 'took too long' }); } }, 60000); });
+      sndMark(it.id);
+      if (!out.error) await fetch('api/radar/sound', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ artist: it.artist, title: it.title, ...out, id: undefined }) });
+    } catch (e) { sndMark(it.id); }
+    setTimeout(soundNext, 1500);
+  }
+  window.CadenceSound = { analyse: soundOf };
   const sendListen = (it, secs, beacon) => {
     if (!it || secs < 1) return;
-    const b = JSON.stringify({ ...it, id: undefined, secs, skipped: it.kind === 'preview' && secs < 8 });
+    if (it.kind === 'preview' && secs >= 8 && !beacon) soundOf(it);
+    const b = JSON.stringify({ ...it, id: undefined, url: undefined, secs, skipped: it.kind === 'preview' && secs < 8 });
     if (beacon && navigator.sendBeacon) navigator.sendBeacon('api/radar/listen', new Blob([b], { type: 'application/json' }));
     else fetch('api/radar/listen', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: b }).catch(() => {});
   };
@@ -437,6 +465,7 @@
             <div>${ad && ad.logo && !ad.banner ? `<span class="ap-logo"><img src="${E(kept(ad.logo))}" alt="${E(d.name)} logo" onerror="this.parentNode.remove()"></span>` : ''}<h2>${E(d.name)}</h2>${mb && mb.disambiguation ? `<p class="muted">${E(mb.disambiguation)}</p>` : ''}
               ${facts.length ? `<p class="ap-facts">${facts.map(E).join(' · ')}</p>` : ''}
               ${d.called && d.called.lead > 0 ? `<p class="ap-called">${api.ui.icon('trophy')}Radar spotted them on ${E(d.called.via)}, ${d.called.milestones.map(m => `${m.days} days before ${E(m.what)}`).join(' and ')}</p>` : ''}
+              ${d.sound ? `<p class="muted ap-sound" title="Read from the previews you've played">${api.ui.icon('audio-waveform')}${E(d.sound.words)} <span>(from ${d.sound.songs} preview${d.sound.songs === 1 ? '' : 's'})</span></p>` : ''}
               ${tags.length ? `<div class="ap-tags">${tags.map(t => `<span>${E(t)}</span>`).join('')}</div>` : ''}
               <div class="ap-links">${(() => { const f = window.CadenceFollow.has(d.name); return `<button class="btn${f ? '' : ' primary'}" data-follow="${E(d.name)}" aria-pressed="${f}">${api.ui.icon(f ? 'user-check' : 'user-plus')}${f ? 'Following' : 'Follow'}</button>`; })()}<button class="btn" data-pv data-a="${E(d.name)}">${api.ui.icon('play')}Play a preview</button>${(() => { const on = window.CadencePreview.want.has(d.name, null);
                 return `<button class="btn" data-want data-a="${E(d.name)}" data-type="artist" data-from="artist page">${api.ui.icon(on ? 'bookmark-check' : 'bookmark-plus')}${on ? 'In Want to hear' : 'Save to Want to hear'}</button>`; })()}${(() => { const no = window.CadenceNfm.has('artist', d.name);
@@ -498,7 +527,7 @@
         .ap-img{width:120px;height:120px;border-radius:var(--r-l);object-fit:cover;flex:none;background:var(--accent-soft)} .ap-noimg{display:grid;place-items:center;color:var(--accent)} .ap-noimg svg{width:40px;height:40px}
         .ap-head h2{margin:0 0 4px;font-size:26px} .ap-facts{margin:4px 0;color:var(--muted)}
         .ap-tags{display:flex;flex-wrap:wrap;gap:4px;margin:6px 0} .ap-tags span{font-size:12px;border:1px solid var(--line);border-radius:999px;padding:1px 8px}
-        .ap-links{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px} .ap-listen{align-items:center} .ap-listen>.muted{font-size:13px} .ap-links .btn{display:inline-flex;gap:6px;align-items:center;font-size:13px} .ap-links svg{width:14px;height:14px}
+        .ap-links{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px} .ap-listen{align-items:center} .ap-sound{display:flex;align-items:center;gap:6px;margin:6px 0 0;font-size:13px} .ap-sound svg{width:14px;height:14px} .ap-listen>.muted{font-size:13px} .ap-links .btn{display:inline-flex;gap:6px;align-items:center;font-size:13px} .ap-links svg{width:14px;height:14px}
         .ap-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:20px} .ap-wide{grid-column:1/-1} .ap h3{margin:0 0 8px;font-size:15px} .ap h4{margin:12px 0 6px;font-size:13px}
         .ap-rel{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:12px} .ap-r{display:flex;flex-direction:column;gap:2px;color:inherit;text-decoration:none;font-size:13px}
         .ap-cover{position:relative;aspect-ratio:1;border-radius:var(--r-m);background:var(--accent-soft);display:grid;place-items:center;overflow:hidden;color:var(--accent)} .ap-cover img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}

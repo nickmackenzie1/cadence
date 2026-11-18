@@ -3,6 +3,7 @@
 //   Out this week   releases by artists you follow or saved, from MusicBrainz and the sources' release dates
 //   Called it    how early Radar spotted someone before the Apple chart or KEXP's heavy rotation
 import { now, DAY } from "./config.mjs";
+import { arc, energy } from "./sound.mjs";
 import { getKv, setKv, signalsFor, firstSightings, firstEarlyFor } from "./store.mjs";
 import { norm } from "./extract.mjs";
 import { artistInfo } from "./coverart.mjs";
@@ -115,6 +116,12 @@ export function fridayMix(D, { again = false, rel = null } = {}) {
   // wildcards: talked about in more than one place, not your usual, picked at random
   const pool = (D.sources?.combined || []).filter((a) => (a.breadth || 0) >= 2 && !seen.has(norm(a.artist)) && !mine.has(norm(a.artist)));
   for (let i = 0; i < 12 && pool.length; i++) { const a = pool.splice(Math.floor(Math.random() * pool.length), 1)[0]; add({ artist: a.artist, title: ((a.titles || [])[0] || {}).title || null }, `A wildcard: ${a.breadth} sources are talking about them`, "wild"); }
+  // each group in a running order with a shape (calm → lively → calm), from the songs' sound where it's been read
+  try {
+    const order = [...new Set(items.map((i) => i.group))];
+    const shaped = order.flatMap((g) => arc(items.filter((i) => i.group === g), (i) => energy(i.artist)));
+    items.splice(0, items.length, ...shaped);
+  } catch {}
   mixes[week] = { made: Date.now(), items };
   const keep = Object.keys(mixes).sort().slice(-12); for (const k of Object.keys(mixes)) if (!keep.includes(k)) delete mixes[k];
   setKv("fridayMixes", mixes);
