@@ -191,7 +191,7 @@
     const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
     let CELL = cfg.cell || (innerWidth < 700 ? 3 : 2);
     let W = 0, H = 0, HW = 0, HH = 0, gen = 0, ready = false, busy = false, bufs = null, pending = false, lastFrame = null, lastSent = 0;
-    let solidCopy = new Uint8Array(0), comp = null, inputQ = [], lightsBottom = 0, engineWind = 0.3, port = null;
+    let solidCopy = new Uint8Array(0), comp = null, inputQ = [], lightsBottom = 0, sleeping = false, idleFrames = 0, engineWind = 0.3, port = null;
     let host = null, root = null, cv = null, airCv = null, ax = null, raf = 0, flakes = [], down = false, px = 0, py = 0, holdN = 0;
     const S = { tool: FIRE, brush: 6, glow: 1, snowing: false, storm: false, heatView: false, sharp: true, paused: false, snowEverywhere: !AMBIENT ? false : true,
       lightMode: 0, windBase: 0.3, lights: !AMBIENT, palette: 'classic', compact: AMBIENT, rain: 0, floor: !AMBIENT, sound: false };
@@ -199,6 +199,16 @@
     const statsWaiters = [], countWaiters = new Map(); let countId = 0;
 
     /* ---------------- the engine: a worker, or on the page ---------------- */
+    /* Sleeping (2026-11-18, ambient layer only): with nothing falling, burning or lit and nothing waiting to be sent, the
+       loop stops asking for frames after about half a second, instead of running at 60 frames a second forever (that
+       kept a quarter of a CPU core busy on an idle page). Anything that could need a frame wakes it: something asked of
+       the world (spawn, heat, snow, rain, lights…), the page changing or scrolling, the engine's reply, the tab coming back. */
+    const q = (...items) => { inputQ.push(...items); wake(); };
+    function wake() {
+      if (!AMBIENT || !sleeping || !api.active) return;
+      sleeping = false; idleFrames = performance.now(); lastT = idleFrames;
+      raf = requestAnimationFrame(loop);
+    }
     function startEngine() {
       return new Promise(resolve => {
         const onPage = () => {
@@ -217,7 +227,7 @@
         } catch (err) { onPage(); }
       });
     }
-    const setOpt = (key, value) => { S[key] = value; if (port) port.post({ t: 'opt', key, value }); };
+    const setOpt = (key, value) => { S[key] = value; if (port) port.post({ t: 'opt', key, value }); wake(); };
 
     /* ---------------- read the screen into cells (havoc), or an empty world (ambient) ---------------- */
     // computed colours come as rgb()/rgba() or, from color-mix(), as color(srgb r g b / a) with 0–1 channels
@@ -402,7 +412,7 @@
     // Read when the page changes (scroll, typing, a new view, resize), not on a timer.
     let ledgesDirty = true, ledgeMO = null, domLedges = [], extraLedges = [], extraDirty = false;
     const SOLIDISH = /^(IMG|SVG|INPUT|BUTTON|TEXTAREA|SELECT|CANVAS|VIDEO|HR)$/;
-    function sendLedges() { extraDirty = false; inputQ.push(['surf', ...domLedges, ...extraLedges]); }
+    function sendLedges() { extraDirty = false; q(['surf', ...domLedges, ...extraLedges]); }
     function ledges() {
       ledgesDirty = false;
       const out = [], seen = new Set(), add = (l, rt, t) => {
@@ -434,12 +444,12 @@
       domLedges = out; sendLedges();
     }
     function watchLedges(on) {
-      const dirty = () => { ledgesDirty = true; };
+      const dirty = () => { ledgesDirty = true; wake(); };
       if (on && !ledgeMO) {
         ledgeMO = new MutationObserver(muts => { if (muts.some(m => !(m.target.closest && (ours(m.target) || m.target.closest('#xm-string,#xm-glow,#xm-ring,.hp-mirror'))))) dirty(); });
         ledgeMO.observe(document.body, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ['class', 'style', 'hidden'] });
-        addEventListener('scroll', dirty, true); addEventListener('resize', dirty);
-        ledgeMO.off = () => { ledgeMO.disconnect(); removeEventListener('scroll', dirty, true); removeEventListener('resize', dirty); };
+        addEventListener('scroll', dirty, true); addEventListener('resize', dirty); document.addEventListener('visibilitychange', dirty);
+        ledgeMO.off = () => { ledgeMO.disconnect(); removeEventListener('scroll', dirty, true); removeEventListener('resize', dirty); document.removeEventListener('visibilitychange', dirty); };
       } else if (!on && ledgeMO) { ledgeMO.off(); ledgeMO = null; }
     }
 
@@ -472,7 +482,7 @@
         bufs = msg.bufs; busy = false;
         solidCopy.set(new Uint8Array(bufs.solid));
         comp.upload(bufs, S.heatView);
-        lastFrame = msg; pending = true; lightsBottom = msg.lightsBottom; engineWind = msg.wind;
+        lastFrame = msg; pending = true; lightsBottom = msg.lightsBottom; engineWind = msg.wind; wake();
         for (const ev of msg.events) Sound.event(ev);
         Sound.fire(msg.fire);
       } else if (msg.t === 'stats') { const w = statsWaiters.shift(); if (w) w(msg.data); }
@@ -522,7 +532,7 @@
         }
         if (f.y > innerHeight + 20 || f.x < -80 || f.x > innerWidth + 80) flakes.splice(i, 1);
       }
-      if (landed.length) inputQ.push(['snow', ...landed]);
+      if (landed.length) q(['snow', ...landed]);
       if (!S.paused) while (flakes.length < want) flakes.push(newFlake(flakes.length < want * 0.3));
     }
     function drawAir() {
@@ -549,16 +559,17 @@
       if (AMBIENT) {
         const hide = (cfg.hidden && cfg.hidden()) || document.hidden;
         if (hide !== wasHidden) { wasHidden = hide; host.style.setProperty('display', hide ? 'none' : 'block', 'important'); }
-        if (hide) return;
+        // hidden (a meeting, a dialog, another tab): nothing to show, so sleep; the page changing back wakes it
+        if (hide) { cancelAnimationFrame(raf); sleeping = true; return; }
         if ((ledgesDirty && now - ledgeT > 250) || now - ledgeT > 4000) { ledgeT = now; ledges(); } else if (extraDirty) sendLedges();
       }
       // nothing happening: ask the engine for a frame only now and then
       const idle = AMBIENT && lastFrame && lastFrame.quiet && !flakes.length && !S.snowing && !S.rain && !inputQ.length;
       if (!busy && bufs && now - lastSent > (idle ? 250 : 14)) {
         if (down && S.tool !== -1 && !AMBIENT) {
-          if (S.tool === FIREWORK) { if (holdN++ % 10 === 0) inputQ.push(['launch', px, py]); }
-          else if (S.tool === LIGHTNING) { if (holdN++ % 25 === 0) inputQ.push(['strike', px, py]); }
-          else inputQ.push(['paint', px, py, px, py, S.tool, S.brush]);
+          if (S.tool === FIREWORK) { if (holdN++ % 10 === 0) q(['launch', px, py]); }
+          else if (S.tool === LIGHTNING) { if (holdN++ % 25 === 0) q(['strike', px, py]); }
+          else q(['paint', px, py, px, py, S.tool, S.brush]);
         }
         const input = inputQ; inputQ = [];
         busy = true; lastSent = now;
@@ -574,6 +585,12 @@
       if (S.snowing || flakes.length) { updateAir(dt); drawAir(); } else if (airCv.dataset.dirty) { ax.clearRect(0, 0, airCv.width, airCv.height); delete airCv.dataset.dirty; }
       if (flakes.length) airCv.dataset.dirty = 1;
       Sound.tickFire();
+      if (AMBIENT) {
+        // quiet = the engine's last frame had nothing moving, and nothing is waiting here (the 250 ms heartbeat to the engine
+        // doesn't count); after 0.6 s of that, and with no reply on its way, stop asking for frames until something wakes it
+        const still = idle && !ledgesDirty && !extraDirty && !inputQ.length && !airCv.dataset.dirty;
+        if (!still) idleFrames = now; else if (now - idleFrames > 600 && !busy && !pending) { cancelAnimationFrame(raf); sleeping = true; }
+      }
     }
 
     /* ---------------- Havoc's toolbar ---------------- */
@@ -652,7 +669,7 @@
       sound: S.sound ? 'Sound on' : 'Sound off', pause: S.paused ? 'Play · Space' : 'Pause · Space', reset: 'Rebuild the page and start over', close: 'Exit and restore · Esc' });
     function act(id) {
       if (id[0] === 't') S.tool = +id.slice(1);
-      else if (id === 'ignite') inputQ.push(['ignite']);
+      else if (id === 'ignite') q(['ignite']);
       else if (id === 'snowfall') setOpt('snowing', !S.snowing);
       else if (id === 'storm') setOpt('storm', !S.storm);
       else if (id === 'heat') setOpt('heatView', !S.heatView);
@@ -749,8 +766,8 @@
       addEventListener('pointermove', onMouse, { passive: true });
       addEventListener('resize', onResize);
       if (!AMBIENT) {
-        cv.addEventListener('pointerdown', e => { down = true; holdN = 1; cv.setPointerCapture(e.pointerId); [px, py] = toGrid(e); if (S.tool === FIREWORK) inputQ.push(['launch', px, py]); else if (S.tool === LIGHTNING) inputQ.push(['strike', px, py]); else inputQ.push(['paint', px, py, px, py, S.tool, S.brush]); });
-        cv.addEventListener('pointermove', e => { if (!down) return; const [x, y] = toGrid(e); if (S.tool !== FIREWORK && S.tool !== LIGHTNING) inputQ.push(['paint', px, py, x, y, S.tool, S.brush]); px = x; py = y; });
+        cv.addEventListener('pointerdown', e => { down = true; holdN = 1; cv.setPointerCapture(e.pointerId); [px, py] = toGrid(e); if (S.tool === FIREWORK) q(['launch', px, py]); else if (S.tool === LIGHTNING) q(['strike', px, py]); else q(['paint', px, py, px, py, S.tool, S.brush]); });
+        cv.addEventListener('pointermove', e => { if (!down) return; const [x, y] = toGrid(e); if (S.tool !== FIREWORK && S.tool !== LIGHTNING) q(['paint', px, py, x, y, S.tool, S.brush]); px = x; py = y; });
         const up = () => { down = false; }; cv.addEventListener('pointerup', up); cv.addEventListener('pointercancel', up);
         cv.addEventListener('contextmenu', e => e.preventDefault());
         // hold the page still underneath while it's matter
@@ -780,16 +797,16 @@
       M,
       get CELL() { return CELL; },
       // drop matter at a screen point (life range for fire-like things)
-      spawn(x, y, m, r = 2, chance = 0.6, lo = 10, hi = 30) { if (!ready) return; const [cx, cy] = cell(x, y); inputQ.push(['spawn', cx, cy, m, r, chance, lo | 0, Math.max(lo + 1, hi | 0)]); },
-      heatAt(x, y, t, rad = 1) { if (!ready) return; const [cx, cy] = cell(x, y); inputQ.push(['heat', cx, cy, t, rad]); },
+      spawn(x, y, m, r = 2, chance = 0.6, lo = 10, hi = 30) { if (!ready) return; const [cx, cy] = cell(x, y); q(['spawn', cx, cy, m, r, chance, lo | 0, Math.max(lo + 1, hi | 0)]); },
+      heatAt(x, y, t, rad = 1) { if (!ready) return; const [cx, cy] = cell(x, y); q(['heat', cx, cy, t, rad]); },
       // melt snow and ice around a point (px): r up/down, rx sideways (defaults to r)
-      melt(x, y, r = 40, rx = r) { if (!ready) return; const [cx, cy] = cell(x, y); inputQ.push(['melt', cx, cy, Math.max(1, Math.round(r / CELL)), Math.max(1, Math.round(rx / CELL))]); },
+      melt(x, y, r = 40, rx = r) { if (!ready) return; const [cx, cy] = cell(x, y); q(['melt', cx, cy, Math.max(1, Math.round(r / CELL)), Math.max(1, Math.round(rx / CELL))]); },
       // { snow, everywhere, wind, rain, storm, lights: 'twinkle'|'chase'|'steady'|null, palette }
       set(o) {
         if ('snow' in o) {
           const was = S.snowing; setOpt('snowing', !!o.snow);
           // switched off means off: the flakes still in the air go, and what has settled is cleared
-          if (was && !o.snow && AMBIENT) { flakes = []; inputQ.push(['clear', M.SNOW], ['clear', M.ICE]); }
+          if (was && !o.snow && AMBIENT) { flakes = []; q(['clear', M.SNOW], ['clear', M.ICE]); }
         }
         if ('everywhere' in o) setOpt('snowEverywhere', !!o.everywhere);
         if ('wind' in o) setOpt('windBase', +o.wind || 0);
@@ -802,14 +819,14 @@
           else if (S.lights) setOpt('lights', false);
         }
       },
-      strike(x, y) { const [cx, cy] = cell(x, y); inputQ.push(['strike', cx, cy]); },
-      explode(x, y, r = 5) { const [cx, cy] = cell(x, y); inputQ.push(['explode', cx, cy, r]); },
-      firework(x, y) { const [cx, cy] = cell(x, y); inputQ.push(['launch', cx, cy]); },
-      jar(rc) { inputQ.push(['jar', Math.floor(rc.left / CELL), Math.floor(rc.top / CELL), Math.floor(rc.right / CELL) - 1, Math.floor(rc.bottom / CELL) - 1]); },
-      clear(m) { inputQ.push(['clear', m === undefined ? -1 : m]); },
+      strike(x, y) { const [cx, cy] = cell(x, y); q(['strike', cx, cy]); },
+      explode(x, y, r = 5) { const [cx, cy] = cell(x, y); q(['explode', cx, cy, r]); },
+      firework(x, y) { const [cx, cy] = cell(x, y); q(['launch', cx, cy]); },
+      jar(rc) { q(['jar', Math.floor(rc.left / CELL), Math.floor(rc.top / CELL), Math.floor(rc.right / CELL) - 1, Math.floor(rc.bottom / CELL) - 1]); },
+      clear(m) { q(['clear', m === undefined ? -1 : m]); },
       // more ground from outside the page, in px: [[x0, x1, y], …] (e.g. the outline of you, from the webcam); [] to remove
-      ledgesExtra(list) { extraLedges = []; for (const [a, b, y] of list || []) { const yy = Math.round(y / CELL); if (yy > 1 && yy < H) extraLedges.push(Math.max(0, Math.floor(a / CELL)), Math.min(W, Math.ceil(b / CELL)), yy); } extraDirty = true; },
-      clearAt(x, y, r) { const [cx, cy] = cell(x, y); inputQ.push(['clearAt', cx, cy, Math.ceil(r / CELL)]); },
+      ledgesExtra(list) { wake(); extraLedges = []; for (const [a, b, y] of list || []) { const yy = Math.round(y / CELL); if (yy > 1 && yy < H) extraLedges.push(Math.max(0, Math.floor(a / CELL)), Math.min(W, Math.ceil(b / CELL)), yy); } extraDirty = true; },
+      clearAt(x, y, r) { const [cx, cy] = cell(x, y); q(['clearAt', cx, cy, Math.ceil(r / CELL)]); },
       // how many cells of a material are inside a screen rect (async: the engine has the grid)
       count(rc, m) { return new Promise(res => { if (!port) return res(0); const id = ++countId; countWaiters.set(id, res); port.post({ t: 'count', id, m, rect: [Math.floor(rc.left / CELL), Math.floor(rc.top / CELL), Math.ceil(rc.right / CELL), Math.ceil(rc.bottom / CELL)] }); }); },
       // counts of every material (async): { [material]: cells }
