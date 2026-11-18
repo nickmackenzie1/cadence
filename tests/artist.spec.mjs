@@ -173,7 +173,7 @@ test('Music home: one tile, tabs on every music page, and it reopens the tab you
   await page.locator('.mus-tabs a', { hasText: 'Artists' }).click();
   await page.fill('#ar-q', 'Glass Lantern'); await page.click('#ar-find button');
   await expect(page).toHaveURL(/#view-artist$/);
-  await expect(page.locator('.mus-tabs a')).toHaveCount(9);         // tabs stay on top of an artist page…
+  await expect(page.locator('.mus-tabs a')).toHaveCount(10);         // tabs stay on top of an artist page…
   await expect(page.locator('.mus-tabs a.on')).toHaveCount(0);      // …with none of them chosen
   await page.evaluate(() => { location.hash = 'view-artists'; });
   await expect(page.locator('.ar-chip', { hasText: 'Glass Lantern' })).toHaveCount(1);
