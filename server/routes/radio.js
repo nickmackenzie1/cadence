@@ -9,7 +9,12 @@ module.exports = async function radioRoutes(req, res, { url, p }) {
   if (p === '/api/radio/follow' && req.method === 'POST') {
     try { return send(res, 200, radio.follow(await readJson(req))); } catch (e) { return send(res, e.code === 400 ? 400 : 500, { error: e.message }); }
   }
+  if (p === '/api/radio/kexp-keep' && req.method === 'POST') {
+    try { return send(res, 200, require('../services/kexp-archive').setKeep(await readJson(req))); } catch (e) { return send(res, e.code === 400 ? 400 : 500, { error: e.message }); }
+  }
   if (req.method !== 'GET') return send(res, 405, { error: 'GET only' });
+  { const m = /^\/api\/radio\/kexp-kept\/(\d+)\.mp3$/.exec(p); if (m) return require('../services/kexp-archive').serveKept(m[1], req, res); }
+  if (p === '/api/radio/kexp-keep') return send(res, 200, require('../services/kexp-archive').keep());
   const guard = async fn => { try { return send(res, 200, await fn()); } catch (e) { return send(res, e.code === 400 ? 400 : 502, { error: e.message }); } };
   if (p === '/api/radio/soma') return guard(() => radio.soma());
   if (p === '/api/radio/stations') return guard(() => radio.stations());
@@ -28,6 +33,7 @@ module.exports = async function radioRoutes(req, res, { url, p }) {
       if (v === 'onair') return K.onAir(q);
       if (v === 'winners') return K.winners(q);
       if (v === 'race') return K.race();
+      if (v === 'archive') return require('../services/kexp-archive').archiveAt(q.at);
       throw Object.assign(new Error('unknown view'), { code: 400 });
     });
   }

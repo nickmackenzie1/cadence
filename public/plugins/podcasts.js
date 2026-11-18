@@ -44,7 +44,9 @@
     audio.addEventListener('pause', () => { savePos(); sendPos(false); emit(); });
     audio.volume = Math.max(0, Math.min(1, +lsGet('volume', 1))); audio.addEventListener('volumechange', emit); audio.addEventListener('seeked', emit);
     audio.addEventListener('play', emit); audio.addEventListener('error', emit); audio.addEventListener('waiting', emit); audio.addEventListener('playing', emit); audio.addEventListener('loadedmetadata', () => { if (cur && !cur.duration) cur.duration = audio.duration; emit(); });
-    audio.addEventListener('ended', () => { if (cur && cur.live) return emit(); if (cur && cur.preview) { emit(); if (P.onPreviewEnded) P.onPreviewEnded(cur); return; } sendPos(true); const q = lsGet('queue', []); const next = q.shift(); lsSet('queue', q); if (next) api.play(next); else emit(); });
+    audio.addEventListener('ended', () => { if (cur && cur.live) return emit();
+      if (cur && cur.archive && P.onArchiveEnded) { P.onArchiveEnded(cur, audio.duration); return; }   // KEXP's archive carries on into the next show
+      if (cur && cur.preview) { emit(); if (P.onPreviewEnded) P.onPreviewEnded(cur); return; } sendPos(true); const q = lsGet('queue', []); const next = q.shift(); lsSet('queue', q); if (next) api.play(next); else emit(); });
     const media = () => { if (!('mediaSession' in navigator) || !cur) return;
       const n = cur.live && cur.now && !cur.now.airbreak ? cur.now : null;
       navigator.mediaSession.metadata = new MediaMetadata({ title: n ? n.song : cur.title, artist: n ? n.artist + ' · ' + cur.title : cur.podcastTitle, album: cur.live ? 'Radio' : 'Podcasts', artwork: (n && n.art) || cur.art ? [{ src: (n && n.art) || cur.art, sizes: '200x200' }] : [] });
@@ -62,7 +64,8 @@
           if (autoplay) audio.play().catch(() => emit()); emit(); return;
         }
         // resume from whichever is further along: this device, or Pocket Casts (your phone)
-        cur = { ...e, position: Math.max(+e.position || 0, +lsGet('pos.' + e.uuid, 0) || 0) }; lsSet('current', cur);
+        // exact: start right there (KEXP's archive at a chosen moment, a song in a kept show), not where you left off
+        cur = { ...e, position: e.exact ? +e.position || 0 : Math.max(+e.position || 0, +lsGet('pos.' + e.uuid, 0) || 0) }; delete cur.exact; lsSet('current', cur);
         setSrc(e.url); audio.playbackRate = lsGet('rate', 1);
         const seek = () => { if (cur.position && (!audio.duration || cur.position < audio.duration - 5)) audio.currentTime = cur.position; audio.removeEventListener('loadedmetadata', seek); };
         audio.addEventListener('loadedmetadata', seek); media();
@@ -273,7 +276,8 @@
           el.innerHTML = `<div class="pc"><div class="pc-card pc-setup"><h3>Connect Pocket Casts</h3>
             <p>Add these two lines to the <code>.env</code> file on the NAS, next to your other settings, then restart the container. They stay on the NAS; this browser never sees them.</p>
             <pre>POCKETCASTS_EMAIL=you@example.com\nPOCKETCASTS_PASSWORD=your-password</pre>
-            <p class="muted">Pocket Casts has no official API, so this uses the one its web player uses. If they change it, sync pauses with a note here and the player keeps working.</p></div></div>`; return;
+            <p class="muted">Pocket Casts has no official API, so this uses the one its web player uses. If they change it, sync pauses with a note here and the player keeps working.</p></div>
+            ${window.CadenceKexpKeep ? window.CadenceKexpKeep.card() : ''}</div>`; return;
         }
         const c = P.current && !P.current.live && !P.current.preview ? P.current : null, a = P.audio, all = [...(data.inProgress || []), ...(data.upNext || []), ...(data.newEpisodes || [])], byId = Object.fromEntries(all.map(e => [e.uuid, e]));
         const rates = [1, 1.2, 1.3, 1.5, 1.8, 2];
@@ -292,6 +296,7 @@
                   <button class="pc-ib" data-act-pc="star" aria-label="Star">${api.ui.icon('star')}</button>
                   <button class="pc-ib" data-act-pc="notes" aria-label="Show notes">${api.ui.icon('list-checks')}</button></div></div>`
               : `<p class="muted">Pick an episode below to start. Anything you were playing on your phone is under In progress.</p>`}</div>
+            ${window.CadenceKexpKeep ? window.CadenceKexpKeep.card() : ''}
             ${(data.upNext || []).length ? `<div class="pc-card"><div class="pc-h"><b>Up next</b><span class="muted">${data.upNext.length} episode${data.upNext.length === 1 ? '' : 's'} · ${fmt(data.upNext.reduce((s, e) => s + left(e), 0))}</span></div>${data.upNext.map(e => epRow(e, [['play', 'play', 'Play']])).join('')}</div>` : ''}
             <div class="pc-card"><div class="pc-h"><b>New from your shows</b><span class="muted">${(data.newEpisodes || []).length}</span></div>
               ${(data.newEpisodes || []).slice(0, 20).map(e => epRow(e, [['play', 'play', 'Play'], ['queue', 'list-plus', 'Up next'], ['task', 'list-checks', 'Make a task']])).join('') || '<p class="muted">Nothing new.</p>'}</div>

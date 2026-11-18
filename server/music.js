@@ -11,6 +11,7 @@ const problems = require('./lib/problems');
 const KEY = process.env.MUSIC_KEY || '';
 problems.watchCrashes('Music side');
 const K = require('./services/kexp-log');             // keeps KEXP's play history (and steps aside while you use Radar)
+require('./services/kexp-archive');                   // saves the KEXP shows you keep
 const routes = [require('./routes/radar'), require('./routes/radio')];
 
 const busy = new Map(); let seq = 0, tick = Date.now();

@@ -191,11 +191,13 @@
       const rowAlbum = r => `<li class="kx-row" data-k="artist" data-a="${E(r.artist)}">${art(r.image)}<div class="rd-t"><b>${E(r.album)}</b><span class="muted">${E(r.artist)}${r.label ? ' · ' + E(r.label) : ''} · last ${ago(r.last)}</span></div><span class="kx-n">${(+r.plays).toLocaleString()}</span></li>`;
       const rowShow = r => `<li class="kx-row" data-k="program" data-v="${E(r.program)}">${art(r.image)}<div class="rd-t"><b>${E(r.program)}</b><span class="muted">${n(r.shows, 'show', 'shows')} · last ${ago(r.last)}</span></div><span class="kx-n">${(+r.plays).toLocaleString()}</span></li>`;
       const rowDj = r => `<li class="kx-row" data-k="dj" data-v="${E(String(r.hosts).split(', ')[0])}"><div class="rd-t"><b>${E(r.hosts)}</b><span class="muted">${E(r.programs || '')} · ${n(r.shows, 'show', 'shows')} · last ${ago(r.last)}</span></div><span class="kx-n">${(+r.plays).toLocaleString()}</span></li>`;
+      const inArchive = at => { const t = Date.parse(at); return isFinite(t) && Date.now() - t < 336 * 3600e3 - 20 * 60e3 && Date.now() - t > 5 * 60e3; };
       const rowPlay = (p, hl) => `<li class="kx-play${hl ? ' hl' : ''}"><span class="kx-when">${E(when(p.at))}</span>
         <div class="rd-t"><b><button class="kx-link" data-k="song" data-a="${E(p.artist)}" data-s="${E(p.song || '')}">${E(p.song || '(untitled)')}</button></b>
           <span class="muted">${aBtn(p.artist)}${p.album ? ' · ' + E(p.album) : ''}${p.label ? ' · ' + E(p.label) : ''}${p.rotation ? ' · ' + E(p.rotation) + ' rotation' : ''}${p.live ? ' · live in studio' : ''}${p.local ? ' · local' : ''}${p.request ? ' · request' : ''}</span>
           ${p.show ? `<span class="muted kx-show">on <button class="kx-link" data-k="program" data-v="${E(p.show.program)}">${E(p.show.program)}</button>${p.show.hosts ? ' with ' + p.show.hosts.split(', ').map(h => `<button class="kx-link" data-k="dj" data-v="${E(h)}">${E(h)}</button>`).join(', ') : ''}</span>` : ''}
           ${p.comment ? `<details class="kx-c"><summary>DJ comment</summary><p>${E(p.comment)}</p></details>` : ''}</div>
+        ${inArchive(p.at) ? `<button class="pc-ib" data-kx-arch="${E(p.at)}" data-title="${E((p.artist ? p.artist + ' – ' : '') + (p.song || ''))}" data-show="${E(p.show ? p.show.program : 'KEXP')}" aria-label="Listen from here, in KEXP's archive" title="Listen from here (KEXP keeps two weeks)">${api.ui.icon('headphones')}</button>` : ''}
         ${hl ? '' : `<button class="pc-ib" data-k="around" data-id="${p.id}" aria-label="Songs around this play" title="Songs around this play">${api.ui.icon('list-music')}</button>`}</li>`;
       const list = (rows, fn, empty) => !rows ? '<p class="muted">Loading…</p>' : rows.error ? `<p class="pc-note">${api.ui.icon('refresh-cw')}${E(rows.error)}</p>` : rows.length ? `<ul class="kx-list">${rows.map(fn).join('')}</ul>` : `<p class="muted">${empty}</p>`;
       const chips = (name, cur, opts) => `<div class="kx-chips" role="tablist">${opts.map(([v, l]) => `<button class="kx-chip${cur === v ? ' on' : ''}" data-k="${name}" data-v="${v}" role="tab" aria-selected="${cur === v}">${l}</button>`).join('')}</div>`;
@@ -253,6 +255,72 @@
 
       // the artist page's "Every KEXP play" opens this view on that artist
       window.CadenceKexpHistory = { artist: name => { K.detail = { type: 'artist', artist: name }; K.stack = []; K.away = false; api.ui.navigate('view-kexp-history'); } };
+      // ---- KEXP's two-week archive (2026-11-17): listen from any moment, and shows you keep on the NAS ----
+      const KA = window.CadenceKexpArchive = {
+        async play(at, meta = {}) {
+          let a; try { a = await getJson('api/radio/kexp?view=archive&at=' + encodeURIComponent(at)); } catch (e) { api.ui.toast("Couldn't reach KEXP's archive just now. Try again in a moment."); return false; }
+          if (a.none) { api.ui.toast(a.why || "KEXP's archive doesn't have that moment."); return false; }
+          // the older archive: a stream from that moment (no seeking, no end), through the NAS relay
+          if (a.stream) { P.load({ uuid: 'kexp-arch:' + a.at, url: 'api/radio/stream?u=' + encodeURIComponent(a.url), live: true, title: meta.title || 'KEXP archive', podcastTitle: meta.show ? 'KEXP · ' + meta.show : 'KEXP archive', art: meta.art || null, home: 'kexp.org' }, true); return true; }
+          P.load({ uuid: 'kexp-arch:' + a.url, url: a.url, archive: true, at: a.at, offset: a.offset, exact: true, position: a.offset,
+            title: meta.title || 'KEXP, ' + new Date(a.at).toLocaleString(undefined, { weekday: 'short', hour: 'numeric', minute: '2-digit' }), podcastTitle: meta.show ? 'KEXP · ' + meta.show : 'KEXP archive', art: meta.art || null }, true);
+          return true;
+        },
+      };
+      // the show ended: the moment it ends, in the archive, is the next show (its file starts a little before)
+      P.onArchiveEnded = (cur, dur) => { const t = Date.parse(cur.at) - (+cur.offset || 0) * 1000 + (dur || 0) * 1000; if (isFinite(t) && dur) KA.play(new Date(t + 2000).toISOString()); };
+      document.addEventListener('click', e => {
+        const b = e.target.closest('[data-kx-arch]'); if (!b) return;
+        e.preventDefault(); e.stopPropagation(); KA.play(b.dataset.kxArch, { title: b.dataset.title, show: b.dataset.show });
+      }, true);
+      // shows you keep: a card on the Podcasts page
+      const KK = { d: null, loading: false };
+      const kkLoad = () => { if (KK.loading) return; KK.loading = true; getJson('api/radio/kexp-keep').then(d => { KK.d = d; }, () => { KK.d = KK.d || { error: true }; }).finally(() => { KK.loading = false; if (api.ui.currentRoute() === 'view-podcasts') api.ui.refresh(); }); };
+      const kkPost = async body => { try { const r = await fetch('api/radio/kexp-keep', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }); if (!r.ok) throw new Error(); KK.d = await r.json(); } catch (e) { api.ui.toast("Couldn't save that just now. Try again in a moment."); } if (api.ui.currentRoute() === 'view-podcasts') api.ui.refresh(); };
+      const mmss = s => { s = Math.max(0, Math.round(s)); const h = Math.floor(s / 3600), m = Math.floor(s / 60) % 60; return (h ? h + ':' + String(m).padStart(2, '0') : m) + ':' + String(s % 60).padStart(2, '0'); };
+      const kkPlay = (ep, sec) => {
+        const uuid = 'kexp-kept:' + ep.id;
+        if (sec != null && P.current && P.current.uuid === uuid) { P.audio.currentTime = sec; if (P.audio.paused) P.play(); return; }
+        P.load({ uuid, url: ep.url, kept: true, title: ep.program + ', ' + new Date(ep.start).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' }), podcastTitle: 'KEXP' + (ep.hosts ? ' · ' + ep.hosts : ''),
+          art: ep.image || null, position: sec != null ? sec : ep.offset, exact: sec != null }, true);
+      };
+      window.CadenceKexpKeep = {
+        card() {
+          if (api.system().mode !== 'nas') return '';
+          if (!KK.d) { kkLoad(); return '<div class="pc-card kk"><b>KEXP shows you keep</b><p class="muted">Loading…</p></div>'; }
+          if (KK.d.error) return '';
+          const d = KK.d, on = new Set(d.programs.map(x => x.toLowerCase()));
+          const ep = x => `<div class="kk-ep">${x.image ? `<img src="${E(x.image)}" alt="" loading="lazy" onerror="this.style.visibility='hidden'">` : ''}<div class="kk-t">
+              <div class="kk-top"><b>${E(x.program)}</b><button class="pc-ib" data-kk-play="${x.id}" aria-label="Play ${E(x.program)}" title="Play">${api.ui.icon('play')}</button></div>
+              <span class="muted">${E(new Date(x.start).toLocaleString(undefined, { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }))}${x.hosts ? ' · ' + E(x.hosts) : ''} · ${Math.round(x.bytes / 1e6)} MB</span>
+              ${x.plays.length ? `<details><summary>Playlist (${x.plays.length} songs)</summary><ol class="kk-pl">${x.plays.map(p => `<li><button class="kk-sk" data-kk-seek="${x.id}" data-sec="${p.sec}"><span class="muted">${mmss(p.sec - x.offset)}</span> ${E(p.artist)}${p.song ? ' – ' + E(p.song) : ''}</button></li>`).join('')}</ol></details>` : ''}</div></div>`;
+          return `<div class="pc-card kk"><div class="pc-h"><b>KEXP shows you keep</b><span class="muted">${d.kept.length ? d.kept.length + ' saved on your NAS' : ''}</span></div>
+            ${d.kept.length ? d.kept.map(ep).join('') : `<p class="muted">${d.programs.length ? `Each new episode of ${E(d.programs.join(', '))} is saved here after it airs (KEXP's archive keeps two weeks).` : 'Pick KEXP shows below and each new episode is saved on your NAS after it airs, for listening any time.'}</p>`}
+            <details class="kk-pick"${d.programs.length ? '' : ' open'}><summary>Choose shows to keep${d.programs.length ? ` (${d.programs.length})` : ''}</summary>
+              <div class="kk-ch">${d.choices.length ? d.choices.map(c => `<button class="chip${on.has(c.toLowerCase()) ? ' on' : ''}" data-kk-prog="${E(c)}" aria-pressed="${on.has(c.toLowerCase())}">${E(c)}</button>`).join('') : '<span class="muted">KEXP\'s show names show up here once your NAS has seen a few days of its playlist.</span>'}</div>
+              <label class="kk-per">Keep the newest <select class="inp sm" data-kk-per>${[1, 2, 3, 4, 5].map(n => `<option${n === d.per ? ' selected' : ''}>${n}</option>`).join('')}</select> of each (a 3-hour show is about 170 MB)</label>
+            </details></div>`;
+        },
+      };
+      document.addEventListener('click', e => {
+        const pl = e.target.closest('[data-kk-play]'), sk = e.target.closest('[data-kk-seek]'), pg = e.target.closest('[data-kk-prog]');
+        if (!pl && !sk && !pg) return;
+        e.preventDefault();
+        if (pg) { const was = pg.getAttribute('aria-pressed') === 'true'; kkPost({ program: pg.dataset.kkProg, on: !was }); return; }
+        const id = +(pl ? pl.dataset.kkPlay : sk.dataset.kkSeek), ep = KK.d && KK.d.kept.find(x => x.id === id); if (!ep) return;
+        kkPlay(ep, sk ? +sk.dataset.sec : null);
+      });
+      document.addEventListener('change', e => { const s = e.target.closest('[data-kk-per]'); if (s) kkPost({ per: +s.value }); });
+      if (!document.getElementById('kk-css')) { const st = document.createElement('style'); st.id = 'kk-css'; st.textContent = `
+        .kk .kk-ep{display:flex;gap:10px;padding:8px 0;border-top:1px solid var(--line)}.kk .kk-ep:first-of-type{border-top:0}
+        .kk .kk-ep img{width:48px;height:48px;border-radius:8px;object-fit:cover;flex:none}
+        .kk .kk-t{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}.kk .kk-top{display:flex;align-items:center;justify-content:space-between;gap:6px}
+        .kk .kk-t>span{font-size:13px}.kk details summary{cursor:pointer;font-size:13px;color:var(--muted);margin-top:2px}
+        .kk .kk-pl{margin:6px 0 0;padding-left:20px;max-height:280px;overflow:auto}.kk .kk-sk{border:0;background:transparent;font:inherit;color:inherit;text-align:left;cursor:pointer;padding:2px 0}
+        .kk .kk-sk:hover{color:var(--accent)}.kk .kk-sk .muted{display:inline-block;min-width:52px;font-variant-numeric:tabular-nums}
+        .kk .kk-pick{margin-top:8px}.kk .kk-ch{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}.kk .kk-ch .chip.on{background:var(--accent);color:var(--accent-ink,#fff);border-color:var(--accent)}
+        .kk .kk-per{font-size:13px;display:flex;align-items:center;gap:6px;flex-wrap:wrap}`; document.head.appendChild(st); }
+
       api.views.add({ id: 'kexp-history', site: 'kexp.org', group: 'music', order: 30, title: 'KEXP history', icon: '🎼', subtitle: 'Every song KEXP plays, kept on your NAS', wide: true, render: el => {
         if (K.away) { K.away = false; for (const k of Object.keys(K.cache)) if (!K.cache[k] || K.cache[k].error) delete K.cache[k]; K.stale = new Set(Object.keys(K.cache));
           if (hist) getJson('api/radio/kexp-history').then(h => { hist = h; }, () => {}); }

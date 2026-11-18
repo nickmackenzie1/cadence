@@ -16,7 +16,7 @@ const { handle } = require('./server/app');
 require('./server/services/push');    // starts the reminder push timer
 require('./server/services/feeds');   // starts the feed history checks
 // the music side: its own process (Radar, Radio, KEXP history), started now so scans and KEXP logging run; MUSIC_PROCESS=0 keeps it in here
-if (process.env.MUSIC_PROCESS !== '0') require('./server/lib/music-proxy').start(); else require('./server/services/kexp-log');
+if (process.env.MUSIC_PROCESS !== '0') require('./server/lib/music-proxy').start(); else { require('./server/services/kexp-log'); require('./server/services/kexp-archive'); }
 
 // Slow things say so in the log (2026-11-17: the NAS stopped answering and nothing said why). A request over 2 s
 // is logged with its path; if the whole app is stuck for 3 s or more, the log says so and what it was serving.
