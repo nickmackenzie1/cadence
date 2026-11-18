@@ -43,19 +43,28 @@
       // unhandled "WebAssembly compilation aborted". That's harmless (it loads next time), so keep it out of the error log.
       if (!G.quietAbort) { G.quietAbort = true; addEventListener('unhandledrejection', e => { const m = String(e.reason && e.reason.message || e.reason || '');
         // interrupted, or offline before it was saved for offline use: load next time, quietly
-        if (/WebAssembly|Wasm/.test(m) && /abort|failed to fetch/i.test(m)) { e.preventDefault(); G.loading = null; console.warn('Harper download interrupted or offline; it will load next time'); } }); }
+        if (/WebAssembly|Wasm/.test(m) && /abort|failed to fetch|network error/i.test(m)) { e.preventDefault(); G.loading = null; console.warn('Harper download interrupted or offline; it will load next time'); } }); }
       async function linter() {
         if (G.linter) return G.linter;
         return G.loading = G.loading || (async () => {
           const m = await import(new URL('vendor/harper/index.js', document.baseURI).href);
           const { binary } = await import(new URL('vendor/harper/binary.js', document.baseURI).href);
-          const make = Ctor => new Ctor({ binary, dialect: DIALECTS[cfg().dialect] ?? 3 });
-          // on the page: Harper's worker build only answers once the engine is also loaded here, so it saves nothing.
-          // After the first load a check takes a few milliseconds, and typing is debounced.
-          const l = make(m.LocalLinter); await l.lint('Ready.');
+          // a retry after a failed start loads a fresh engine (Harper remembers a failed load for the rest of the page)
+          const bin = G.tries ? m.createBinaryModuleFromUrl(binary.url + '?retry=' + G.tries, 'full') : binary;
+          const make = Ctor => new Ctor({ binary: bin, dialect: DIALECTS[cfg().dialect] ?? 3 });
+          // In Harper's own worker thread (2026-11-17). The page still loads the engine to read the results, but building
+          // the linter and checking text happen off the page: on a slowed-down CPU (6x, like a phone or a busy machine)
+          // the longest freeze while typing went from over 6 s with the on-page linter to under 0.25 s. Those freezes were
+          // also behind the "flaky" form tests in more.spec.mjs: clicks waited on a page busy checking grammar.
+          // If its download is cut short the worker never answers (its error is kept quiet, see vendor/harper/VERSION.txt):
+          // after 45 s give up on this one, so the next check starts a fresh worker, as the on-page linter used to retry.
+          const l = make(m.WorkerLinter);
+          // ready means both: the worker answers, and the page's own copy (bin.inner), which reads the results, has loaded
+          const ok = await Promise.race([Promise.all([l.lint('Ready.'), bin.inner]).then(() => true), new Promise(r => setTimeout(() => r(false), +window.__harperStartMs || 45000))]);
+          if (!ok) { try { l.dispose(); } catch (e) {} throw new Error('the grammar engine took too long to start; trying again at the next check'); }
           const words = cfg().words; if (words.length) await l.importWords(words);
           G.mod = m; G.linter = l; return l;
-        })().catch(e => { G.loading = null; console.warn('Harper could not start', e); return null; });
+        })().catch(e => { G.loading = null; G.tries = (G.tries || 0) + 1; console.warn('Harper could not start', e); return null; });
       }
 
       // ---- the mirror: same box, same font, same wrapping, transparent text, underlined spans. It sits ON TOP of the
@@ -126,7 +135,9 @@
         if (!to && word.length >= 4 && word[0] === word[0].toLowerCase() && G.linter) {
           // Harper's first spelling suggestion, only when it's a near miss (one or two letters off)
           const text = ta.value; let lints; try { lints = await G.linter.lint(text, { language: 'plaintext' }); } catch { return; }
-          if (!cur || cur.ta !== ta || ta.value !== text) return;
+          // the answer comes back from Harper's worker a moment later, often after the next letter: fix the word as long as
+          // it, and everything before it, is still as it was
+          if (!cur || cur.ta !== ta || ta.value.slice(0, start + word.length + 1) !== text.slice(0, start + word.length + 1)) return;
           const u = toUnits(text), hit = lints.find(x => { const s = x.span(); return u(s.start) === start && u(s.end) === start + word.length && /spell/i.test(x.lint_kind_pretty()); });
           const s0 = hit && hit.suggestions()[0], cand = s0 && s0.get_replacement_text().trim();
           if (cand && /^[A-Za-z' ]+$/.test(cand) && edits(word, cand) <= (word.length <= 5 ? 1 : 2)) to = caseLike(word, cand);
@@ -134,7 +145,7 @@
         if (!to || to === word || ta.value.slice(start, start + word.length) !== word) return;
         const caret = ta.selectionStart;
         ta.setRangeText(to, start, start + word.length, 'preserve');
-        const nc = caret + (to.length - word.length); ta.setSelectionRange(nc, nc);
+        const nc = caret > start ? caret + (to.length - word.length) : caret; ta.setSelectionRange(nc, nc);
         last = { ta, start, from: word, to, at: nc };
         const ev = new Event('input', { bubbles: true }); ev.hpAuto = true; ta.dispatchEvent(ev);
         G.fixed = (G.fixed || 0) + 1; flash(start, to.length);

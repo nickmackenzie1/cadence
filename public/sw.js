@@ -7,7 +7,7 @@
         never saved)
       - bundle.js?v=<hash>: saved once per version (its URL changes when the code does); old versions are dropped
       - everything else from the app: served from the copy at once, refreshed in the background */
-const SHELL = 'cadence-shell-1';
+const SHELL = 'cadence-shell-1';   // keep the name: changing it drops every device's offline copy
 self.addEventListener('install', () => self.skipWaiting());
 self.addEventListener('activate', e => e.waitUntil((async () => {
   for (const k of await caches.keys()) if (k.startsWith('cadence-shell-') && k !== SHELL) await caches.delete(k);
@@ -62,11 +62,21 @@ self.addEventListener('fetch', e => {
   // the rest of the app: from the copy at once, refreshed behind the scenes
   e.respondWith((async () => {
     const c = await caches.open(SHELL), hit = await c.match(req);
-    const net = fetch(req).then(res => { if (okToKeep(res)) c.put(req, res.clone()); return res; }).catch(() => null);
-    if (hit) { e.waitUntil(net); return hit; }
-    const res = await net; return res || new Response('', { status: 504 });
+    if (hit) { e.waitUntil(fetch(req).then(res => okToKeep(res) ? c.put(req, res) : null).catch(() => {})); return hit; }
+    // Not saved yet: one download per address however many ask at once, saved before anyone gets it (2026-11-17).
+    // Harper's 20 MB engine is asked for by the page and by Harper's worker together; two downloads saving to the same
+    // place cut each other off ("WebAssembly compilation aborted"). The first asker gets the response, the rest the copy.
+    let p = inflight.get(req.url);
+    if (!p) {
+      p = fetch(req).then(async res => { if (okToKeep(res)) { try { await c.put(req, res.clone()); } catch (er) {} } return res; }).catch(() => null);
+      inflight.set(req.url, p); p.finally(() => inflight.delete(req.url));
+      return (await p) || new Response('', { status: 504 });
+    }
+    await p;
+    return (await c.match(req)) || fetch(req).catch(() => new Response('', { status: 504 }));
   })());
 });
+const inflight = new Map();
 
 // a newer version of this file takes over at once (install → skipWaiting, activate → claim)
 self.addEventListener('message', e => { if (e.data === 'cadence-clear-shell') e.waitUntil(caches.delete(SHELL)); });

@@ -173,10 +173,14 @@ test('switching Work and Life with snow on keeps a single snow engine', async ({
   await page.goto(B + '/#today');
   await expect(page.locator('#sync')).toContainText('NAS', { timeout: 8000 });
   await page.evaluate(() => { window.__xmas.reset({ chaos: 1, tune: null, look: 'classic' }); window.__xmas.flip('snow'); });
+  const rate = () => page.evaluate(() => new Promise(res => { let n = 0; const t0 = performance.now(); const f = () => { n++; if (performance.now() - t0 < 1500) requestAnimationFrame(f); else res(n / 1.5); }; requestAnimationFrame(f); }));
+  await page.waitForTimeout(800);
+  const before = await rate();   // one engine, on this machine at this moment
   for (let i = 0; i < 6; i++) { await page.click(`.space-sw [data-s=${i % 2 ? 'work' : 'life'}]`); await page.waitForTimeout(400); }
   await expect(page.locator('#xm-snow')).toHaveCount(1);
-  const fps = await page.evaluate(() => new Promise(res => { let n = 0; const t0 = performance.now(); const f = () => { n++; if (performance.now() - t0 < 1500) requestAnimationFrame(f); else res(n / 1.5); }; requestAnimationFrame(f); }));
-  expect(fps).toBeGreaterThan(30);
+  const fps = await rate();
+  // a second engine would roughly halve the frame rate; a busy test machine slows both measurements alike
+  expect(fps).toBeGreaterThan(Math.min(30, before * 0.6));
   await page.evaluate(() => window.__xmas.flip('snow'));
   await page.waitForTimeout(1200);
   expect(errs).toEqual([]);
