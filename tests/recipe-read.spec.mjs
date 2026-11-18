@@ -3,6 +3,10 @@
 // @graph, and pages with only the recipe card (WP Recipe Maker, Tasty Recipes, microdata).
 import { test, expect } from '@playwright/test';
 import { createRequire } from 'node:module';
+import { mkdtempSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+process.env.DATA_DIR ||= mkdtempSync(join(tmpdir(), 'cadence-rcp-'));   // the server's config makes its folders on load
 const { parseRecipe } = createRequire(import.meta.url)('../server/services/recipes.js');
 const U = 'https://www.example-recipes.com/butter-chicken/';
 const page = (head, body = '') => `<!doctype html><html><head><title>Butter Chicken Recipe</title><meta property="og:title" content="Butter Chicken (Chicken Makhani)"><meta property="og:image" content="https://www.example-recipes.com/bc.jpg">${head}</head><body>${body}</body></html>`;
