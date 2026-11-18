@@ -122,4 +122,16 @@ checking the code.
 - Not pushed: a Radar history pruning commit (chart points 400 days, series 180, run logs 60–90, station history 400)
   was built 2026-11-17 and set aside when the user said "just do db move". Rebuild it if asked.
 
+- Background work goes through `server/lib/scheduler.js` (0.30.0): `sched.add(name, fn, { label, every, first, heavy,
+  quiet, hours, retry })`; fn may return `{ again: ms }`, `{ done: true }`, `{ note }`. Heavy jobs take turns; quiet ones
+  wait while someone is actually using Cadence (requests carrying X-Cadence-Active, which public/auth.js adds within a
+  minute of input or while audio plays; page loads; streams), not an open tab's automatic checks. Don't add new
+  setInterval timers for background work. Jobs are listed on the Problems page (/api/jobs, /api/radar/jobs).
+- KEXP search uses an FTS5 index (`kexp_fts`, 0.30.1): built by the `kexp-fts` job, kept current by triggers for ids the
+  builder has passed; search falls back to LIKE until `fts_done`.
+- Artist suggestions (0.30.2): `/api/radar/find?q=` merges Radar's artists, KEXP (via the index) and Deezer's artist
+  search (no key, kept a day, 2.5 s limit). Not yet in ⌘K: a plugin search hook for the palette was planned, not built.
+- Share target (0.30.3): manifest `share_target` → `./?share_title&share_text&share_url` → `takeShare()` in core.js
+  fills quick add. Android and desktop Chrome/Edge only; iPhone doesn't support it for web apps.
+
 ## New ideas (add below)

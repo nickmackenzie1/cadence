@@ -137,3 +137,10 @@ built-in plugins in `public/index.html` and push. It goes live on the next deplo
 `fireflies` / `ai-extract` / `plain-lines` (extractors), `zoho-tags` (parser),
 `desk` (Work: custom task field, parser, `api.chips`, board view, widget, settings),
 `homeowner` (Life-only: multi-step modal wizard, tasks it owns via a custom field, view + widget + settings).
+
+## Types
+
+`types/cadence.d.ts` describes this API. `npm run typecheck` checks every plugin against it (CI runs it before the
+tests): calling something that doesn't exist (`api.ui.toats`) or using a name defined nowhere fails the build. Editors
+that understand TypeScript (VS Code and others) use the same file for completion and hover help in plain .js plugins.
+

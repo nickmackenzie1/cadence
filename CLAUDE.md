@@ -27,6 +27,8 @@ every 5 minutes. It test-builds first, rolls back if the new container isn't hea
 Check `deploy.log` on the NAS when something doesn't arrive.
 
 ## Tests
+- `npm run typecheck` (seconds, runs first in CI): plugin API misuse and undefined names, via `types/cadence.d.ts`.
+  When you add to `makeApi()` in core.js, declare it there too.
 - `npx playwright test` (about 5 minutes). Run single files while working: `npx playwright test tests/x.spec.mjs`.
 - Each spec starts its own server on a free port with a temp `DATA_DIR`. Specs in one file share that server,
   so don't assume a fresh database (count what's there instead of hard-coding).

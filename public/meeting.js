@@ -279,5 +279,5 @@ async function runImport(){
     toast(e && e.code === 'rate_limited' ? 'AI is busy — try again in a minute, or use the Fireflies parser.' : 'Extraction failed: ' + (e.message || e.code || e));
   }
 }
-return { startMeeting, hideMeeting, renderMeeting, tidyMeeting, clientAgendaCard, shotTile, markup, commitMeeting, openImport, runImport, meetingBand };
+return { startMeeting, hideMeeting, renderMeeting, tidyMeeting, aiWording, clientAgendaCard, shotTile, markup, commitMeeting, openImport, runImport, meetingBand };
 };

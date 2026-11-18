@@ -1,0 +1,8 @@
+{
+  // Type checking without a build step (scripts/typecheck.mjs, `npm run typecheck`, run in CI). Nothing is emitted.
+  "compilerOptions": {
+    "allowJs": true, "checkJs": true, "noEmit": true, "strict": false, "noImplicitAny": false,
+    "target": "es2022", "module": "es2022", "lib": ["es2023", "dom", "dom.iterable"], "skipLibCheck": true, "types": []
+  },
+  "include": ["types/*.d.ts", "public/plugins/*.js", "public/core.js", "public/meeting.js", "public/auth.js", "public/demo.js"]
+}

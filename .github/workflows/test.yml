@@ -32,6 +32,8 @@ jobs:
         run: npx playwright install --with-deps chromium
       - if: steps.pw-cache.outputs.cache-hit == 'true'
         run: npx playwright install-deps chromium
+      # plugins using the API wrong, or names defined nowhere (scripts/typecheck.mjs): seconds, so it goes first
+      - run: npm run typecheck
       - run: npm test
       # only green builds reach the NAS: deploy.sh follows the `stable` branch when it exists.
       # Never move stable backwards: only promote if this commit is newer than (descends from) what's there now.
