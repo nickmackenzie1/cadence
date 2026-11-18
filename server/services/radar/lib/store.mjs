@@ -248,6 +248,13 @@ export function chartPoints({ since = 0, uids = null } = {}) {
 }
 
 // ---- one artist without loading everything (artist pages, 2026-11-16: loadState() read the whole Radar every time) ----
+// artists Radar knows whose name contains q (exact names first, then names starting with it), for search suggestions
+export function findArtists(q, limit = 8) {
+  q = String(q || "").trim(); if (!q || !open()) return [];
+  const esc = q.replace(/[\\%_]/g, (c) => "\\" + c);
+  return db.prepare(`SELECT key, name, listeners FROM radar_artists WHERE name LIKE ? ESCAPE '\\'
+    ORDER BY CASE WHEN name = ? COLLATE NOCASE THEN 0 WHEN name LIKE ? ESCAPE '\\' THEN 1 ELSE 2 END, length(name) LIMIT ?`).all("%" + esc + "%", q, esc + "%", limit);
+}
 export function artistRecord(key) {
   if (!open()) return loadState().artists[key] || null;
   const r = db.prepare("SELECT json FROM radar_artists WHERE key = ?").get(key);

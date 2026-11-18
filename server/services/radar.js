@@ -366,6 +366,38 @@ async function preview({ artist, title }) {
   previewCache.set(ck, { at: Date.now(), v });
   return v;
 }
+// ---- artist search suggestions (user, 2026-11-17: "the artist search sucks, can we have suggested?") ----
+// As you type on Music → Artists: artists you already know about (Radar, KEXP history through its search index) and
+// Deezer's artist search (public, no key: photo, fans, albums). Deezer answers are kept a day; it gets 2.5 s, and the
+// local ones show without it if it's slow or unreachable. Under CI it's skipped unless DEEZER_API points at a fake.
+const findCache = new Map();
+async function deezerArtists(q) {
+  if (process.env.CI && !process.env.DEEZER_API) return [];
+  const k = q.toLowerCase(), hit = findCache.get(k); if (hit && Date.now() - hit.at < 864e5) return hit.v;
+  const { safeFetch } = require('../lib/net'), u = `${DEEZER()}/search/artist?limit=8&q=${encodeURIComponent(q)}`;
+  const buf = process.env.DEEZER_API ? Buffer.from(await (await fetch(u)).arrayBuffer()) : (await safeFetch(u, { headers: { Accept: 'application/json' } }, 512 * 1024)).buf;
+  const v = (JSON.parse(buf.toString('utf8')).data || []).filter(a => a && a.name).map(a => ({ name: a.name, image: a.picture_medium || a.picture || null, fans: a.nb_fan || 0, albums: a.nb_album || 0, deezer: a.link || null }));
+  findCache.set(k, { at: Date.now(), v }); if (findCache.size > 500) findCache.delete(findCache.keys().next().value);
+  return v;
+}
+async function find(q) {
+  q = String(q || '').trim().slice(0, 80); if (q.length < 2) return [];
+  const { norm } = await import(pathToFileURL(path.join(__dirname, 'radar', 'lib', 'extract.mjs')).href);
+  const { store } = await load();
+  let K = null; try { K = require('./kexp-log'); if (!K.isOn()) K = null; } catch (e) {}
+  const within = (p, ms) => Promise.race([p, new Promise(r => setTimeout(() => r(null), ms).unref())]);
+  const [radar, kexp, dz] = await Promise.all([
+    Promise.resolve().then(() => store.findArtists(q, 8)).catch(() => []),
+    K ? within(K.search({ q, group: 'artist', limit: 8 }), 2500).catch(() => null) : null,
+    within(deezerArtists(q), 2500).catch(() => null),
+  ]);
+  const want = norm(q), by = new Map(), get = name => { const k = norm(name); if (!k) return null; if (!by.has(k)) by.set(k, { name, key: k, score: 0 }); return by.get(k); };
+  (dz || []).forEach((a, i) => { const x = get(a.name); if (!x) return; Object.assign(x, { image: a.image, fans: a.fans, albums: a.albums, deezer: a.deezer }); if (i === 0 || x.name !== a.name && a.fans > (x.fans || 0)) x.name = a.name; x.score += 40 - i * 4 + Math.log10(1 + a.fans) * 4; });
+  for (const a of radar || []) { const x = get(a.name); if (x) { x.radar = true; x.score += 30; } }
+  for (const a of kexp || []) { const x = get(a.artist); if (x) { x.kexp = a.plays; x.score += 20 + Math.log10(1 + a.plays) * 6; } }
+  for (const x of by.values()) { if (x.key === want) x.score += 200; else if (x.key.startsWith(want)) x.score += 50; }
+  return [...by.values()].sort((a, b) => b.score - a.score).slice(0, 8).map(({ score, key, ...x }) => x);
+}
 // Want to hear: a list on the NAS (same in both spaces and on every device)
 // ---- following artists (user, 2026-11-16): a list kept on the NAS, and calm notes about what's new for each since you
 // last looked: blog posts, chart entries, releases (every Radar source), KEXP plays, plays on stations whose history is
@@ -479,4 +511,4 @@ async function digestFile(name) {
 }
 async function spotify() { const { spotify } = await load(); return spotify; }
 
-module.exports = { bust, mixcloud, yearInMusic, closeToHome, releases, mix, calledIt, listen, notForMe, artist, stg, shows, follow, preview, want, community, sourcesNow, sourcesSettings, raw, settings, status, scan, digestNow, data, feedback, rss, digestFile, spotify };
+module.exports = { find, bust, mixcloud, yearInMusic, closeToHome, releases, mix, calledIt, listen, notForMe, artist, stg, shows, follow, preview, want, community, sourcesNow, sourcesSettings, raw, settings, status, scan, digestNow, data, feedback, rss, digestFile, spotify };

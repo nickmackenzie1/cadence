@@ -37,11 +37,15 @@ test.beforeAll(async () => {
       strGenre: 'Shoegaze', strStyle: 'Rock/Pop', strMood: 'Dreamy', strLabel: 'Arts & Crafts', intMembers: '4', strFacebook: 'www.facebook.com/glasslantern',
       strBiographyEN: 'Glass Lantern are a four-piece from Toronto.\n\nThey met at a laundromat and started playing loud, slow songs together in a garage behind a bakery. ' + 'Their first record came out on a small label. '.repeat(30),
       strArtistLogo: 'https://r2.theaudiodb.com/images/media/artist/logo/gl.png', strArtistThumb: 'https://r2.theaudiodb.com/images/media/artist/thumb/gl.jpg', strArtistBanner: 'https://r2.theaudiodb.com/images/media/artist/banner/gl.jpg' }] });
+    // a fake Deezer artist search, for the suggestions on Music → Artists
+    if (req.url.startsWith('/search/artist')) return j({ data: decodeURIComponent(req.url).toLowerCase().includes('glass') ? [
+      { id: 1, name: 'Glass Animals', picture_medium: 'https://e-cdns-images.dzcdn.net/ga.jpg', nb_fan: 2100000, nb_album: 9, link: 'https://www.deezer.com/artist/1' },
+      { id: 2, name: 'Glass Lantern', nb_fan: 900, nb_album: 2 }] : [] });
     if (req.url.startsWith('/adb/')) return j({ artists: null });
     res.writeHead(404); res.end();
   }).listen(MB);
   server = spawn(process.execPath, ['--disable-warning=ExperimentalWarning', 'server.js'], { env: { ...env, PORT: String(PORT), TLS_DIR: join(dir, 'x'),
-    RADAR_MB: '1', RADAR_MB_API: `http://localhost:${MB}`, AUDIODB: '1', AUDIODB_API: `http://localhost:${MB}/adb`, AUDIODB_GAP: '20', RADAR_CAA_API: `http://localhost:${MB}`, RADAR_MB_GAP: '20', KEXP_LOG: '1', KEXP_QUIET_MS: '1', KEXP_API: 'http://127.0.0.1:9', KEXP_LOG_DELAY: '99999999', RADIO_WARM: '0' }, stdio: 'ignore' });
+    DEEZER_API: `http://localhost:${MB}`, RADAR_MB: '1', RADAR_MB_API: `http://localhost:${MB}`, AUDIODB: '1', AUDIODB_API: `http://localhost:${MB}/adb`, AUDIODB_GAP: '20', RADAR_CAA_API: `http://localhost:${MB}`, RADAR_MB_GAP: '20', KEXP_LOG: '1', KEXP_QUIET_MS: '1', KEXP_API: 'http://127.0.0.1:9', KEXP_LOG_DELAY: '99999999', RADIO_WARM: '0' }, stdio: 'ignore' });
   for (let i = 0; i < 150; i++) { try { if ((await fetch(B + '/api/health')).ok) return; } catch {} await new Promise(r => setTimeout(r, 100)); }
 });
 test.afterAll(() => { server && server.kill(); mb && mb.close(); rmSync(dir, { recursive: true, force: true }); });
@@ -173,4 +177,28 @@ test('Music home: one tile, tabs on every music page, and it reopens the tab you
   await expect(page.locator('.mus-tabs a.on')).toHaveCount(0);      // …with none of them chosen
   await page.evaluate(() => { location.hash = 'view-artists'; });
   await expect(page.locator('.ar-chip', { hasText: 'Glass Lantern' })).toHaveCount(1);
+});
+
+test('Artists search suggests as you type: Radar and KEXP history alongside Deezer, keys and clicks open the page', async ({ page }) => {
+  await page.goto(B + '/#view-artists');
+  await page.fill('#ar-q', 'glass');
+  const sug = page.locator('.ar-sug .ar-sg');
+  await expect(sug.filter({ hasText: 'Glass Animals' })).toContainText('2.1M fans on Deezer');
+  await expect(sug.filter({ hasText: 'Glass Lantern' })).toContainText(/KEXP played them \d+ times · on Radar/);   // from KEXP history and Radar, merged with Deezer's entry
+  await expect(sug.filter({ hasText: 'Glass Lantern' })).toHaveCount(1);
+  // the keyboard: down to the first suggestion, Enter opens it
+  const first = (await sug.first().locator('b').textContent()).trim();
+  await page.keyboard.press('ArrowDown'); await page.keyboard.press('Enter');
+  await expect(page).toHaveURL(/#view-artist$/);
+  expect(await page.evaluate(() => sessionStorage.getItem('cadence.artist'))).toBe(first);
+  // a click works too, and Escape closes the list
+  await page.evaluate(() => { location.hash = 'view-artists'; });
+  await page.fill('#ar-q', 'glass a');
+  await expect(sug.filter({ hasText: 'Glass Animals' })).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(page.locator('.ar-sug')).toBeHidden();
+  await page.fill('#ar-q', 'glass an');
+  await sug.filter({ hasText: 'Glass Animals' }).click();
+  await expect(page).toHaveURL(/#view-artist$/);
+  expect(await page.evaluate(() => sessionStorage.getItem('cadence.artist'))).toBe('Glass Animals');
 });

@@ -222,6 +222,57 @@
       } });
 
       // Artists: open any artist by name, the ones you looked at lately, and the ones in Want to hear
+      // ---- suggestions as you type (user, 2026-11-17): names you've looked at straight away, then the NAS's mix of
+      // Radar, KEXP history and Deezer's artist search (/api/radar/find) with a photo and a line on where they're from.
+      // Arrow keys move, Enter opens the highlighted one (or looks up exactly what you typed), Escape closes.
+      function suggest(inp, known) {
+        if (!inp) return;
+        const box = document.createElement('div'); box.className = 'ar-sug'; box.setAttribute('role', 'listbox'); box.hidden = true;
+        inp.parentNode.style.position = 'relative'; inp.parentNode.appendChild(box);
+        inp.setAttribute('role', 'combobox'); inp.setAttribute('aria-autocomplete', 'list'); inp.setAttribute('aria-expanded', 'false');
+        let items = [], sel = -1, timer = 0, ctl = null, seq = 0;
+        const fmt = n => n >= 1e6 ? (n / 1e6).toFixed(n >= 1e7 ? 0 : 1) + 'M' : n >= 1e3 ? Math.round(n / 1e3) + 'K' : String(n);
+        const line = a => [a.kexp ? `KEXP played them ${a.kexp.toLocaleString('en-CA')} time${a.kexp === 1 ? '' : 's'}` : '', a.radar ? 'on Radar' : '', a.mine ? 'looked at before' : '',
+          a.fans ? `${fmt(a.fans)} fans on Deezer` : '', a.albums ? `${a.albums} release${a.albums === 1 ? '' : 's'}` : ''].filter(Boolean).join(' · ');
+        const open = name => { box.hidden = true; inp.setAttribute('aria-expanded', 'false'); window.CadenceArtist.open(name); location.hash = 'view-artist'; };
+        const draw = () => {
+          box.hidden = !items.length; inp.setAttribute('aria-expanded', String(!!items.length));
+          box.innerHTML = items.map((a, i) => `<button type="button" role="option" class="ar-sg${i === sel ? ' on' : ''}" data-i="${i}" aria-selected="${i === sel}">
+            <span class="ar-sg-im">${a.image ? `<img src="api/logo?u=${encodeURIComponent(a.image)}" alt="" loading="lazy">` : api.ui.icon('mic-vocal')}</span>
+            <span class="ar-sg-t"><b>${E(a.name)}</b>${line(a) ? `<small>${E(line(a))}</small>` : ''}</span></button>`).join('');
+        };
+        const local = q => { const l = q.toLowerCase(); return known.filter(n => n.toLowerCase().includes(l)).slice(0, 3).map(n => ({ name: n, mine: true })); };
+        const merge = (mine, far) => { const out = [...mine]; for (const a of far) { const m = out.find(x => x.name.toLowerCase() === a.name.toLowerCase()); if (m) Object.assign(m, a, { mine: true }); else out.push(a); } return out.slice(0, 8); };
+        inp.addEventListener('input', () => {
+          const q = inp.value.trim(); clearTimeout(timer); if (ctl) ctl.abort();
+          if (q.length < 2) { items = []; sel = -1; return draw(); }
+          items = local(q); sel = -1; draw();
+          const my = ++seq;
+          timer = setTimeout(async () => {
+            ctl = new AbortController();
+            try { const far = await (await fetch('api/radar/find?q=' + encodeURIComponent(q), { signal: ctl.signal })).json(); if (my === seq && Array.isArray(far)) { items = merge(local(q), far); draw(); } } catch (e) {}
+          }, 160);
+        });
+        inp.addEventListener('keydown', e => {
+          if (box.hidden) return;
+          if (e.key === 'ArrowDown') { sel = Math.min(sel + 1, items.length - 1); draw(); e.preventDefault(); }
+          else if (e.key === 'ArrowUp') { sel = Math.max(sel - 1, -1); draw(); e.preventDefault(); }
+          else if (e.key === 'Escape') { items = []; draw(); e.stopPropagation(); }
+          else if (e.key === 'Enter' && sel >= 0 && items[sel]) { e.preventDefault(); open(items[sel].name); }
+        });
+        box.addEventListener('mousedown', e => e.preventDefault());   // keep the focus in the box while choosing
+        box.addEventListener('click', e => { const b = e.target.closest('[data-i]'); if (b) open(items[+b.dataset.i].name); });
+        inp.addEventListener('blur', () => setTimeout(() => { box.hidden = true; inp.setAttribute('aria-expanded', 'false'); }, 120));
+        inp.addEventListener('focus', () => { if (items.length) draw(); });
+      }
+      if (!document.getElementById('ar-sug-css')) { const st = document.createElement('style'); st.id = 'ar-sug-css'; st.textContent = `
+        .ar-sug{position:absolute;left:0;right:0;top:calc(100% + 4px);z-index:30;background:var(--panel);border:1px solid var(--line);border-radius:var(--r-l);box-shadow:0 10px 30px rgba(0,0,0,.12);padding:4px;max-height:420px;overflow:auto}
+        .ar-sg{display:flex;align-items:center;gap:10px;width:100%;text-align:left;border:0;background:none;color:inherit;padding:6px 8px;border-radius:var(--r);cursor:pointer;font:inherit}
+        .ar-sg.on,.ar-sg:hover{background:var(--hover,rgba(127,127,127,.1))}
+        .ar-sg-im{flex:none;width:36px;height:36px;border-radius:50%;overflow:hidden;display:grid;place-items:center;background:var(--line);color:var(--muted)}
+        .ar-sg-im img{width:100%;height:100%;object-fit:cover} .ar-sg-im svg{width:16px;height:16px}
+        .ar-sg-t{display:flex;flex-direction:column;min-width:0} .ar-sg-t b{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap} .ar-sg-t small{color:var(--muted);font-size:12px}`;
+        document.head.appendChild(st); }
       api.views.add({ id: 'artists', group: 'music', order: 60, title: 'Artists', icon: '🎤', subtitle: 'Look anyone up, or go back to who you looked at', render: el => {
         let recent = []; try { recent = JSON.parse(localStorage.getItem('cadence.recentArtists') || '[]'); } catch (e) {}
         const saved = [...new Set((PV.want || []).map(x => x.artist))].filter(a => !recent.some(r => r.toLowerCase() === a.toLowerCase()));
@@ -235,6 +286,7 @@
           ${saved.length ? `<h3>From Want to hear</h3>${chips(saved)}` : ''}
           ${recent.length ? '<p><button class="linkish" id="ar-clear">Clear the list</button></p>' : ''}</div>`;
         el.querySelector('#ar-find').onsubmit = e => { e.preventDefault(); const q = el.querySelector('#ar-q').value.trim(); if (q) { window.CadenceArtist.open(q); location.hash = 'view-artist'; } };
+        suggest(el.querySelector('#ar-q'), [...recent, ...saved]);
         const c = el.querySelector('#ar-clear'); if (c) c.onclick = () => { localStorage.removeItem('cadence.recentArtists'); api.ui.refresh(); };
         if (!PV.want) wantList().then(() => api.ui.currentRoute() === 'view-artists' && api.ui.refresh());
         if (!FW.d) window.CadenceFollow.load().then(() => api.ui.currentRoute() === 'view-artists' && api.ui.refresh());
