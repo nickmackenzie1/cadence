@@ -139,3 +139,10 @@ checking the code.
   step 2 its own container on the NAS that Cadence proxies to (no new port to the outside, same login), Radar pages stay
   inside Cadence. Also asked about other tech worth using: idiomorph for redraws, Uptime Kuma/Dozzle on the LAN, a memory
   limit per container.
+- Picked from the vendor list (user, 2026-11-17):
+  - Discogs: collection and wantlist. Radar marks "you own this"; the wantlist and Want to hear stay in step.
+  - Flagged email to tasks over IMAP (Zoho Mail, Outlook, Gmail): a flagged message becomes a task linking back to it.
+  - Synology: disk health, free space and backup status on the Status page; Synology Photos "on this day" on Daily.
+    DSM Web API (`/webapi/entry.cgi`, `SYNO.API.Info` lists what the NAS has). Storage and Hyper Backup calls need an
+    admin account, so consider SNMP (read-only, no password) for disk and volume health; Photos (`SYNO.Foto.*`, unofficial
+    docs: github.com/zeichensatz/SynologyPhotosAPI) works with a normal user. Calls stay on the LAN.
