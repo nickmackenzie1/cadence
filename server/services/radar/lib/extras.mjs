@@ -127,4 +127,9 @@ export function fridayMix(D, { again = false, rel = null } = {}) {
   setKv("fridayMixes", mixes);
   return { week, ...mixes[week], weeks: keep.slice().reverse() };
 }
+// this week's mix if it's been made already (null if not), the same shape fridayMix() hands back
+export function mixKept() {
+  const week = mixWeek(), mixes = getKv("fridayMixes", {}) || {};
+  return mixes[week] ? { week, ...mixes[week], weeks: Object.keys(mixes).sort().reverse() } : null;
+}
 export function pastMix(week) { const m = (getKv("fridayMixes", {}) || {})[week]; return m ? { week, ...m } : null; }

@@ -74,7 +74,7 @@ async function sourcesSettings(patch) {
     if (patch.tags) next.tags = patch.tags.map(t => String(t).trim().toLowerCase()).filter(Boolean).slice(0, 10);
     if (patch.audiusGenres) next.audiusGenres = patch.audiusGenres.map(String).slice(0, 8);
     next.lbUser = String(next.lbUser || '').trim().slice(0, 60); next.appleCountry = String(next.appleCountry || 'ca').toLowerCase().replace(/[^a-z]/g, '').slice(0, 2) || 'ca';
-    delete next.tagsUsed; store.setKv('sourcesCfg', next);
+    delete next.tagsUsed; store.setKv('sourcesCfg', next); bust();
   }
   return srcData.sourcesCfg();
 }
@@ -109,10 +109,14 @@ async function raw(name, offset = 0, limit = 50) {
 }
 // The Radar page's data is kept a minute: building it reads all of Radar (seconds on the NAS), and the page asks
 // often. Anything you change in Radar (every POST to /api/radar) starts it fresh (2026-11-17).
+// Radar's whole picture takes about 2 s to work out on the NAS, on the music side's main thread, so everything else
+// waits meanwhile. It's kept until something changes it (bust(): scans, follows, listening, Not for me, sources,
+// feedback), or 15 minutes at most (2026-11-18: it was 60 s, so browsing the music pages rebuilt it every minute).
 let dataMemo = { at: 0, v: null, p: null };
 function bust() { dataMemo = { at: 0, v: null, p: null }; }
+const DATA_KEEP = +process.env.RADAR_DATA_KEEP_MS || 15 * 60e3;
 async function data() {
-  if (dataMemo.v && Date.now() - dataMemo.at < 60e3) return dataMemo.v;
+  if (dataMemo.v && Date.now() - dataMemo.at < DATA_KEEP) return dataMemo.v;
   if (dataMemo.p) return dataMemo.p;
   dataMemo.p = dataFresh().then(v => { dataMemo = { at: Date.now(), v, p: null }; return v; }, e => { dataMemo.p = null; throw e; });
   return dataMemo.p;
@@ -126,7 +130,7 @@ async function listen(b = {}) {
   const secs = Math.max(0, Math.min(3 * 3600, Math.round(+b.secs || 0)));
   if (!artist || !kind || secs < 1) return { ok: false };
   const row = { ts: Math.floor(Date.now() / 1000), artist, artist_key: norm(artist), title: b.title ? String(b.title).slice(0, 200) : null, kind, station: b.station ? String(b.station).slice(0, 80) : null, secs, skipped: !!b.skipped };
-  store.addListen(row);
+  store.addListen(row); bust();
   // and to ListenBrainz, when you've given Cadence your token (in the background: the page doesn't wait)
   if (process.env.LISTENBRAINZ_TOKEN) import(pathToFileURL(path.join(__dirname, 'radar', 'lib', 'scrobble.mjs')).href).then(S => S.worthSending(row) && S.scrobble(row)).catch(() => {});
   return { ok: true };
@@ -138,7 +142,7 @@ async function sound(b = {}) {
 }
 async function notForMe(b) {
   const F = await fyLib();
-  if (b && b.type) F.setNfm(String(b.type), b.value, b.on !== false);
+  if (b && b.type) { F.setNfm(String(b.type), b.value, b.on !== false); bust(); }
   return F.nfmCfg();
 }
 // Friday mix, Out this week, Called it (radar/lib/extras.mjs)
@@ -148,6 +152,8 @@ async function releases() { return (await exLib()).releases(); }
 async function mix({ week, again } = {}) {
   const X = await exLib();
   if (week && week !== X.mixWeek()) return X.pastMix(String(week)) || { error: 'No mix that week' };
+  // this week's mix is made once and kept: hand it back without working out all of Radar first (that took ~2 s)
+  if (!again) { const kept = X.mixKept(); if (kept) return kept; }
   return X.fridayMix(await data(), { again: !!again, rel: X.releases() });
 }
 let called = { v: null, at: 0, running: false };
@@ -291,7 +297,7 @@ async function feedback(id, v) {
   const { store } = await load(); const state = store.loadState();
   if (!state.picks.some(p => p.id === id)) return false;
   if (v === 0) delete state.feedback[id]; else state.feedback[id] = v > 0 ? 1 : -1;
-  store.saveState(state); return true;
+  store.saveState(state); bust(); return true;
 }
 // community sources (Lemmy communities, Mastodon hashtags) and the mainstream filter
 async function community(input) {
