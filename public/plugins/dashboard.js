@@ -3,7 +3,7 @@
    Pages can be your home page (Cadence opens there) or docked as a side panel next to everything else. */
 Cadence.registerPlugin({
   id: 'dashboard', name: 'Dashboards', version: '1.0.0', category: 'Productivity',
-  description: 'Build your own pages from widgets: today\'s focus, quick add, notes, clocks, Zoho status, client stocks, links and anything other plugins offer. Drag to move, pull the corner to resize, make a page your home screen or dock it beside the app.',
+  description: 'Build your own pages from widgets: today\'s focus, quick add, notes, clocks, Zoho status, links and anything other plugins offer. Drag to move, pull the corner to resize, make a page your home screen or dock it beside the app.',
   tagline: 'Drag-and-drop pages, your way', color: '#0ea5a4',
   icon: '<rect x="3.5" y="3.5" width="7" height="9" rx="1.5"/><rect x="13.5" y="3.5" width="7" height="5" rx="1.5"/><rect x="13.5" y="11.5" width="7" height="9" rx="1.5"/><rect x="3.5" y="15.5" width="7" height="5" rx="1.5"/>',
   settings(api) { api.ui.navigate('view-dash'); setTimeout(() => window.__dash && window.__dash.pageSettings(), 120); },
@@ -83,7 +83,7 @@ Cadence.registerPlugin({
       return [{ id: 'home', name: 'Home', icon: '⌂', items: [
         it('dashboard:clock', 0, 0, 4, 2), it('dashboard:quickadd', 4, 0, 8, 2), it('dashboard:stats', 0, 2, 12, 1),
         it('dashboard:focus', 0, 3, 7, 5), it('dashboard:waiting', 7, 3, 5, 3), it('dashboard:note', 7, 6, 5, 2, { color: 'yellow', text: 'Drag me around in Edit mode' }),
-        it('zoho-status:board', 0, 8, 7, 3), it('stocks:market', 7, 8, 5, 3)] }];
+        it('zoho-status:board', 0, 8, 12, 3)] }];
     }
     // the starter page is saved the first time it's needed, so its widget ids stay stable
     const pages = () => { const p = api.storage.get('pages'); if (Array.isArray(p) && p.length) return p; const st = starter(); api.storage.set('pages', st); return st; };

@@ -446,7 +446,9 @@
     function watchLedges(on) {
       const dirty = () => { ledgesDirty = true; wake(); };
       if (on && !ledgeMO) {
-        ledgeMO = new MutationObserver(muts => { if (muts.some(m => !(m.target.closest && (ours(m.target) || m.target.closest('#xm-string,#xm-glow,#xm-ring,.hp-mirror'))))) dirty(); });
+        // (2026-11-18) a text change arrives on a text node: judge it by its element. Things floating over the page (the
+        // Island and its clock, toast bubbles, the phone tab bar) can't change where anything lands, so they don't count
+        ledgeMO = new MutationObserver(muts => { if (muts.some(m => { const el = m.target.nodeType === 1 ? m.target : m.target.parentElement; return !(el && el.closest && (ours(el) || el.closest('#xm-string,#xm-glow,#xm-ring,.hp-mirror,.isl,.ftoast,.toasts,#tabbar'))); })) dirty(); });
         ledgeMO.observe(document.body, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ['class', 'style', 'hidden'] });
         addEventListener('scroll', dirty, true); addEventListener('resize', dirty); document.addEventListener('visibilitychange', dirty);
         ledgeMO.off = () => { ledgeMO.disconnect(); removeEventListener('scroll', dirty, true); removeEventListener('resize', dirty); document.removeEventListener('visibilitychange', dirty); };

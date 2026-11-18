@@ -34,7 +34,7 @@ test('boots with every plugin registered and no errors', async ({ page }) => {
   await page.click('[data-act=pl-tab][data-t=all]');
   await expect(page.locator('.pl-card').first()).toBeVisible();
   expect(scripts).toBeGreaterThan(40); // the plugins arrive in one bundle.js and each runs as its own script
-  expect(await page.locator('.pl-card').count()).toBeGreaterThanOrEqual(scripts);
+  expect(await page.locator('.pl-card').count()).toBeGreaterThan(50);   // every plugin gets a card (some files hold several, some none)
   expect(errs).toEqual([]);
 });
 
@@ -93,7 +93,7 @@ test('meeting: capture, Fireflies import, review, commit', async ({ page }) => {
 
 test('every sidebar view renders', async ({ page }) => {
   const errs = errorsOf(page); await boot(page);
-  for (const r of ['today', 'upcoming', 'waiting', 'inbox', 'done', 'insights', 'view-pulse', 'view-review', 'view-mural', 'view-feeds', 'view-db']) {
+  for (const r of ['today', 'upcoming', 'waiting', 'inbox', 'done', 'insights', 'view-review', 'view-mural', 'view-feeds', 'view-db']) {
     await page.goto(`http://localhost:${PORT}/#${r}`); await page.waitForTimeout(250);
     await expect(page.locator('#view')).not.toContainText('Plugin view failed');
   }
@@ -128,7 +128,7 @@ test('demo mode: fake data, never written to the NAS, exits cleanly', async ({ p
 test('insights hub, database viewer and narrow layout', async ({ page }) => {
   const errs = errorsOf(page);
   await page.goto(`http://localhost:${PORT}/?demo=1#insights`);
-  for (const id of ['pulse', 'review', 'db']) { await page.locator(`[data-act=ins-tab][data-id=${id}]`).click(); await expect(page.locator('#pv')).not.toBeEmpty(); }
+  for (const id of ['review', 'db']) { await page.locator(`[data-act=ins-tab][data-id=${id}]`).click(); await expect(page.locator('#pv')).not.toBeEmpty(); }
   await page.fill('#dbv-q', 'done:false');
   await page.waitForTimeout(400);
   await expect(page.locator('.dbv-bar .cnt')).toContainText('/');

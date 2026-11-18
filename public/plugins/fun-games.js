@@ -1,6 +1,5 @@
 /* Games with your list:
    - Roulette: spin a wheel of your open tasks and do whatever it lands on. No appeals (10-minute cooldown).
-   - Rival: an imaginary rival with the same list, finishing things at a believable pace, always just ahead.
    - Life quests: goals as a skill tree. Finish a step and the next ones unlock as real tasks.
    - Bucket list by urgency: sorted by how many good years each one realistically has left. Grim, but clarifying. */
 (() => {
@@ -50,46 +49,6 @@
         .rl-g{transform-origin:160px 160px}.rl-t{font:600 10.5px Inter,system-ui;fill:#fff}
         .rl-ptr{position:absolute;top:-4px;left:50%;margin-left:-11px;width:0;height:0;border:11px solid transparent;border-top:20px solid var(--text);z-index:2}
         .rl-res{text-align:center;font-size:13px;color:var(--muted);min-height:54px}.rl-res small{display:block;text-transform:uppercase;letter-spacing:.1em;font-size:11px;font-weight:700}.rl-res b{display:block;font-size:18px;color:var(--text);margin:2px 0}`);
-    },
-  });
-
-  /* ======================= Rival ======================= */
-  Cadence.registerPlugin({
-    id: 'rival', name: 'Rival', version: '1.0.0', category: 'Fun', spaces: ['work', 'life'],
-    description: 'An imaginary rival with the same list. They finish things at a believable pace (based on your own last two weeks) and stay just ahead of you. Beat them.',
-    tagline: 'Always one task ahead', color: '#64748b',
-    icon: '<polyline points="14.5 17.5 3 6 3 3 6 3 17.5 14.5"/><line x1="13" x2="19" y1="19" y2="13"/><line x1="16" x2="20" y1="16" y2="20"/><line x1="19" x2="21" y1="21" y2="19"/><polyline points="14.5 6.5 18 3 21 3 21 6 17.5 9.5"/><line x1="5" x2="9" y1="14" y2="18"/><line x1="7" x2="4" y1="17" y2="20"/><line x1="3" x2="5" y1="19" y2="21"/>',
-    setup(api) {
-      const name = () => api.storage.get('name') || 'Morgan';
-      const t0 = () => { const d = new Date(); d.setHours(0, 0, 0, 0); return d.getTime(); };
-      const mine = () => api.tasks.list(t => t.done && t.doneAt >= t0()).length;
-      function rival() {
-        const days = 14, since = t0() - days * DAY, n = api.tasks.list(t => t.done && t.doneAt >= since && t.doneAt < t0()).length, avg = Math.max(3, n / days);
-        const h = new Date().getHours() + new Date().getMinutes() / 60, frac = Math.max(0, Math.min(1, (h - 8.5) / 9));   // works 8:30 to 5:30
-        const seed = new Date().getDate() * 7.3, wobble = Math.sin(seed + h) * .6;
-        let r = Math.round(avg * 1.08 * frac + wobble);
-        const me = mine(); if (me > r && frac < 1) r = Math.min(me + 1, Math.round(avg * 1.3 * frac + 2));   // they sprint when you pass them
-        return Math.max(0, r);
-      }
-      function draw(el) {
-        const me = mine(), r = rival(), mx = Math.max(me, r, 1), ahead = me - r;
-        el.innerHTML = `<div class="rv"><div class="rv-r"><span>You</span><i><b style="width:${me / mx * 100}%"></b></i><em>${me}</em></div><div class="rv-r them"><span title="Rename" class="rv-n">${esc(name())}</span><i><b style="width:${r / mx * 100}%"></b></i><em>${r}</em></div>
-          <div class="rv-s">${ahead > 0 ? `You’re ${ahead} ahead. ${esc(name())} is sweating.` : ahead === 0 ? 'Neck and neck.' : `${esc(name())} is ${-ahead} ahead. Hm.`}</div></div>`;
-        el.querySelector('.rv-n').onclick = () => { api.ui.ask('Name your rival', [{ k: 'n', label: 'Name', def: name() }]).then(v => { if (v && v.n) { api.storage.set('name', v.n.slice(0, 20)); draw(el); } }); };
-      }
-      const TAUNTS = ['just closed another one.', 'is having a great day.', 'says hi. From in front of you.', 'didn’t even need coffee for that one.'];
-      let lastLead = null;
-      const check = () => { const me = mine(), r = rival(), lead = me > r ? 'me' : me < r ? 'them' : lastLead; if (lastLead && lead !== lastLead) {
-        if (lead === 'me') api.island.celebrate({ icon: '⚔️', title: `You passed ${name()}!`, sub: `${me} to ${r} today` }); else api.island.show({ icon: '⚔️', title: `${name()} ${TAUNTS[Math.floor(Math.random() * TAUNTS.length)]}`, sub: `${r} to your ${me}`, log: false }); }
-        lastLead = lead; api.ui.refreshWidgets && api.ui.refreshWidgets(); };
-      api.on('task:complete', () => setTimeout(check, 50));
-      clearInterval(window.__rivalIv); window.__rivalIv = setInterval(check, 5 * 60e3); setTimeout(() => { lastLead = mine() >= rival() ? 'me' : 'them'; }, 1500);
-      window.__rival = { rival, mine };
-      api.sidebar.add({ id: 'rival', slot: 'bottom', order: 23, title: 'Rival', render: draw });
-      api.widgets.add({ id: 'rival', title: 'Rival', icon: 'swords', size: 's', description: 'You vs your imaginary rival, today.', render: draw });
-      css('rv-css', `.rv{font-size:13px;display:flex;flex-direction:column;gap:6px;padding:4px 2px}.rv-r{display:grid;grid-template-columns:60px 1fr 24px;gap:8px;align-items:center}
-        .rv-r i{height:8px;border-radius:999px;background:var(--hover);overflow:hidden}.rv-r b{display:block;height:100%;border-radius:999px;background:var(--accent);transition:width .5s}
-        .rv-r.them b{background:#64748b}.rv-r em{font-style:normal;font-weight:700;text-align:right}.rv-n{cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.rv-s{color:var(--muted);font-size:12px}`);
     },
   });
 

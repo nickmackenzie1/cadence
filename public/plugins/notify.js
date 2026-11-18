@@ -101,7 +101,7 @@
 
       /* settings */
       G.settings = async () => {
-        const c = cfg(), pids = [...new Set(['reminders', ...list().map(n => n.pid), ...api.plugins.list().filter(p => p.enabled).map(p => p.id).filter(id => ['calendar', 'desk', 'intern', 'stocks', 'zoho-status', 'rss', 'momentum', 'homeowner', 'chase'].includes(id))])];
+        const c = cfg(), pids = [...new Set(['reminders', ...list().map(n => n.pid), ...api.plugins.list().filter(p => p.enabled).map(p => p.id).filter(id => ['calendar', 'desk', 'intern', 'zoho-status', 'rss', 'momentum', 'homeowner', 'chase'].includes(id))])];
         const perm = 'Notification' in window ? Notification.permission : 'unsupported', subd = await subscribed();
         let srv = null; try { if (api.system().mode === 'nas') srv = await (await fetch('api/push/config')).json(); } catch (e) {}
         api.ui.modal('Notifications', `

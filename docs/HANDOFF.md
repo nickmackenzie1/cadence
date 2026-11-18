@@ -149,6 +149,10 @@ checking the code.
   the checkbox's own click (Undo toast), left = tomorrow (Undo). Code next to the tab bar in core.js, styles at the end
   of core.css (pointer: coarse). NAS dreams were dropped from the backlog (user, 2026-11-18).
 
+- Removed 2026-11-18 (user picked them): Grandma mode, Public ledger, Stakes, Procrastination forecaster, Future-you
+  negotiator, Regret minimizer, Rival, Client stock ticker, Orbit, Client Pulse. Don't bring them back. Old saved data
+  for them is left in place, unused; a dashboard that had the stock ticker shows "This widget's plugin is off or gone".
+
 ## New ideas (add below)
 - Radar as its own thing (user asked 2026-11-17 what it would take): step 1 its own database file radar.db (KEXP already moved to kexp.db, 0.31),
   step 2 its own container on the NAS that Cadence proxies to (no new port to the outside, same login), Radar pages stay

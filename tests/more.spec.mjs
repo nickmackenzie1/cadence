@@ -177,7 +177,7 @@ test('desk toys: aquarium fish from focus, invoice radar, desk plant grows, week
   expect(errs).toEqual([]);
 });
 
-test('games: roulette picks a task and locks, rival keeps score, quests unlock steps, bucket list sorts by years left', async ({ page }) => {
+test('games: roulette picks a task and locks, quests unlock steps, bucket list sorts by years left', async ({ page }) => {
   const errs = await open(page);
   // reduced motion: the wheel stops at once instead of a 4 s spin (a busy test machine could run that timer very late)
   await page.emulateMedia({ reducedMotion: 'reduce' });
@@ -188,7 +188,6 @@ test('games: roulette picks a task and locks, rival keeps score, quests unlock s
   await page.evaluate(() => window.__roulette.spin());
   await expect(page.locator('#rl-go')).toBeDisabled();
   await page.keyboard.press('Escape');
-  expect(await page.evaluate(() => typeof window.__rival.rival())).toBe('number');
   // quests
   await page.evaluate(() => window.__quests.start('run'));
   const first = await page.evaluate(() => window.T.tasks.list(t => t.quest && !t.done).map(t => t.title));
@@ -209,57 +208,14 @@ test('games: roulette picks a task and locks, rival keeps score, quests unlock s
   expect(errs).toEqual([]);
 });
 
-test('mindset: forecast chips, done-list mode, future-you note on the second push, regret minimizer', async ({ page }) => {
+test('mindset: done-list mode', async ({ page }) => {
   const errs = await open(page);
-  const ad = n => page.evaluate(n => window.T.util.ymd(window.T.util.addDays(new Date(), n)), n);
-  const id = await page.evaluate(async d => window.T.tasks.add({ title: 'Do the taxes', dueDate: d, createdAt: Date.now() - 20 * 864e5 }).id, await ad(0));
-  // first push: no question (default asks from the second); second push: the note
-  await page.evaluate(async ([id, d]) => window.T.tasks.update(id, { dueDate: d }), [id, await ad(1)]);
-  await page.waitForTimeout(100);
-  expect(await page.locator('#fy-n').count()).toBe(0);
-  await page.evaluate(async ([id, d]) => window.T.tasks.update(id, { dueDate: d }), [id, await ad(3)]);
-  await page.fill('#fy-n', 'Waiting on the T4 slip'); await page.click('#fy-ok');
-  expect(await page.evaluate(id => window.T.tasks.get(id).excuses[0].note, id)).toBe('Waiting on the T4 slip');
-  // forecast: pushed twice and old, so it gets a chip
-  expect(await page.evaluate(id => window.__forecast.chance(window.T.tasks.get(id)), id)).toBeLessThan(.7);
-  await page.evaluate(() => location.hash = 'upcoming');
-  await expect(page.locator('.fc-chip').first()).toContainText('%');
-  // regret
-  await page.evaluate(() => window.__regret.ask());
-  await page.locator('.rg', { hasText: 'Do the taxes' }).locator('input').check(); await page.click('#rg-ok');
-  expect(await page.evaluate(id => window.T.tasks.get(id).tags, id)).toContain('regret');
   // done-list
   await page.evaluate(() => { const x = window.T.tasks.add({ title: 'Answered the email' }); window.T.tasks.complete(x.id); window.__donelist.set(true); });
   await expect(page.locator('.dl h1')).toHaveText('Look what you’ve done');
   await expect(page.locator('.dl-it')).toContainText(['Answered the email']);
   await page.click('#dl-off');
   await expect(page.locator('.dl')).toHaveCount(0);
-  expect(errs).toEqual([]);
-});
-
-test('accountability: grandma visits about overdue work, stakes are won and lost, the Cliq ledger keeps its token on the NAS', async ({ page, request }) => {
-  const errs = await open(page);
-  const past = await page.evaluate(() => window.T.util.ymd(window.T.util.addDays(new Date(), -3)));
-  const id = await page.evaluate(d => window.T.tasks.add({ title: 'Call the dentist', dueDate: d }).id, past);
-  const line = await page.evaluate(() => window.__grandma.visit(true));
-  expect(line).toContain('Call the dentist');
-  // stakes: a won stake and a lost one
-  const fut = await page.evaluate(() => window.T.util.ymd(window.T.util.addDays(new Date(), 2)));
-  const won = await page.evaluate(d => window.T.tasks.add({ title: 'Ship the report', dueDate: d }).id, fut);
-  await page.evaluate(id => window.__stakes.stake(window.T.tasks.get(id)), won);
-  await page.fill('#sk-a', '50'); await page.fill('#sk-c', 'The Leafs'); await page.click('#sk-ok');
-  await page.evaluate(() => location.hash = 'upcoming');
-  await expect(page.locator('.sk-chip')).toContainText('$50 at stake');
-  await page.evaluate(id => window.T.tasks.complete(id), won);
-  expect(await page.evaluate(id => window.T.tasks.get(id).stake.status, won)).toBe('safe');
-  await page.evaluate(id => window.T.tasks.update(id, { stake: { amount: 10, cause: 'Spam', status: 'live' } }), id);
-  await page.evaluate(() => window.__stakes.judge());
-  await expect(page.locator('.modal')).toContainText('You owe $10 to Spam');
-  // ledger: text and the server keeping the token to itself
-  expect(await page.evaluate(() => window.__ledger.text())).toContain('Call the dentist');
-  await request.put(B + '/api/cliq/config', { data: { channel: 'team', dc: 'ca', zapikey: 'secret123' } });
-  const cfg = await (await request.get(B + '/api/cliq/config')).json();
-  expect(cfg).toEqual({ channel: 'team', dc: 'ca', hasKey: true });
   expect(errs).toEqual([]);
 });
 

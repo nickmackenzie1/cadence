@@ -15,7 +15,7 @@ test.beforeAll(async () => {
 });
 test.afterAll(() => { server && server.kill(); rmSync(dir, { recursive: true, force: true }); });
 
-test('the effects layer sleeps when idle and wakes when something happens', async ({ page }) => {
+test('the effects layer sleeps when idle, wakes when something happens, and sleeps again once it settles', async ({ page }) => {
   // count the frames the effects engine asks for
   await page.addInitScript(() => {
     const raf = window.requestAnimationFrame.bind(window); window.__fxFrames = 0;
@@ -27,9 +27,9 @@ test('the effects layer sleeps when idle and wakes when something happens', asyn
   const framesIn = ms => page.evaluate(ms => new Promise(r => { const a = window.__fxFrames; setTimeout(() => r(window.__fxFrames - a), ms); }), ms);
   // idle: (almost) no frames, where it used to be ~60 a second
   await expect.poll(() => framesIn(1000), { timeout: 15000, intervals: [500] }).toBeLessThan(10);
-  // fire at a point: it wakes and draws
-  await page.evaluate(() => window.__fx.spawn(400, 300, window.__fx.M.FIRE, 4, 1, 40, 80));
-  expect(await framesIn(500)).toBeGreaterThan(10);
-  // and goes back to sleep once the fire is out
+  // a handful of sand: it wakes and draws (sand falls and settles; fire could catch on the page and burn for a while)
+  await page.evaluate(() => window.__fx.spawn(400, 200, window.__fx.M.SAND, 3, 1));
+  expect(await framesIn(500)).toBeGreaterThan(2);   // asleep it asks for none; awake, as many as the machine draws
+  // and goes back to sleep once it has settled
   await expect.poll(() => framesIn(1000), { timeout: 20000, intervals: [1000] }).toBeLessThan(10);
 });
