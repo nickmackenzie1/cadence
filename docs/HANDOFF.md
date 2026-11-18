@@ -135,3 +135,7 @@ checking the code.
   fills quick add. Android and desktop Chrome/Edge only; iPhone doesn't support it for web apps.
 
 ## New ideas (add below)
+- Radar as its own thing (user asked 2026-11-17 what it would take): step 1 own database files (radar.db, kexp.db),
+  step 2 its own container on the NAS that Cadence proxies to (no new port to the outside, same login), Radar pages stay
+  inside Cadence. Also asked about other tech worth using: idiomorph for redraws, Uptime Kuma/Dozzle on the LAN, a memory
+  limit per container.
