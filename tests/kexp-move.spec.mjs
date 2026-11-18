@@ -10,7 +10,7 @@ const run = (dir, code) => spawnSync(process.execPath, ['--disable-warning=Exper
   env: { ...process.env, DATA_DIR: dir, KEXP_LOG: '1', KEXP_LOG_DELAY: '99999999', KEXP_ARTISTS_DELAY: '99999999', KEXP_MOVE_BATCH: '500', KEXP_API: 'http://127.0.0.1:9' },
   encoding: 'utf8' });
 
-test('KEXP history moves from cadence.db to kexp.db, in pieces, and nothing else in cadence.db changes', () => {
+test('KEXP history moves from cadence.db to kexp.db in the background, and the old copy goes in the nightly cleanup', async () => {
   const dir = mkdtempSync(join(tmpdir(), 'cadence-kexpmove-'));
   try {
     // an install from before 0.29.0: KEXP history in cadence.db, next to the app's own tables
@@ -21,7 +21,7 @@ test('KEXP history moves from cadence.db to kexp.db, in pieces, and nothing else
       d.prepare('INSERT INTO kexp_shows VALUES (?,?,?,?,?,?,?)').run(1, 'The Morning Show', 'Eclectic', 'John Richards', 0, null, null);
       d.prepare("INSERT OR REPLACE INTO kexp_meta (k, v) VALUES ('backfill_floor', '1'), ('artists_cursor', '0')").run();
       for (let i = 0; i < 40; i++) K.buildArtistsStep();
-      d.exec("CREATE TABLE records (id TEXT PRIMARY KEY, data TEXT); INSERT INTO records VALUES ('t1', 'my task')");
+      d.exec("CREATE TABLE keepme (id TEXT PRIMARY KEY, data TEXT); INSERT INTO keepme VALUES ('t1', 'my task')");
       d.exec('PRAGMA wal_checkpoint(TRUNCATE)'); d.close();
     `);
     expect(out.status, out.stderr).toBe(0);
@@ -35,14 +35,16 @@ test('KEXP history moves from cadence.db to kexp.db, in pieces, and nothing else
         const before = { plays: old.prepare('SELECT COUNT(*) n FROM kexp_plays').get().n, sum: old.prepare('SELECT SUM(plays) n FROM kexp_artists').get().n,
           heavy: old.prepare("SELECT first_heavy t FROM kexp_artists WHERE key = 'artist 1'").get().t };
         const K = require('./server/services/kexp-log.js'), d = K.open();
-        const early = d.prepare("SELECT v FROM kexp_meta WHERE k = 'backfill_floor'").get();   // settings come over at once
-        await K.moveOld();
+        const t0 = Date.now(); let ticks = 0; const iv = setInterval(() => ticks++, 20);   // the main thread stays free while it moves
+        await K.moveOld(); clearInterval(iv);
+        const early = d.prepare("SELECT v FROM kexp_meta WHERE k = 'backfill_floor'").get();
         const after = { plays: d.prepare('SELECT COUNT(*) n FROM kexp_plays').get().n, sum: d.prepare('SELECT SUM(plays) n FROM kexp_artists').get().n,
           heavy: K.heavyFirst('Artist 1'), shows: d.prepare('SELECT COUNT(*) n FROM kexp_shows').get().n, done: !!d.prepare("SELECT v FROM kexp_meta WHERE k = 'moved_done'").get() };
         const left = old.prepare("SELECT name FROM sqlite_master WHERE name LIKE 'kexp%'").all().map(r => r.name);
-        const task = old.prepare("SELECT data FROM records WHERE id = 't1'").get().data;
+        const task = old.prepare("SELECT data FROM keepme WHERE id = 't1'").get().data;
         const status = await K.status();
-        console.log(JSON.stringify({ before, after, early: early && early.v, left, task, file: status.file, moving: status.moving }));
+        const marker = require('fs').existsSync(require('path').join(process.env.DATA_DIR, 'kexp-moved'));
+        console.log(JSON.stringify({ before, after, early: early && early.v, left, task, file: status.file, moving: status.moving, marker, ticks, ms: Date.now() - t0 }));
       })().catch(e => { console.error(e); process.exit(1); });
     `);
     expect(out.status, out.stderr).toBe(0);
@@ -54,10 +56,28 @@ test('KEXP history moves from cadence.db to kexp.db, in pieces, and nothing else
     expect(r.after.shows).toBe(1);
     expect(r.after.done).toBe(true);
     expect(r.early).toBe('1');
-    expect(r.left).toEqual([]);                    // cadence.db has no KEXP tables left
+    expect(r.left).toContain('kexp_plays');        // cadence.db is only read during the move: its copy goes on a quiet night
+    expect(r.marker).toBe(true);
+    expect(r.ticks).toBeGreaterThan(r.ms / 20 / 3); // the main thread kept running while it moved
     expect(r.task).toBe('my task');                // and everything else is untouched
     expect(r.file).toBe('kexp.db');
     expect(r.moving).toBe(null);
+
+    // the nightly cleanup (forced here) drops the old KEXP tables from cadence.db and compacts it; tasks stay
+    out = run(dir, `
+      const S = require('./server/lib/storage.js'), fs = require('fs'), path = require('path');
+      S.reclaim(true);
+      const f = path.join(process.env.DATA_DIR, 'cadence.db'), { DatabaseSync } = require('node:sqlite');
+      const wait = () => setTimeout(() => {
+        const o = new DatabaseSync(f, { readOnly: true }), left = o.prepare("SELECT name FROM sqlite_master WHERE name LIKE 'kexp%'").all().map(r => r.name), task = o.prepare("SELECT data FROM keepme WHERE id = 't1'").get(); o.close();
+        if (left.length) return wait();
+        console.log(JSON.stringify({ left, task: task && task.data, marker: fs.existsSync(path.join(process.env.DATA_DIR, 'kexp-moved')) })); process.exit(0);
+      }, 100);
+      wait(); setTimeout(() => { console.log(JSON.stringify({ timeout: true })); process.exit(0); }, 15000);
+    `);
+    expect(out.status, out.stderr).toBe(0);
+    const n = JSON.parse(out.stdout.trim().split('\n').pop());
+    expect(n.left).toEqual([]); expect(n.task).toBe('my task'); await expect.poll(() => existsSync(join(dir, 'kexp-moved'))).toBe(false);
 
     // starting again: nothing to move, the history is still there
     out = run(dir, `
@@ -84,7 +104,8 @@ test('a move stopped part-way carries on where it left off', () => {
     // first start: one batch is copied, then the process stops before deleting it from cadence.db
     out = run(dir, `
       const K = require('./server/services/kexp-log.js'), d = K.open();
-      d.exec('INSERT INTO main.kexp_plays SELECT * FROM old.kexp_plays WHERE id > 700');
+      d.exec("ATTACH DATABASE '" + require('path').join(process.env.DATA_DIR, 'cadence.db') + "' AS old");
+      d.exec('INSERT INTO main.kexp_plays SELECT * FROM old.kexp_plays WHERE id > 700');   // as if an earlier start had copied the newest ones
       process.exit(0);
     `);
     expect(out.status, out.stderr).toBe(0);

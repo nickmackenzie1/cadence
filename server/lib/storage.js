@@ -265,11 +265,14 @@ function reclaim(force) {
   const h = new Date().getHours(), day = new Date().toISOString().slice(0, 10);
   if (!force && (h < 2 || h >= 5 || reclaimDay === day)) return false;
   const { free, total } = freeSpace();
-  if (!force && (free < 128 * 1048576 || free < total / 3)) return false;
+  // KEXP history moved to kexp.db (kexp-move-worker.js leaves data/kexp-moved): its old tables go tonight
+  const MARK = path.join(DATA_DIR, 'kexp-moved');
+  const leftovers = fs.existsSync(MARK) && !!db.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name LIKE 'kexp\\_%' ESCAPE '\\'").get();
+  if (!force && !leftovers && (free < 128 * 1048576 || free < total / 3)) return false;
   reclaimDay = day; reclaiming = true; const t = Date.now();
   const { Worker } = require('worker_threads');
-  let w; try { w = new Worker(path.join(__dirname, 'vacuum-worker.js'), { workerData: { file: DB_FILE } }); } catch (e) { reclaiming = false; console.error('reclaim failed', e.message); return false; }
-  w.once('message', m => { if (m && m.error) console.error('reclaim failed', m.error); else console.log(`reclaim: cadence.db ${(total / 1048576).toFixed(0)} MB → ${(fs.statSync(DB_FILE).size / 1048576).toFixed(0)} MB in ${((Date.now() - t) / 1000).toFixed(0)}s`); });
+  let w; try { w = new Worker(path.join(__dirname, 'vacuum-worker.js'), { workerData: { file: DB_FILE, dropKexp: leftovers } }); } catch (e) { reclaiming = false; console.error('reclaim failed', e.message); return false; }
+  w.once('message', m => { if (m && m.error) console.error('reclaim failed', m.error); else { if (leftovers) try { fs.unlinkSync(MARK); } catch {} console.log(`reclaim: cadence.db ${(total / 1048576).toFixed(0)} MB → ${(fs.statSync(DB_FILE).size / 1048576).toFixed(0)} MB in ${((Date.now() - t) / 1000).toFixed(0)}s${leftovers ? ' (old KEXP tables dropped)' : ''}`); } });
   w.once('error', e => console.error('reclaim failed', e.message));
   w.once('exit', () => { reclaiming = false; });
   return true;

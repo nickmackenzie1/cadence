@@ -52,7 +52,6 @@ function open() {
     CREATE TRIGGER IF NOT EXISTS kexp_fts_au AFTER UPDATE ON kexp_plays WHEN ${FTS_COVERS('old')} BEGIN
       INSERT INTO kexp_fts (kexp_fts, rowid, artist, song, album) VALUES ('delete', old.id, old.artist, old.song, old.album);
       INSERT INTO kexp_fts (rowid, artist, song, album) VALUES (new.id, new.artist, new.song, new.album); END;`);
-  if (ON) try { adoptOld(db); } catch (e) { console.error('KEXP: reading the old history in cadence.db', e.message); }
   // 2026-11-16 (from kexp.fyi's write-up): KEXP's airdate_before includes that exact time, so asking for "before our
   // oldest play" returned it again and looked like the filter didn't work: undo that switch to offset paging once.
   try {
@@ -70,57 +69,45 @@ function open() {
   return db;
 }
 // ---- bringing the history over from cadence.db (installs before 0.29.0) ----
-// open(): settings, shows and the artist summary are copied straight away (small). The plays move in moveOld(),
-// newest first, 5,000 at a time: copied into kexp.db, then deleted from cadence.db only once they're safely here, so a
-// restart part-way just carries on. Nothing else writes KEXP history until it's done (the artist summary's cursor
-// stays right that way). Then the empty tables are dropped; cadence.db hands the space back at the next quiet night
-// (storage.js reclaim()).
-const MOVE = { pending: false, total: 0, moved: 0 };
-const colsOf = (d, schema, table) => d.prepare(`PRAGMA ${schema}.table_info(${table})`).all().map(c => c.name);
-function adoptOld(d) {
-  if (!fs.existsSync(OLD_FILE)) return;
-  d.exec(`ATTACH DATABASE '${OLD_FILE.replace(/'/g, "''")}' AS old`);
-  const has = t => !!d.prepare("SELECT 1 FROM old.sqlite_master WHERE type = 'table' AND name = ?").get(t);
-  if (!has('kexp_plays') && !has('kexp_meta')) { d.exec('DETACH DATABASE old'); return; }
-  if (!d.prepare("SELECT v FROM kexp_meta WHERE k = 'moved_start'").get()) {
-    d.exec('BEGIN');
-    try {
-      for (const t of ['kexp_meta', 'kexp_shows', 'kexp_artists']) {
-        if (!has(t)) continue;
-        const mine = new Set(colsOf(d, 'main', t)), c = colsOf(d, 'old', t).filter(x => mine.has(x)).join(', ');
-        d.exec(`INSERT OR ${t === 'kexp_meta' ? 'REPLACE' : 'IGNORE'} INTO main.${t} (${c}) SELECT ${c} FROM old.${t}`);
-      }
-      d.prepare("INSERT OR REPLACE INTO kexp_meta (k, v) VALUES ('moved_start', ?)").run(String(Date.now()));
-      d.exec('COMMIT');
-    } catch (e) { try { d.exec('ROLLBACK'); } catch {} throw e; }
-    console.log('KEXP: history is moving from cadence.db to its own file, kexp.db');
-  }
-  MOVE.pending = has('kexp_plays') || has('kexp_meta') || has('kexp_shows') || has('kexp_artists');
+// The move runs in its own thread (kexp-move-worker.js) and only READS cadence.db: it copies the plays newest first,
+// a few thousand at a time with a rest between, into kexp.db, keeping its place (kexp_meta move_cursor) so a restart
+// carries on. (2026-11-17: the first version ran on the music side's main thread and deleted from cadence.db as it
+// went; on the NAS's disk one step took 94 s and froze Radar and Radio.) The old tables are left in cadence.db until a
+// quiet night: the data/kexp-moved marker tells storage.js reclaim() to drop them and compact the file between 2 and
+// 5 am. Nothing else writes KEXP history until the move is done (so the artist summary's cursor stays right).
+const MARKER = path.join(DATA_DIR, 'kexp-moved');
+const MOVE = { pending: false, total: 0, moved: 0, checked: false };
+function movePending() {
+  if (MOVE.checked) return MOVE.pending;
+  MOVE.checked = true;
+  if (!ON || !fs.existsSync(OLD_FILE) || meta('moved_done')) return (MOVE.pending = false);
+  try {
+    const { DatabaseSync } = require('node:sqlite'), o = new DatabaseSync(OLD_FILE, { readOnly: true });
+    try { o.exec('PRAGMA busy_timeout = 2000'); MOVE.pending = !!o.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'kexp_plays'").get(); } finally { o.close(); }
+  } catch (e) { MOVE.pending = false; }
+  return MOVE.pending;
 }
-async function moveOld() {
-  const d = open(); if (!MOVE.pending) return;
+function moveOld() {
+  open(); if (!movePending()) return Promise.resolve();
   state.moving = true;
-  const BATCH = Math.max(500, +process.env.KEXP_MOVE_BATCH || 5000), hasPlays = !!d.prepare("SELECT 1 FROM old.sqlite_master WHERE name = 'kexp_plays'").get();
-  if (hasPlays) {
-    const mine = new Set(colsOf(d, 'main', 'kexp_plays')), c = colsOf(d, 'old', 'kexp_plays').filter(x => mine.has(x)).join(', ');
-    MOVE.total = MOVE.moved + ((d.prepare('SELECT COUNT(*) AS n FROM old.kexp_plays').get() || {}).n || 0);
-    const pick = d.prepare('SELECT MIN(id) AS lo, MAX(id) AS hi, COUNT(*) AS n FROM (SELECT id FROM old.kexp_plays ORDER BY id DESC LIMIT ?)');
-    const copy = d.prepare(`INSERT OR IGNORE INTO main.kexp_plays (${c}) SELECT ${c} FROM old.kexp_plays WHERE id BETWEEN ? AND ?`);
-    const drop = d.prepare('DELETE FROM old.kexp_plays WHERE id BETWEEN ? AND ? AND id IN (SELECT id FROM main.kexp_plays WHERE id BETWEEN ? AND ?)');
-    for (;;) {
-      const t0 = Date.now(), b = pick.get(BATCH);
-      if (!b || !b.n) break;
-      d.exec('BEGIN'); try { copy.run(b.lo, b.hi); d.exec('COMMIT'); } catch (e) { try { d.exec('ROLLBACK'); } catch {} throw e; }
-      drop.run(b.lo, b.hi, b.lo, b.hi);   // only what kexp.db now has
-      MOVE.moved += b.n;
-      const took = Date.now() - t0; slowNote('move to kexp.db', took);
-      await new Promise(r => setTimeout(r, Math.max(30, took * 2)));
-    }
-  }
-  for (const t of ['kexp_plays', 'kexp_shows', 'kexp_artists', 'kexp_meta', 'kexp_fts']) d.exec(`DROP TABLE IF EXISTS old.${t}`);
-  d.exec('DETACH DATABASE old');
-  meta('moved_done', Date.now()); MOVE.pending = false; state.moving = false; countCache = { at: 0, n: 0, shows: 0 };
-  console.log(`KEXP: history moved to kexp.db (${MOVE.moved.toLocaleString('en-CA')} plays); cadence.db gives the space back on a quiet night`);
+  return new Promise((resolve, reject) => {
+    const { Worker } = require('worker_threads');
+    const w = new Worker(path.join(__dirname, 'kexp-move-worker.js'), { workerData: { file: FILE, old: OLD_FILE, marker: MARKER, batch: +process.env.KEXP_MOVE_BATCH || 2000 } });
+    let finished = false;
+    w.on('message', m => {
+      if (m.total != null) MOVE.total = m.total;
+      if (m.moved != null) MOVE.moved = m.moved;
+      if (m.slow) slowNote('move to kexp.db (in the background)', m.slow);
+      if (m.done) {
+        finished = true; MOVE.pending = false; state.moving = false; countCache = { at: 0, n: 0, shows: 0 }; ART.ready = false;
+        console.log(`KEXP: history moved to kexp.db (${MOVE.moved.toLocaleString('en-CA')} plays); cadence.db drops its old copy on a quiet night`);
+        resolve();
+      }
+      if (m.error) { finished = true; state.moving = false; reject(new Error(m.error)); }
+    });
+    w.on('error', e => { if (!finished) { finished = true; state.moving = false; reject(e); } });
+    w.on('exit', code => { if (!finished) { state.moving = false; reject(new Error('the move stopped (' + code + ')')); } });
+  });
 }
 // ---- kexp_artists: one row per artist (plays, first and last play, first heavy rotation) ----
 // So per-artist numbers never group over millions of plays (user, 2026-11-17: "is there a metrics table…?").
@@ -148,7 +135,7 @@ function addToArtists(rows) {
 const ACHUNK = +process.env.KEXP_ARTISTS_CHUNK || 2000;
 // one chunk of the summary; the scheduler (start() below) calls it again until it says done
 function buildArtistsStep() {
-  if (MOVE.pending) return { again: 30e3 };   // after the move to kexp.db
+  if (movePending()) return { again: 30e3 };   // after the move to kexp.db
   const a = artistsState(); if (a.done) return { done: true };
   const t0 = Date.now(), d = open(), rows = d.prepare('SELECT id, artist, airdate, rotation FROM kexp_plays WHERE id > ? ORDER BY id LIMIT ?').all(a.cursor, ACHUNK);
   d.exec('BEGIN');
@@ -165,7 +152,7 @@ function buildArtistsStep() {
 // one step of the search index: the next FTS_CHUNK plays in id order (the scheduler calls it until it's done)
 const FTS_CHUNK = +process.env.KEXP_FTS_CHUNK || 20000;
 function ftsStep() {
-  if (MOVE.pending) return { again: 30e3 };
+  if (movePending()) return { again: 30e3 };
   if (meta('fts_done') === '1') return { done: true };
   const d = open(), cur = +(meta('fts_cursor') || 0), t0 = Date.now();
   d.exec('BEGIN');
