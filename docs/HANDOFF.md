@@ -45,6 +45,16 @@ checking the code.
   focus/scroll yet, and iframes inside them reload (keep those outside views, like the Mixcloud dock).
 - `docs/BACKUP.md` still mentions a Reddit key in `.env`.
 
+- Server speed (user, 2026-11-18, from a review of the one-thread setup; most of it was already done: the music process,
+  backup/KEXP/vacuum on worker threads, the bundle served from memory, the browser drawing from its own copy first):
+  - Calendar: keep the parsed and expanded events (now the raw .ics is cached but parsed and expanded on every request,
+    on the main thread); refresh on a timer and let requests read the result.
+  - Feeds: refresh followed feeds on a timer so no request parses one inline on a cache miss.
+  - Deploys: run deploy.sh's two Docker builds at low priority (nice / ionice) so the app keeps the CPU and disk;
+    maybe take new releases only at quiet hours.
+  - Sync: measure the size of a full save; if it's big, move the JSON parse/stringify and the write off the main thread.
+- Havoc's ⌘K commands start with emoji (💥, 🔥): swap them for Lucide icons (no-emoji rule).
+
 ## Check from the NAS (the agent workspace can't reach these)
 - Amherst Island Radio's stream; the six blog feed addresses added in 0.8.0 (warnings in Sources).
 - KEXP weekly charts (`kexpchart`): parser was written from a description of the page; if Sources says it couldn't read
