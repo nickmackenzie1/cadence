@@ -192,8 +192,8 @@ checking the code.
 
 - **Theme checks** (tests/themes-health.spec.mjs, 2026-11-18): every theme is applied to the demo data and checked for
   readable text (contrast measured from the screenshot's pixels), sideways scrolling, a squashed view, missing task rows
-  or quick add, and errors. Pictures of every theme are in CI's "themes" artifact. Its KNOWN list holds ten themes whose
-  unselected sidebar tiles are faint (2.5 to 3:1): XP, Minty, Quartz, Solar and six daisyUI ones. It already found two
+  or quick add, and errors. Pictures of every theme are in CI's "themes" artifact. Its KNOWN list holds four themes whose
+  unselected sidebar tiles are faint (under 2.7:1): XP and daisyUI Emerald, Retro and Valentine. Contrast gets 10% slack for CI's font rendering. It already found two
   bugs: LimeWire's quick-add text stayed on every theme after it, and the quick-add hint was the browser's grey (gone on dark themes).
 
 - **Watch list** (public/plugins/watchlist.js, Life, 2026-11-18): "watch Dune", "see Severance" or "play Hades" in quick
