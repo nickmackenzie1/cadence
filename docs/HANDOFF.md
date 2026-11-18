@@ -71,7 +71,6 @@ checking the code.
 
 ## Look and feel
 - Colour-blind modes (protanopia, deuteranopia, tritanopia, achromatopsia): remap palette, add shape/pattern cues.
-- Phones: swipe gestures (the tab bar with Search shipped in 0.36.2).
 
 ## Everyday app
 - File browser for NAS shares (read-only, LAN-only, path-jailed).
@@ -84,8 +83,6 @@ checking the code.
 - Sleep data (Oura API; Apple Health via the phone app) for the energy-aware day.
 
 ## Fun and weird
-- NAS dreams: overnight, the AI writes a short surreal dream from yesterday's tasks and clients; Today card or Island.
-  Calm tone; skip without an AI key.
 - Civilization in your backlog: tiny people settle on your oldest tasks, build villages; finishing an old task is the
   extinction event they prophesied (Elements engine?).
 - Plugins gossip: the intern, sheep, ghosts and Chad have a group chat about you (gently). AI-written with a key,
@@ -147,6 +144,10 @@ checking the code.
   (?nobundle) are no faster than the bundle. Most start-up time is the browser's own work plus core.js setup and first
   draw. The user chose to leave start-up speed there. Idle cost was the real problem: the effects layer now sleeps
   (0.38.1, tests/fx-sleep.spec.mjs); don't add loops that ask for frames forever.
+
+- Swipe on phones (0.39.3): list rows only (rows with their own `.check`, not timeline blocks or board cards); right =
+  the checkbox's own click (Undo toast), left = tomorrow (Undo). Code next to the tab bar in core.js, styles at the end
+  of core.css (pointer: coarse). NAS dreams were dropped from the backlog (user, 2026-11-18).
 
 ## New ideas (add below)
 - Radar as its own thing (user asked 2026-11-17 what it would take): step 1 its own database file radar.db (KEXP already moved to kexp.db, 0.31),

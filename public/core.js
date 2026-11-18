@@ -6479,6 +6479,111 @@
     new MutationObserver(mark).observe(document.body, { attributes: true, attributeFilter: ['class'] });
     mark();
   })();
+  /* swipe on phones (user, 2026-11-18): a task row follows your finger sideways. Past about a third of the row and let go:
+     right completes it (the same as its checkbox, with Undo), left snoozes it to tomorrow (with Undo). Touch only; up
+     and down still scroll (touch-action: pan-y in core.css); a short or mostly-vertical move does nothing. Calm colours,
+     no red. Finished tasks swipe right to reopen. */
+  (() => {
+    let sw = null;
+    const reset = el => {
+      el.style.transform = '';
+      el.style.removeProperty('--sw');
+      el.style.removeProperty('--px');
+      el.classList.remove('sw-on', 'sw-right', 'sw-left', 'sw-ready');
+    };
+    document.addEventListener(
+      'pointerdown',
+      e => {
+        if (e.pointerType !== 'touch' || !e.isPrimary) return;
+        const el = e.target.closest('#view .task[data-id]');
+        // list rows only (they have their own checkbox): not the timeline's blocks, board cards or anything else called .task
+        if (!el || !el.querySelector(':scope > .check') || el.closest('.td-strip, .td-tl, .kb, .board') || e.target.closest('input, textarea, select, [contenteditable], .tl-drag')) return;
+        sw = { el, id: el.dataset.id, x: e.clientX, y: e.clientY, dx: 0, on: false, w: el.getBoundingClientRect().width, ready: false };
+      },
+      { passive: true }
+    );
+    document.addEventListener(
+      'pointermove',
+      e => {
+        if (!sw || e.pointerType !== 'touch') return;
+        const dx = e.clientX - sw.x,
+          dy = e.clientY - sw.y;
+        if (!sw.on) {
+          if (Math.abs(dy) > 10 && Math.abs(dy) > Math.abs(dx)) return void (sw = null); // scrolling
+          if (Math.abs(dx) < 14 || Math.abs(dx) < Math.abs(dy) * 1.5) return;
+          const t = S.tasks.find(x => x.id === sw.id);
+          if (!t || (dx < 0 && t.done)) return void (sw = null); // nothing to snooze on a finished task
+          sw.on = true;
+          sw.el.classList.add('sw-on');
+        }
+        sw.dx = dx;
+        const lim = sw.w * 0.8,
+          shown = Math.sign(dx) * Math.min(Math.abs(dx), lim);
+        sw.el.style.transform = `translateX(${shown}px)`;
+        sw.el.style.setProperty('--sw', Math.min(1, Math.abs(dx) / (sw.w * 0.35)).toFixed(2));
+        sw.el.style.setProperty('--px', Math.abs(shown).toFixed(0) + 'px');
+        sw.el.classList.toggle('sw-right', dx > 0);
+        sw.el.classList.toggle('sw-left', dx < 0);
+        const ready = Math.abs(dx) > Math.max(90, sw.w * 0.35);
+        if (ready !== sw.ready) {
+          sw.ready = ready;
+          sw.el.classList.toggle('sw-ready', ready);
+          if (ready && navigator.vibrate) try { navigator.vibrate(8); } catch (er) {}
+        }
+      },
+      { passive: true }
+    );
+    const end = e => {
+      if (!sw) return;
+      const { el, id, on, ready, dx } = sw;
+      sw = null;
+      if (!on) return;
+      // the tap that ends a swipe isn't a click on the row (swallowed after our own action below, not before it)
+      // only a click on the swiped row itself, within 0.4 s (an Undo tapped straight away must still work)
+      const eat = ev => {
+        if (!el.contains(ev.target)) return;
+        ev.stopPropagation();
+        ev.preventDefault();
+        document.removeEventListener('click', eat, { capture: true });
+      };
+      const swallow = () => {
+        document.addEventListener('click', eat, { capture: true });
+        setTimeout(() => document.removeEventListener('click', eat, { capture: true }), 400);
+      };
+      queueMicrotask(swallow);
+      if (!ready || (e && e.type === 'pointercancel')) {
+        el.style.transition = 'transform .18s ease';
+        reset(el);
+        return void setTimeout(() => (el.style.transition = ''), 200);
+      }
+      const t = S.tasks.find(x => x.id === id);
+      if (!t) return reset(el);
+      // its Undo shows right where you swiped, however long the swipe took (toasts follow the last touch)
+      const r = el.getBoundingClientRect();
+      lastPointer = { x: r.left + r.width / 2, y: r.top + 8, t: Date.now(), target: el };
+      if (dx > 0) {
+        reset(el);
+        const box = el.querySelector('.check');
+        if (box) box.click();
+        return;
+      }
+      const was = t.dueDate || null,
+        wasTime = t.dueTime || null;
+      updateTask(id, { dueDate: ymd(addDays(new Date(), 1)) });
+      render();
+      toast(`Snoozed “${t.title}” to tomorrow`, [
+        {
+          label: 'Undo',
+          run: () => {
+            updateTask(id, { dueDate: was, dueTime: wasTime });
+            render();
+          }
+        }
+      ]);
+    };
+    document.addEventListener('pointerup', end, true);
+    document.addEventListener('pointercancel', end, true);
+  })();
   /* narrow layout: slide-over sidebar */
   $('#nav-btn') && $('#nav-btn').addEventListener('click', () => document.body.classList.toggle('nav-open'));
   $('#nav-scrim') && $('#nav-scrim').addEventListener('click', () => document.body.classList.remove('nav-open'));

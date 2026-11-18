@@ -779,3 +779,20 @@ input[type=checkbox],input[type=radio],input[type=range],progress{accent-color:v
   body:has(#meeting.open) .wrap{padding-bottom:calc(100px + env(safe-area-inset-bottom))!important}
 }
 
+/* ---------- swipe on phones (2026-11-18): right = done, left = tomorrow ---------- */
+@media (pointer:coarse){
+  #view .task{touch-action:pan-y}
+  #view .task.sw-on{position:relative;z-index:2;will-change:transform;user-select:none;-webkit-user-select:none}
+  #view .task.sw-right{background:color-mix(in srgb,var(--ok,#3fa66b) calc(var(--sw,0)*22%),var(--panel))}
+  #view .task.sw-left{background:color-mix(in srgb,var(--accent) calc(var(--sw,0)*18%),var(--panel))}
+  #view .task.sw-on::after{position:absolute;top:50%;transform:translateY(-50%);font-size:12px;font-weight:600;letter-spacing:.02em;
+    color:var(--muted);opacity:calc(.35 + var(--sw,0)*.65);pointer-events:none}
+  /* the label sits in the gap the row uncovers (it moves with the row, so it's offset back by how far it went) */
+  #view .task.sw-right::after{content:"Done";left:calc(var(--px,0px) * -1 + 14px)}
+  #view .task.sw-left::after{content:"Tomorrow";right:calc(var(--px,0px) * -1 + 14px)}
+  #view .task.sw-ready::after{color:var(--text)}
+}
+/* a toast bubble doesn't get in the way of the row under it: only its buttons take touches (2026-11-18, swipe) */
+.ftoast{pointer-events:none}
+.ftoast button{pointer-events:auto}
+
