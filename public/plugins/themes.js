@@ -73,12 +73,16 @@
   // game themes: their game (or console) on TheGamesDB (needs THEGAMESDB_API_KEY); NES is TheGamesDB platform 7
   const GAMES = { botw: ['game', 'The Legend of Zelda: Breath of the Wild'], cyberpunk: ['game', 'Cyberpunk 2077'], nes: ['platform', '7'] };
   // where a theme's pictures come from: [source, kind, title, year]; a theme can name its own (t.tmdb, t.game)
-  const tmdbOf = t => t.tmdb ? ['tmdb', t.tmdb.type || 'movie', t.tmdb.title, t.tmdb.year || ''] : t.game ? ['gdb', t.game.kind || 'game', t.game.title, ''] : TMDB[t.id] ? ['tmdb', ...TMDB[t.id]] : GAMES[t.id] ? ['gdb', ...GAMES[t.id], ''] : null;
-  const kindWord = m => m[0] === 'gdb' ? (m[1] === 'platform' ? 'console' : 'game') : m[1] === 'tv' ? 'show' : 'film';
+  // t.commons: a subject for a credited free-licence photo from Wikimedia Commons (a function may pick it each time)
+  const tmdbOf = t => t.commons && !t.tmdb && !t.game ? ['commons', 'photo', typeof t.commons === 'function' ? t.commons() : t.commons, ''] : t.tmdb ? ['tmdb', t.tmdb.type || 'movie', t.tmdb.title, t.tmdb.year || ''] : t.game ? ['gdb', t.game.kind || 'game', t.game.title, ''] : TMDB[t.id] ? ['tmdb', ...TMDB[t.id]] : GAMES[t.id] ? ['gdb', ...GAMES[t.id], ''] : null;
+  const kindWord = m => m[0] === 'commons' ? 'photo search' : m[0] === 'gdb' ? (m[1] === 'platform' ? 'console' : 'game') : m[1] === 'tv' ? 'show' : 'film';
   const tmdbArt = new Map();   // theme id → promise of the answer, once a visit
   const filmArt = t => { const m = tmdbOf(t); if (!m) return Promise.resolve(null);
+    const ck = t.id + '|' + m[2];
+    if (m[0] === 'commons') { if (!tmdbArt.has(ck)) tmdbArt.set(ck, fetch('api/commons?q=' + encodeURIComponent(m[2])).then(r => r.ok ? r.json() : null).then(j => j && j.photos && j.photos.length
+      ? { title: m[2], source: 'Wikimedia Commons', link: j.photos[0].link, backdrops: j.photos.map(p => p.url), credits: j.photos.map(p => p.credit), links: j.photos.map(p => p.link) } : j && { none: true }).catch(() => null)); return tmdbArt.get(ck); }
     const u = m[0] === 'gdb' ? `api/gdb/art?kind=${m[1]}&q=${encodeURIComponent(m[2])}${m[1] === 'platform' ? '&platform=' + m[2] : ''}` : `api/tmdb/art?type=${m[1]}&q=${encodeURIComponent(m[2])}&year=${m[3]}`;
-    if (!tmdbArt.has(t.id)) tmdbArt.set(t.id, fetch(u).then(r => r.ok ? r.json() : null).catch(() => null)); return tmdbArt.get(t.id); };
+    if (!tmdbArt.has(ck)) tmdbArt.set(ck, fetch(u).then(r => r.ok ? r.json() : null).catch(() => null)); return tmdbArt.get(ck); };
   // colours from a picture: the most common colour (darkened) for the background, the most colourful readable one for the accent
   function paletteOf(img) {
     const c = document.createElement('canvas'); c.width = c.height = 24; const g = c.getContext('2d'); g.drawImage(img, 0, 0, 24, 24);
@@ -133,10 +137,10 @@
       let live = true; bits.push(() => { live = false; });
       filmArt(t).then(a => {
         if (!live || !a || !a.backdrops || !a.backdrops.length) return;
-        const pic = a.backdrops[(x.tmdbPick || 0) % a.backdrops.length], d2 = x.dim != null ? x.dim : 0.62;
+        const pi = (x.tmdbPick || 0) % a.backdrops.length, pic = a.backdrops[pi], d2 = x.dim != null ? x.dim : 0.62;
         css.textContent = `html body{background-image:linear-gradient(color-mix(in srgb,var(--bg) ${Math.round(d2 * 100)}%,transparent),color-mix(in srgb,var(--bg) ${Math.round(d2 * 100)}%,transparent)),url("${pic}")!important;background-size:cover!important;background-position:center!important;background-attachment:fixed!important}
           html body .main{background:transparent!important}`;
-        const c = document.createElement('a'); c.className = 'th-credit'; c.href = a.link; c.target = '_blank'; c.rel = 'noopener'; c.textContent = 'Picture: ' + a.title + ' on ' + (a.source || 'TMDB');
+        const c = document.createElement('a'); c.className = 'th-credit'; c.href = (a.links && a.links[pi]) || a.link; c.target = '_blank'; c.rel = 'noopener'; c.textContent = a.credits ? 'Photo: ' + a.credits[pi] : 'Picture: ' + a.title + ' on ' + (a.source || 'TMDB');
         c.style.cssText = 'position:fixed;right:10px;bottom:6px;z-index:2;font-size:11px;color:var(--muted);opacity:.75;text-decoration:none;background:color-mix(in srgb,var(--bg) 70%,transparent);padding:1px 6px;border-radius:6px';
         document.body.appendChild(c); bits.push(() => c.remove());
         // a game's title logo, small in the corner (unless you've put your own picture there)
@@ -222,7 +226,7 @@
     },
     apply: id => apply(id, { save: true }),
     current: () => T.get(current), list: () => [...T.values()],
-    token, isDark,
+    token, isDark, paletteOf,
     quick: el => quick(el),
     on(fn) { subs.add(fn); return () => subs.delete(fn); },
   };
@@ -232,7 +236,7 @@
     preview: { bg: '#f7f6f3', panel: '#fff', side: '#f0eee9', text: '#1d1c1a', accent: '#5b5bd6', line: '#e7e4dd' } });
   apply(stored('theme') || 'cadence');     // as early as possible: no flash of the wrong theme
 
-  const CATS = ['Useful', 'Editor', 'daisyUI', 'Fun', 'Movie & TV', 'Studio Ghibli', 'Games', 'Seasonal', 'Crazy'];
+  const CATS = ['Useful', 'Live', 'Editor', 'daisyUI', 'Fun', 'Movie & TV', 'Studio Ghibli', 'Games', 'Brands', 'Seasonal', 'Crazy'];
   Cadence.registerPlugin({
     id: 'themes', name: 'Themes', version: '1.0.0', category: 'Look & feel',
     description: 'A theming engine for the whole app and every plugin, plus a gallery of useful, fun and properly unhinged themes. Customise the accent, font and corners on top of any theme. Plugins can add their own themes with CadenceThemes.register().',
@@ -268,6 +272,8 @@
           @media (max-width:860px){.thg{grid-template-columns:1fr;gap:14px}.thg-nav{position:static;max-height:none}.thg-idx{flex-direction:row;overflow-x:auto;scrollbar-width:none}.thg-idx button{flex:none;gap:6px}.thg-now{grid-template-columns:1fr}}
           .th-cat{margin:26px 0 10px;font-size:12px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);scroll-margin-top:12px}.th-cat span{color:var(--faint);margin-left:4px}
           .th-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px}
+          .thg-dense .th-grid{grid-template-columns:repeat(auto-fill,minmax(124px,1fr));gap:8px}.thg-dense .th-meta span{display:none}.thg-dense .th-meta{padding:6px 8px}.thg-dense .th-meta b{font-size:12px}
+          .thg-opt{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--muted);margin:6px 0;cursor:pointer}
           .th-card{border:1px solid var(--line);border-radius:14px;overflow:hidden;cursor:pointer;background:var(--panel);transition:transform .15s,box-shadow .2s,border-color .2s;text-align:left;padding:0;display:block;width:100%}
           .th-card:hover{transform:translateY(-2px);box-shadow:var(--shadow)}
           .th-mine{grid-column:1/-1;display:flex;flex-wrap:wrap;align-items:center;gap:10px;padding-top:8px;border-top:1px solid var(--line)}.th-mine>label{width:100%}
@@ -344,7 +350,8 @@
         const card = t => { const f = t.family, m = f ? membersOf(f) : null;
           const q = (f ? f + ' ' + m.map(x => x.name).join(' ') + ' palettes' : t.name + ' ' + (t.tagline || '')) + ' ' + (t.category || '');
           return `<button class="th-card ${t.id === current ? 'on' : ''}" data-th="${E(t.id)}" ${f ? `data-fam="${E(f)}"` : ''} data-tone="${f ? 'both' : toneOf(t)}" data-q="${E(q.toLowerCase())}">${preview(t)}<div class="th-meta"><b>${E(f || t.name)}</b><span>${E(f ? `${m.length} palettes · now ${t.name}` : t.tagline || '')}</span></div></button>`; };
-        el.innerHTML = `<div class="thg">
+        if (G.dense == null) { const sv = api.storage.get('gallery') || {}; G.dense = !!sv.dense; G.hover = sv.hover !== false; }
+        el.innerHTML = `<div class="thg${G.dense ? ' thg-dense' : ''}">
           <aside class="thg-nav">
             <input class="inp thg-q" id="thg-q" type="search" placeholder="Search ${shown(all).length} themes" value="${E(G.q)}" aria-label="Search themes" data-no-grammar>
             <div class="seg thg-tone">${[['all', 'Any'], ['light', 'Light'], ['dark', 'Dark']].map(([k, l]) => `<button class="${G.tone === k ? 'on' : ''}" data-tht="${k}">${l}</button>`).join('')}</div>
@@ -352,6 +359,8 @@
               <button data-go="thg-now">Current</button>${recent.length ? '<button data-go="thg-recent">Recently used</button>' : ''}
               ${cats.map(k => `<button data-go="${slug(k)}">${E(k)}<span>${inCat(k).length}</span></button>`).join('')}
             </nav>
+            <label class="thg-opt"><input type="checkbox" id="thg-dense" ${G.dense ? 'checked' : ''}> Compact grid</label>
+            <label class="thg-opt"><input type="checkbox" id="thg-hover" ${G.hover !== false ? 'checked' : ''}> Try a theme by resting on it</label>
             <button class="btn thg-rand" id="thg-rand">${api.ui.icon('shuffle')}Surprise me</button>
           </aside>
           <div class="thg-main">
@@ -406,15 +415,16 @@
           const tr = box.querySelector('[data-tmdb-row]');
           if (tr) filmArt(t).then(a => {
             const x = (api.storage.get('extras') || {})[t.id] || {};
-            const m = tmdbOf(t), gdb = m[0] === 'gdb', src = gdb ? 'TheGamesDB' : 'TMDB';
-            if (!a || a.off) { tr.innerHTML = gdb ? `<span class="muted">Add <code>THEGAMESDB_API_KEY</code> to .env on the NAS (ask for one on forums.thegamesdb.net) for pictures from the ${kindWord(m)}.</span>`
-              : `<span class="muted">Add <code>TMDB_API_KEY</code> (free, from themoviedb.org) to .env on the NAS for pictures from the ${kindWord(m)}.</span>`; return; }
+            const m = tmdbOf(t), gdb = m[0] === 'gdb', cm = m[0] === 'commons', src = cm ? 'Wikimedia Commons' : gdb ? 'TheGamesDB' : 'TMDB';
+            if (!a && cm) { tr.innerHTML = `<span class="muted">Couldn't reach Wikimedia Commons just now.</span>`; return; }
+            if (!a || a.off) { tr.innerHTML = `<span class="muted">Connect ${gdb ? 'TheGamesDB' : 'TMDB'} in Settings → Connections for pictures from the ${kindWord(m)}.</span> <button class="btn sm" data-tm="keys">Open Connections</button>`;
+              tr.querySelector('[data-tm=keys]').onclick = () => api.ui.openSettings('connections'); return; }
             if (a.none || !a.backdrops || !a.backdrops.length) { tr.innerHTML = `<span class="muted">${src} has no pictures for this one.</span>`; return; }
             tr.innerHTML = x.bg ? `<span class="muted">Your own background is on; remove it to see the ${kindWord(m)}'s pictures.</span>`
               : `<button class="btn" data-tm="next">${api.ui.icon('shuffle')}Another picture</button>
                  <label class="th-slot"><input type="checkbox" data-tm="colors" ${x.tmdbColors ? 'checked' : ''}> Colours from the picture</label>
                  <label class="th-slot"><input type="checkbox" data-tm="off" ${x.tmdb === false ? 'checked' : ''}> No pictures</label>
-                 <span class="muted th-pc">${E(a.title)} pictures from ${src}.${gdb ? '' : ' This product uses the TMDB API but is not endorsed or certified by TMDB.'}</span>`;
+                 <span class="muted th-pc">${cm ? `Free-licence photos of ${E(a.title)} from Wikimedia Commons, credited on screen.` : `${E(a.title)} pictures from ${src}.${gdb ? '' : ' This product uses the TMDB API but is not endorsed or certified by TMDB.'}`}</span>`;
             const nb = tr.querySelector('[data-tm=next]'); if (nb) nb.onclick = () => setMine({ tmdbPick: ((x.tmdbPick || 0) + 1) % a.backdrops.length });
             const cb = tr.querySelector('[data-tm=colors]'); if (cb) cb.onchange = () => setMine({ tmdbColors: cb.checked || null });
             const ob = tr.querySelector('[data-tm=off]'); if (ob) ob.onchange = () => setMine({ tmdb: ob.checked ? false : null });
@@ -456,7 +466,26 @@
           });
           if (prev !== current) api.ui.toast(`Theme: ${T.get(current).name}`, [{ label: 'Undo', run: () => pick(prev, anchor) }]);
         };
-        el.querySelectorAll('[data-th]').forEach(b => b.onclick = () => pick(b.dataset.th, b));
+        el.querySelectorAll('[data-th]').forEach(b => b.onclick = () => { tryOn.stop(); pick(b.dataset.th, b); });
+        // ---- try one on: rest the pointer on a card and the whole app wears it; move off and it goes back; click keeps it ----
+        const tryOn = (() => {
+          // the theme you had stays in G (not here), so a redraw or leaving the page mid-try still puts it back
+          let t = 0, out = 0;
+          const stop = () => { clearTimeout(t); clearTimeout(out); G.tryOn = null; if (G.tryBase != null && current !== G.tryBase) apply(G.tryBase); G.tryBase = null; el.classList.remove('thg-trying'); };
+          const fine = matchMedia('(hover: hover) and (pointer: fine)');
+          el.querySelectorAll('.thg-main .th-card').forEach(b => {
+            // pointermove, not mouseenter: a theme changes the layout, which slides another card under a still pointer
+            b.addEventListener('pointermove', () => { if (!fine.matches || G.hover === false || G.tryOn === b.dataset.th) return; clearTimeout(out); clearTimeout(t); G.tryOn = b.dataset.th;
+              if (b.dataset.th === (G.tryBase ?? current)) return;
+              t = setTimeout(() => { if (G.tryBase == null) G.tryBase = current; if (current !== b.dataset.th) { apply(b.dataset.th); el.classList.add('thg-trying'); } }, 650); });
+            b.addEventListener('mouseleave', () => { clearTimeout(t); G.tryOn = null; out = setTimeout(stop, 350); });
+          });
+          if (!G.tryHook) { G.tryHook = true; addEventListener('hashchange', () => { if (G.tryBase != null && location.hash !== '#view-themes') { apply(G.tryBase); G.tryBase = null; } }); }
+          return { stop };
+        })();
+        const saveG = () => api.storage.set('gallery', { dense: !!G.dense, hover: G.hover !== false });
+        el.querySelector('#thg-dense').onchange = e => { G.dense = e.target.checked; el.querySelector('.thg').classList.toggle('thg-dense', G.dense); saveG(); };
+        el.querySelector('#thg-hover').onchange = e => { G.hover = e.target.checked; if (!G.hover) tryOn.stop(); saveG(); };
         el.querySelector('#thg-rand').onclick = () => { const vis = [...el.querySelectorAll('.thg-sec .th-card')].filter(x => !x.hidden && x.dataset.th !== current); const b = vis[Math.floor(Math.random() * vis.length)]; if (b) { b.scrollIntoView({ block: 'center', behavior: 'smooth' }); pick(b.dataset.th, b); } };
 
         // ---- search and light/dark filter: hide, don't rebuild ----

@@ -85,3 +85,16 @@ test('in the app: the marks, an artist\'s records, the card, and adding to your 
   expect(errs).toEqual([]);
 });
 
+
+test('the Record of the day theme: today\'s record from your shelf in the corner', async ({ page }) => {
+  const errs = []; page.on('pageerror', e => errs.push(String(e)));
+  const shelf = (await (await fetch(B + '/api/radar/discogs')).json()).shelf;
+  await page.goto(B + '/'); await expect(page.locator('#sync')).toBeVisible({ timeout: 10000 });
+  await page.evaluate(() => window.CadenceThemes.apply('record-of-the-day'));
+  const c = page.locator('.lt-rec'); await expect(c).toContainText('Pulled from your shelf today', { timeout: 8000 });
+  await expect(c).toContainText(shelf.title);
+  await expect(c.locator('a.lt-sleeve')).toHaveAttribute('href', `https://www.discogs.com/release/${shelf.rid}`);
+  await page.evaluate(() => window.CadenceThemes.apply('cadence'));
+  await expect(page.locator('.lt-card')).toHaveCount(0);   // gone with the theme
+  expect(errs).toEqual([]);
+});

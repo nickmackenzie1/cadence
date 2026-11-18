@@ -34,6 +34,8 @@
         P.load({ uuid: 'radio:' + s.id, live: true, station: s.id, src: s.url, now: null, title: s.name, podcastTitle: s.place || 'Live radio', url: playable(s.url), art: s.art || null, home: s.home || null }, true);
         noTitles = false; earlier = null; pollNow();
       };
+      // other plugins (the KEXP live theme) can start a station by its id
+      window.CadenceRadio = { play: async id => { if (!stations) try { stations = await getJson('api/radio/stations'); } catch (e) { return false; } const s = (stations || []).find(x => x.id === id); if (s) play(s); return !!s; } };
       // what's on now, every 30 s while a station is playing: KEXP from its playlist, the others from the song title
       // inside the stream (most stations send one; some only send the show or nothing at all)
       let noTitles = false, earlier = null;

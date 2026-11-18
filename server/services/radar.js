@@ -142,8 +142,8 @@ async function discogs(q = {}) { await load(); const D = await discogsLib(); ret
 async function discogsIndex() { await load(); const D = await discogsLib(); const ix = D.discogsIndex(); return { artists: [...ix.artists], own: [...ix.own], want: [...ix.want] }; }
 async function discogsSync() { await load(); const D = await discogsLib(); const r = await D.discogsSync(); bust(); return r; }
 async function discogsWant(b = {}) { await load(); const D = await discogsLib(); const r = await D.discogsWant(b); bust(); return r; }
-if (!process.env.CI && process.env.DISCOGS_TOKEN) {
-  sched.add('discogs', async () => { const r = await discogsSync(); return r && r.records != null ? { note: `Discogs: ${r.records} records, ${r.wants} wanted` } : undefined; },
+if (!process.env.CI) {   // the token can arrive later (Settings → Connections): until then the job does nothing
+  sched.add('discogs', async () => { if (!process.env.DISCOGS_TOKEN) return undefined; const r = await discogsSync(); return r && r.records != null ? { note: `Discogs: ${r.records} records, ${r.wants} wanted` } : undefined; },
     { label: 'Discogs: your collection and wantlist', quiet: true, every: 6 * 3600e3, first: 2 * 60e3, retry: 3600e3 });
 }
 async function sound(b = {}) {

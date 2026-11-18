@@ -60,14 +60,14 @@ checking the code.
 - Webamp (winamp2-js, MIT) to load real Winamp .wsz skins the user brings.
 
 ## Themes and effects
-- Games themes: CS:GO, Half-Life, Steam, Borderlands, GTA (Breath of the Wild exists). A Camping theme.
+- A Steam theme (the other game themes are done: CS:GO, Half-Life, Portal, Borderlands, Vice City).
 - Kill Bill: blood drips from panel edges that pool on ledges, a splash on finishing a task (Elements engine;
   stylised, not gory; respects Effects off / reduced motion).
-- Themes screen: category tabs or a side index, search, compact grid + live preview.
 - Havok physics option (@babylonjs/havok, MIT WASM ~2 MB, vendored, loaded only when picked): task cards as real
   blocks that tumble and stack, done tasks into a bin. Elements for materials, Havok for pieces that break loose.
-- More effects: Halloween fog, autumn leaves, spring rain and puddles, a lava-lamp focus timer, fireworks when a
-  project finishes, a snow globe, a campfire for the camping planner.
+- More effects: a lava-lamp focus timer, fireworks when a project finishes (Seasons already does it when today's list
+  is done), a snow globe, spring puddles. (Fog, leaves, rain, snow and campfire embers are in Weather window, Seasons
+  and Camping, public/plugins/themes-live.js.)
 - Zelda fonts (Hylia Serif etc.): check each licence before vendoring.
 
 ## Look and feel
@@ -181,14 +181,14 @@ checking the code.
   table), your own listens, and an import of Spotify's extended streaming history (JSON) or Last.fm / ListenBrainz.
   Drawn in the browser with D3 (ISC, vendored, ~90 KB); "Save as video" records the canvas (MediaRecorder, WebM)
   with no server work.
-- KEXP theme (user, 2026-11-18): KEXP's look in CSS: its orange accent on near-black and warm off-white, bold condensed
-  headings (a lookalike font, licence permitting), the "on air" feel (a now-playing strip, DJ photo, song cards like the
-  KEXP playlist page). The KEXP logo may be shown from their own site (logos allowed, 2026-11-16) but not redrawn.
-  Pairs with Radio / KEXP history: show the current KEXP song in the Island while the theme is on.
-- Film and TV themes get pictures from TMDB when TMDB_API_KEY is in .env (server/services/tmdb.js; map in themes.js
-  TMDB); game themes from TheGamesDB with THEGAMESDB_API_KEY (server/services/gamesdb.js; map GAMES: botw, cyberpunk =
-  Cyberpunk 2077, nes = platform 7). New game themes (CS:GO, Half-Life, Borderlands, GTA) just add an entry to GAMES.
-  Still open: credited free-licence photos (theme `photo: {url, credit, link}`) for Halloween and Camping.
+- KEXP live theme: also show the current KEXP song in the Island while it's on.
+- Theme pictures: a theme names `tmdb: {type, title, year}` (TMDB stills), `game: {title}` (TheGamesDB fanart),
+  `commons: 'subject'` (a credited free-licence Wikimedia Commons photo, server/services/commons.js) or `site` (the
+  brand's own logo). Keys come from Settings → Connections (server/lib/keys.js, data/keys.json) or .env.
+- Audio (user, 2026-11-18: "not working across the board, podcasts previews etc"): not reproduced in Chrome on 0.41.4.
+  Fixed the likely Safari cause (sound engine made before a tap stays paused, so everything with the visualizer or
+  Even volume on plays silently: now it waits for a tap, and any tap wakes it). Waiting on the user's device, what
+  happens, and Status → Problems.
 
 - **Theme checks** (tests/themes-health.spec.mjs, 2026-11-18): every theme is applied to the demo data and checked for
   readable text (contrast measured from the screenshot's pixels), sideways scrolling, a squashed view, missing task rows
@@ -202,3 +202,4 @@ checking the code.
   has posters of what's next, a search box with suggestions, and a shelf of what you've watched and played. The task's
   card lists the other matches, plus "Not a film", which puts back what you typed. Next ideas from the same list: a
   "Tonight" picker, quiet release reminders, a reward shelf, and a year in review.
+- Artist pages: show an artist's albums like Cover Flow or flipping through a record-shop bin, instead of a plain list (user, 2026-11-18).

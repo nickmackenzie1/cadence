@@ -1,11 +1,11 @@
 'use strict';
 /* AI: the optional Anthropic API proxy (the key stays on the NAS). */
-const { API_KEY, MODEL, MODEL_QUICK } = require('../config');
+const { aiKey, MODEL, MODEL_QUICK } = require('../config');
 
 async function callClaude(prompt, tier) {
   const r = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
-    headers: { 'x-api-key': API_KEY, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
+    headers: { 'x-api-key': aiKey(), 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
     body: JSON.stringify({ model: tier === 'quick' ? MODEL_QUICK : MODEL, max_tokens: 4096, messages: [{ role: 'user', content: prompt }] })
   });
   const j = await r.json();

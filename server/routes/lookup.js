@@ -2,7 +2,7 @@
 /* Routes: Things looked up on the web for you: AI, favicons, company info, site text, images, banners. Each handler answers or leaves the request for the next. */
 const fs = require('fs');
 const path = require('path');
-const { API_KEY, BANNER_DIR, COMPANY_DIR, ICON_DIR } = require('../config');
+const { aiKey, BANNER_DIR, COMPANY_DIR, ICON_DIR } = require('../config');
 const { NEXT, readBody, send } = require('../lib/http');
 const { DOMAIN_RE, safeFetch } = require('../lib/net');
 const { callClaude } = require('../services/ai');
@@ -14,7 +14,7 @@ let imgCache = null;   // recently fetched images, in memory
 // (req, res, { url, p, leaf }) → answers the request, or returns NEXT
 module.exports = async function lookupRoutes(req, res, { url, p }) {
   if (p === '/api/ai' && req.method === 'POST') {
-    if (!API_KEY) return send(res, 501, { error: 'AI not configured (set ANTHROPIC_API_KEY)' });
+    if (!aiKey()) return send(res, 501, { error: 'AI not configured (set ANTHROPIC_API_KEY)' });
     const { prompt, tier } = JSON.parse(await readBody(req, 2 * 1024 * 1024));
     if (typeof prompt !== 'string' || !prompt) return send(res, 400, { error: 'Missing prompt' });
     try { return send(res, 200, { text: await callClaude(prompt, tier) }); }

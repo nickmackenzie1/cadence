@@ -5,6 +5,7 @@
 // process stalls or crashes, tasks and everything else keep working, and it's started again.
 // Listens on 127.0.0.1 only, on a port it reports back to the main server, and answers only requests carrying the
 // main server's one-time key.
+require('./lib/keys').watch();   // keys pasted in Settings → Connections reach this process too
 const http = require('http');
 const { NEXT, send } = require('./lib/http');
 const problems = require('./lib/problems');

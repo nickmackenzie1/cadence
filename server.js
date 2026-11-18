@@ -9,7 +9,8 @@
 //   server/lib/*.js         shared building blocks (http helpers, auth, storage, safe fetch, TLS, build id)
 'use strict';
 const http = require('http');
-const { API_KEY, DATA_DIR, HTTPS_PORT, HTTPS_PUBLIC_PORT, PASSWORD, PORT } = require('./server/config');
+require('./server/lib/keys').load();   // keys pasted in Settings → Connections (data/keys.json) go into the environment first
+const { aiKey, DATA_DIR, HTTPS_PORT, HTTPS_PUBLIC_PORT, PASSWORD, PORT } = require('./server/config');
 const { storageInfo } = require('./server/lib/storage');
 const { TLS, caFingerprint, sendCA } = require('./server/lib/tls');
 const { handle } = require('./server/app');
@@ -38,7 +39,7 @@ let tick = Date.now();
 setInterval(() => { const lag = Date.now() - tick - 1000; tick = Date.now(); if (lag >= 3000) { const m = `stuck for ${(lag / 1000).toFixed(1)}s${busy.size ? ' while serving ' + [...new Set(busy.values())].slice(0, 5).join(', ') : ' (background work)'}`; console.log('! ' + m); problems.record('stuck', m, { ms: lag }); } }, 1000).unref();
 
 const { storage, storageNote } = storageInfo();
-const tag = `data=${DATA_DIR}  storage=${storage}${storageNote ? ' (' + storageNote + ')' : ''}  ai=${API_KEY ? 'on' : 'off'}  auth=${PASSWORD ? 'on' : 'off'}`;
+const tag = `data=${DATA_DIR}  storage=${storage}${storageNote ? ' (' + storageNote + ')' : ''}  ai=${aiKey() ? 'on' : 'off'}  auth=${PASSWORD ? 'on' : 'off'}`;
 if (TLS) {
   require('https').createServer(TLS, timed).listen(HTTPS_PORT, () => console.log(`Cadence running on https :${HTTPS_PORT}  ${tag}  CA ${caFingerprint() || 'unknown'}`));
   // plain HTTP: nothing but a redirect (so a password is never sent unencrypted) and the public CA download

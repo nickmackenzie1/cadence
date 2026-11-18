@@ -97,10 +97,23 @@ async function nowPlaying(id, u) {
   if (Date.now() - kexpNow.at < 20000) return kexpNow.v;
   const r = await safeFetch('https://api.kexp.org/v2/plays/?format=json&limit=1', {}, 256 * 1024);
   const p = (JSON.parse(r.buf.toString('utf8')).results || [])[0] || null;
-  kexpNow = { at: Date.now(), v: p ? (p.play_type === 'trackplay'
+  const show = p && p.show ? await kexpShow(p.show).catch(() => null) : null;
+  kexpNow = { at: Date.now(), v: p ? { ...(p.play_type === 'trackplay'
     ? { artist: p.artist, song: p.song, album: p.album, art: p.thumbnail_uri || p.image_uri || null, at: p.airdate }
-    : { airbreak: true, at: p.airdate }) : null };
+    : { airbreak: true, at: p.airdate }), ...(show ? { show } : {}) } : null };
   return kexpNow.v;
+}
+// the show on air and its DJs, with their photos (for the KEXP live theme); a show is asked about once
+const kexpShows = new Map();
+async function kexpShow(id) {
+  if (kexpShows.has(id)) return kexpShows.get(id);
+  const r = await safeFetch(`https://api.kexp.org/v2/shows/${encodeURIComponent(id)}/?format=json`, {}, 256 * 1024), s = JSON.parse(r.buf.toString('utf8'));
+  let faces = {}; try { faces = await require('./kexp-log').hosts(); } catch {}
+  const names = (s.host_names || []).filter(Boolean);
+  const v = { id, program: s.program_name || null, tagline: s.tagline || null, image: s.program_image_uri || s.image_uri || null,
+    hosts: names.map(n => ({ name: n, image: (faces[n] && faces[n].image) || null })) };
+  kexpShows.set(id, v); if (kexpShows.size > 50) kexpShows.delete(kexpShows.keys().next().value);
+  return v;
 }
 
 // ---- now playing for any station: the song title carried inside the stream (ICY / SHOUTcast metadata) ----

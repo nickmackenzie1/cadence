@@ -2507,6 +2507,7 @@
         selected: () => selTask,
         closeTask: () => closeDrawer(),
         colorMode: () => (S.settings.theme === 'dark' ? 'dark' : 'light'),
+        openSettings: tab => openSettings(tab),   // e.g. 'connections'
         setColorMode: m => {
           S.settings.theme = m === 'dark' ? 'dark' : 'light';
           save();
@@ -5165,11 +5166,40 @@
     const lg = d.site ? logoHtml(d.site, { size: Math.round(size * 0.62) }) : '';
     return `<span class="pl-ic${lg ? ' has-site' : ''}" style="--pc:${esc(col)};width:${size}px;height:${size}px;border-radius:${Math.round(size * 0.28)}px">${inner}${lg}</span>`;
   }
+  // Settings → Connections (2026-11-18): paste keys for outside services; the NAS keeps them and never sends them back
+  async function drawConnections() {
+    const box = $('#conn-list'); if (!box) return;
+    let list;
+    try { const r = await fetch('api/keys'); if (!r.ok) throw new Error(); list = await r.json(); }
+    catch (e) { box.innerHTML = '<p class="muted">Connections are kept on your NAS. Open Cadence from the NAS to set them up.</p>'; return; }
+    const row = k => `<div class="conn" data-k="${esc(k.id)}"><div class="conn-h"><b>${esc(k.name)}</b><span class="conn-st ${k.set ? 'on' : ''}">${k.set ? `${icon('check')}Connected${k.tail ? ' · ends in ' + esc(k.tail) : ''}${k.from === 'env' ? ' · from .env' : ''}` : 'Not connected'}</span></div>
+      <div class="muted conn-for">${esc(k.for)}</div>
+      <div class="row conn-in"><input class="inp" type="password" autocomplete="off" spellcheck="false" placeholder="${k.set ? 'Paste a new key to replace it' : 'Paste the key'}" aria-label="${esc(k.name)} key">
+        <button class="btn primary" data-conn="save">Save</button>${k.from === 'page' ? '<button class="btn ghost" data-conn="remove">Remove</button>' : ''}</div>
+      <div class="muted conn-get">Where to get it: ${esc(k.get)} · <a href="${esc(k.link)}" target="_blank" rel="noopener">open</a></div></div>`;
+    box.innerHTML = list.map(row).join('');
+    box.querySelectorAll('.conn').forEach(c => {
+      const id = c.dataset.k, inp = c.querySelector('input');
+      const send = async value => {
+        const r = await fetch('api/keys', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, value }) });
+        const j = await r.json().catch(() => ({}));
+        if (!r.ok) return toast(j.error || "Couldn't save that key");
+        toast(value ? "Saved. It's used from now on." : 'Removed');
+        // the record collection comes over now rather than at the next 6-hourly copy
+        if (id === 'DISCOGS_TOKEN' && value) fetch('api/radar/discogs/sync', { method: 'POST' }).catch(() => {});
+        drawConnections();
+      };
+      c.querySelector('[data-conn=save]').onclick = () => { const v = inp.value.trim(); if (!v) return inp.focus(); send(v); };
+      inp.onkeydown = e => { if (e.key === 'Enter') c.querySelector('[data-conn=save]').click(); };
+      const rm = c.querySelector('[data-conn=remove]'); if (rm) rm.onclick = () => send('');
+    });
+  }
   function openSettings(tab) {
     if (tab) settingsTab = tab;
     const tabs = [
       ['general', 'General'],
       ['plugins', 'Plugins'],
+      ['connections', 'Connections'],
       ['dev', 'Developer'],
       ['data', 'Data']
     ];
@@ -5216,6 +5246,8 @@
           })
           .join('') || '<div class="muted" style="padding:20px 0;font-size:13px">No plugins match.</div>'
       }</div>`;
+    } else if (settingsTab === 'connections') {
+      body += `<p class="muted" style="margin:0 0 12px">Keys for the outside services Cadence can use. Paste one and it's used straight away. Keys are kept on your NAS only: this page can save or remove them but never shows them again. Keys in <code>.env</code> work too; one pasted here takes over.</p><div id="conn-list"><p class="muted">Loading…</p></div>`;
     } else if (settingsTab === 'dev') {
       body += `<p class="muted" style="margin:0">Everything beyond the core — Fireflies import, AI extraction, recap emails, Client Pulse — is a plugin built on this API. Write your own:</p>
 <pre class="code">Cadence.registerPlugin({
@@ -5259,6 +5291,7 @@
       <div class="field"><label>Housekeeping</label><button class="btn" data-act="purge" ${oldDone ? '' : 'disabled'}>Delete ${oldDone} tasks completed 30+ days ago</button></div>`;
     }
     openModalHTML('Settings', body, '', 'wide');
+    if (settingsTab === 'connections') drawConnections();
     const pq = $('#pl-q');
     if (pq)
       pq.addEventListener('input', () => {

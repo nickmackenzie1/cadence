@@ -53,7 +53,7 @@
     document.body.appendChild(host);
     return host;
   }
-  R({ id: 'halloween', name: 'Halloween', category: 'Seasonal', tagline: 'A purple night, rolling fog, bats, and jack-o’-lanterns with real fire flickering inside.',
+  R({ id: 'halloween', name: 'Halloween', category: 'Seasonal', tagline: 'A purple night, rolling fog, bats, and jack-o’-lanterns with real fire flickering inside.', commons: 'jack-o-lantern night',
     vars: { '--ambient': 'off', '--bg': '#140c1f', '--panel': 'rgba(32,20,46,.9)', '--side': '#0d0815', '--text': '#f3e9ff', '--muted': '#b5a3cc', '--faint': '#7a6a92', '--line': '#3a2752', '--hover': '#2a1b3d',
       '--accent': '#ff7a18', '--on-accent': '#1a0d00', '--accent-soft': 'rgba(255,122,24,.18)', '--client': '#9be36d', '--client-soft': 'rgba(155,227,109,.16)', '--ok': '#9be36d', '--danger': '#ff5a5a', '--danger-soft': 'rgba(255,90,90,.16)', '--r': '10px', '--shadow': '0 10px 26px rgba(0,0,0,.45)' },
     preview: { bg: 'radial-gradient(circle at 75% 20%,#f6e7b0 0 6%,#3b2357 7%,#140c1f 70%)', panel: '#20142e', side: '#0d0815', text: '#f3e9ff', accent: '#ff7a18', line: '#3a2752', r: '10px' },

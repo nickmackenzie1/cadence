@@ -98,6 +98,9 @@ CadenceThemes.register({
   css: ':skin .btn { border-radius: 0 }',                     // :skin = html[data-skin="sunset"]
   enhance(ctx) { /* DOM tweaks that are part of the look */ return () => {} },
   effects(ctx) { ctx.layer.innerHTML = '…'; return () => {} },  // motion; skipped when Effects is Off or reduced motion
+  // pictures, each shown with its credit (pick one): stills from TMDB, fanart from TheGamesDB, a free-licence
+  // Wikimedia Commons photo of a subject, and/or a brand's own logo from its site (keys: Settings → Connections)
+  tmdb: { type: 'movie', title: 'Dune', year: 2021 }, game: { title: 'Portal 2' }, commons: 'snowy forest Ontario', site: 'kexp.org',
 });
 CadenceThemes.apply('sunset'); CadenceThemes.current(); CadenceThemes.list();
 CadenceThemes.token('--accent'); CadenceThemes.isDark();

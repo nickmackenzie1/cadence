@@ -2,7 +2,7 @@
 /* Company info: logo, banner, description, industry and brand colours from a client's website. */
 const fs = require('fs');
 const path = require('path');
-const { API_KEY, BANNER_DIR, COMPANY_DIR, ICON_DIR } = require('../config');
+const { aiKey, BANNER_DIR, COMPANY_DIR, ICON_DIR } = require('../config');
 const { safeFetch } = require('../lib/net');
 const { callClaude } = require('./ai');
 const { getIcon, sniff } = require('./favicons');
@@ -97,7 +97,7 @@ async function companyInfo(domain, refresh) {
     if (og) { const buf = await fetchImage(abs(og)); if (buf && buf.length > 2000) { fs.writeFileSync(path.join(BANNER_DIR, domain + '.img'), buf); out.hasBanner = true; } }
     const text = [out.name, out.description, meta(html, 'keywords'), decode((html.match(/<h1[^>]*>([\s\S]{0,200}?)<\/h1>/i) || [])[1] || '').replace(/<[^>]+>/g, ' ')].join(' ');
     out.industry = guessIndustry(text);
-    if (API_KEY && (out.description || out.name)) {
+    if (aiKey() && (out.description || out.name)) {
       try {
         const ans = await callClaude(`Classify this company into exactly one industry key from: ${Object.keys(INDUSTRIES).join(', ')}, other.\nAlso write a plain one-sentence description (max 20 words) of what they do.\nReturn JSON only: {"industry":"key","description":"..."}\n\nName: ${out.name}\nWebsite text: ${text.slice(0, 1500)}`, 'quick');
         const j = JSON.parse((ans.match(/\{[\s\S]*\}/) || ['{}'])[0]);

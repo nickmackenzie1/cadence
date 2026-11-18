@@ -42,6 +42,11 @@ module.exports = async function filesRoutes(req, res, { url, p }) {
     return res.end(fs.readFileSync(f));
   }
   // film and TV pictures for themes (TMDB; needs TMDB_API_KEY)
+  if (p === '/api/commons' && req.method === 'GET') {
+    try { return send(res, 200, await require('../services/commons').photos(url.searchParams.get('q'))); }
+    catch (e) { return send(res, e.code || 502, { error: e.code ? e.message : "Couldn't reach Wikimedia Commons just now" }); }
+  }
+  if (p.startsWith('/api/commons/img/') && req.method === 'GET') return require('../services/commons').img(p.slice(17), res);
   if (p === '/api/tmdb/art' && req.method === 'GET') {
     try { return send(res, 200, await require('../services/tmdb').art(Object.fromEntries(url.searchParams))); }
     catch (e) { return send(res, e.code === 400 ? 400 : 502, { error: e.code === 400 ? e.message : "Couldn't reach TMDB just now" }); }

@@ -60,6 +60,8 @@ interface CadenceApiUi {
   closeTask(): void;
   colorMode(): 'dark' | 'light';
   setColorMode(m: string): void;
+  /** Settings, on a tab: 'general' | 'plugins' | 'connections' | 'dev' | 'data' */
+  openSettings(tab?: string): void;
   refreshWidgets(): void;
   pointer(): { x: number; y: number; [k: string]: any };
   faviconUrl(domain: string, v?: any): string;

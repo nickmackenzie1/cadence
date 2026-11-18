@@ -34,7 +34,14 @@
     if (window.WebKitPlaybackTargetAvailabilityEvent) audio.addEventListener('webkitplaybacktargetavailabilitychanged', e => { castOK = e.availability === 'available'; emit(); });
     else if (audio.remote && audio.remote.watchAvailability) audio.remote.watchAvailability(a => { castOK = !!a; emit(); }).catch(() => {});
     // the sound engine starts on a click: when even volume is on, the first Play builds it
-    audio.addEventListener('play', () => { if (level && window.CadencePodcasts) window.CadencePodcasts.analyser(); });
+    audio.addEventListener('play', () => { wake(); if (level && window.CadencePodcasts) window.CadencePodcasts.analyser(); });
+    // and if it still won't run while something plays, say so rather than playing silence
+    audio.addEventListener('playing', () => setTimeout(() => { if (actx && actx.state !== 'running' && !audio.paused) { wake();
+      setTimeout(() => { if (actx && actx.state !== 'running' && !audio.paused && P.toast) P.toast('Tap anywhere to turn the sound on'); }, 800); } }, 700));
+    const activated = () => !navigator.userActivation || navigator.userActivation.hasBeenActive;
+    // any click, tap or key wakes a paused sound engine (Safari only allows it inside one)
+    const wake = () => { if (actx && actx.state !== 'running') actx.resume().catch(() => {}); };
+    for (const ev of ['pointerdown', 'touchend', 'keydown']) addEventListener(ev, wake, { capture: true, passive: true });
     const own = u => { try { return new URL(u, location.href).origin === location.origin; } catch (e) { return true; } };
     const via = u => ((viz || actx) && u && !own(u) ? 'api/radio/stream?u=' + encodeURIComponent(u) : u);
     const setSrc = u => { const r = via(u); audio.crossOrigin = r && own(r) && (viz || actx) ? 'anonymous' : null; audio.src = r; };
@@ -71,7 +78,7 @@
         audio.addEventListener('loadedmetadata', seek); media();
         if (autoplay) audio.play().catch(() => {}); emit();
       },
-      play(e) { if (e) this.load(e, true); else if (cur) { if (!audio.src || cur.live) this.load(cur, true); else audio.play().catch(() => {}); } },
+      play(e) { wake(); if (e) this.load(e, true); else if (cur) { if (!audio.src || cur.live) this.load(cur, true); else audio.play().catch(() => {}); } },
       // radio: what's on now (KEXP), shown in the mini player and on the lock screen
       setNow(n) { if (!cur || !cur.live) return; cur.now = n || null; lsSet('current', cur); media(); emit(); },
       get failed() { return !!(audio.error && cur); },
@@ -83,6 +90,10 @@
       // the visualizer's ears: { an, anL, anR, ctx } (an for spectrum and wave, anL/anR for the VU needles)
       analyser() {
         if (!viz) return null;
+        // the browser only lets a sound engine start from a click or tap. One made earlier (a visualizer drawing as the
+        // page loads) stays paused, and since every sound goes through it, nothing could be heard anywhere (user,
+        // 2026-11-18: "the audio playing is also not working across the board"). So: wait for a click first.
+        if (!actx && !activated()) return null;
         if (!actx) {
           try {
             actx = new (window.AudioContext || window.webkitAudioContext)();
@@ -97,6 +108,7 @@
         return { an, anL, anR, ctx: actx };
       },
       get viz() { return viz; },
+      get engine() { return actx ? actx.state : null; },   // the sound engine: null (not made yet), 'running' or 'suspended'
       get level() { return level; },
       setLevel(on) { level = !!on; lsSet('level', level); if (level) { this.setViz(true); if (!audio.paused) this.analyser(); } setLevelNodes(); emit(); },
       // another speaker: AirPlay (Safari) or the Remote Playback picker (Chrome on Android: Cast)
@@ -266,6 +278,7 @@
     tagline: 'Your Pocket Casts shows, Up next and your place, with a player that keeps going everywhere.',
     description: 'Syncs with Pocket Casts from the NAS (add POCKETCASTS_EMAIL and POCKETCASTS_PASSWORD to the NAS .env). Resume where your phone left off; pausing here sends your place back. Works in Work and Life, and keeps playing when you switch space, view or tab.',
     setup(api) {
+      P.toast = m => api.ui.toast(m);
       const offMini = P.useMini(api);
       api.on('meeting:start', () => { if (!P.audio.paused) { const live = P.current && P.current.live; P.pause(); api.ui.toast((live ? 'Radio' : 'Podcast') + ' paused for your meeting'); } });
       let data = null, loading = false, notified = lsGet('seenNew', 0);

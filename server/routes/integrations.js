@@ -33,6 +33,12 @@ module.exports = async function integrationsRoutes(req, res, { url, p }) {
     const b = JSON.parse(await readBody(req, 16 * 1024));
     try { await cliqPost(b.text || ''); return send(res, 200, { ok: true }); } catch (e) { return send(res, 502, { error: e.message }); }
   }
+  // keys for outside services, pasted in Settings → Connections; never sent back, only whether each is set
+  if (p === '/api/keys' && req.method === 'GET') return send(res, 200, require('../lib/keys').list());
+  if (p === '/api/keys' && req.method === 'PUT') {
+    let b; try { b = JSON.parse(await readBody(req, 8 * 1024)); } catch { return send(res, 400, { error: 'Bad request' }); }
+    try { return send(res, 200, require('../lib/keys').set(String(b.id || ''), b.value)); } catch (e) { return send(res, e.code || 500, { error: e.message }); }
+  }
   if (p === '/api/recipe') {
     const u = String(url.searchParams.get('url') || '');
     if (!/^https?:\/\//i.test(u)) return send(res, 400, { error: 'Paste the recipe’s web address' });

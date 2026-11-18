@@ -1,6 +1,6 @@
 // Podcasts: Pocket Casts sync through the NAS (against a fake Pocket Casts here), the app-wide player that keeps
 // playing across views and space switches, resuming where the phone left off, and your place going back.
-import { test, expect } from '@playwright/test';
+import { test, expect, chromium } from '@playwright/test';
 import { createServer } from 'node:net';
 import http from 'node:http';
 import { spawn } from 'node:child_process';
@@ -104,4 +104,22 @@ test('the player: in the sidebar, tucked away, back again, and out of the way of
   await page.locator('#pc-mini [data-pc=place-float]').click();
   await expect(page.locator('html > #pc-mini')).toBeVisible();
   expect(errs).toEqual([]);
+});
+
+// user, 2026-11-18: "the audio playing is also not working across the board, podcasts previews etc". With the
+// visualizer or even volume on, all sound goes through a sound engine; one made before any click (a visualizer drawing
+// as the page loads) is held paused by the browser, so everything played silently. Real browsers' rule, here too:
+test('sound with the visualizer on, under the real autoplay rule: the engine waits for a click, and runs when you press Play', async () => {
+  const br = await chromium.launch({ args: ['--autoplay-policy=user-gesture-required'] }); const page = await br.newPage();
+  try {
+    const held = []; page.on('console', m => { if (/AudioContext was not allowed to start/i.test(m.text())) held.push(m.text()); });
+    // a reload with an episode already in the player: the mini player and its little visualizer draw straight away
+    await page.addInitScript(u => { localStorage.setItem('cadence.pc.viz', 'true'); localStorage.setItem('cadence.pc.level', 'true');
+      localStorage.setItem('cadence.pc.current', JSON.stringify({ uuid: 'e1', podcast: 'pod1', podcastTitle: 'Test Show', title: 'Brand new episode', url: u, duration: 30, position: 0 })); }, `http://localhost:${FAKE}/audio/e1.wav`);
+    // no scripting or waiting on the page here: Playwright's own checks count as clicks
+    await page.goto(B + '/#view-podcasts'); await page.waitForTimeout(3000);
+    expect(held).toEqual([]);   // the browser never had to hold a sound engine back
+    await page.locator('.pc-ep', { hasText: 'Brand new episode' }).first().locator('[data-act-pc=play]').click();
+    await expect.poll(() => page.evaluate(() => { const a = window.CadencePodcasts.analyser(); return a && a.ctx.state; })).toBe('running');
+  } finally { await br.close(); }
 });
