@@ -153,3 +153,8 @@ checking the code.
   - Naming songs on stations that send no titles: AcoustID can't do it (it only matches whole files, not a clip from
     the middle of a song: acoustid.org/faq). Services that can (AudD, ACRCloud) are paid with small free tiers; ask
     the user before adding a key.
+- Libraries picked (user, 2026-11-17), vendored in public/vendor, loaded only where used, no build step:
+  - SortableJS (MIT): touch dragging on phones for the kanban, lists and dashboard (about five places use native
+    drag now, which fingers can't do).
+  - uFuzzy (MIT, ~7 KB): typo-tolerant matching in ⌘K ("wnsdy" finds Wednesday).
+  - uPlot (MIT, ~50 KB): real axes and hover readouts for Your year and Radar's Rising charts (hand-drawn SVG now).
