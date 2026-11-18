@@ -46,10 +46,19 @@ module.exports = async function filesRoutes(req, res, { url, p }) {
     try { return send(res, 200, await require('../services/tmdb').art(Object.fromEntries(url.searchParams))); }
     catch (e) { return send(res, e.code === 400 ? 400 : 502, { error: e.code === 400 ? e.message : "Couldn't reach TMDB just now" }); }
   }
+  // the watch list: find a film or show, then one in full
+  if ((p === '/api/tmdb/find' || p === '/api/tmdb/title') && req.method === 'GET') {
+    try { const t = require('../services/tmdb'); return send(res, 200, await t[p.slice(10)](Object.fromEntries(url.searchParams))); }
+    catch (e) { return send(res, e.code === 400 ? 400 : 502, { error: e.code === 400 ? e.message : "Couldn't reach TMDB just now" }); }
+  }
   { const m = /^\/api\/tmdb\/img\/(w\d+)\/([^/]+)$/.exec(p); if (m && req.method === 'GET') return require('../services/tmdb').img(m[1], m[2], res); }
   // game pictures for themes (TheGamesDB; needs THEGAMESDB_API_KEY)
   if (p === '/api/gdb/art' && req.method === 'GET') {
     try { return send(res, 200, await require('../services/gamesdb').art(Object.fromEntries(url.searchParams))); }
+    catch (e) { return send(res, e.code === 400 ? 400 : 502, { error: e.code === 400 ? e.message : "Couldn't reach TheGamesDB just now" }); }
+  }
+  if (p === '/api/gdb/find' && req.method === 'GET') {
+    try { return send(res, 200, await require('../services/gamesdb').find(Object.fromEntries(url.searchParams))); }
     catch (e) { return send(res, e.code === 400 ? 400 : 502, { error: e.code === 400 ? e.message : "Couldn't reach TheGamesDB just now" }); }
   }
   if (p.startsWith('/api/gdb/img/') && req.method === 'GET') return require('../services/gamesdb').img(p.slice(13), res);

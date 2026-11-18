@@ -2038,6 +2038,8 @@
     '❤': 'heart',
     '📥': 'inbox',
     '🍳': 'cooking-pot',
+    '🎬': 'film',
+    '🎮': 'gamepad-2',
     '📍': 'map-pin',
     '🔁': 'repeat',
     '👵': 'user',

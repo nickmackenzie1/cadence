@@ -195,3 +195,10 @@ checking the code.
   or quick add, and errors. Pictures of every theme are in CI's "themes" artifact. Its KNOWN list holds ten themes whose
   unselected sidebar tiles are faint (2.5 to 3:1): XP, Minty, Quartz, Solar and six daisyUI ones. It already found two
   bugs: LimeWire's quick-add text stayed on every theme after it, and the quick-add hint was the browser's grey (gone on dark themes).
+
+- **Watch list** (public/plugins/watchlist.js, Life, 2026-11-18): "watch Dune", "see Severance" or "play Hades" in quick
+  add looks the title up (TMDB through /api/tmdb/find and /api/tmdb/title, TheGamesDB through /api/gdb/find, cached 30
+  days) and files it in a "Watch list" area with its poster, year and runtime, without a due date. The Watch list page
+  has posters of what's next, a search box with suggestions, and a shelf of what you've watched and played. The task's
+  card lists the other matches, plus "Not a film", which puts back what you typed. Next ideas from the same list: a
+  "Tonight" picker, quiet release reminders, a reward shelf, and a year in review.

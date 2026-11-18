@@ -53,6 +53,27 @@ async function art({ kind = 'game', q = '', platform = '' } = {}) {
   c[key] = { at: Date.now(), v }; try { fs.writeFileSync(CACHE(), JSON.stringify(c)); } catch {}
   return v;
 }
+// the watch list's "play Hades": games matching a name, with their box art, year and consoles (kept 30 days: the
+// monthly allowance is small, and a name is only looked up once)
+async function find({ q = '' } = {}) {
+  if (!on()) return { off: true };
+  q = String(q).trim().slice(0, 120); if (!q) throw Object.assign(new Error('Which game?'), { code: 400 });
+  const key = `find|${q.toLowerCase()}`, c = readCache();
+  if (c[key] && Date.now() - c[key].at < 30 * 86400e3) return c[key].v;
+  const s = await api('/Games/ByGameName', { name: q, fields: 'overview,platform', include: 'boxart,platform' });
+  const games = ((s.data && s.data.games) || []).slice(0, 20), inc = s.include || {};
+  const box = (inc.boxart && inc.boxart.data) || {}, plats = (inc.platform && (inc.platform.data || inc.platform)) || {};
+  const norm = x => String(x).toLowerCase().replace(/[^a-z0-9]/g, '');
+  // an exact name first, then the earliest (the original before its remasters)
+  games.sort((a, b) => (norm(b.game_title) === norm(q)) - (norm(a.game_title) === norm(q)) || String(a.release_date || '9').localeCompare(String(b.release_date || '9')));
+  const results = games.slice(0, 8).map(g => { const f = (box[g.id] || []).find(b => b.side === 'front');
+    const pl = plats[g.platform] && plats[g.platform].name;
+    return { id: g.id, type: 'game', title: g.game_title, year: String(g.release_date || '').slice(0, 4), platform: pl || '',
+      poster: f ? pic('medium/' + f.filename) : null, overview: String(g.overview || '').slice(0, 600), link: `https://thegamesdb.net/game.php?id=${g.id}` }; });
+  const v = { results };
+  const c2 = readCache(); c2[key] = { at: Date.now(), v }; try { fs.writeFileSync(CACHE(), JSON.stringify(c2)); } catch {}
+  return v;
+}
 // one picture, kept on the NAS after the first time (paths like original/fanart/121-1.jpg, original/clearlogo/121.png)
 async function img(rest, res) {
   const m = /^(original|large|medium|small)\/((?:platform\/)?(?:fanart|clearlogo|screenshots?|banners?|boxart\/front|boxart\/back)\/[A-Za-z0-9_-]{1,40}\.(?:jpg|jpeg|png|webp))$/.exec(rest);
@@ -68,4 +89,4 @@ async function img(rest, res) {
   res.writeHead(200, { 'Content-Type': type, 'Cache-Control': 'private, max-age=2592000', 'X-Content-Type-Options': 'nosniff' });
   res.end(buf);
 }
-module.exports = { on, art, img };
+module.exports = { on, art, img, find };

@@ -48,9 +48,45 @@ async function art({ type = 'movie', q = '', year = '' } = {}) {
   c[key] = { at: Date.now(), v }; try { fs.writeFileSync(CACHE(), JSON.stringify(c)); } catch {}
   return v;
 }
+// the watch list (user, 2026-11-18: "watch Dune" in quick add, and a Movies to watch page). Kept 30 days like art.
+const memo = async (key, fn) => {
+  const c = readCache(); if (c[key] && Date.now() - c[key].at < 30 * 86400e3) return c[key].v;
+  const v = await fn(); const c2 = readCache(); c2[key] = { at: Date.now(), v }; try { fs.writeFileSync(CACHE(), JSON.stringify(c2)); } catch {}
+  return v;
+};
+const yearOf = x => String(x.release_date || x.first_air_date || '').slice(0, 4);
+// films and shows matching what you typed, most likely first (TMDB's own order: by how well known they are)
+async function find({ q = '', type = '' } = {}) {
+  if (!on()) return { off: true };
+  q = String(q).trim().slice(0, 120); if (!q) throw Object.assign(new Error('Which title?'), { code: 400 });
+  const only = type === 'movie' || type === 'tv' ? type : '';
+  return memo(`find|${only}|${q.toLowerCase()}`, async () => {
+    const s = await api(only ? `/search/${only}` : '/search/multi', { query: q, include_adult: 'false' });
+    const results = (s.results || []).map(x => ({ ...x, media_type: x.media_type || only })).filter(x => x.media_type === 'movie' || x.media_type === 'tv').slice(0, 8).map(x => ({
+      id: x.id, type: x.media_type, title: x.title || x.name, year: yearOf(x), poster: x.poster_path ? `api/tmdb/img/w342${x.poster_path}` : null,
+      overview: String(x.overview || '').slice(0, 280) }));
+    return { results };
+  });
+}
+// one film or show in full: runtime (or seasons), genres, who made it, what it's about
+async function title({ type = 'movie', id = '' } = {}) {
+  if (!on()) return { off: true };
+  type = type === 'tv' ? 'tv' : 'movie'; id = String(id).replace(/\D/g, '').slice(0, 12);
+  if (!id) throw Object.assign(new Error('Which title?'), { code: 400 });
+  return memo(`title|${type}|${id}`, async () => {
+    const x = await api(`/${type}/${id}`, { append_to_response: 'credits' });
+    const by = type === 'tv' ? (x.created_by || []).map(c => c.name) : ((x.credits && x.credits.crew) || []).filter(c => c.job === 'Director').map(c => c.name);
+    const cast = ((x.credits && x.credits.cast) || []).slice(0, 4).map(c => c.name);
+    const rt = type === 'tv' ? ((x.episode_run_time || [])[0] || 0) : (x.runtime || 0);
+    return { id: x.id, type, title: x.title || x.name, year: yearOf(x), runtime: rt, seasons: type === 'tv' ? x.number_of_seasons || 0 : 0,
+      genres: (x.genres || []).map(g => g.name).slice(0, 3), by: by.slice(0, 2), cast, overview: String(x.overview || '').slice(0, 600),
+      tagline: String(x.tagline || '').slice(0, 160), poster: x.poster_path ? `api/tmdb/img/w342${x.poster_path}` : null,
+      link: `https://www.themoviedb.org/${type}/${x.id}` };
+  });
+}
 // one picture, kept on the NAS after the first time
 async function img(size, file, res) {
-  if (!['w300', 'w500', 'w780', 'w1280'].includes(size) || !/^[A-Za-z0-9_-]{6,64}\.(jpg|jpeg|png|webp)$/.test(file)) { res.writeHead(404); return res.end(); }
+  if (!['w185', 'w300', 'w342', 'w500', 'w780', 'w1280'].includes(size) || !/^[A-Za-z0-9_-]{6,64}\.(jpg|jpeg|png|webp)$/.test(file)) { res.writeHead(404); return res.end(); }
   const dir = path.join(DATA_DIR, 'tmdb-img'), f = path.join(dir, size + '_' + file);
   let buf; try { buf = fs.readFileSync(f); } catch {}
   if (!buf) {
@@ -63,4 +99,4 @@ async function img(size, file, res) {
   res.writeHead(200, { 'Content-Type': type, 'Cache-Control': 'private, max-age=2592000', 'X-Content-Type-Options': 'nosniff' });
   res.end(buf);
 }
-module.exports = { on, art, img };
+module.exports = { on, art, img, find, title };
