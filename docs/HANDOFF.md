@@ -340,3 +340,12 @@ Cleaned up 2026-11-16 (0.8.2): items already built were moved out after checking
   plugin storage `radarSection`). Cards are filed by their heading (FILE map in music-radar.js); the older fold-outs
   (data-more sources/scenes/record/settings) show with their section and open when chosen.
 - For you's genre weights now skip catch-all genres (the earlier edit hadn't applied).
+- (user, 2026-11-17) Move KEXP to its own database file once the full KEXP backfill is done.
+
+### Radar Rising redesign; deploy clears stuck recreates (2026-11-17, 0.27.2)
+- Rising leads with one ranked list "Who's climbing" (replaces the 6-line chart + Fastest risers table): rank,
+  play/save, artist + source logos, 14-day sparkline, week-ago → now bar, gain. Albums as a two-line ranked list;
+  genre bars in the accent colour with a visible zero line; source labels are inline chips (were full-width stripes);
+  fold-out headings hidden inside a section.
+- deploy.sh `clear_stale`: removes leftover `<id>_cadence` containers (a Compose recreate that stopped halfway)
+  before rebuilding or rolling back. Seen 2026-11-17; the user deleted it by hand and ensure_running restarted Cadence.

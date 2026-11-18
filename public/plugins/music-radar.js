@@ -229,13 +229,27 @@
               return list.length ? `<section class="mr-card w12 mr-want"><div class="mr-row" style="justify-content:space-between"><div><h3>Want to hear</h3><p class="mr-sub">What you saved, newest first</p></div>
                 <span class="mr-row"><button class="btn" id="mr-wantall">${ic('play')}Play all previews</button><a class="btn" href="#view-want">See all ${list.length}</a></span></div>
                 <ul class="mr-wl">${list.slice(0, 5).map(x => `<li>${pv(x.artist, x.title, x.type, x.from)} ${an(x.artist, true)}${x.title ? ' — ' + esc(x.title) : ''}</li>`).join('')}</ul></section>` : ''; })()}
-            <section class="mr-card w8"><h3>Who's climbing</h3><p class="mr-sub">${D.allSources ? 'Daily buzz from every source (blogs, KEXP, campus radio, charts, Bandcamp, Lemmy and Mastodon), last 14 days' : 'Daily buzz score, last 14 days'}: the 6 artists buzzing most right now.</p>
-              ${D.rise.top.length ? lineChart(D.rise.labels, D.rise.top.map(r => ({ label: r.artist, data: r.series })), { unit: 'buzz' }) : empty('Scan a few times to see trends.')}</section>
-            <section class="mr-card w4"><h3>Fastest risers</h3><p class="mr-sub">Buzz now vs a week ago${D.allSources ? ', and where it came from this week' : ''}</p>
-              ${risers.length ? `<table class="mr-t mr-rise"><tr><th>Artist</th><th class="n">Week ago</th><th class="n">Now</th></tr>${risers.map(r => { const where = (r.sources || []).slice(0, 2).join(', ') + ((r.sources || []).length > 2 ? ` and ${r.sources.length - 2} more` : ''), st = r.status === 'new' ? STATUS.new : '';   // only "new" is worth saying in a list of risers
-                return `<tr><td><div class="mr-rn">${pv(r.artist, null, null, 'Music Radar')}${an(r.artist, false)}</div>${st || where ? `<div class="mr-small mr-src" title="${esc((r.sources || []).join(', '))}">${(r.sources || []).slice(0, 2).map(nameLogo).join('')}${esc([st && st[0].toUpperCase() + st.slice(1), where].filter(Boolean).join(', from '))}</div>` : ''}</td><td class="n">${Math.round(r.weekAgo)}</td><td class="n">${Math.round(r.cur)}</td></tr>`; }).join('')}</table>` : empty('Nothing rising yet.')}</section>
+            ${(() => {
+              // Who's climbing (design pass, 2026-11-17): one ranked list instead of a tangled line chart beside a table.
+              // Each row: rank, play/save, the artist and where they're coming up, their 14-day buzz as a sparkline,
+              // a bar from a week ago to now, and how much they gained.
+              const seen = new Set(), list = [...D.rise.risers.filter(r => r.delta > 0), ...D.rise.top].filter(r => !seen.has(r.key) && seen.add(r.key)).sort((a, b) => b.delta - a.delta).slice(0, 10);
+              if (!list.length) return `<section class="mr-card w12 mr-climb"><h3>Who's climbing</h3>${empty('Scan a few times to see who is rising.')}</section>`;
+              const max = Math.max(1, ...list.map(r => Math.max(r.cur, r.weekAgo || 0)));
+              const spark = v => { const m = Math.max(1, ...v), n = v.length - 1 || 1, pts = v.map((x, i) => `${(i / n * 116 + 2).toFixed(1)},${(30 - x / m * 26).toFixed(1)}`);
+                return `<svg class="mr-spark" viewBox="0 0 120 32" aria-hidden="true"><polyline points="${pts.join(' ')}"/><circle cx="${pts[pts.length - 1].split(',')[0]}" cy="${pts[pts.length - 1].split(',')[1]}" r="2.6"/></svg>`; };
+              return `<section class="mr-card w12 mr-climb"><h3>Who's climbing</h3><p class="mr-sub">${D.allSources ? 'Buzz across every source (blogs, KEXP, campus radio, charts, Bandcamp, Lemmy and Mastodon)' : 'Buzz score'} over the last 14 days, ranked by how much it grew this week</p>
+                <ol class="mr-lad">${list.map((r, i) => `<li>
+                  <span class="mr-lad-n">${i + 1}</span>${pv(r.artist, null, 'artist', "Who's climbing")}
+                  <div class="mr-lad-a">${an(r.artist)}<span class="mr-lad-s">${(r.sources || []).slice(0, 5).map(nameLogo).join('')}<span>${esc((r.sources || []).slice(0, 2).join(', ') + ((r.sources || []).length > 2 ? ` and ${r.sources.length - 2} more` : ''))}</span>${r.status === 'new' ? `<span class="chip">${esc(STATUS.new || 'new')}</span>` : ''}</span></div>
+                  ${spark(r.series || [])}
+                  <div class="mr-lad-b" title="A week ago ${Math.round(r.weekAgo || 0)}, now ${Math.round(r.cur)}"><i class="was" style="width:${((r.weekAgo || 0) / max * 100).toFixed(1)}%"></i><i class="now" style="width:${(r.cur / max * 100).toFixed(1)}%"></i></div>
+                  <b class="mr-lad-d">+${Math.round(r.delta)}</b></li>`).join('')}</ol></section>`; })()}
             <section class="mr-card w6"><h3>Albums and EPs blowing up</h3><p class="mr-sub">${D.allSources ? 'Reviews, KEXP, campus radio, Bandcamp and community posts in the last 7 days' : 'Best buzz score in the last 7 days'}</p>
-              ${D.albums.length ? `<table class="mr-t"><tr><th>Release</th><th>Where</th><th class="n">Score</th></tr>${D.albums.map(a => `<tr><td>${pv(a.artist, a.album, a.type, 'Music Radar')} ${an(a.artist, false)} — ${a.link ? `<a href="${esc(a.link)}" target="_blank" rel="noopener">${esc(a.album)}</a>` : esc(a.album)}${a.type && a.type !== 'album' ? ` <span class="chip">${esc(a.type.toUpperCase() === 'EP' ? 'EP' : a.type)}</span>` : ''}</td><td class="mr-small">${(a.subs || []).map(x => nameLogo(x) + esc(x)).join(', ')}</td><td class="n">${Math.round(a.score)}</td></tr>`).join('')}</table>` : empty('No albums or EPs mentioned in the last week.')}</section>
+              ${D.albums.length ? `<ol class="mr-lad mr-alb">${D.albums.slice(0, 10).map((a, i) => `<li><span class="mr-lad-n">${i + 1}</span>${pv(a.artist, a.album, a.type, 'Music Radar')}
+                <div class="mr-lad-a"><span class="mr-alb-t">${a.link ? `<a href="${esc(a.link)}" target="_blank" rel="noopener">${esc(a.album)}</a>` : esc(a.album)}${a.type && a.type !== 'album' ? ` <span class="chip">${esc(a.type.toUpperCase() === 'EP' ? 'EP' : a.type)}</span>` : ''}</span>
+                  <span class="mr-lad-s">${an(a.artist, false)}<span>${esc((a.subs || []).slice(0, 3).join(', '))}</span></span></div>
+                <b class="mr-lad-d">${Math.round(a.score)}</b></li>`).join('')}</ol>` : empty('No albums or EPs mentioned in the last week.')}</section>
             <section class="mr-card w6"><h3>Genres blowing up</h3><p class="mr-sub">${D.allSources ? 'Every source: l' : 'L'}ast 7 days vs the weekly average of the 3 weeks before</p>${changeBars(D.genres)}</section>
             <section class="mr-card w12"><h3>Recent picks</h3><p class="mr-sub">Thumbs up and down teach the radar your taste</p>
               ${D.picks.length ? picks.map(p => `<div class="mr-pick">${artImg(p).replace('mr-art', 'mr-art big')}<div class="mr-pb">${p.artist ? an(p.artist) : ''} ${pv(p.artist, p.song, p.type, (p.subs || [])[0] || 'Music Radar')} — <a href="${esc(p.link)}" target="_blank" rel="noopener">${esc(p.song || 'recommended in comments')}</a>${p.type && p.type !== 'track' ? ` <span class="chip">${esc(p.type)}</span>` : ''}${relNote(p)}
@@ -312,7 +326,7 @@
             const nav = document.createElement('nav'); nav.className = 'mr-secs'; nav.setAttribute('aria-label', 'Radar sections');
             nav.innerHTML = SECS.filter(([k]) => k === 'all' || cards.some(c => c.dataset.sec === k)).map(([k, l, i]) => `<button class="mr-sec" data-sec="${k}" aria-pressed="${k === cur}">${ic(i)}${l}</button>`).join('');
             grid.parentNode.insertBefore(nav, grid);
-            const show = k => { cur = k; for (const c of cards) c.hidden = k !== 'all' && c.dataset.sec !== k; const MORE = { sources: 'sources', scenes: 'community', record: 'community', settings: 'about' }; for (const m of more) { const mine = MORE[m.dataset.more] || 'about'; m.hidden = k !== 'all' && mine !== k; if (k !== 'all' && mine === k) m.open = true; } nav.querySelectorAll('.mr-sec').forEach(b => b.setAttribute('aria-pressed', b.dataset.sec === k)); };
+            const show = k => { cur = k; el.classList.toggle('mr-sectioned', k !== 'all'); for (const c of cards) c.hidden = k !== 'all' && c.dataset.sec !== k; const MORE = { sources: 'sources', scenes: 'community', record: 'community', settings: 'about' }; for (const m of more) { const mine = MORE[m.dataset.more] || 'about'; m.hidden = k !== 'all' && mine !== k; if (k !== 'all' && mine === k) m.open = true; } nav.querySelectorAll('.mr-sec').forEach(b => b.setAttribute('aria-pressed', b.dataset.sec === k)); };
             nav.onclick = e => { const b = e.target.closest('.mr-sec'); if (!b) return; api.storage.set('radarSection', b.dataset.sec); show(b.dataset.sec); };
             show(cur);
           }
@@ -361,21 +375,32 @@
         .mr-ax{fill:var(--muted);font:10.5px Inter,system-ui}.mr-legend{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:12px;color:var(--muted);margin-top:6px}.mr-legend i{display:inline-block;width:14px;height:3px;border-radius:2px;margin-right:6px;vertical-align:middle}
         .mr-t{width:100%;border-collapse:collapse;font-size:13px;font-variant-numeric:tabular-nums}.mr-t th{text-align:left;font-weight:500;font-size:12px;color:var(--muted);padding:4px 6px;border-bottom:1px solid var(--line)}.mr-t td{padding:6px;border-bottom:1px solid var(--line);vertical-align:top}.mr-t .n{text-align:right}
         .mr-t a,.mr-pick a{color:var(--text);text-decoration:none}.mr-t a:hover,.mr-pick a:hover{text-decoration:underline}
-        .mr-bars{display:flex;flex-direction:column;gap:6px}.mr-bar{display:grid;grid-template-columns:minmax(0,9rem) 1fr 3.5rem;align-items:center;gap:8px;font-size:13px}
+        .mr-bars{display:flex;flex-direction:column;gap:8px}.mr-bar{display:grid;grid-template-columns:minmax(0,9rem) 1fr 3.5rem;align-items:center;gap:8px;font-size:13px}
         .mr-bl{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.mr-bv{text-align:right;color:var(--muted);font-variant-numeric:tabular-nums}
-        .mr-bt{position:relative;height:12px;border-radius:3px;background:color-mix(in srgb,var(--text) 5%,transparent)}.mr-bt i{position:absolute;top:0;bottom:0;border-radius:3px}.mr-bt i.up{background:#3b82f6}.mr-bt i.dn{background:#a3a3a3}
+        .mr-bt{position:relative;height:10px;border-radius:999px;background:var(--hover)}.mr-bt::before{content:'';position:absolute;left:25%;top:-3px;bottom:-3px;width:1px;background:color-mix(in srgb,var(--text) 30%,transparent)}.mr-bt i{position:absolute;top:0;bottom:0;border-radius:999px}.mr-bt i.up{background:var(--accent)}.mr-bt i.dn{background:color-mix(in srgb,var(--text) 25%,transparent)}
         .mr-graph{width:100%;height:auto;display:block}.mr-edge{stroke:var(--line)}.mr-node{fill:#3b82f6;stroke:var(--panel);stroke-width:2}.mr-node.liked{stroke:#f97316;stroke-width:3}.mr-gl{fill:var(--muted);font:11px Inter,system-ui;pointer-events:none}
         .mr-pick{display:flex;gap:10px;padding:10px 0;border-bottom:1px solid var(--line)}
         .mr-more{margin-top:16px;border-top:1px solid var(--line);padding-top:10px}.mr-more>summary{cursor:pointer;display:flex;flex-direction:column;gap:2px;padding:6px 0;list-style:none}
         .mr-more>summary::-webkit-details-marker{display:none}.mr-more>summary b::before{content:'+ ';color:var(--muted)}.mr-more[open]>summary b::before{content:'– '}.mr-more>.mr-grid{margin-top:10px}
-        .mr-src{display:block;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+        .mr-src{display:inline-flex;align-items:center;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin:1px 3px 1px 0}
         .mr-rise{table-layout:fixed;width:100%} .mr-rise td:first-child{overflow:hidden} .mr-rise th:not(:first-child),.mr-rise td:not(:first-child){width:4.2em}
         .mr-src .cx-logo,.mr-small .cx-logo,.mr-chip .cx-logo{margin-right:4px;vertical-align:-2px} .mr-tabs .cx-logo{margin-right:5px;vertical-align:-2px}
         .mr-home{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:18px} .mr-home h4{margin:4px 0 0}
         .mr-secs{position:sticky;top:0;z-index:2;display:flex;gap:6px;flex-wrap:wrap;padding:8px 0;margin:4px 0 10px;background:color-mix(in srgb,var(--bg) 88%,transparent);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)}
         .mr-sec{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:var(--panel);color:var(--text);border-radius:999px;padding:6px 14px;font:inherit;font-size:13px;cursor:pointer}
         .mr-sec svg{width:14px;height:14px;color:var(--muted)} .mr-sec[aria-pressed=true]{background:var(--accent-soft);border-color:transparent;color:var(--accent)} .mr-sec[aria-pressed=true] svg{color:var(--accent)}
-        .mr-card[hidden]{display:none!important}
+        .mr-card[hidden],.mr-more[hidden]{display:none!important}
+        .mr-sectioned .mr-more{margin-top:0;border-top:0;padding-top:0} .mr-sectioned .mr-more>summary{display:none}
+        .mr-lad{list-style:none;margin:8px 0 0;padding:0;display:flex;flex-direction:column}
+        .mr-lad li{display:grid;grid-template-columns:22px auto minmax(0,1fr) 124px minmax(90px,170px) 48px;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--line)} .mr-lad li:last-child{border-bottom:0}
+        .mr-lad-n{font-variant-numeric:tabular-nums;color:var(--muted);font-size:13px;text-align:right}
+        .mr-lad-a{display:flex;flex-direction:column;min-width:0} .mr-lad-a .ar-link{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+        .mr-lad-s{display:flex;align-items:center;gap:3px;font-size:12px;color:var(--muted);min-width:0} .mr-lad-s>span:not(.chip){overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-left:3px} .mr-lad-s .cx-logo{margin:0}
+        .mr-spark{width:120px;height:32px} .mr-spark polyline{fill:none;stroke:var(--accent);stroke-width:1.8;stroke-linejoin:round;stroke-linecap:round} .mr-spark circle{fill:var(--accent)}
+        .mr-lad-b{position:relative;height:8px;border-radius:999px;background:var(--hover)} .mr-lad-b i{position:absolute;left:0;top:0;bottom:0;border-radius:999px} .mr-lad-b .now{background:var(--accent)} .mr-lad-b .was{background:color-mix(in srgb,var(--text) 22%,transparent);z-index:1;height:100%}
+        .mr-lad-d{font-variant-numeric:tabular-nums;text-align:right;color:var(--accent);font-size:14px}
+        .mr-alb li{grid-template-columns:22px auto minmax(0,1fr) 40px} .mr-alb-t{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap} .mr-alb .mr-lad-s .ar-link{color:var(--muted)} .mr-alb .mr-lad-d{color:var(--muted)}
+        @media (max-width:760px){.mr-lad li{grid-template-columns:22px auto minmax(0,1fr) 44px} .mr-spark,.mr-lad-b{display:none}}
         .mr-fyl.mr-one{grid-template-columns:1fr} .mr-card h3 svg{width:16px;height:16px;vertical-align:-2px;margin-right:6px;color:var(--muted)}
         .mr-fyl{list-style:none;margin:6px 0 4px;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:8px 18px}
         .mr-fyl li{display:flex;align-items:center;gap:8px;min-width:0} .mr-fyt{flex:1;min-width:0;display:flex;flex-direction:column} .mr-fyt .ar-link{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}

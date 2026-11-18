@@ -50,7 +50,7 @@ test('For you learns from what you follow and play; Not for me hides and undoes'
   // sections: For you first; Rising shows the risers and hides For you; the choice is remembered
   await expect(page.locator('.mr-sec[aria-pressed=true]')).toHaveText('For you');
   await page.locator('.mr-sec[data-sec=rising]').click();
-  await expect(page.locator('.mr-card', { hasText: 'Fastest risers' })).toBeVisible();
+  await expect(page.locator('.mr-card', { hasText: "Who's climbing" })).toBeVisible();
   await expect(fy).toBeHidden();
   await page.reload(); await page.evaluate(() => { location.hash = 'view-radar'; });
   await expect(page.locator('.mr-sec[aria-pressed=true]')).toHaveText('Rising');

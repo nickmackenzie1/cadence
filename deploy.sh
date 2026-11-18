@@ -61,6 +61,13 @@ fix_owner(){
     if [ -n "$(find "$d" ! -user 1000 -print -quit 2>/dev/null)" ]; then chown -R 1000:1000 "$d" && log "gave $d/ to the app user"; fi
   done
 }
+# a recreate that stopped halfway leaves the old container renamed "<id>_cadence" (2026-11-17); then compose can't
+# make a new "cadence", and healthy() (which asks "cadence") never sees it. Clear those leftovers before building.
+clear_stale(){
+  for c in $(docker ps -a --format '{{.Names}}' | grep -E '^[0-9a-f]{12}_cadence$'); do
+    docker rm -f "$c" >/dev/null 2>&1 && log "removed a leftover container from a stopped update ($c)"
+  done
+}
 # wait for the new container to answer (up to ~90s)
 healthy(){
   i=0
@@ -145,6 +152,7 @@ fix_owner
 
 if [ "$REBUILD" = yes ]; then
   log "deploy $(echo "$NEW" | cut -c1-7): rebuilding container"
+  clear_stale
   if dc up -d --build --remove-orphans >> "$LOG" 2>&1 && healthy; then
     log "rebuild ok"; rm -f .deploy-bad; mark_env
     log "app runs as: $(docker exec cadence stat -c %U /proc/1 2>/dev/null || echo unknown)$(docker logs cadence 2>&1 | grep -m1 'staying root' | sed 's/^cadence: / — /')"
@@ -153,6 +161,7 @@ if [ "$REBUILD" = yes ]; then
     echo "$NEW" > .deploy-bad
     log "NEW VERSION DIDN'T START — rolling back to $(echo "$OLD" | cut -c1-7)"
     g reset -q --hard "$OLD"
+    clear_stale
     dc up -d --build --remove-orphans >> "$LOG" 2>&1 && healthy && log "rollback ok" || log "ROLLBACK FAILED — check docker logs cadence"
   else
     log "REBUILD FAILED — see above"

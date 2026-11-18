@@ -29,7 +29,7 @@ test('Music Radar view: charts, picks, thumbs, and no Reddit anywhere', async ({
   await expect(page.locator('.mr-chart svg polyline').first()).toBeAttached({ timeout: 15000 }).catch(async e => {
     throw new Error(e.message + '\nWho\'s climbing card: ' + await page.locator('.mr-card').first().innerText().catch(() => '(none)')); });
   await expect(page.locator('.mr-graph circle').first()).toBeAttached();
-  await expect(page.locator('.mr-card').filter({ hasText: 'Fastest risers' })).toContainText('Glass Lantern');
+  await expect(page.locator('.mr-card').filter({ hasText: "Who's climbing" })).toContainText('Glass Lantern');
   // off by default; nothing in the UI uses emoji
   await expect(page.locator('#mr-on')).not.toBeChecked();
   expect(await page.locator('#view-radar, .mr-grid').first().innerText()).not.toMatch(/\p{Extended_Pictographic}/u);
