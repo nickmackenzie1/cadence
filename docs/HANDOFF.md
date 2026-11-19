@@ -394,3 +394,23 @@ checking the code.
   copyrighted, so this is our own grumpy coal heap with a flame crown: sparks, fire run along the floor, heat that melts
   the page; fire only tickles him, Frostbite hurts and steams, and he shrinks as he's put out). Bosses now answer
   `hitTest(x, y, r)` and `aim()`, so a boss can be several targets (the zombies). `HavocFight.debug.boss(kind)` jumps to one.
+- **Physics engine review (2026-11-19, user: "take a look at the physics engine… give me a list").** Measured on the
+  demo Today page (891 letters, headless Chromium without a GPU, so absolute numbers are low): the page alone 60 fps;
+  Havoc on and still ~27 fps; after Collapse ~22; blasting the pile ~11 (worst frames 200 ms). Most of the time is the
+  browser restyling and compositing ~900 transformed letter divs each frame ("program" in the profile), then
+  elementsFromPoint in dent(), then Matter's solver. Ideas, roughly by payoff:
+  Speed: (1) draw letters on one canvas (a glyph sprite per character and style, drawImage with rotation) instead of a
+  div each; (2) a fixed 60 Hz physics step with an accumulator (smoother, steadier stacks); (3) spatial lookups
+  (Matter's grid / a simple bucket grid) for bodiesNear, black holes and knock, no array copies per frame; (4) sprite
+  particles instead of shadowBlur and a gradient per particle; (5) cache the boxes dent() pushes instead of
+  elementsFromPoint ×28 per blast; (6) letters that settle go back to sleep and aren't touched.
+  Feel: (7) words hold together as one body until a hit is hard enough to break them into letters; (8) the page's
+  cards become shelves the letters land on, and a big blast knocks the card loose too; (9) weight by size: headings
+  heavy, small print light, bold a bit heavier; (10) images shatter into pieces on a blast instead of flying whole;
+  (11) Restore rewinds: every letter flies back to its place instead of snapping; (12) soft ticks when letters land,
+  louder for harder hits, with Havoc's own synth.
+  Together with Elements: (13) two-way: letters float on Elements water, catch fire from Elements fire and burn to ash,
+  get eaten by acid (needs the Elements worker to answer "what's at these points" a few times a second);
+  (14) lava pushes letters as it flows.
+  Fixes: (15) resizing the window restarts Havoc and loses the mess: move the walls instead; (16) screen shake ignores
+  "reduce motion"; (17) touch: two fingers to throw, and a long press to grab on the iPhone.
