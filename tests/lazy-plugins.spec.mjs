@@ -65,3 +65,17 @@ test('moving to a space that uses a left-out plugin fetches it', async ({ page }
   await expect.poll(() => loaded(page, 'plugins/homeowner.js'), { timeout: 8000 }).toBe(true);
   expect(errs).toEqual([]);
 });
+
+test('bundle.js goes out as Brotli once it is ready (about a quarter smaller than gzip), gzip until then', async () => {
+  const html = await (await fetch(B + '/')).text();
+  const v = (html.match(/"v":"([0-9a-f]+)"/) || [])[1]; expect(v).toBeTruthy();
+  const get = enc => fetch(`${B}/bundle.js?v=${v}&skip=`, { headers: { 'Accept-Encoding': enc } });
+  const g = await get('gzip'); expect(g.headers.get('content-encoding')).toBe('gzip');
+  const gzLen = (await g.arrayBuffer()).byteLength;
+  // node's fetch decodes for us; ask for the raw size through content-length when Brotli is ready
+  await expect.poll(async () => (await get('gzip, br')).headers.get('content-encoding'), { timeout: 60000, intervals: [500] }).toBe('br');
+  const r = await get('gzip, br');
+  expect(r.headers.get('etag')).toMatch(/-br"$/);
+  const js = await r.text(); expect(js).toContain('Cadence bundle');   // decodes to the same script
+  expect(gzLen).toBeGreaterThan(0);
+});

@@ -9,7 +9,7 @@
      Life spaces from this browser's saved copy, and leaves out files whose plugins are all off in both. core.js adds
      those plugins to Settings → Plugins as placeholders and fetches bundle.js?only=<file> the moment one is switched on.
    - files other code leans on (ALWAYS) are never left out.
-   Gzipped once per combination, cached by the browser until a file changes (new hash).
+   Gzipped and Brotli'd once per combination (off the main thread), cached by the browser until a file changes (new hash).
    Opening the app with ?nobundle, or CADENCE_BUNDLE=0 in the NAS .env, serves the plain tags for debugging.
    Nothing to build or commit: it's assembled from public/ in memory, rebuilt when a file's size or time changes. */
 const fs = require('fs');
@@ -23,7 +23,7 @@ const BLOCK = /<!-- bundle -->([\s\S]*?)<!-- \/bundle -->/;
 // provide globals other code uses (island toasts, the date picker, templates, chase/recap/prep, weather, the Life kit)
 const ALWAYS = new Set(['plugins/podcasts.js', 'plugins/visualizer.js', 'plugins/island.js', 'plugins/datepick.js', 'plugins/templates.js', 'plugins/chase.js', 'plugins/recap.js', 'plugins/prep.js', 'plugins/weather.js', 'plugins/life-kit.js']);
 const META = ['id', 'name', 'version', 'icon', 'color', 'category', 'tagline', 'description', 'spaces', 'builtin'];
-let cache = null; // { sig, hash, files: [[src, code]], manifest, out: Map(key → { js, gz, etag }) }
+let cache = null; // { sig, hash, files: [[src, code]], manifest, out: Map(key → { js, gz, br, etag }) }
 
 const enabled = url => process.env.CADENCE_BUNDLE !== '0' && !url.searchParams.has('nobundle');
 const srcsOf = html => { const m = html.match(BLOCK); return m ? [...m[1].matchAll(/<script src="([^"]+)"><\/script>/g)].map(x => x[1]) : null; };
@@ -69,7 +69,13 @@ function jsFor(b, { skip = [], only = null } = {}) {
   const files = b.files.filter(([s]) => (on ? on.has(s) : !sk.has(s)));
   const js = Buffer.from(`/* Cadence bundle: ${files.length} files${sk.size ? `, ${sk.size} switched-off plugin files left out` : ''}, see server/lib/bundle.js */\n`
     + `(function(F){for(var i=0;i<F.length;i++){var s=document.createElement('script');s.dataset.src=F[i][0];s.text=F[i][1]+'\\n//# sourceURL='+F[i][0];document.body.appendChild(s);}})(${JSON.stringify(files)});\n`);
-  hit = { js, gz: zlib.gzipSync(js, { level: 6 }), etag: `"${b.hash}-${crypto.createHash('sha1').update(key).digest('hex').slice(0, 8)}"` };
+  // compressed off the main thread (zlib's own threads), so a new combination never holds up other requests: gzip
+  // first (quick), then Brotli at its best setting (2026-11-18: about a quarter smaller than gzip for this code, but
+  // seconds to make, so it's made once per combination and used once it's ready)
+  hit = { js, gz: null, br: null, etag: `"${b.hash}-${crypto.createHash('sha1').update(key).digest('hex').slice(0, 8)}"` };
+  const h = hit;
+  h.gzP = new Promise(r => zlib.gzip(js, { level: 6 }, (e, out) => { h.gz = e ? null : out; r(h.gz); }));
+  h.gzP.then(() => zlib.brotliCompress(js, { params: { [zlib.constants.BROTLI_PARAM_QUALITY]: 11, [zlib.constants.BROTLI_PARAM_SIZE_HINT]: js.length, [zlib.constants.BROTLI_PARAM_MODE]: zlib.constants.BROTLI_MODE_TEXT } }, (e, out) => { if (!e) h.br = out; }));
   if (b.out.size > 40) b.out.clear();
   b.out.set(key, hit);
   return hit;
@@ -97,16 +103,19 @@ function page(html, url) {
 }
 
 // GET bundle.js[?skip=a,b | ?only=a] — immutable when asked for by the current hash, otherwise revalidate
-function serve(req, res, url) {
+async function serve(req, res, url) {
   let html; try { html = fs.readFileSync(path.join(PUBLIC_DIR, 'index.html'), 'utf8'); } catch (e) { res.writeHead(404); return res.end(); }
   const b = build(srcsOf(html) || []), list = k => (url.searchParams.get(k) || '').split(',').filter(Boolean);
   const out = jsFor(b, url.searchParams.has('only') ? { only: list('only') } : { skip: list('skip') });
   const head = { 'Content-Type': 'text/javascript; charset=utf-8', ETag: out.etag, Vary: 'Accept-Encoding', 'X-Content-Type-Options': 'nosniff',
     'Cache-Control': url.searchParams.get('v') === b.hash ? 'private, max-age=31536000, immutable' : 'no-cache' };
-  if (req.headers['if-none-match'] === out.etag) { res.writeHead(304, head); return res.end(); }
-  const gz = /\bgzip\b/.test(req.headers['accept-encoding'] || '');
+  const inm = req.headers['if-none-match'] || '';
+  if (inm === out.etag || inm === out.etag.slice(0, -1) + '-br"') { res.writeHead(304, head); return res.end(); }
+  const ae = req.headers['accept-encoding'] || '';
+  if (/\bbr\b/.test(ae) && out.br) { res.writeHead(200, { ...head, ETag: out.etag.slice(0, -1) + '-br"', 'Content-Encoding': 'br' }); return res.end(out.br); }
+  const gz = /\bgzip\b/.test(ae) && await out.gzP;
   res.writeHead(200, gz ? { ...head, 'Content-Encoding': 'gzip' } : head);
-  res.end(gz ? out.gz : out.js);
+  res.end(gz || out.js);
 }
 
 module.exports = { page, serve, build, srcsOf, ALWAYS };
