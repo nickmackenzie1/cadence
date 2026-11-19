@@ -222,3 +222,7 @@ checking the code.
   - a vampire cat that flies around trying to bite the wizard
   - when the dragon comes out, a wizard comes out too and fights it with fireballs from his staff; after a random
     number of hits the dragon is beaten and the next boss comes out, wrecking more of the screen each round.
+  - Built 2026-11-18 as "Wizard vs bosses" (public/plugins/havoc-fight.js, game in public/vendor/havoc-fight.js; Shift+F or
+    ⌘K). The bosses take turns: Dragon, Vampire cat, Blobby, then again angrier. Round 1 scorches, round 2 knocks bits
+    crooked and chars them, round 3 on makes them fall. Fire is real Elements fire when the effects layer is on. Esc
+    restores. Still to do: Havoc's own toolbar has no button for it, and the dragon in the item above is separate.
