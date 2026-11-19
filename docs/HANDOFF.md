@@ -308,3 +308,12 @@ checking the code.
   nothing on the NAS, check the page's markup against `parseSpinitron` / `parseWfuv`. Entries older than 20 minutes
   aren't shown as playing now. Overrides for testing: WXYC_API, WFUV_PLAYLIST, SPINITRON_WIDGETS. Any other Spinitron
   station can use the same `spinitron:` source.
+- **Built (2026-11-19): Hockey on the Island** (`public/plugins/hockey.js`, `server/services/nhl.js`, `/api/nhl?team=TOR`).
+  Off until switched on (⌘K "Hockey on the Island…" or the plugin's settings); the choice is per device
+  (localStorage `cadence.hockey`: on, team, sound). The NAS reads the NHL's public feed (api-web.nhle.com
+  `/v1/score/now`, and `/v1/club-schedule/<TEAM>/week/now` for the next game), kept 15 s during a game and 10 minutes
+  otherwise; NHL_API points at a stand-in for tests. While the game is in warm-up or on, the Island holds
+  "BOS 1 · TOR 2 · 2nd 08:01" (away first). A goal for your team lifts the Island in blue with the scorer and a horn
+  synthesised with Web Audio (no sound file); goals against only change the score. No horn in a meeting or when the
+  tab is hidden. One note at the final. Remembered per game, so reloading doesn't sound the horn again. Team names
+  only, no logos. Pick any of the 32 teams.

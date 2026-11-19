@@ -21,6 +21,12 @@ module.exports = async function lookupRoutes(req, res, { url, p }) {
     catch (e) { return send(res, e.status === 429 ? 429 : 502, { error: e.message }); }
   }
 
+  // NHL scores for the Island (Leafs by default): the NHL's public feed, kept briefly on the NAS
+  if (p === '/api/nhl') {
+    try { return send(res, 200, await require('../services/nhl').now(url.searchParams.get('team') || 'TOR')); }
+    catch (e) { return send(res, e.status || 502, { error: e.message }); }
+  }
+
   if (p === '/api/favicon') {
     const d = String(url.searchParams.get('d') || '').toLowerCase();
     if (!DOMAIN_RE.test(d)) return send(res, 400, { error: 'Bad domain' });
