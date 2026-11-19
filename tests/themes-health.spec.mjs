@@ -19,16 +19,6 @@ const freePort = () => new Promise(r => { const s = createServer().listen(0, () 
 const KNOWN = {
   // from the first run (2026-11-18): the unselected sidebar tiles (Upcoming, Waiting…) sit at 2.5 to 3:1 in these
   // themes' own palettes (their --muted on --side). Readable, just faint. Fix the colour, then take the line out.
-  'xp': ['sidebar label'],
-  'daisy-winter': ['sidebar label'],
-  'daisy-silk': ['sidebar label'],
-  'daisy-caramellatte': ['sidebar label'],
-  'bootswatch-solar': ['sidebar label'],
-  'bootswatch-quartz': ['sidebar label'],
-  'bootswatch-minty': ['sidebar label'],
-  'daisy-emerald': ['sidebar label'],
-  'daisy-retro': ['sidebar label'],
-  'daisy-valentine': ['sidebar label'],
 };
 
 let server, dir, B;

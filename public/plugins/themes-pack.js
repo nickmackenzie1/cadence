@@ -82,7 +82,9 @@
       :skin .wrap{background:#ece9d8;margin:22px auto 40px;padding:48px 26px 48px;position:relative;border:3px solid #0831d9;border-top:0;border-radius:8px 8px 0 0}
       :skin .wrap::before{${TITLEBAR('linear-gradient(#0997ff,#0053ee 8%,#0050ee 40%,#06f 88%,#06f 93%,#005bff 95%,#003dd7 96%,#003dd7)', 'Cadence', 28)};left:-3px;right:-3px;top:0;border-radius:8px 8px 0 0;font:700 13px Trebuchet MS,Tahoma;text-shadow:1px 1px #0f1089;padding-left:10px}
       :skin .wrap::after{content:'✕';position:absolute;right:4px;top:4px;width:21px;height:21px;border:1px solid #fff;border-radius:3px;background:radial-gradient(circle at 90% 90%,#cc4600,#dc6527 55%,#e1a28a);color:#fff;font:700 12px/19px Tahoma;text-align:center}
-      :skin .side{background:linear-gradient(180deg,#7ba2e7,#6375d6);color:#fff;--text:#fff;--muted:#e8eeff;--faint:#c8d4f6;--hover:rgba(255,255,255,.15)}
+      :skin .side{background:linear-gradient(180deg,#5a86d8,#4058c2);color:#fff;--text:#fff;--muted:#eef2ff;--faint:#c8d4f6;--hover:rgba(255,255,255,.15)}
+      /* white on the old light blue was too faint (theme check, 2026-11-18); the selected space and the counts were white on white */
+      :skin .side [data-act=space].on{color:#0a246a} :skin .side .ntile .n{background:#0a246a;color:#fff}
       :skin .nav a.on{background:rgba(255,255,255,.25)}
       :skin .btn{background:linear-gradient(180deg,#fff,#ecebe6 86%,#d6d0c5);border:1px solid #003c74;border-radius:3px;color:#000}
       :skin .btn:hover{box-shadow:inset -1px 1px #fff0cf,inset 1px 2px #fdd889,inset -2px 2px #fbc761,inset 2px -2px #e5a01a}
