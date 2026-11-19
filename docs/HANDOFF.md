@@ -210,7 +210,8 @@ checking the code.
   add looks the title up (TMDB through /api/tmdb/find and /api/tmdb/title, TheGamesDB through /api/gdb/find, cached 30
   days) and files it in a "Watch list" area with its poster, year and runtime, without a due date. The Watch list page
   has posters of what's next, a search box with suggestions, and a shelf of what you've watched and played. The task's
-  card lists the other matches, plus "Not a film", which puts back what you typed. Next ideas from the same list: a
+  card lists the other matches, plus "Not a film", which puts back what you typed. Works in both spaces since 2026-11-18 (each
+  space has its own list), and every "added" toast has See the list. Next ideas from the same list: a
   "Tonight" picker, quiet release reminders, a reward shelf, and a year in review.
 - Artist pages: show an artist's albums like Cover Flow or flipping through a record-shop bin, instead of a plain list (user, 2026-11-18).
 - Havoc (user, 2026-11-18): a dragon that flies around the page and sets things on fire (its fire is Elements fire, so

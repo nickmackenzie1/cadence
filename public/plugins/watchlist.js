@@ -1,4 +1,5 @@
-/* Watch list (Life; user, 2026-11-18: "i would love a movies to watch section").
+/* Watch list (user, 2026-11-18: "i would love a movies to watch section"). Works in both spaces (user, same day:
+   "watch Jurassic Park" should just add the film, wherever you type it); each space keeps its own list.
    - Quick add: "watch Dune" or "see Severance" adds a film or show, "play Hades" a game. Cadence finds it (TMDB for
      films and shows, TheGamesDB for games, both through the NAS) and the task gets its poster or box art, year and
      runtime. It goes in a "Watch list" area, so it stays out of your Inbox.
@@ -16,7 +17,7 @@
   const hm = m => !m ? '' : m < 60 ? m + 'm' : Math.floor(m / 60) + 'h' + (m % 60 ? ' ' + (m % 60) + 'm' : '');
 
   Cadence.registerPlugin({
-    id: 'watchlist', name: 'Watch list', version: '1.0.0', category: 'Life', spaces: ['life'],
+    id: 'watchlist', name: 'Watch list', version: '1.0.0', category: 'Life',
     description: 'Type "watch Dune" or "play Hades" in quick add: it lands in your Watch list with its poster or box art, year and runtime (from TMDB and TheGamesDB). A page of posters of what to watch next, and a shelf of everything you\'ve watched and played.',
     tagline: 'Films, shows and games to get to', color: '#7c3aed', icon: FILM,
     setup(api) {
@@ -71,6 +72,8 @@
         api.tasks.update(id, { title: full.title, media: pack(t.media.kind, full, t.media.alts && t.media.alts.length ? [...t.media.alts, { id: t.media.id, type: t.media.type, title: t.media.title, year: t.media.year, poster: t.media.poster, platform: t.media.platform }] : []) });
       };
       const notMedia = id => { const t = api.tasks.get(id); if (!t) return; const a = area(false); api.tasks.update(id, { media: null, ...(t.wlSaid ? { title: t.wlSaid } : {}), ...(t.clientId && t.clientId === a ? { clientId: null } : {}) }); api.ui.toast('Kept as an ordinary task'); };
+      // every "added" toast says where it went (user: "right now i don't know where to go")
+      const SEE = { label: 'See the list', run: () => api.ui.navigate('view-watch') };
       const fill = async (t, q) => {
         const kind = t.media.kind;
         let d; try { d = await look(kind, q); } catch { d = { failed: true }; }
@@ -78,8 +81,9 @@
         const res = (d && d.results) || [];
         if (d.off || d.failed || !res.length) {
           api.tasks.update(t.id, { media: { kind, title: q, pending: false } });
-          if (d.failed) api.ui.toast(`Added to your watch list. ${kind === KIND.game ? 'TheGamesDB' : 'TMDB'} didn't answer, so it has no picture yet`);
-          else if (!d.off) api.ui.toast(`Added to your watch list. Nothing called "${q}" turned up, so it has no picture`, [{ label: 'Not for the list', run: () => notMedia(t.id) }]);
+          if (d.failed) api.ui.toast(`Added ${q} to your Watch list. ${kind === KIND.game ? 'TheGamesDB' : 'TMDB'} didn't answer, so it has no picture yet`, [SEE]);
+          else if (!d.off) api.ui.toast(`Added to your Watch list. Nothing called "${q}" turned up, so it has no picture`, [SEE, { label: 'Not for the list', run: () => notMedia(t.id) }]);
+          else api.ui.toast(`Added ${q} to your Watch list`, [SEE, { label: kind === KIND.game ? 'Not a game' : 'Not a film', run: () => notMedia(t.id) }]);
           return;
         }
         // the closest name first; otherwise how well known it is (the order the service gave)
@@ -88,8 +92,8 @@
         if (!api.tasks.get(t.id)) return;
         api.tasks.update(t.id, { title: full.title, media: pack(kind, full, res) });
         const what = `${full.title}${full.year ? ' (' + full.year + ')' : ''}`;
-        api.ui.toast(`Added ${what} to your watch list`, [
-          ...(res.length > 1 ? [{ label: 'Not this one', run: () => { api.ui.openTask(t.id); } }] : []),
+        api.ui.toast(`Added ${what} to your Watch list`, [
+          SEE, ...(res.length > 1 ? [{ label: 'Not this one', run: () => { api.ui.openTask(t.id); } }] : []),
           { label: kind === KIND.game ? 'Not a game' : 'Not a film', run: () => notMedia(t.id) }]);
       };
       api.on('task:add', t => {
@@ -172,6 +176,7 @@
         else if (nas()) fill({ ...t, media: { kind } }, q);
       };
       api.views.add({ id: 'watch', title: 'Watch list', icon: '🎬', subtitle: 'Films, shows and games to get to, and what you\'ve watched', wide: true, render: el => render(el) });
+      api.commands.add({ title: 'Watch list: films, shows and games to get to', icon: 'film', run: () => api.ui.navigate('view-watch') });
       api.search.add(q => q.length < 2 ? [] : items(false).concat(items(true)).filter(t => norm(t.title).includes(norm(q))).slice(0, 5)
         .map(t => ({ title: t.title, k: t.done ? (t.media.kind === 'game' ? 'Played' : 'Watched') : 'Watch list', run: () => api.ui.openTask(t.id) })));
 

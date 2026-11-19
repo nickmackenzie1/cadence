@@ -17,8 +17,9 @@ test.beforeAll(async () => {
     if (u.pathname === '/3/search/multi') return json({ results: q === 'dune' ? [
       { id: 438631, media_type: 'movie', title: 'Dune', release_date: '2021-09-15', poster_path: '/dune2021.jpg', overview: 'Paul Atreides…' },
       { id: 841, media_type: 'movie', title: 'Dune', release_date: '1984-12-14', poster_path: '/dune1984.jpg' },
-      { id: 99, media_type: 'person', name: 'Someone Dune' }] : q === 'severance' ? [{ id: 95396, media_type: 'tv', name: 'Severance', first_air_date: '2022-02-17', poster_path: '/sev00001.jpg' }] : [] });
+      { id: 99, media_type: 'person', name: 'Someone Dune' }] : q === 'jurassic park' ? [{ id: 329, media_type: 'movie', title: 'Jurassic Park', release_date: '1993-06-11', poster_path: '/jp000001.jpg' }] : q === 'severance' ? [{ id: 95396, media_type: 'tv', name: 'Severance', first_air_date: '2022-02-17', poster_path: '/sev00001.jpg' }] : [] });
     if (u.pathname === '/3/movie/438631') return json({ id: 438631, title: 'Dune', release_date: '2021-09-15', runtime: 155, genres: [{ name: 'Science Fiction' }], poster_path: '/dune2021.jpg', credits: { crew: [{ job: 'Director', name: 'Denis Villeneuve' }], cast: [{ name: 'Timothée Chalamet' }] } });
+    if (u.pathname === '/3/movie/329') return json({ id: 329, title: 'Jurassic Park', release_date: '1993-06-11', runtime: 127, genres: [{ name: 'Adventure' }], poster_path: '/jp000001.jpg', credits: { crew: [{ job: 'Director', name: 'Steven Spielberg' }], cast: [] } });
     if (u.pathname === '/3/movie/841') return json({ id: 841, title: 'Dune', release_date: '1984-12-14', runtime: 137, genres: [], poster_path: '/dune1984.jpg', credits: { crew: [{ job: 'Director', name: 'David Lynch' }], cast: [] } });
     if (u.pathname === '/3/tv/95396') return json({ id: 95396, name: 'Severance', first_air_date: '2022-02-17', episode_run_time: [50], number_of_seasons: 2, genres: [{ name: 'Drama' }], created_by: [{ name: 'Dan Erickson' }], poster_path: '/sev00001.jpg', credits: { cast: [] } });
     if (u.pathname.startsWith('/t/p/')) { res.writeHead(200, { 'Content-Type': 'image/png' }); return res.end(PNG); }
@@ -93,4 +94,14 @@ test('"play tennis" that isn\'t a game: one tap keeps it an ordinary task, as yo
   await page.fill('#qa', 'play tennis'); await page.press('#qa', 'Enter');
   await page.getByRole('button', { name: 'Not for the list' }).click();
   await expect.poll(() => page.evaluate(() => { const t = JSON.parse(localStorage.getItem('cadence.life.v1')).tasks.find(x => /^play tennis$/i.test(x.title)); return t && [t.media, t.clientId]; })).toEqual([null, null]);
+});
+
+test('"watch Jurassic Park" works in Work too, and the toast says where it went', async ({ page }) => {
+  await page.goto(B + '/#today');
+  await expect(page.locator('#qa')).toBeVisible({ timeout: 15000 });
+  if (await page.locator('[data-act=space][data-s=work].on').count() === 0) await page.click('[data-act=space][data-s=work]');
+  await page.fill('#qa', 'watch Jurassic Park'); await page.press('#qa', 'Enter');
+  await page.getByRole('button', { name: 'See the list' }).click({ timeout: 8000 });
+  await expect(page).toHaveURL(/#view-watch/);
+  await expect(page.locator('.wq-it', { hasText: 'Jurassic Park' })).toContainText('1993 · 2h 7m');
 });
