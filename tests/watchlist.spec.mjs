@@ -155,6 +155,8 @@ test('a show on your list starting a new season today: a quiet note, and the dat
   expect(await page.evaluate(() => JSON.parse(localStorage.getItem('cadence.life.v1')).pluginData.watchlist.told)).toContain('s|95396|3');
   await page.goto(B + '/#view-watch');
   await expect(page.locator('.wq-it', { hasText: 'Season 3 on' }).first()).toContainText('Severance', { timeout: 10000 });
+  // watched now, so this year has something in it
+  await page.locator('.wq-it', { hasText: 'Season 3 on' }).first().locator('[data-wq-done]').click();
   await page.click('[data-wq-tab=year]');
   await expect(page.locator('.wq-year')).toContainText(/show/);
 });

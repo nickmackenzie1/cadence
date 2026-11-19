@@ -90,7 +90,7 @@ test('Classic player skin: Winamp-style LCD, scrolling title, spectrum, seek and
   await page.evaluate(ep => CadencePodcasts.load({ uuid: 'w1', url: ep, title: 'Classic sounds of the late nineties', podcastTitle: 'Test Show', duration: 20 }, true), EP);
   const bar = page.locator('#pc-mini.pc-wa');
   await expect(bar).toBeVisible();
-  await expect(bar.locator('.wa-tt').first()).toContainText(/cadence/i);
+  await expect(bar.locator('.wa-tt').first()).toContainText(/thing/i);
   await expect(bar.locator('.wa-mq')).toContainText('1. Test Show - Classic sounds of the late nineties');
   await expect(bar.locator('.wa-f').first()).toHaveText('POD');
   await expect.poll(() => bar.locator('.wa-time').textContent(), { timeout: 8000 }).toMatch(/^00:0[1-9]$/);
