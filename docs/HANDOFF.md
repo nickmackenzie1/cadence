@@ -255,3 +255,12 @@ checking the code.
   oil), lava, acid, the rain and the blasts' flames are Elements matter (havoc.js, the havoc:fx event). Physics' own
   rain streaks and water beads are gone; its invisible drops still knock letters loose. The full Elements mode (the
   page as sand) is still behind the toolbar's Elements switch.
+- **Lyrics** (public/plugins/lyrics.js + server/services/lyrics.js, 2026-11-19; user picked LRCLIB): a panel above the
+  player. On the radio it follows what's on; KEXP gives each song's start, so synced lines light up in time (other
+  stations count from when the title changed; Earlier/Later nudges are kept per station in localStorage
+  cadence.ly.delay, KEXP starts 6 s behind). Song lists (CadencePreview.buttons for songs) get a lyrics button, the
+  player bar and the Radio card get one too. LRCLIB's rules are kept: User-Agent names THING, one request at a time
+  with a 350 ms gap, a wait on 429. Answers are kept in data/lyrics-cache.json (found 60 days, not found 3).
+  Other APIs the user sent (2026-11-19), not built: TasteDive (Watch list "more like this"; a key, 300/h, legacy API
+  moving to Qloo), Audiometa (browse by tempo/key; a key), Open Guitar Chords (chord shapes only), Verome (scrapes
+  YouTube, streams through Piped/Invidious: skip).

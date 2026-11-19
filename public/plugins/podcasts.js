@@ -215,7 +215,7 @@
     };
     const ib = (act, ic, label, extra = '') => `<button class="pc-ib" data-pc="${act}" aria-label="${E(label)}" title="${E(label)}"${extra}>${api.ui.icon(ic)}</button>`;
     const where = () => place() === 'tuck' ? ib('unfold', 'chevron-up', 'Bring the player back') : `${place() === 'side' ? ib('place-float', 'maximize-2', 'Put the player back at the bottom') : wide.matches ? ib('place-side', 'panel-left', 'Put the player in the sidebar') : ''}${ib('tuck', 'chevron-down', 'Tuck the player away')}`;
-    const extras = () => `${P.canCast ? ib('cast', P.audio.webkitShowPlaybackTargetPicker ? 'airplay' : 'cast', 'Play on a speaker') : ''}${ib('level', 'audio-lines', P.level ? 'Even volume is on' : 'Even out the volume between stations', ` aria-pressed="${P.level}"${P.level ? ' data-on="1"' : ''}`)}`;
+    const extras = () => `${window.CadenceLyrics && P.current ? window.CadenceLyrics.barButton(P.current) : ''}${P.canCast ? ib('cast', P.audio.webkitShowPlaybackTargetPicker ? 'airplay' : 'cast', 'Play on a speaker') : ''}${ib('level', 'audio-lines', P.level ? 'Even volume is on' : 'Even out the volume between stations', ` aria-pressed="${P.level}"${P.level ? ' data-on="1"' : ''}`)}`;
     const play = a => `<button class="pc-ib pc-play${a.paused ? '' : ' on'}" data-pc="toggle" aria-label="${a.paused ? 'Play' : 'Pause'}">${api.ui.icon(a.paused ? 'play' : 'pause')}</button>`;
     const art = (src, ic) => (src ? `<img src="${E(src)}" alt="" onerror="this.style.visibility='hidden'">` : `<i class="pc-noart">${api.ui.icon(ic)}</i>`);
     // write a part only when it changed: rebuilding the artwork 4 times a second made it flash (user, 2026-11-16)

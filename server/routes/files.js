@@ -51,6 +51,11 @@ module.exports = async function filesRoutes(req, res, { url, p }) {
     try { return send(res, 200, await require('../services/tmdb').art(Object.fromEntries(url.searchParams))); }
     catch (e) { return send(res, e.code === 400 ? 400 : 502, { error: e.code === 400 ? e.message : "Couldn't reach TMDB just now" }); }
   }
+  // lyrics from LRCLIB, kept on the NAS (services/lyrics.js)
+  if (p === '/api/lyrics' && req.method === 'GET') {
+    try { const q = Object.fromEntries(url.searchParams); return send(res, 200, await require('../services/lyrics').get({ artist: q.artist, track: q.track, album: q.album, duration: q.duration })); }
+    catch (e) { return send(res, e.code === 400 ? 400 : 502, { error: e.code === 400 ? e.message : "Couldn't reach the lyrics library just now" }); }
+  }
   // the watch list: find a film or show, then one in full
   if ((p === '/api/tmdb/find' || p === '/api/tmdb/title') && req.method === 'GET') {
     try { const t = require('../services/tmdb'); return send(res, 200, await t[p.slice(10)](Object.fromEntries(url.searchParams))); }
