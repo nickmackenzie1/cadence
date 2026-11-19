@@ -73,33 +73,79 @@ function expand(ev, from, to) {
   }
   return out;
 }
-async function calendarEvents(days) {
-  const from = Date.now() - 864e5, to = Date.now() + days * 864e5, out = [];
-  for (const cal of readCals().calendars) {
-    if (!cal.url) continue;
-    let text; const hit = icsCache.get(cal.url);
-    if (hit && Date.now() - hit.at < 10 * 60e3) text = hit.text;
-    else { try { const r = await safeFetch(cal.url.replace(/^webcal:/i, 'https:'), {}, 8 * 1024 * 1024); text = r.buf.toString('utf8'); icsCache.set(cal.url, { at: Date.now(), text }); } catch (e) { if (hit) text = hit.text; else { out.push({ error: true, cal: cal.id, message: e.message }); continue; } } }
-    const evs = parseICS(text), overrides = new Map();
-    for (const ev of evs) if (ev.props['RECURRENCE-ID']) { const t = icsTime(ev.props['RECURRENCE-ID']); if (t) overrides.set((ev.props.UID || {}).v + '|' + t.ms, ev); }
-    for (const ev of evs) {
-      if (ev.props['RECURRENCE-ID']) continue;
-      const uid = (ev.props.UID || {}).v || Math.random().toString(36);
-      for (const ms of expand(ev, from, to)) {
-        const e = overrides.get(uid + '|' + ms) || ev;
-        if (/CANCELLED/i.test((e.props.STATUS || {}).v || '')) continue;
-        const st = icsTime(e.props.DTSTART), en = icsTime(e.props.DTEND), base = e === ev ? ms : st.ms;
-        const dur = en && st ? en.ms - st.ms : (st && st.allDay ? 864e5 : 30 * 60e3);
-        const desc = unesc((e.props.DESCRIPTION || {}).v), loc = unesc((e.props.LOCATION || {}).v);
-        const join = ((desc + ' ' + loc).match(/https:\/\/[^\s<>"]*(zoom\.us\/[jw]\/|meet\.google\.com\/|teams\.microsoft\.com\/l\/meetup-join|webex\.com\/)[^\s<>"]*/i) || [])[0] || '';
-        out.push({ id: uid + '@' + base, cal: cal.id, title: unesc((e.props.SUMMARY || {}).v) || '(no title)', start: base, end: base + dur, allDay: !!(st && st.allDay),
-          location: loc.slice(0, 200), join, description: desc.slice(0, 600),
-          attendees: (e.att || []).map(a => ({ email: a.v.replace(/^mailto:/i, '').toLowerCase(), name: a.params.CN || '' })).slice(0, 40),
-          organizer: ((e.props.ORGANIZER || {}).v || '').replace(/^mailto:/i, '').toLowerCase() });
-      }
+// one calendar's .ics text -> its events between from and to (pure: also runs in calendar-worker.js)
+function eventsFrom(cal, text, from, to) {
+  const out = [], evs = parseICS(text), overrides = new Map();
+  for (const ev of evs) if (ev.props['RECURRENCE-ID']) { const t = icsTime(ev.props['RECURRENCE-ID']); if (t) overrides.set((ev.props.UID || {}).v + '|' + t.ms, ev); }
+  for (const ev of evs) {
+    if (ev.props['RECURRENCE-ID']) continue;
+    const uid = (ev.props.UID || {}).v || Math.random().toString(36);
+    for (const ms of expand(ev, from, to)) {
+      const e = overrides.get(uid + '|' + ms) || ev;
+      if (/CANCELLED/i.test((e.props.STATUS || {}).v || '')) continue;
+      const st = icsTime(e.props.DTSTART), en = icsTime(e.props.DTEND), base = e === ev ? ms : st.ms;
+      const dur = en && st ? en.ms - st.ms : (st && st.allDay ? 864e5 : 30 * 60e3);
+      const desc = unesc((e.props.DESCRIPTION || {}).v), loc = unesc((e.props.LOCATION || {}).v);
+      const join = ((desc + ' ' + loc).match(/https:\/\/[^\s<>"]*(zoom\.us\/[jw]\/|meet\.google\.com\/|teams\.microsoft\.com\/l\/meetup-join|webex\.com\/)[^\s<>"]*/i) || [])[0] || '';
+      out.push({ id: uid + '@' + base, cal: cal.id, title: unesc((e.props.SUMMARY || {}).v) || '(no title)', start: base, end: base + dur, allDay: !!(st && st.allDay),
+        location: loc.slice(0, 200), join, description: desc.slice(0, 600),
+        attendees: (e.att || []).map(a => ({ email: a.v.replace(/^mailto:/i, '').toLowerCase(), name: a.params.CN || '' })).slice(0, 40),
+        organizer: ((e.props.ORGANIZER || {}).v || '').replace(/^mailto:/i, '').toLowerCase() });
     }
   }
-  return out.sort((a, b) => (a.start || 0) - (b.start || 0));
+  return out;
 }
 
-module.exports = { CAL_FILE, DAYS, LOCAL_TZ, WINTZ, calendarEvents, expand, icsCache, icsTime, parseICS, readCals, tzOffset, unesc, zoned };
+/* Calendars on a timer (2026-11-18, server speed-ups). Before, every request for events re-read and expanded every
+   calendar on the main thread, holding up everything else on the NAS for that moment. Now a scheduler job ("calendar",
+   every 10 minutes) fetches the .ics files and expands them in a worker thread (calendar-worker.js), and requests read
+   the result. A request that finds it older than 10 minutes still gets it straight away and asks for a refresh; only
+   the very first request (nothing read yet), a changed calendar list or "refresh" waits for a fresh read. */
+const MAX_DAYS = 60, FRESH = 10 * 60e3;
+let ready = null, reading = null;
+async function fetchText(cal) {
+  const hit = icsCache.get(cal.url);
+  if (hit && Date.now() - hit.at < FRESH) return hit.text;
+  try { const r = await safeFetch(cal.url.replace(/^webcal:/i, 'https:'), {}, 8 * 1024 * 1024); const text = r.buf.toString('utf8'); icsCache.set(cal.url, { at: Date.now(), text }); return text; }
+  catch (e) { if (hit) return hit.text; throw e; }
+}
+function expandOff(items, from, to) {
+  return new Promise(resolve => {
+    let w; try { w = new (require('worker_threads').Worker)(path.join(__dirname, 'calendar-worker.js'), { workerData: { items, from, to } }); }
+    catch { return resolve(items.flatMap(it => eventsFrom(it.cal, it.text, from, to))); }   // no worker: do it here
+    let done = false;
+    w.once('message', m => { done = true; resolve(m.events || items.flatMap(it => eventsFrom(it.cal, it.text, from, to))); });
+    w.once('error', () => { if (!done) { done = true; resolve(items.flatMap(it => eventsFrom(it.cal, it.text, from, to))); } });
+  });
+}
+function readAll() {
+  if (reading) return reading;
+  reading = (async () => {
+    const from = Date.now() - 864e5, to = Date.now() + MAX_DAYS * 864e5, items = [], errors = [];
+    for (const cal of readCals().calendars) {
+      if (!cal.url) continue;
+      try { items.push({ cal: { id: cal.id }, text: await fetchText(cal) }); } catch (e) { errors.push({ error: true, cal: cal.id, message: e.message }); }
+    }
+    const events = items.length ? await expandOff(items, from, to) : [];
+    ready = { at: Date.now(), events: events.sort((a, b) => (a.start || 0) - (b.start || 0)), errors, n: items.length };
+    return ready;
+  })().finally(() => { reading = null; });
+  return reading;
+}
+function forget() { icsCache.clear(); ready = null; }
+async function calendarEvents(days, { fresh = false } = {}) {
+  if (fresh) forget();
+  let r = ready;
+  if (!r) r = await readAll();
+  else if (Date.now() - r.at > FRESH) { try { require('../lib/scheduler').soon('calendar'); } catch {} }
+  const to = Date.now() + days * 864e5, from = Date.now() - 864e5;
+  return [...r.errors, ...r.events.filter(e => e.start < to && e.end > from)];
+}
+if (require('worker_threads').isMainThread) try {
+  require('../lib/scheduler').add('calendar', async () => {
+    if (!readCals().calendars.some(c => c.url)) return { note: 'no calendars added' };
+    const r = await readAll(); return { note: `${r.events.length} events from ${r.n} calendar${r.n === 1 ? '' : 's'}` };
+  }, { label: 'Calendar: reading your calendars', every: FRESH, first: 15e3, retry: 2 * 60e3 });
+} catch {}
+
+module.exports = { CAL_FILE, DAYS, LOCAL_TZ, WINTZ, calendarEvents, eventsFrom, expand, forget, icsCache, icsTime, parseICS, readCals, tzOffset, unesc, zoned };

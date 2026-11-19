@@ -9,6 +9,32 @@ const { decode, parseFeed } = require('../lib/feedparse');
 // ---- feeds: RSS 2.0 / Atom -> compact JSON, cached 15 min ----
 const feedCache = new Map();
 
+// Parsing happens in a worker thread (2026-11-18, server speed-ups): a big feed no longer holds up every other request
+// while it's read. One worker, kept for the life of the server; if it can't start, parsing falls back to here.
+let worker = null, seq = 0;
+const waiting = new Map();
+function parseOff(text, url) {
+  if (!worker) {
+    try {
+      worker = new (require('worker_threads').Worker)(path.join(__dirname, 'feed-worker.js'));
+      worker.unref();
+      worker.on('message', m => { const w = waiting.get(m.id); if (!w) return; waiting.delete(m.id); m.error ? w.reject(new Error(m.error)) : w.resolve(m.data); });
+      worker.on('error', e => { for (const w of waiting.values()) w.reject(e); waiting.clear(); worker = null; });
+      worker.on('exit', () => { worker = null; });
+    } catch { return Promise.resolve(parseFeed(text, url)); }
+  }
+  const id = ++seq;
+  return new Promise((resolve, reject) => { waiting.set(id, { resolve, reject }); worker.postMessage({ id, text, url }); })
+    .catch(() => parseFeed(text, url));
+}
+// fetch and parse one feed, and keep it (the route and the background job both use this)
+async function fetchFeed(u) {
+  const r = await safeFetch(u, { headers: { Accept: 'application/rss+xml, application/atom+xml, application/xml, text/xml, */*' } }, 3 * 1024 * 1024);
+  const data = { ...await parseOff(r.buf.toString('utf8'), r.url), fetchedAt: Date.now() };
+  if (data.items.length || data.title) { feedCache.set(u, { at: Date.now(), data }); if (feedCache.size > 50) feedCache.delete(feedCache.keys().next().value); }
+  return data;
+}
+
 // ---- prices for store feeds: many shop RSS feeds (e.g. record stores) carry no price, but each product page shows it.
 // Only pages on the feed's own site are read, a few at a time, cached for 12h on the NAS.
 const priceCache = new Map();
@@ -50,11 +76,12 @@ function logFeed(u, data, asked) {
   const ks = Object.keys(f.seen); if (ks.length > 3000) for (const k of ks.slice(0, ks.length - 3000)) delete f.seen[k];
   saveFeedLog();
 }
-// feed history: recent feeds checked every 30 minutes, through the scheduler (one heavy job at a time, waits while you use Cadence)
+// feed history: recent feeds checked every 30 minutes, through the scheduler (one heavy job at a time, waits while you
+// use Cadence). What it reads is kept, so opening one of these feeds is answered straight away.
 require('../lib/scheduler').add('feeds', async () => {
   const L = readFeedLog();
   for (const [u, f] of Object.entries(L)) { if (Date.now() - (f.asked || 0) > 14 * 864e5) continue;
-    try { const r = await safeFetch(u, { headers: { Accept: 'application/rss+xml, application/atom+xml, application/xml, text/xml, */*' } }, 3 * 1024 * 1024); logFeed(u, parseFeed(r.buf.toString('utf8'), r.url), false); } catch {} }
+    try { logFeed(u, await fetchFeed(u), false); } catch {} }
 }, { label: 'Feeds: checking for new items', heavy: true, quiet: true, every: 30 * 60e3 });
 
-module.exports = { FEEDLOG, addPrices, feedCache, feedLog, feedLogT, logFeed, pagePrice, parseFeed, priceCache, readFeedLog, saveFeedLog };
+module.exports = { FEEDLOG, addPrices, feedCache, fetchFeed, parseOff, feedLog, feedLogT, logFeed, pagePrice, parseFeed, priceCache, readFeedLog, saveFeedLog };

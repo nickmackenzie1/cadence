@@ -1,9 +1,9 @@
 'use strict';
 /* Routes: Feeds and their activity history. Each handler answers or leaves the request for the next. */
 const { NEXT, send } = require('../lib/http');
-const { safeFetch } = require('../lib/net');
 const { LOCAL_TZ } = require('../services/calendar');
-const { addPrices, feedCache, logFeed, parseFeed, readFeedLog } = require('../services/feeds');
+const { addPrices, feedCache, fetchFeed, logFeed, readFeedLog } = require('../services/feeds');
+const refreshing = new Set();
 
 // (req, res, { url, p, leaf }) → answers the request, or returns NEXT
 module.exports = async function feedsRoutes(req, res, { url, p }) {
@@ -25,12 +25,16 @@ module.exports = async function feedsRoutes(req, res, { url, p }) {
     const ttl = Math.max(2, Math.min(60, +url.searchParams.get('ttl') || 15)) * 60 * 1000;   // minutes, 2–60 (status pages want fresher data)
     const wantPrices = url.searchParams.get('prices') === '1';
     if (hit && Date.now() - hit.at < ttl && url.searchParams.get('refresh') !== '1') { if (wantPrices) await addPrices(hit.data, u, 1500); return send(res, 200, hit.data); }
+    // kept but older than asked for: answer with it now and fetch a fresh copy behind the scenes (2026-11-18)
+    if (hit && url.searchParams.get('refresh') !== '1') {
+      if (!refreshing.has(u)) { refreshing.add(u); fetchFeed(u).then(d => logFeed(u, d, true), () => {}).finally(() => refreshing.delete(u)); }
+      if (wantPrices) await addPrices(hit.data, u, 1500);
+      return send(res, 200, hit.data);
+    }
     try {
-      const r = await safeFetch(u, { headers: { Accept: 'application/rss+xml, application/atom+xml, application/xml, text/xml, */*' } }, 3 * 1024 * 1024);
-      const data = { ...parseFeed(r.buf.toString('utf8'), r.url), fetchedAt: Date.now() };
+      const data = await fetchFeed(u);
       if (!data.items.length && !data.title) return send(res, 422, { error: 'That URL is not an RSS or Atom feed' });
       if (wantPrices) await addPrices(data, u, 6000);
-      feedCache.set(u, { at: Date.now(), data }); if (feedCache.size > 50) feedCache.delete(feedCache.keys().next().value);
       logFeed(u, data, true);
       return send(res, 200, data);
     } catch (e) { return hit ? send(res, 200, hit.data) : send(res, 502, { error: "Couldn't reach this feed just now. It'll try again next time.", detail: e.message }); }

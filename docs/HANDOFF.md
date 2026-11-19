@@ -47,9 +47,10 @@ checking the code.
 
 - Server speed (user, 2026-11-18, from a review of the one-thread setup; most of it was already done: the music process,
   backup/KEXP/vacuum on worker threads, the bundle served from memory, the browser drawing from its own copy first):
-  - Calendar: keep the parsed and expanded events (now the raw .ics is cached but parsed and expanded on every request,
-    on the main thread); refresh on a timer and let requests read the result.
-  - Feeds: refresh followed feeds on a timer so no request parses one inline on a cache miss.
+  - Calendar and feeds: done 2026-11-18. Calendars are read by a scheduler job ("calendar", every 10 min) and expanded
+    in a worker thread (calendar-worker.js); requests read the kept result. Feeds parse in a long-lived worker
+    (feed-worker.js), the "feeds" job keeps recent feeds ready, and a feed older than asked for is answered at once and
+    refreshed behind the scenes.
   - Deploys: done 2026-11-18. .dockerignore (an allow-list) stops every rebuild sending data/, .git and the cert
     folders to Docker (gigabytes of disk reads per release), and deploy.sh runs its builds under nice/ionice (each used
     only if it works on the NAS), then swaps the container at normal priority. Not done: releases only at quiet hours.
