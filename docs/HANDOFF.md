@@ -296,3 +296,6 @@ checking the code.
   own queue (`koitoScrobbleQueue`). Radar's top bar has a "Your listening" link to Koito (the address only goes to the
   browser, never the token). Koito itself isn't in THING's container: run it beside THING on the NAS (its compose
   file needs Postgres), LAN only, and import your Last.fm history there before 1 December.
+
+- **Radio (2026-11-19):** added WXYC 89.3 (Chapel Hill), WFUV 90.7 (Fordham, New York) and KSUA 91.5 (Fairbanks) as
+  presets; their streams are found in Radio Browser like the other stations.
