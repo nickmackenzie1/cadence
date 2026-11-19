@@ -213,6 +213,14 @@
       const G = {};
       PV.toast = m => api.ui.toast(m); hook();
       // play + want buttons for one pick (used by Music Radar and this page)
+      // TasteDive's "fans also like" for an artist page (2026-11-19): asked once, kept on the NAS; nothing shows without a key
+      const TD = new Map();
+      const tdArtists = (name, skip) => {
+        const k = name.toLowerCase();
+        if (!TD.has(k)) { TD.set(k, null); fetch('api/similar?' + new URLSearchParams({ q: name, type: 'music' })).then(r => r.json()).catch(() => null).then(v => { TD.set(k, v); if (v && v.results && v.results.length && api.ui.currentRoute() === 'view-artist') api.ui.refresh(); }); }
+        const v = TD.get(k), no = new Set([k, ...skip.map(x => String(x).toLowerCase())]);
+        return v && v.results ? v.results.filter(x => !no.has(x.name.toLowerCase())).slice(0, 8) : [];
+      };
       window.CadencePreview.buttons = (artist, title, type, from) => { if (!artist) return ''; const on = window.CadencePreview.want.has(artist, title);
         return `<span class="pv-btns"><button class="pv-b" data-pv data-a="${E(artist)}" data-t="${E(title || '')}" aria-label="Play a preview of ${E(title || artist)}" title="Play a 30-second preview">${api.ui.icon('play')}</button><button class="pv-b${on ? ' on' : ''}" data-want data-a="${E(artist)}" data-t="${E(title || '')}" data-type="${E(type || '')}" data-from="${E(from || '')}" aria-label="${on ? 'Remove from' : 'Save to'} Want to hear" title="${on ? 'In Want to hear' : 'Save to Want to hear'}">${api.ui.icon(on ? 'bookmark-check' : 'bookmark-plus')}</button>${type === 'song' && title && window.CadenceLyrics ? window.CadenceLyrics.button(artist, title) : ''}</span>`; };
       DG.changed = () => { clearTimeout(DG._t); DG._t = setTimeout(() => api.ui.refresh(), 60); };
@@ -574,6 +582,7 @@
           ${cmpRows.length ? `<section class="ap-cmp"><h3>MusicBrainz and TheAudioDB side by side</h3><table><tr><th></th><th>${api.ui.logo('musicbrainz.org', { size: 13 })}MusicBrainz</th><th>${api.ui.logo('theaudiodb.com', { size: 13 })}TheAudioDB</th></tr>
             ${cmpRows.map(([l, a, b]) => `<tr class="${differs(a, b) ? 'diff' : ''}"><th>${E(l)}</th><td>${a ? E(a) : '<span class="muted">not listed</span>'}</td><td>${b ? E(b) : '<span class="muted">not listed</span>'}</td></tr>`).join('')}</table>
             ${cmpRows.some(([, a, b]) => differs(a, b)) ? '<p class="muted">Highlighted rows: the two disagree.</p>' : '<p class="muted">They agree wherever both have an answer.</p>'}</section>` : ''}
+          ${(() => { const l = tdArtists(d.name, (d.similar || []).map(x => x.name)); return l.length ? `<section class="ap-wide"><h3>${api.ui.icon('users')}Fans also like</h3><ul class="ap-sim">${l.map(x => `<li>${window.CadencePreview.buttons(x.name, null, 'artist', 'Fans of ' + d.name)}<div><a class="ar-link" href="#view-artist" data-artist="${E(x.name)}"><b>${E(x.name)}</b></a>${x.teaser ? `<span class="muted">${E(x.teaser.length > 120 ? x.teaser.slice(0, 120) + '…' : x.teaser)}</span>` : ''}</div></li>`).join('')}</ul><p class="muted ap-credit">Suggestions from TasteDive</p></section>` : ''; })()}
           ${(d.similar || []).length ? `<section class="ap-wide"><h3>${api.ui.icon('sparkles')}Sounds like</h3><ul class="ap-sim">${d.similar.map(x => `<li>${window.CadencePreview.buttons(x.name, null, 'artist', 'Sounds like ' + d.name)}<div><a class="ar-link" href="#view-artist" data-artist="${E(x.name)}"><b>${E(x.name)}</b></a><span class="muted">${E(x.why)}</span></div></li>`).join('')}</ul></section>` : ''}
           <section><h3>Where they're showing up</h3>
             ${other.length || d.picks.length ? `<ul class="ap-list">

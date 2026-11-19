@@ -51,6 +51,11 @@ module.exports = async function filesRoutes(req, res, { url, p }) {
     try { return send(res, 200, await require('../services/tmdb').art(Object.fromEntries(url.searchParams))); }
     catch (e) { return send(res, e.code === 400 ? 400 : 502, { error: e.code === 400 ? e.message : "Couldn't reach TMDB just now" }); }
   }
+  // "more like this" from TasteDive (services/tastedive.js)
+  if (p === '/api/similar' && req.method === 'GET') {
+    try { return send(res, 200, await require('../services/tastedive').similar(Object.fromEntries(url.searchParams))); }
+    catch (e) { return send(res, e.code === 400 ? 400 : 502, { error: e.message }); }
+  }
   // lyrics from LRCLIB, kept on the NAS (services/lyrics.js)
   if (p === '/api/lyrics' && req.method === 'GET') {
     try { const q = Object.fromEntries(url.searchParams); return send(res, 200, await require('../services/lyrics').get({ artist: q.artist, track: q.track, album: q.album, duration: q.duration })); }

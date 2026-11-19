@@ -261,6 +261,7 @@ checking the code.
   cadence.ly.delay, KEXP starts 6 s behind). Song lists (CadencePreview.buttons for songs) get a lyrics button, the
   player bar and the Radio card get one too. LRCLIB's rules are kept: User-Agent names THING, one request at a time
   with a 350 ms gap, a wait on 429. Answers are kept in data/lyrics-cache.json (found 60 days, not found 3).
-  Other APIs the user sent (2026-11-19), not built: TasteDive (Watch list "more like this"; a key, 300/h, legacy API
-  moving to Qloo), Audiometa (browse by tempo/key; a key), Open Guitar Chords (chord shapes only), Verome (scrapes
+  TasteDive built 2026-11-19 (services/tastedive.js, TASTEDIVE_API_KEY): "More like this" on Watch list cards, "Because
+  you watched" on the Watch list page, "Fans also like" on artist pages; kept 30 days, stops at 250 an hour, hides
+  itself without a key or an answer. Not built: Audiometa (browse by tempo/key; a key), Open Guitar Chords (chord shapes only), Verome (scrapes
   YouTube, streams through Piped/Invidious: skip).

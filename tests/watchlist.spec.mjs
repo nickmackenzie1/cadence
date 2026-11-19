@@ -25,12 +25,13 @@ test.beforeAll(async () => {
     if (u.pathname.startsWith('/t/p/')) { res.writeHead(200, { 'Content-Type': 'image/png' }); return res.end(PNG); }
     if (u.pathname === '/v1/Games/ByGameName') return json({ data: { games: q === 'hades' ? [{ id: 2, game_title: 'Hades II', release_date: '2024-05-06', platform: 1 }, { id: 1, game_title: 'Hades', release_date: '2020-09-17', platform: 1 }] : [] },
       include: { boxart: { base_url: {}, data: { 1: [{ side: 'front', filename: 'boxart/front/1-1.jpg' }] } }, platform: { data: { 1: { id: 1, name: 'PC' } } } } });
+    if (u.pathname === '/api/similar') return json(u.searchParams.get('k') !== 'td' ? { error: 'bad key' } : { similar: { info: [], results: /severance/i.test(u.searchParams.get('q')) ? [{ name: 'Mr. Robot', type: 'show', wTeaser: 'A made-up teaser' }, { name: 'Severance', type: 'show' }] : [] } });
     if (u.pathname.startsWith('/images/')) { res.writeHead(200, { 'Content-Type': 'image/png' }); return res.end(PNG); }
     res.writeHead(404); res.end();
   });
   await new Promise(r => fake.listen(0, '127.0.0.1', r)); F = `http://127.0.0.1:${fake.address().port}`;
   dir = mkdtempSync(join(tmpdir(), 'cadence-wq-')); const PORT = await freePort(); B = `http://localhost:${PORT}`;
-  server = spawn(process.execPath, ['--disable-warning=ExperimentalWarning', 'server.js'], { env: { ...process.env, PORT: String(PORT), DATA_DIR: dir, TLS_DIR: join(dir, 'x'), TMDB_API_KEY: 'k123', TMDB_API: F, TMDB_IMG: F, THEGAMESDB_API_KEY: 'g456', GAMESDB_API: F, GAMESDB_CDN: F }, stdio: 'ignore' });
+  server = spawn(process.execPath, ['--disable-warning=ExperimentalWarning', 'server.js'], { env: { ...process.env, PORT: String(PORT), DATA_DIR: dir, TLS_DIR: join(dir, 'x'), TMDB_API_KEY: 'k123', TMDB_API: F, TMDB_IMG: F, THEGAMESDB_API_KEY: 'g456', GAMESDB_API: F, GAMESDB_CDN: F, TASTEDIVE_API: F, TASTEDIVE_API_KEY: 'td' }, stdio: 'ignore' });
   for (let i = 0; i < 150; i++) { try { if ((await fetch(B + '/api/health')).ok) break; } catch {} await new Promise(r => setTimeout(r, 100)); }
 });
 test.afterAll(() => { server && server.kill(); fake && fake.close(); rmSync(dir, { recursive: true, force: true }); });
@@ -121,4 +122,23 @@ test('Tonight: pick how much time you have, get one thing that fits', async ({ p
   await page.getByRole('button', { name: 'Something else' }).click();
   await expect(page.locator('.wq-tnx b')).toBeVisible();
   expect(typeof first).toBe('string');
+});
+
+test('More like this: because you watched one, suggestions from TasteDive add with a click', async ({ page }) => {
+  const r = await (await fetch(B + '/api/similar?q=Severance&type=show')).json();
+  expect(r.results.map(x => x.name)).toEqual(['Mr. Robot', 'Severance']);
+  const n = asked.length; await fetch(B + '/api/similar?q=Severance&type=show'); expect(asked.length).toBe(n);   // kept
+  await page.goto(B + '/#view-watch');
+  await page.click('[data-act=space][data-s=life]').catch(() => {});
+  await page.goto(B + '/#view-watch');
+  // watched (again, here: each test starts with what the NAS kept)
+  const sev = page.locator('.wq-it', { hasText: 'Severance' }).locator('[data-wq-done]');
+  await expect(page.locator('.wq-it').first()).toBeVisible({ timeout: 15000 });
+  if (await sev.count()) await sev.click();
+  const box = page.locator('.wq-simpage');
+  await expect(box).toContainText('Because you watched', { timeout: 15000 });
+  await expect(box).toContainText('Mr. Robot');
+  await expect(box.locator('[data-wq-sim="Severance"]')).toHaveCount(0);   // already on your list
+  await box.locator('[data-wq-sim="Mr. Robot"]').click();
+  await expect(page.locator('.wq-it', { hasText: 'Mr. Robot' })).toBeVisible({ timeout: 8000 });
 });

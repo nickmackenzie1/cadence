@@ -105,6 +105,24 @@
         fill(t, t.title);
       });
 
+      // "More like this" from TasteDive (2026-11-19): asked once per title, kept on the NAS; nothing shows if there's no key
+      // or TasteDive doesn't answer
+      const SIM = new Map();
+      const simType = m => m.kind === 'game' ? 'game' : m.type === 'tv' ? 'show' : 'movie';
+      const similarTo = (title, type) => {
+        const k = type + '|' + norm(title);
+        if (!SIM.has(k)) { SIM.set(k, null); fetch('api/similar?' + new URLSearchParams({ q: title, type })).then(r => r.json()).catch(() => ({ failed: true }))
+          .then(d => { SIM.set(k, d || { failed: true }); if (d && d.results && d.results.length) api.ui.refresh(); }); }
+        const d = SIM.get(k); if (!d || !d.results) return [];
+        const have = new Set(api.tasks.list(t => isMedia(t)).map(t => norm(t.title)));
+        return d.results.filter(x => !have.has(norm(x.name))).slice(0, 8);
+      };
+      const simChips = (list, kind) => list.map(x => `<button class="chip wq-sim" data-wq-sim="${E(x.name)}" data-kind="${kind}" title="${E(x.teaser || 'Add to your Watch list')}">${ic('plus')} ${E(x.name)}</button>`).join('');
+      const addByName = (name, kind) => {
+        const t = api.tasks.add({ title: name, clientId: area(true), media: { kind, pending: true, verb: '' } });
+        api.ui.toast(`Added ${name} to your Watch list`, [SEE]);
+        return t;
+      };
       // the task's card: poster, what it is, and the other matches
       api.taskCards.add(t => {
         const m = t.media; if (!m || !m.kind) return '';
@@ -116,9 +134,13 @@
             ${m.overview ? `<p>${E(m.overview)}</p>` : ''}
             <div class="wq-cl">${m.link ? `<a href="${E(m.link)}" target="_blank" rel="noopener">${ic('external-link')} ${m.kind === 'game' ? 'TheGamesDB' : 'TMDB'}</a>` : ''}<button class="btn sm ghost" data-wq-not="${E(t.id)}">${m.kind === 'game' ? 'Not a game' : 'Not a film'}</button></div>
             ${m.alts && m.alts.length ? `<div class="wq-alts"><span class="muted">Not this one?</span>${m.alts.map((a, i) => `<button class="wq-alt" data-wq-alt="${i}" title="${E(a.title)}${a.year ? ' (' + E(a.year) + ')' : ''}">${a.poster ? `<img src="${E(a.poster)}" alt="" loading="lazy">` : ''}<span>${E(a.title)}${a.year ? ' <i>' + E(a.year) + '</i>' : ''}</span></button>`).join('')}</div>` : ''}
+            ${(() => { const l = similarTo(m.title || t.title, simType(m)); return l.length ? `<div class="wq-sims"><span class="muted">More like this</span>${simChips(l, m.kind)}<small class="muted">Suggestions from TasteDive</small></div>` : ''; })()}
             ${m.kind !== 'game' && m.id ? '<small class="wq-credit">This product uses the TMDB API but is not endorsed or certified by TMDB.</small>' : ''}</div></div>`;
       });
-      document.addEventListener('click', e => {
+      // one listener, even after the plugins are set up again (switching spaces did that, and a click then counted twice)
+      window.__wqClick && document.removeEventListener('click', window.__wqClick);
+      document.addEventListener('click', window.__wqClick = e => {
+        const sim = e.target.closest('[data-wq-sim]'); if (sim) { e.preventDefault(); sim.disabled = true; addByName(sim.dataset.wqSim, sim.dataset.kind === 'game' ? KIND.game : KIND.film); setTimeout(() => api.ui.refresh(), 50); return; }
         const not = e.target.closest('[data-wq-not]'); if (not) { notMedia(not.dataset.wqNot); return; }
         const alt = e.target.closest('[data-wq-alt]'); if (!alt) return;
         const id = alt.closest('[data-wq-task]').dataset.wqTask, t = api.tasks.get(id), a = t && t.media && t.media.alts[+alt.dataset.wqAlt];
@@ -181,6 +203,8 @@
           ${sug}
           <div class="wq-tabs">${[['next', `Up next <i>${films.length + games.length}</i>`], ['shelf', `Watched and played <i>${shelf.length}</i>`]].map(([k, l]) => `<button class="${G.tab === k ? 'on' : ''}" data-wq-tab="${k}">${l}</button>`).join('')}</div>
           ${G.tab === 'next' && (films.length || games.length) ? tnHtml() : ''}
+          ${G.tab === 'next' && shelf.length ? (() => { const last = shelf[0], l = similarTo(last.media.title || last.title, simType(last.media));
+            return l.length ? `<div class="wq-sims wq-simpage"><span class="muted">Because you ${last.media.kind === 'game' ? 'played' : 'watched'} <b>${E(last.title)}</b></span>${simChips(l, last.media.kind)}<small class="muted">Suggestions from TasteDive</small></div>` : ''; })() : ''}
           ${G.tab === 'next' ? (films.length || games.length ? `${films.length ? `<h3>To watch</h3>${grid(films, false)}` : ''}${games.length ? `<h3>To play</h3>${grid(games, false)}` : ''}`
             : `<p class="muted">Nothing on the list yet. Search above, or type "watch Dune" or "play Hades" in quick add.</p>`)
             : shelf.length ? grid(shelf, true) : '<p class="muted">What you watch and play shows up here, newest first.</p>'}
@@ -233,6 +257,9 @@
         .wq-s:hover{background:var(--hover)}
         .wq-s img,.wq-s .wq-none{width:40px;height:60px;object-fit:cover;border-radius:4px;flex:none}
         .wq-s span{display:flex;flex-direction:column;min-width:0}.wq-s b{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.wq-s i{font-style:normal;color:var(--muted);font-size:12.5px}
+        .wq-sims{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:10px}.wq-sims>span{margin-right:4px;font-size:13px}.wq-sims small{width:100%;font-size:11.5px}
+        .wq-sim{cursor:pointer;display:inline-flex;gap:4px;align-items:center}.wq-sim svg{width:12px;height:12px}
+        .wq-simpage{margin:0 0 16px;padding:10px 14px;border:1px dashed var(--line);border-radius:calc(var(--r,8px) + 4px)}
         .wq-tn{border:1px solid var(--line);border-radius:calc(var(--r,8px) + 4px);background:var(--panel);padding:12px 14px;margin:6px 0 16px}
         .wq-tnh{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
         .wq-tnh>b{display:flex;gap:6px;align-items:center;font-weight:650}.wq-tnh svg{width:16px;height:16px}
