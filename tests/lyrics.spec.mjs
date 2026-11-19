@@ -53,6 +53,12 @@ test('the panel: lines light up in time, words to read for a listed song, and it
   await expect(page.locator('#ly-panel .ly-l li.on')).toHaveText('Second made-up line', { timeout: 5000 });
   await expect(page.locator('#ly-panel .ly-l li.on')).toHaveText('Third made-up line', { timeout: 5000 });
   await expect(page.locator('#ly-panel')).toContainText('LRCLIB');
+  // full screen, and Esc comes back
+  await page.click('#ly-panel [data-ly-big]');
+  await expect(page.locator('#ly-panel')).toHaveClass(/ly-big/);
+  expect(await page.evaluate(() => { const r = document.getElementById('ly-panel').getBoundingClientRect(); return r.width >= innerWidth - 1 && r.height >= innerHeight - 1; })).toBe(true);
+  await page.keyboard.press('Escape');
+  await expect(page.locator('#ly-panel')).not.toHaveClass(/ly-big/);
   // a song's lyrics button (as on artist pages)
   await page.evaluate(() => { const d = document.createElement('div'); d.id = 'ly-t'; d.innerHTML = window.CadenceLyrics.button('Test Band', 'Other Song'); document.body.append(d); });
   await page.click('#ly-t [data-ly]');

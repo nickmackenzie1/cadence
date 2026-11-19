@@ -41,7 +41,7 @@
         G.station = c.station;
         show({ artist: n.artist, track: n.song, album: n.album, startedAt: n.at ? Date.parse(n.at) : G.seenAt.get(k), live: true }, { follow: true });
       }
-      const close = () => { G.open = false; G.follow = false; clearInterval(G.timer); G.timer = 0; const el = document.getElementById('ly-panel'); if (el) el.remove(); };
+      const close = () => { G.big = false; G.open = false; G.follow = false; clearInterval(G.timer); G.timer = 0; const el = document.getElementById('ly-panel'); if (el) el.remove(); };
       window.CadenceLyrics = {
         // startedAt (ms) makes it follow along as if live (the tests use this; the radio uses live())
         open: (artist, track, album, startedAt) => { if (startedAt) G.station = 'manual'; show({ artist, track, album, ...(startedAt ? { startedAt, live: true } : {}) }); },
@@ -57,7 +57,11 @@
       function draw() {
         if (!G.open) return;
         let el = document.getElementById('ly-panel');
-        if (!el) { el = document.createElement('section'); el.id = 'ly-panel'; el.className = 'ly'; el.setAttribute('aria-label', 'Lyrics'); document.body.appendChild(el); }
+        if (!el) { el = document.createElement('section'); el.id = 'ly-panel'; el.setAttribute('aria-label', 'Lyrics'); document.body.appendChild(el); }
+        // full screen (2026-11-19): big words, the cover blurred behind, nothing else; Esc or the button to come back
+        el.className = 'ly' + (G.big ? ' ly-big' : '');
+        const art = G.song && G.song.live && P() && P().current && P().current.now && P().current.now.art;
+        el.style.setProperty('--ly-art', art ? `url("${String(art).replace(/["\\]/g, '')}")` : 'none');
         const s = G.song, d = G.data, synced = d && d.found && d.synced && d.synced.length, timed = synced && s.live && s.startedAt;
         const body = !d ? '<p class="muted ly-msg">Looking for the words…</p>'
           : d.error ? `<p class="muted ly-msg">Couldn't reach the lyrics library just now. ${E(d.error)}</p>`
@@ -67,6 +71,7 @@
           : `<div class="ly-plain">${E(d.plain || '').split(/\n{2,}/).map(p => `<p>${p.replace(/\n/g, '<br>')}</p>`).join('')}</div>`;
         el.innerHTML = `<header class="ly-h"><div><b>${E(s.track)}</b><span class="muted">${E(s.artist)}${s.live ? ' · on the radio now' : ''}</span></div>
             ${timed ? `<span class="ly-nudge" title="The words running ahead or behind? Nudge them"><button class="pc-ib" data-ly-nudge="-1000" aria-label="Words earlier">${ic('chevron-up')}</button><button class="pc-ib" data-ly-nudge="1000" aria-label="Words later">${ic('chevron-down')}</button></span>` : ''}
+            <button class="pc-ib" data-ly-big aria-label="${G.big ? 'Smaller' : 'Full screen'}" title="${G.big ? 'Smaller' : 'Full screen'}">${ic(G.big ? 'minimize-2' : 'maximize-2')}</button>
             <button class="pc-ib" data-ly-close aria-label="Close lyrics">${ic('x')}</button></header>
           <div class="ly-b">${body}</div>
           <footer class="muted ly-f">From <a href="https://lrclib.net" target="_blank" rel="noopener">LRCLIB</a>${synced && !timed ? ' · time-synced, shown as text here' : ''}</footer>`;
@@ -91,16 +96,18 @@
       }) : null;
       window.__lyClick && document.removeEventListener('click', window.__lyClick, true);
       document.addEventListener('click', window.__lyClick = e => {
-        const b = e.target.closest('[data-ly],[data-ly-live],[data-ly-close],[data-ly-nudge]'); if (!b) return;
+        const b = e.target.closest('[data-ly],[data-ly-live],[data-ly-close],[data-ly-nudge],[data-ly-big]'); if (!b) return;
         e.preventDefault(); e.stopPropagation();
         if (b.hasAttribute('data-ly-close')) return close();
+        if (b.hasAttribute('data-ly-big')) { G.big = !G.big; G.lastIdx = -1; draw(); return; }
         if (b.hasAttribute('data-ly-live')) return G.open && G.follow ? close() : followLive();
         if (b.hasAttribute('data-ly-nudge')) { const v = delayOf(G.station) + +b.dataset.lyNudge; setDelay(G.station, v); G.lastIdx = -1; tick(); api.ui.toast(`Words ${+b.dataset.lyNudge < 0 ? 'earlier' : 'later'}: ${(v / 1000).toFixed(0)} s behind the start`); return; }
         show({ artist: b.dataset.a, track: b.dataset.t });
       }, true);
       window.__lyKey && document.removeEventListener('keydown', window.__lyKey);
-      document.addEventListener('keydown', window.__lyKey = e => { if (e.key === 'Escape' && G.open && !document.querySelector('.modal-bg,.modal.open')) close(); });
+      document.addEventListener('keydown', window.__lyKey = e => { if (e.key === 'Escape' && G.big) { G.big = false; G.lastIdx = -1; draw(); return; } if (e.key === 'Escape' && G.open && !document.querySelector('.modal-bg,.modal.open')) close(); });
       api.commands.add({ title: 'Lyrics for what\'s on the radio', icon: 'mic-vocal', run: () => followLive() });
+      api.commands.add({ title: 'Lyrics, full screen', icon: 'maximize-2', run: () => { G.big = true; followLive(); } });
 
       window.CadenceKit.css('ly-css', `
         .ly{position:fixed;right:16px;bottom:calc(var(--player-h,84px) + 12px);z-index:70;width:min(380px,calc(100vw - 32px));max-height:min(62vh,560px);display:flex;flex-direction:column;
@@ -117,6 +124,14 @@
         .ly-plain p{margin:0 0 14px;line-height:1.55;font-size:14.5px}
         .ly-msg{margin:8px 0}
         .ly-f{padding:8px 16px;border-top:1px solid var(--line);font-size:12px}.ly-f a{color:inherit}
+        .ly.ly-big{inset:0;width:auto;max-height:none;border-radius:0;border:0;z-index:2147483000;background:#0d0d12;color:#f4f4f8}
+        .ly-big::before{content:"";position:absolute;inset:-40px;background:var(--ly-art) center/cover;filter:blur(40px) brightness(.45) saturate(1.2);z-index:-1}
+        .ly-big .ly-h{border:0;padding:20px 24px;background:linear-gradient(rgba(13,13,18,.6),transparent)}.ly-big .ly-h b{font-size:20px}.ly-big .muted{color:rgba(244,244,248,.65)}
+        .ly-big .ly-h .pc-ib{color:#f4f4f8}
+        .ly-big .ly-b{display:flex;justify-content:center}.ly-big .ly-l,.ly-big .ly-plain{max-width:820px;width:100%}
+        .ly-big .ly-l{font-size:clamp(22px,3.4vw,40px);gap:22px;padding:35vh 0}.ly-big .ly-l li{color:rgba(244,244,248,.35)}.ly-big .ly-l li.on{color:#fff;transform:none}
+        .ly-big .ly-plain p{font-size:clamp(18px,2.2vw,26px);line-height:1.5}
+        .ly-big .ly-f{border:0;text-align:center;color:rgba(244,244,248,.5)}
         @media (max-width:640px){.ly{right:8px;left:8px;width:auto;bottom:calc(var(--player-h,84px) + var(--tabbar-h,0px) + 8px)}}
         @media (prefers-reduced-motion:reduce){.ly-l li{transition:none}.ly-l li.on{transform:none}}
       `);
