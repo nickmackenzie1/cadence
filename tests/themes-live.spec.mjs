@@ -60,6 +60,11 @@ test('Game shelf: your own list of games, one a day', async ({ page }) => {
 
 test('Themes screen: a compact grid, and resting on a card tries the theme on until you move away', async ({ page }) => {
   await open(page);
+  // the test before saved Game shelf on the NAS: put the default back and let that save, so a late sync can't bring
+  // Game shelf back in the middle of this one (it made this test fail now and then)
+  await page.evaluate(() => window.CadenceThemes.apply('cadence')); await page.waitForTimeout(800);
+  await page.reload(); await expect(page.locator('#sync')).toBeVisible({ timeout: 10000 });
+  await expect.poll(() => page.evaluate(() => document.documentElement.dataset.skin || 'cadence')).toBe('cadence');
   await page.evaluate(() => { location.hash = 'view-themes'; });
   await page.locator('#thg-dense').check();
   await expect(page.locator('.thg')).toHaveClass(/thg-dense/);

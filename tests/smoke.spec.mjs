@@ -157,6 +157,8 @@ test('themes: engine applies, persists, cleans up effects, and plugins can regis
   const errs = errorsOf(page); await boot(page);
   const ids = await page.evaluate(() => CadenceThemes.list().map(t => t.id));
   expect(ids.length).toBeGreaterThanOrEqual(15);
+  // wait for the NAS's copy to arrive first, so a late sync doesn't re-apply a saved theme mid-loop
+  await page.waitForTimeout(1500);
   // every theme applies without errors and sets the skin attribute
   for (const id of ids) {
     await page.evaluate(id => CadenceThemes.apply(id), id);
