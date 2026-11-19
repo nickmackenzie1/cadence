@@ -15,6 +15,12 @@ module.exports = async function radarRoutes(req, res, { url, p }) {
   if (req.method === 'POST' && p.startsWith('/api/radar/')) radar.bust();   // a change: the kept page data starts fresh
   if (p === '/api/radar/find' && req.method === 'GET') return send(res, 200, await radar.find(url.searchParams.get('q')));   // artist suggestions as you type
   if (p === '/api/radar/jobs' && req.method === 'GET') return send(res, 200, require('../lib/scheduler').list('music'));
+  if (p.startsWith('/api/radar/jobs/')) {
+    const m = /^\/api\/radar\/jobs\/([\w.:-]{1,60})$/.exec(p);
+    if (m && req.method === 'POST') { let b = {}; try { b = JSON.parse(await readBody(req, 4096) || '{}'); } catch {}
+      try { const r = require('../lib/scheduler').control(m[1], b, 'music'); return r ? send(res, 200, r) : send(res, 404, { error: 'No such job' }); }
+      catch (e) { return send(res, e.code === 400 ? 400 : 500, { error: e.message }); } }
+  }
   if (p === '/api/radar/status' && req.method === 'GET') return send(res, 200, radar.status());
   if (p === '/api/radar/settings' && req.method === 'POST') { const b = await body(); radar.settings({ on: !!b.on }); return send(res, 200, radar.status()); }
   if (p === '/api/radar/run' && req.method === 'POST') {

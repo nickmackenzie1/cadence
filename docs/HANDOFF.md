@@ -232,3 +232,9 @@ checking the code.
     sometimes latches on and bites), Blobby (a jelly cube), and Skeleton (throws bones, or the trick: offers something
     nice, then grabs the wizard, shakes him and throws him; user, 2026-11-18). Esc restores everything.
     Still to do: Havoc's own toolbar has no button for it, and the dragon in the item above is separate.
+- **Background work page** (public/plugins/jobs.js, 2026-11-18; user: "a place where we could view these jobs and control
+  them"): every scheduler job from the app and the music side, with what it's doing, its last run and its last few
+  runs. You can run one now, which skips the wait for a quiet moment (heavy jobs still take turns), pause it, or change
+  how often it runs. Pauses and pace changes are kept in DATA_DIR/jobs-app.json and jobs-music.json
+  (scheduler.control; POST /api/jobs/<name> and /api/radar/jobs/<name>). Jobs that run in small steps until their work
+  is done (backfills, the search index) have no fixed pace to change.

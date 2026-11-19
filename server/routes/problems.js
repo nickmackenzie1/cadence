@@ -6,6 +6,13 @@ let window0 = { at: 0, n: 0 };
 module.exports = async function problemsRoutes(req, res, { p }) {
   // background jobs in this process (lib/scheduler.js); the music side's are at /api/radar/jobs
   if (p === '/api/jobs' && req.method === 'GET') return send(res, 200, require('../lib/scheduler').list('app'));
+  // run now, pause, resume, how often (the Background work page)
+  if (p.startsWith('/api/jobs/')) {
+    const m = /^\/api\/jobs\/([\w.:-]{1,60})$/.exec(p);
+    if (m && req.method === 'POST') { let b = {}; try { b = JSON.parse(await readBody(req, 4096) || '{}'); } catch {}
+      try { const r = require('../lib/scheduler').control(m[1], b, 'app'); return r ? send(res, 200, r) : send(res, 404, { error: 'No such job' }); }
+      catch (e) { return send(res, e.code === 400 ? 400 : 500, { error: e.message }); } }
+  }
   if (!p.startsWith('/api/problems')) return NEXT;
   if (p === '/api/problems' && req.method === 'GET') return send(res, 200, P.list());
   if (p === '/api/problems' && req.method === 'DELETE') { P.clear(); return send(res, 200, { ok: true }); }

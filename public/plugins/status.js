@@ -166,7 +166,7 @@
         const E = api.ui.esc, order = { running: 0, waiting: 1, scheduled: 2, finished: 3, stopped: 4 };
         const now = j => j.state === 'running' ? 'Running now' : j.state === 'waiting' ? (j.waiting ? j.waiting.charAt(0).toUpperCase() + j.waiting.slice(1) : 'Waiting its turn') : j.state === 'finished' ? 'Finished' : j.state === 'stopped' ? 'Stopped' : j.next ? 'Next ' + until(j.next) : '';
         const last = j => !j.last ? 'Not run yet' : `Last ran ${ago(j.last.at)}, took ${dur(j.last.ms)}${j.last.ok ? (j.last.note ? ' · ' + j.last.note : '') : ' · didn’t finish: ' + j.last.error}`;
-        return `<h3 class="pr-jh">Background work</h3><p class="muted pr-sum">Heavy jobs take turns, one at a time, and wait while you're using Cadence.</p>
+        return `<h3 class="pr-jh">Background work</h3><p class="muted pr-sum">Heavy jobs take turns, one at a time, and wait while you're using Cadence. <a href="#view-jobs">Run, pause or change them on the Background work page</a>.</p>
           <ul class="pr-jobs">${list.slice().sort((a, b) => (order[a.state] - order[b.state]) || a.label.localeCompare(b.label)).map(j => `<li class="${j.last && !j.last.ok ? 'pr-jfail' : ''}">
             <span class="pr-ic">${api.ui.icon(j.state === 'running' ? 'loader' : j.state === 'waiting' ? 'hourglass' : j.state === 'finished' ? 'check' : 'clock')}</span>
             <div><div class="pr-h"><b>${E(j.label)}</b><span class="muted">${j.where === 'music' ? 'Music side' : 'App'}${j.heavy ? ' · takes turns' : ''}</span></div>
