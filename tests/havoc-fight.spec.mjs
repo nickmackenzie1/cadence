@@ -87,3 +87,39 @@ test('one Havoc: Fire and Acid tools, the letters float, the Wizard button start
   await expect(page.locator('canvas.hf-canvas')).toHaveCount(0);
   expect(errs).toEqual([]);
 });
+
+test('the new bosses: the big baby is calmed with milk, zombies climb out of the graves, Old Clinker hates the cold', async ({ page }) => {
+  test.setTimeout(90e3);
+  const errs = []; page.on('pageerror', e => errs.push(String(e)));
+  await page.setViewportSize({ width: 1200, height: 800 });
+  await page.goto(B + '/?demo=1#today');
+  await expect(page.locator('#view .task').first()).toBeVisible({ timeout: 15000 });
+  await page.locator('body').press('Shift+F');
+  await expect(page.locator('canvas.hf-canvas')).toBeVisible({ timeout: 10000 });
+  const st = () => page.evaluate(() => window.HavocFight.state());
+  // the baby: any spell is milk, and when he stops crying he's asleep and the round is done
+  await page.evaluate(() => window.HavocFight.debug.boss('baby'));
+  await expect.poll(async () => (await st()).landed, { timeout: 8000 }).toBe(true);
+  await page.waitForTimeout(1900);
+  await page.keyboard.press('2');
+  await expect.poll(async () => (await st()).bubbles.join(' '), { timeout: 3000 }).not.toContain('Kablammo');
+  await page.evaluate(() => window.HavocFight.debug.hit(99));
+  await expect.poll(async () => (await st()).bubbles.join(' '), { timeout: 3000 }).toContain('Zzz');
+  // the graveyard: a zombie comes up when the wizard goes near; the round ends when they're all down
+  await page.evaluate(() => window.HavocFight.debug.boss('graves'));
+  await expect.poll(async () => (await st()).boss, { timeout: 8000 }).toBe('graves');
+  await expect.poll(async () => (await st()).graves.some(g => g !== 'shut'), { timeout: 20000 }).toBe(true);
+  for (let i = 0; i < 10 && (await st()).boss === 'graves'; i++) await page.evaluate(() => window.HavocFight.debug.hit(1));
+  await expect.poll(async () => (await st()).boss, { timeout: 8000 }).not.toBe('graves');
+  // Old Clinker: fire barely touches him, Frostbite puts him out bit by bit (he shrinks)
+  await page.evaluate(() => window.HavocFight.debug.boss('clinker'));
+  await expect.poll(async () => (await st()).boss, { timeout: 8000 }).toBe('clinker');
+  await page.waitForTimeout(2000);
+  const r0 = (await st()).R, hp0 = (await st()).hp;
+  await page.evaluate(() => window.HavocFight.debug.hit(3));
+  expect((await st()).R).toBeLessThan(r0);
+  expect((await st()).hp).toBeLessThan(hp0);
+  await page.keyboard.press('Escape');
+  await expect(page.locator('canvas.hf-canvas')).toHaveCount(0);
+  expect(errs).toEqual([]);
+});

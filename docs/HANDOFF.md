@@ -385,3 +385,12 @@ checking the code.
     front only, not sleep) goes to Problems as kind "slow", from "browser", with the device, page, version and the
     sizes of both spaces and their three biggest plugin-data entries. At most one a minute.
   - Read those Problems entries before guessing further: they say which step it was and which plugin's data is big.
+- **Built (2026-11-19, user's ideas): three more Wizard bosses** (public/vendor/havoc-fight.js), rounds 5–7:
+  Big baby (drops in and wails; tears are Elements water; each WAAAH is a ring that knocks the words and the wizard;
+  throws his rattle; every spell becomes Milk time!, and he falls asleep with Zzz instead of exploding),
+  Graveyard (one zombie per stone, 5–7; a hand comes up when the wizard goes near, the zombie climbs out (clipped at the
+  floor) and shuffles after him; one hit each, two after round 7; the bar counts how many are left), and Old Clinker
+  (the user asked for a fire monster "like the one from Howl's Moving Castle, in the spirit of"; that character is
+  copyrighted, so this is our own grumpy coal heap with a flame crown: sparks, fire run along the floor, heat that melts
+  the page; fire only tickles him, Frostbite hurts and steams, and he shrinks as he's put out). Bosses now answer
+  `hitTest(x, y, r)` and `aim()`, so a boss can be several targets (the zombies). `HavocFight.debug.boss(kind)` jumps to one.
