@@ -299,3 +299,12 @@ checking the code.
 
 - **Radio (2026-11-19):** added WXYC 89.3 (Chapel Hill), WFUV 90.7 (Fordham, New York) and KSUA 91.5 (Fairbanks) as
   presets; their streams are found in Radio Browser like the other stations.
+- **Radio now playing from station playlists (2026-11-19):** presets can carry `playlist` (`wxyc`, `wfuv`,
+  `spinitron:<CALL>`); `stationNow` asks that first and falls back to the title in the stream. WXYC is
+  `api.wxyc.org/flowsheet` (format read from their iOS app, github.com/WXYC/wxyc-ios-64). KSUA is Spinitron's public
+  now-playing widget (`widgets.spinitron.com/widget/now-playing-v2?station=ksua`) and WFUV is the wfuv.org/playlist
+  table: both parsed from HTML whose exact markup couldn't be seen from the agent workspace, so the parsers are
+  tolerant (any element with class artist/song/release; any table row of time | song | artist). If either shows
+  nothing on the NAS, check the page's markup against `parseSpinitron` / `parseWfuv`. Entries older than 20 minutes
+  aren't shown as playing now. Overrides for testing: WXYC_API, WFUV_PLAYLIST, SPINITRON_WIDGETS. Any other Spinitron
+  station can use the same `spinitron:` source.

@@ -76,3 +76,28 @@ test('the page: any station shows its song, what it played earlier, and the stat
   await expect(page.locator('.rd-pl li')).toHaveCount(3);
   await expect(page.locator('#rd-follow')).not.toBeChecked();
 });
+
+test('WXYC, KSUA and WFUV: now playing from their own playlists; old entries are not "now"', async () => {
+  const R = require('../server/services/radio.js');
+  const now = Date.parse('2026-11-19T06:40:00Z');   // 1:40am in New York
+  // WXYC's flowsheet (api.wxyc.org/flowsheet): newest id wins, talk breaks skipped
+  const wx = R.parseWxyc({ on_air: { dj_name: 'DJ Monster' }, entries: [
+    { id: 9, entry_type: 'breakpoint', add_time: '2026-11-19T06:39:00Z' },
+    { id: 8, entry_type: 'track', artist_name: 'Juana Molina', track_title: 'Paraguaya', album_title: 'DOGA', record_label: 'Sonamos', artwork_url: 'https://img.example/doga.jpg', add_time: '2026-11-19T06:36:00Z' },
+    { id: 7, entry_type: 'track', artist_name: 'Cat Power', track_title: 'Cross Bone Style', add_time: '2026-11-19T06:31:00Z' },
+  ] }, now);
+  expect(wx).toMatchObject({ artist: 'Juana Molina', song: 'Paraguaya', album: 'DOGA', art: 'https://img.example/doga.jpg', dj: 'DJ Monster' });
+  expect(R.parseWxyc({ entries: [{ id: 1, entry_type: 'track', artist_name: 'A', track_title: 'B', add_time: '2026-11-19T05:00:00Z' }] }, now)).toBeNull();
+  // Spinitron's now-playing widget (KSUA)
+  const sp = R.parseSpinitron(`<div class="spin"><img src="https://is1.example/cover.jpg"><time datetime="2026-11-19T06:38:00Z">1:38 AM</time>
+    <span class="artist">Wednesday</span> <span class="song">Bull Believer</span> <span class="release">Rat Saw God</span></div>`, now);
+  expect(sp).toMatchObject({ artist: 'Wednesday', song: 'Bull Believer', album: 'Rat Saw God', art: 'https://is1.example/cover.jpg' });
+  expect(R.parseSpinitron('<p>No spins yet</p>', now)).toBeNull();
+  // WFUV's on-air playlist page, New York time
+  const wf = R.parseWfuv(`<table><tr><th>Time</th><th>Song Title</th><th>Artist</th></tr>
+    <tr><td>11/19, 1:35am</td><td>Top Yourself</td><td>The Raconteurs</td></tr><tr><td>11/19, 1:31am</td><td>Older</td><td>Someone</td></tr></table>`, now);
+  expect(wf).toMatchObject({ artist: 'The Raconteurs', song: 'Top Yourself', at: '2026-11-19T06:35:00.000Z' });
+  expect(R.parseWfuv('<tr><td>11/18, 9:00pm</td><td>Late</td><td>Band</td></tr>', now)).toBeNull();
+  // each preset knows where its playlist is
+  expect(Object.fromEntries(R.PRESETS.filter(p => p.playlist).map(p => [p.id, p.playlist]))).toEqual({ wxyc: 'wxyc', wfuv: 'wfuv', ksua: 'spinitron:KSUA' });
+});

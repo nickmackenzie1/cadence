@@ -22,9 +22,9 @@ const PRESETS = [
   { id: 'chry', name: 'CHRY 105.5', place: 'Toronto', about: 'VIBE 105, community radio at York', find: ['CHRY', 'VIBE 105'], home: 'https://www.vibe105.ca' },
   { id: 'ckut', name: 'CKUT 90.3', place: 'Montreal', about: 'Campus-community radio at McGill', find: ['CKUT'], home: 'https://ckut.ca' },
   { id: 'wfmu', name: 'WFMU 91.1', place: 'Jersey City', about: 'Freeform, gloriously weird', find: ['WFMU'], home: 'https://wfmu.org' },
-  { id: 'wxyc', name: 'WXYC 89.3', place: 'Chapel Hill, NC', about: "UNC's student-run freeform radio, streaming since 1994", find: ['WXYC 89.3', 'WXYC'], home: 'https://wxyc.org' },
-  { id: 'wfuv', name: 'WFUV 90.7', place: 'New York', about: "Fordham's public radio, New York's music discovery", find: ['WFUV 90.7 Fordham', 'WFUV 90.7', 'WFUV'], home: 'https://wfuv.org' },
-  { id: 'ksua', name: 'KSUA 91.5', place: 'Fairbanks, AK', about: 'Student radio at the University of Alaska Fairbanks', find: ['KSUA 91.5', 'KSUA'], home: 'https://www.ksuaradio.com' },
+  { id: 'wxyc', name: 'WXYC 89.3', place: 'Chapel Hill, NC', about: "UNC's student-run freeform radio, streaming since 1994", find: ['WXYC 89.3', 'WXYC'], home: 'https://wxyc.org', playlist: 'wxyc' },
+  { id: 'wfuv', name: 'WFUV 90.7', place: 'New York', about: "Fordham's public radio, New York's music discovery", find: ['WFUV 90.7 Fordham', 'WFUV 90.7', 'WFUV'], home: 'https://wfuv.org', playlist: 'wfuv' },
+  { id: 'ksua', name: 'KSUA 91.5', place: 'Fairbanks, AK', about: 'Student radio at the University of Alaska Fairbanks', find: ['KSUA 91.5', 'KSUA'], home: 'https://www.ksuaradio.com', playlist: 'spinitron:KSUA' },
   { id: 'nts1', name: 'NTS 1', place: 'London', about: 'Underground everything, live from the studio', find: ['NTS Radio 1', 'NTS 1'], home: 'https://www.nts.live' },
   { id: 'dublab', name: 'dublab', place: 'Los Angeles', about: 'Listener-supported future roots radio', find: ['dublab'], home: 'https://www.dublab.com' },
   { id: 'kcrw', name: 'KCRW Eclectic24', place: 'Santa Monica', about: 'Eclectic music, around the clock', find: ['KCRW Eclectic24', 'Eclectic 24'], home: 'https://www.kcrw.com' },
@@ -119,6 +119,73 @@ async function kexpShow(id) {
   return v;
 }
 
+// ---- now playing from a station's own playlist (2026-11-19), for stations that don't put titles in the stream ----
+// WXYC: the flowsheet JSON their own apps read. KSUA: Spinitron's public now-playing widget. WFUV: their on-air playlist
+// page. Each gives artist and song (WXYC also album and cover). An entry older than 20 minutes means talk, a break or
+// automation, so it isn't shown as playing now. Anything that fails falls back to the title in the stream.
+const OLD = 20 * 60e3;
+const unent = t => String(t || '').replace(/<[^>]*>/g, ' ').replace(/&amp;/g, '&').replace(/&#0?39;|&apos;|&#x27;/g, "'").replace(/&quot;/g, '"')
+  .replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&nbsp;/g, ' ').replace(/&#(\d+);/g, (_, n) => String.fromCodePoint(+n)).replace(/\s+/g, ' ').trim();
+const fresh = (at, now) => !at || !isFinite(at) || now - at < OLD;
+// { entries: [{ id, add_time, entry_type, artist_name, track_title, album_title, artwork_url }], on_air: { dj_name } | null }
+function parseWxyc(j, now = Date.now()) {
+  const e = (j && Array.isArray(j.entries) ? j.entries : []).filter(x => x && (x.entry_type || 'track') === 'track' && x.artist_name && x.track_title)
+    .sort((a, b) => (+b.id || 0) - (+a.id || 0))[0];
+  if (!e) return null;
+  const at = Date.parse(e.add_time);
+  if (!fresh(at, now)) return null;
+  return { artist: String(e.artist_name).trim(), song: String(e.track_title).trim(), album: e.album_title || null, label: e.record_label || null,
+    art: /^https:\/\//.test(e.artwork_url || '') ? e.artwork_url : null, at: isFinite(at) ? new Date(at).toISOString() : null,
+    dj: j.on_air && j.on_air.dj_name ? String(j.on_air.dj_name).slice(0, 80) : null };
+}
+// Spinitron's widget markup: the newest spin first, with <span class="artist">, "song", "release" and a <time> or
+// "spin-time" (a cover <img> sometimes)
+function parseSpinitron(html, now = Date.now()) {
+  html = String(html || '');
+  const pick = cls => { const m = html.match(new RegExp(`<[a-z]+[^>]*class="[^"]*\\b${cls}\\b[^"]*"[^>]*>([\\s\\S]*?)</[a-z]+>`, 'i')); return m ? unent(m[1]) : ''; };
+  const artist = pick('artist'), song = pick('song');
+  if (!artist || !song) return null;
+  const dt = (html.match(/<time[^>]*datetime="([^"]+)"/i) || [])[1], at = dt ? Date.parse(dt) : NaN;
+  if (!fresh(at, now)) return null;
+  const img = (html.match(/<img[^>]*src="(https:\/\/[^"]+)"/i) || [])[1] || null;
+  return { artist, song, album: pick('release') || null, art: img && !/placeholder|default/i.test(img) ? img : null, at: isFinite(at) ? new Date(at).toISOString() : null };
+}
+// a wall-clock time in New York → epoch ms (WFUV's page says "11/19, 1:35am" in New York time)
+function nyTime(mon, day, h, min, now = Date.now()) {
+  let y = new Date(now).getUTCFullYear();
+  const guess = yy => Date.UTC(yy, mon - 1, day, h, min);
+  const off = t => { const p = new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', hourCycle: 'h23', year: 'numeric', month: 'numeric', day: 'numeric', hour: 'numeric', minute: 'numeric' }).formatToParts(new Date(t));
+    const g = k => +p.find(x => x.type === k).value; return Date.UTC(g('year'), g('month') - 1, g('day'), g('hour'), g('minute')) - t; };
+  let t = guess(y); t -= off(t);
+  if (t - now > 2 * 864e5) { t = guess(y - 1); t -= off(t); }   // late December looking at early January
+  return t;
+}
+// WFUV's on-air playlist table: rows of Time | Song Title | Artist, newest first
+function parseWfuv(html, now = Date.now()) {
+  for (const row of String(html || '').match(/<tr[\s\S]*?<\/tr>/gi) || []) {
+    const td = (row.match(/<td[\s\S]*?<\/td>/gi) || []).map(unent);
+    if (td.length < 3 || !td[1] || !td[2]) continue;
+    const m = td[0].match(/(\d{1,2})\/(\d{1,2}),?\s*(\d{1,2}):(\d{2})\s*([ap])\.?m/i);
+    const at = m ? nyTime(+m[1], +m[2], (+m[3] % 12) + (/p/i.test(m[5]) ? 12 : 0), +m[4], now) : NaN;
+    if (!fresh(at, now)) return null;
+    return { artist: td[2], song: td[1], album: td[3] || null, at: isFinite(at) ? new Date(at).toISOString() : null };
+  }
+  return null;
+}
+const PLAYLIST_URL = {
+  wxyc: () => process.env.WXYC_API || 'https://api.wxyc.org/flowsheet',
+  wfuv: () => process.env.WFUV_PLAYLIST || 'https://wfuv.org/playlist',
+  spinitron: st => `${process.env.SPINITRON_WIDGETS || 'https://widgets.spinitron.com'}/widget/now-playing-v2?station=${encodeURIComponent(st.toLowerCase())}&num=1&cover=1`,
+};
+async function playlistNow(src) {
+  const [kind, arg] = String(src).split(':');
+  const url = PLAYLIST_URL[kind] && PLAYLIST_URL[kind](arg || '');
+  if (!url) return null;
+  const r = await safeFetch(url, { headers: { 'User-Agent': 'Cadence/1 (self-hosted to-do app)', Accept: kind === 'wxyc' ? 'application/json' : 'text/html' }, timeout: 5000 }, 1024 * 1024);
+  const body = r.buf.toString('utf8');
+  const v = kind === 'wxyc' ? parseWxyc(JSON.parse(body)) : kind === 'wfuv' ? parseWfuv(body) : parseSpinitron(body);
+  return v ? { ...v, raw: `${v.artist} - ${v.song}`, from: 'playlist' } : null;
+}
 // ---- now playing for any station: the song title carried inside the stream (ICY / SHOUTcast metadata) ----
 // Ask with "Icy-MetaData: 1"; the server says how many audio bytes come between titles (icy-metaint); read that much,
 // then one length byte (×16) and "StreamTitle='Artist - Song';". About 8–64 KB per look, then hang up.
@@ -185,8 +252,11 @@ async function stationNow(id, u) {
   const c = nowCache.get(id); if (c && Date.now() - c.at < 20000) return c.v;
   if (nowInflight.has(id)) return nowInflight.get(id);
   const job = (async () => {
+    const p = PRESETS.find(x => x.id === id);
+    let v = null;
+    if (p && p.playlist) { try { v = await playlistNow(p.playlist); } catch { v = null; } }
+    if (v) { remember(id, v); nowCache.set(id, { at: Date.now(), v }); return v; }
     const url = await streamFor(id, u); if (!url) return null;
-    let v;
     try { const r = await icyTitle(url); v = r.none ? { none: true } : r.title ? { ...splitTitle(r.title), at: new Date().toISOString() } : { quiet: true }; }
     catch (e) { v = { error: e.message.slice(0, 120) }; }
     if (v && v.raw) remember(id, v);
@@ -289,4 +359,4 @@ async function relay(url, clientReq, clientRes) {
 // look the presets up shortly after the NAS starts, so the first visit to Radio doesn't wait
 if (!process.env.CI && process.env.RADIO_WARM !== '0') setTimeout(() => { stations().catch(() => {}); }, 20000).unref();
 
-module.exports = { soma, artistCounts, PRESETS, stations, search, nowPlaying, history, follow, playsFor, relay, resolve, shape, best, parseIcy, splitTitle, readIcy };
+module.exports = { parseWxyc, parseSpinitron, parseWfuv, nyTime, soma, artistCounts, PRESETS, stations, search, nowPlaying, history, follow, playsFor, relay, resolve, shape, best, parseIcy, splitTitle, readIcy };
