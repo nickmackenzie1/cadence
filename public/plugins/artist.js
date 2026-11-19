@@ -564,9 +564,12 @@
             return `<p>${E(cut).replace(/\n+/g, '</p><p>')}${cut !== b ? '…' : ''}</p>${cut !== b ? `<details><summary>Read the rest</summary><p>${E(b.slice(cut.length)).replace(/\n+/g, '</p><p>')}</p></details>` : ''}`; })()}
             <p class="muted ap-credit">From ${A(ad.page, 'TheAudioDB')}</p></section>` : ''}
           ${!mb && d.mbPending ? `<section class="ap-wide" aria-busy="true"><h3>${api.ui.logo('musicbrainz.org')}Releases</h3><div class="ap-rel">${'<span class="ap-r"><i class="ap-cover sk"></i><i class="sk sk-l" style="width:80%"></i><i class="sk sk-l" style="width:50%"></i></span>'.repeat(6)}</div></section>` : ''}
-          ${mb && mb.releases.length ? `<section class="ap-wide"><h3>${api.ui.logo('musicbrainz.org')}Releases</h3><div class="ap-rel">${mb.releases.slice(0, 18).map(r => `<a class="ap-r" href="https://musicbrainz.org/release-group/${E(r.id)}" target="_blank" rel="noopener">
-              <span class="ap-cover"><img src="${E(r.cover)}" alt="" loading="lazy" onerror="this.remove()">${api.ui.icon('disc-3')}</span><b>${E(r.title)}</b><span class="muted">${E([year(r.date), r.type].filter(Boolean).join(' · '))}</span></a>`).join('')}</div>
-            <p class="ap-relplay">${mb.releases.slice(0, 6).map(r => `<button class="btn" data-pv data-a="${E(d.name)}" data-t="${E(r.title)}">${api.ui.icon('play')}${E(r.title)}</button>`).join('')}</p></section>` : ''}
+          ${mb && mb.releases.length ? `<section class="ap-wide"><h3>${api.ui.logo('musicbrainz.org')}Releases</h3>${window.CadenceCoverFlow
+            // Cover Flow, the record bin or the grid (public/plugins/coverflow.js; user, 2026-11-18)
+            ? window.CadenceCoverFlow.html(mb.releases.slice(0, 40).map(r => ({ ...r, link: 'https://musicbrainz.org/release-group/' + encodeURIComponent(r.id) })), { key: 'artist:' + d.name.toLowerCase(), artist: d.name })
+            : `<div class="ap-rel">${mb.releases.slice(0, 18).map(r => `<a class="ap-r" href="https://musicbrainz.org/release-group/${E(r.id)}" target="_blank" rel="noopener">
+              <span class="ap-cover"><img src="${E(r.cover)}" alt="" loading="lazy" onerror="this.remove()">${api.ui.icon('disc-3')}</span><b>${E(r.title)}</b><span class="muted">${E([year(r.date), r.type].filter(Boolean).join(' · '))}</span></a>`).join('')}</div>`}
+            ${window.CadenceCoverFlow ? '' : `<p class="ap-relplay">${mb.releases.slice(0, 6).map(r => `<button class="btn" data-pv data-a="${E(d.name)}" data-t="${E(r.title)}">${api.ui.icon('play')}${E(r.title)}</button>`).join('')}</p>`}</section>` : ''}
 
           ${cmpRows.length ? `<section class="ap-cmp"><h3>MusicBrainz and TheAudioDB side by side</h3><table><tr><th></th><th>${api.ui.logo('musicbrainz.org', { size: 13 })}MusicBrainz</th><th>${api.ui.logo('theaudiodb.com', { size: 13 })}TheAudioDB</th></tr>
             ${cmpRows.map(([l, a, b]) => `<tr class="${differs(a, b) ? 'diff' : ''}"><th>${E(l)}</th><td>${a ? E(a) : '<span class="muted">not listed</span>'}</td><td>${b ? E(b) : '<span class="muted">not listed</span>'}</td></tr>`).join('')}</table>

@@ -218,7 +218,8 @@ checking the code.
   space has its own list), and every "added" toast has See the list. Tonight (same day): pick how much time you have (45 min to
   All evening) and it suggests one thing that fits; what's waited longest comes up more often. Next ideas from the same list: a
   "Tonight" picker, quiet release reminders, a reward shelf, and a year in review.
-- Artist pages: show an artist's albums like Cover Flow or flipping through a record-shop bin, instead of a plain list (user, 2026-11-18).
+- Artist pages' albums: done 2026-11-18 as Cover Flow, a Record bin and the Grid (public/plugins/coverflow.js, a
+  component any page can use: CadenceCoverFlow.html(items, { key, artist })).
 - Havoc (user, 2026-11-18): a dragon that flies around the page and sets things on fire (its fire is Elements fire, so
   it spreads and burns real page bits); and marry Havoc's two screens, Physics (Matter.js) and Elements (falling sand),
   into one, so pieces knocked loose fall into sand, water and fire and burn, float or sink. Ties in with the Havok
