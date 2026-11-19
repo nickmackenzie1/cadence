@@ -45,7 +45,7 @@
     .lt-card .lt-btn:hover{border-color:var(--accent)}.lt-card .lu{width:14px;height:14px}
     html:has(> #pc-mini:not([hidden]):not(.pc-tuck)) .lt-card{bottom:96px}`;
   const css = more => BASE_CSS + (more || '');
-  const loadSt = () => { try { return JSON.parse(localStorage.getItem('cadence.v1') || '{}'); } catch (e) { return {}; } };
+  const loadSt = () => { try { const d = window.CadenceWorkDoc && window.CadenceWorkDoc(); if (d) return d; return JSON.parse(localStorage.getItem('cadence.v1') || '{}'); } catch (e) { return {}; } };
 
   /* ---------------- Record of the day: one record from your Discogs shelf, a different one each morning ---------------- */
   R({ id: 'record-of-the-day', name: 'Record of the day', category: 'Live', tagline: 'One record from your Discogs collection each morning: its cover behind everything, its colours on the app, the sleeve in the corner.',

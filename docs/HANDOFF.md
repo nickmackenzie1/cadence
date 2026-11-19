@@ -359,3 +359,14 @@ checking the code.
   Last.fm, NHL, TVmaze, Open-Meteo, Wikipedia, xkcd, Hacker News. Ones needing a key that isn't set say "No key".
   States: Works, No key, Can't read it, Didn't answer (calm colours). Radar's own sources keep their check on Radar's
   Sources page. Add a line to CHECKS when THING starts using a new outside service.
+- **Done (2026-11-19, review item 6):** the bundle chooser leaves out every plugin file whose plugins are all off (or
+  not offered) in the space the page opens in, not only ones off in both; switching space fetches the rest
+  (core.js LazyPlugins, unchanged). Opening in Work skipped about 220 KB more script in a test profile.
+- **Done (2026-11-19, review item 4): saving a big space is fast.** Measured with 3,000 tasks: three quick adds
+  blocked the page for ~8.7 s in total, 6 s of it lz-string compressing the space and the sync state for
+  localStorage on every save. Now (core.js lsWrite) a document past LZ_MIN (150 KB) is saved to IndexedDB only, with
+  the `idb1:` marker in localStorage (the path that already existed for a full localStorage); compression stays only
+  for browsers without IndexedDB. The sync state keeps a 64-bit fingerprint per record (`fp`) instead of a full copy of
+  its text; old copies are turned into fingerprints when read, so nothing is re-sent. After: the longest block was
+  136 ms, ~0.7 s in total. NAS sync already sent only changed records. Theme code that read cadence.v1 straight from
+  localStorage uses `window.CadenceWorkDoc()` now.

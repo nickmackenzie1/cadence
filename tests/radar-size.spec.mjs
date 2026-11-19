@@ -43,8 +43,9 @@ test('listener counts come from ListenBrainz without Last.fm; a key Last.fm turn
     expect(state.artists['wet leg'].listeners).toBe(900 * 25);
     expect(state.artists['huge star'].listeners).toBe(200000 * 25);
     expect(E.sizeFactor(state.artists['huge star'].listeners)).toBe(0);
-    expect(isMainstream('Huge Star', state.artists['huge star'])).toBe(true);
-    expect(isMainstream('Wet Leg', state.artists['wet leg'])).toBe(false);
+    const ms = { on: true, list: [], listeners: 2000000, charts: false };   // the default limit, whatever another test left
+    expect(isMainstream('Huge Star', state.artists['huge star'], {}, ms)).toBe(true);
+    expect(isMainstream('Wet Leg', state.artists['wet leg'], {}, ms)).toBe(false);
     // the chart source says why it's skipped, without asking Last.fm again
     const { SOURCES } = await import('../server/services/radar/lib/sources.mjs');
     await expect(SOURCES.lastfm.fetch({}, { tags: [] })).rejects.toThrow(/Pro from 1 December 2026/);

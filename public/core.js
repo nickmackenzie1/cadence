@@ -291,8 +291,19 @@
   }
   function lsWrite(k, obj) {
     if (HOLD.on) return; // still opening the IndexedDB copy: never save the placeholder over it
-    IDB.put(k, obj, BIG.has(k));
     const j = JSON.stringify(obj);
+    // big documents live in IndexedDB only (2026-11-19): compressing them for localStorage on every save took most of
+    // the time an edit spent saving (about a second each with a few thousand tasks). A marker stays in localStorage,
+    // and the app opens from IndexedDB, as it already did when localStorage was full. No IndexedDB: compressed, as before.
+    if (IDB.ok && j.length > LZ_MIN) {
+      IDB.put(k, obj, true);
+      if (!BIG.has(k)) {
+        try { localStorage.setItem(k, 'idb1:' + Date.now()); } catch (_) {}
+        BIG.add(k);
+      }
+      return;
+    }
+    IDB.put(k, obj, BIG.has(k));
     try {
       localStorage.setItem(k, j.length > LZ_MIN && window.LZString ? 'lz1:' + LZString.compressToUTF16(j) : j);
       BIG.delete(k);
@@ -917,6 +928,26 @@
   };
 
   /* ---------- per-record sync state (survives reloads, so offline edits are sent later) ---------- */
+  // a record's fingerprint (2026-11-19): the sync state used to keep a full copy of every record's text just to see
+  // whether it changed; a 64-bit hash plus the length does the same and keeps the sync state small. Old full copies
+  // are turned into fingerprints when it's read, so nothing is sent again.
+  const fp = str => {
+    if (str == null) return null;
+    let h1 = 0xdeadbeef, h2 = 0x41c6ce57;
+    for (let i = 0; i < str.length; i++) {
+      const c = str.charCodeAt(i);
+      h1 = Math.imul(h1 ^ c, 2654435761);
+      h2 = Math.imul(h2 ^ c, 1597334677);
+    }
+    h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909);
+    h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);
+    return (h2 >>> 0).toString(36) + (h1 >>> 0).toString(36) + ':' + str.length;
+  };
+  const FP_RE = /^[0-9a-z]+:\d+$/;
+  const fpRecs = recs => {
+    for (const r of Object.values(recs || {})) if (r && typeof r.h === 'string' && !FP_RE.test(r.h)) r.h = fp(r.h);
+    return recs;
+  };
   const Sync = {
     KEY: LS_KEY + '.sync',
     ARR: { task: 'tasks', client: 'clients', meeting: 'meetings' },
@@ -928,7 +959,9 @@
           HOLD.on = true;
           HOLD.sync = true;
         }
-        return Object.assign({ init: false, cursor: 0, recs: {}, dirty: {} }, v || {});
+        const st = Object.assign({ init: false, cursor: 0, recs: {}, dirty: {} }, v || {});
+        fpRecs(st.recs);
+        return st;
       } catch (e) {
         return { init: false, cursor: 0, recs: {}, dirty: {} };
       }
@@ -981,13 +1014,13 @@
         const pre = space === 'life' ? 'life:' : '';
         for (const [kind, key] of Object.entries(this.ARR))
           (D[key] || []).forEach((x, i) => {
-            if (x && x.id != null) m.set(this.k(kind, x.id), { kind, id: String(x.id), data: x, pos: i, space, h: JSON.stringify(x) });
+            if (x && x.id != null) m.set(this.k(kind, x.id), { kind, id: String(x.id), data: x, pos: i, space, h: fp(JSON.stringify(x)) });
           });
         for (const [pid, d] of Object.entries(D.pluginData || {}))
-          m.set(this.k('plugin', pre + pid), { kind: 'plugin', id: pre + pid, data: d, space, h: JSON.stringify(d) });
+          m.set(this.k('plugin', pre + pid), { kind: 'plugin', id: pre + pid, data: d, space, h: fp(JSON.stringify(d)) });
         const root = {};
         for (const [k, v] of Object.entries(D)) if (!['tasks', 'clients', 'meetings', 'pluginData', 'updatedAt'].includes(k)) root[k] = v;
-        m.set(this.k('doc', pre + 'root'), { kind: 'doc', id: pre + 'root', data: root, space, h: JSON.stringify(root) });
+        m.set(this.k('doc', pre + 'root'), { kind: 'doc', id: pre + 'root', data: root, space, h: fp(JSON.stringify(root)) });
       }
       return m;
     },
@@ -1066,7 +1099,7 @@
         structural = false;
       for (const rec of d.records || []) {
         const k = this.k(rec.kind, rec.id),
-          h = JSON.stringify(rec.data),
+          h = fp(JSON.stringify(rec.data)),
           l = local.get(k),
           s = st.recs[k];
         const localH = l ? l.h : null;
@@ -1129,7 +1162,7 @@
       st.recs = {};
       st.dirty = {};
       for (const rec of recs)
-        st.recs[this.k(rec.kind, rec.id)] = { rev: rec.rev, h: JSON.stringify(rec.data), deleted: !!rec.deleted, space: this.spaceOf(rec) };
+        st.recs[this.k(rec.kind, rec.id)] = { rev: rec.rev, h: fp(JSON.stringify(rec.data)), deleted: !!rec.deleted, space: this.spaceOf(rec) };
       st.cursor = d.cursor || 0;
       st.init = true;
       if (!recs.length) {
@@ -2357,6 +2390,9 @@
     }).catch(e => { if (had) return JSON.parse(had); throw e; });
   }
   window.CadenceCached = cachedGet;   // the same, for plugin code outside setup()
+  // the Work space as it is now, for theme code that reads a setting or a plugin's data (read it, don't change it):
+  // big spaces live in IndexedDB, so localStorage may hold only a marker
+  window.CadenceWorkDoc = () => (SPACE === 'work' ? S : otherDoc());
   function makeApi(pid) {
     return Object.freeze({
       pluginId: pid,
@@ -6486,7 +6522,7 @@
           if (!r) continue;
           const [k, v] = r;
           if (k === 'sync') {
-            if (v) Sync.st = Object.assign({ init: false, cursor: 0, recs: {}, dirty: {} }, v);
+            if (v) { Sync.st = Object.assign({ init: false, cursor: 0, recs: {}, dirty: {} }, v); fpRecs(Sync.st.recs); }
             continue;
           }
           if (!v) continue;

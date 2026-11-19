@@ -63,3 +63,26 @@ test('a "cadence" database with nothing in it (made before the app opened it) is
   await page.evaluate(() => { window.T.tasks.add({ title: 'Saved after the repair', dueDate: window.T.util.todayKey() }); });
   await expect.poll(async () => ((await idbGet(page, 'cadence.v1')) || { tasks: [] }).tasks.some(t => t.title === 'Saved after the repair')).toBe(true);
 });
+
+test('a big space is saved to IndexedDB only (no slow compressing on every edit) and opens from there', async ({ page, context }) => {
+  const errs = []; page.on('pageerror', e => errs.push(String(e)));
+  await page.goto(B + '/'); await expect(page.locator('#sync')).toContainText('NAS', { timeout: 10000 }); await hook(page);
+  // well past 150 KB of tasks
+  await page.evaluate(() => { for (let i = 0; i < 400; i++) T.tasks.add({ title: 'Big space task ' + i, notes: 'notes '.repeat(80) }); });
+  await expect.poll(() => page.evaluate(() => (localStorage.getItem('cadence.v1') || '').slice(0, 5))).toBe('idb1:');
+  await expect.poll(async () => ((await idbGet(page, 'cadence.v1')) || { tasks: [] }).tasks.filter(t => /^Big space task/.test(t.title)).length).toBe(400);
+  // the sync state keeps fingerprints, not copies of every record
+  const syncHs = async () => { const ls = await page.evaluate(() => localStorage.getItem('cadence.v1.sync') || '');
+    const sync = ls.startsWith('{') ? JSON.parse(ls) : (await idbGet(page, 'cadence.v1.sync')) || {};
+    return Object.values(sync.recs || {}).map(r => r.h).filter(Boolean); };
+  await expect.poll(async () => (await syncHs()).length, { timeout: 15000 }).toBeGreaterThan(400);
+  const hs = await syncHs();
+  expect(hs.every(h => /^[0-9a-z]+:\d+$/.test(h))).toBe(true);
+  // reload with the NAS cut off: everything comes back from IndexedDB
+  await context.route('**/api/**', r => r.abort());
+  await page.reload();
+  await expect(page.locator('#view')).toBeVisible({ timeout: 15000 }); await hook(page);
+  await expect.poll(() => page.evaluate(() => window.T.tasks.list(t => /^Big space task/.test(t.title)).length), { timeout: 15000 }).toBe(400);
+  await context.unroute('**/api/**');
+  expect(errs.filter(e => !/Failed to fetch|NetworkError|net::/i.test(e))).toEqual([]);
+});
