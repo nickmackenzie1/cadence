@@ -65,8 +65,8 @@ test('artist page: from a Radar pick to everything about them', async ({ page })
   await expect(page.locator('.ap-facts')).toContainText('since 2019');
   await expect(page.locator('.ap-links a', { hasText: 'Bandcamp' })).toHaveAttribute('href', 'https://glasslantern.bandcamp.com/');
   await expect(page.locator('.ap-links a', { hasText: 'Website' })).toHaveAttribute('href', 'https://glasslantern.example');
-  await expect(page.locator('.ap-r')).toHaveCount(1);                       // the live album is left out
-  await expect(page.locator('.ap-r')).toContainText('Night Swim');
+  await expect(page.locator('.cf-it')).toHaveCount(1);                      // the live album is left out (Cover Flow, 2026-11-18)
+  await expect(page.locator('.cf-cap')).toContainText('Night Swim');
   await expect(page.locator('.ap-tags')).toContainText('shoegaze');
   // sounds like: artists mentioned together with them, each a way to wander on
   await expect(page.locator('.ap-sim li', { hasText: 'Porch Static' })).toContainText(/mentioned together \d+ time/);

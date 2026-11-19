@@ -61,6 +61,22 @@ function build(srcs) {
   return cache;
 }
 
+// Brotli in its own worker thread (compress-worker.js), one at a time: on Node's shared pool, a few of these at once
+// starved file reads for every other request (2026-11-18). No worker, no Brotli: gzip is served instead.
+let cw = null, cwSeq = 0; const cwWait = new Map();
+function brotli(buf) {
+  if (!cw) {
+    try {
+      cw = new (require('worker_threads').Worker)(path.join(__dirname, 'compress-worker.js')); cw.unref();
+      cw.on('message', m => { const r = cwWait.get(m.id); if (r) { cwWait.delete(m.id); r(m.out ? Buffer.from(m.out.buffer || m.out, m.out.byteOffset || 0, m.out.byteLength) : null); } });
+      const fail = () => { for (const r of cwWait.values()) r(null); cwWait.clear(); cw = null; };
+      cw.on('error', fail); cw.on('exit', fail);
+    } catch { return Promise.resolve(null); }
+  }
+  const id = ++cwSeq;
+  return new Promise(r => { cwWait.set(id, r); cw.postMessage({ id, buf: new Uint8Array(buf) }); });
+}
+
 // the JS for a selection: everything minus `skip`, or just `only`
 function jsFor(b, { skip = [], only = null } = {}) {
   const key = only ? 'only:' + only.join(',') : 'skip:' + skip.join(',');
@@ -75,7 +91,7 @@ function jsFor(b, { skip = [], only = null } = {}) {
   hit = { js, gz: null, br: null, etag: `"${b.hash}-${crypto.createHash('sha1').update(key).digest('hex').slice(0, 8)}"` };
   const h = hit;
   h.gzP = new Promise(r => zlib.gzip(js, { level: 6 }, (e, out) => { h.gz = e ? null : out; r(h.gz); }));
-  h.gzP.then(() => zlib.brotliCompress(js, { params: { [zlib.constants.BROTLI_PARAM_QUALITY]: 11, [zlib.constants.BROTLI_PARAM_SIZE_HINT]: js.length, [zlib.constants.BROTLI_PARAM_MODE]: zlib.constants.BROTLI_MODE_TEXT } }, (e, out) => { if (!e) h.br = out; }));
+  h.gzP.then(() => brotli(js)).then(out => { if (out) h.br = out; });
   if (b.out.size > 40) b.out.clear();
   b.out.set(key, hit);
   return hit;

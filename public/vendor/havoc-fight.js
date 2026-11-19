@@ -210,7 +210,8 @@
     } else if (b.kind === 'blobby') {
       if (!b.solid) {   // in bits: pulls himself back together
         b.reform -= dt;
-        if (b.reform <= 0) { for (const j of S.jelly) j.home = true; if (S.jelly.every(j => Math.hypot(j.x - b.x, j.y - (b.y - b.R)) < 14)) { S.jelly = []; b.solid = true; b.squash = 0.5; say(b, pick(['Blorp!', 'Still here!', 'Glorp.'])); } }
+        // back together once the bits are home, or after 2.5 s of pulling whatever's left (slow devices never quite settle)
+        if (b.reform <= 0) { for (const j of S.jelly) j.home = true; if (b.reform < -2.5 || S.jelly.every(j => Math.hypot(j.x - b.x, j.y - (b.y - b.R)) < 14)) { S.jelly = []; b.solid = true; b.squash = 0.5; say(b, pick(['Blorp!', 'Still here!', 'Glorp.'])); } }
         return;
       }
       b.hopT -= fdt;

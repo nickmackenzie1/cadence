@@ -134,7 +134,8 @@ test('havoc: switch between Physics and Elements from the toolbar, Esc puts the 
 
 test('coming back to the tab refetches, and a new version on the NAS reloads unless something is half-typed', async ({ page }) => {
   let build = 'v1', health = 0;
-  await page.route('**/api/health', async r => { health++; const res = await r.fetch(); const j = await res.json(); await r.fulfill({ json: { ...j, build } }); });
+  // a health check still in flight when the page reloads is cut off: that's the reload, not a failure
+  await page.route('**/api/health', async r => { health++; try { const res = await r.fetch(); const j = await res.json(); await r.fulfill({ json: { ...j, build } }); } catch { await r.abort().catch(() => {}); } });
   await open(page);
   await expect.poll(() => health, { timeout: 10000 }).toBeGreaterThan(0);   // the first check learns v1
   await page.waitForTimeout(4200);                                   // let any refocus from page load pass the 4s throttle
