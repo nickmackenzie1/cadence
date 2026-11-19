@@ -2531,11 +2531,15 @@
         render: (key, el, ctx = {}) => {
           const w = Reg.widgets.find(x => x.key === key);
           if (!w) return false;
+          // a card redrawn in place keeps focus, typing, inner scroll and opened sections, like pages do (2026-11-19)
+          const k = keepBefore(el, null, el.dataset.wk === key);
+          el.dataset.wk = key;
           try {
             w.render(el, makeApi(w.pid), ctx);
           } catch (e) {
             el.innerHTML = `<div class="muted" style="padding:12px;font-size:12px">Widget failed: ${esc(e.message)}</div>`;
           }
+          keepAfter(el, k);
           return true;
         }
       },
@@ -3303,9 +3307,10 @@
     if (key.includes('[name=')) { const [tag, nm] = key.split('[name='); return root.querySelector(`${tag.toLowerCase()}[name="${CSS.escape(nm.slice(0, -1))}"]`); }
     let n = root; for (const step of key.split('/')) { const [tag, i] = step.split(':'); n = n && n.children[+i]; if (!n || n.tagName !== tag) return null; } return n;
   };
-  function keepBefore(v, r) {
-    const k = { same: KEEP.route === r, imgs: new Map(), focus: null, scroll: [], details: [] };
-    KEEP.route = r;
+  // same: given for a dashboard card (its own element redrawn), else worked out from the page's route
+  function keepBefore(v, r, same) {
+    const k = { same: same === undefined ? KEEP.route === r : same, imgs: new Map(), focus: null, scroll: [], details: [] };
+    if (same === undefined) KEEP.route = r;
     try {
       for (const img of v.querySelectorAll('img')) if (img.complete && img.naturalWidth && !img.hasAttribute('data-fresh')) { const src = img.getAttribute('src'); if (!src) continue; const l = k.imgs.get(src) || []; l.push(img); k.imgs.set(src, l); }
       if (!k.same) return k;

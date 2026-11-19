@@ -45,8 +45,10 @@ checking the code.
   on the fly (not in the manifest) means every pack loads, as before. About 290 KB less script to run on each load.
 - Dark mode check after the design passes.
 - Redraws: core views morph in place with idiomorph (0.41.0; `localStorage cadence.morph = off` turns it off).
-  Plugin views (data-binding their own handlers) and dashboard widgets still redraw in full, so they don't keep
-  focus/scroll yet, and iframes inside them reload (keep those outside views, like the Mixcloud dock).
+  Plugin views and (since 2026-11-19) dashboard cards redraw in full, but keepBefore/keepAfter put back focus, unsaved
+  typing and the cursor, inner scroll positions and opened <details> on a same-page redraw (tests/keep.spec.mjs).
+  They aren't morphed, on purpose: plugins bind handlers with closures over the data they drew, and a morph would keep
+  the old handlers. Iframes inside them still reload (keep those outside views, like the Mixcloud dock).
 - `docs/BACKUP.md` still mentions a Reddit key in `.env`.
 
 - Server speed (user, 2026-11-18, from a review of the one-thread setup; most of it was already done: the music process,
@@ -370,3 +372,5 @@ checking the code.
   its text; old copies are turned into fingerprints when read, so nothing is re-sent. After: the longest block was
   136 ms, ~0.7 s in total. NAS sync already sent only changed records. Theme code that read cadence.v1 straight from
   localStorage uses `window.CadenceWorkDoc()` now.
+- **Done (2026-11-19, review item 5):** plugin pages already kept focus, typing, scroll and opened sections on a redraw
+  (keepBefore/keepAfter in core.js); dashboard cards now do too (`api.widgets.render` wraps the same keep).
