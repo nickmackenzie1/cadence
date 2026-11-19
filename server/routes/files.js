@@ -62,7 +62,7 @@ module.exports = async function filesRoutes(req, res, { url, p }) {
     catch (e) { return send(res, e.code === 400 ? 400 : 502, { error: e.code === 400 ? e.message : "Couldn't reach the lyrics library just now" }); }
   }
   // the watch list: find a film or show, then one in full
-  if ((p === '/api/tmdb/find' || p === '/api/tmdb/title') && req.method === 'GET') {
+  if ((p === '/api/tmdb/find' || p === '/api/tmdb/title' || p === '/api/tmdb/next') && req.method === 'GET') {
     try { const t = require('../services/tmdb'); return send(res, 200, await t[p.slice(10)](Object.fromEntries(url.searchParams))); }
     catch (e) { return send(res, e.code === 400 ? 400 : 502, { error: e.code === 400 ? e.message : "Couldn't reach TMDB just now" }); }
   }

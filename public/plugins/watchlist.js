@@ -27,7 +27,10 @@
       const KIND = { film: 'film', game: 'game' };
       const isMedia = t => !!(t && t.media && t.media.kind);
       const label = m => m.kind === 'game' ? 'Game' : m.type === 'tv' ? 'Show' : 'Film';
-      const facts = m => [m.year, m.type === 'tv' && m.seasons ? m.seasons + (m.seasons === 1 ? ' season' : ' seasons') : hm(m.runtime), m.platform].filter(Boolean).join(' · ');
+      const day = d => new Date(d + 'T12:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: new Date(d).getFullYear() === new Date().getFullYear() ? undefined : 'numeric' });
+      const todayStr = () => api.util.todayKey();
+      const coming = m => m.released && m.released > todayStr() ? `Out ${day(m.released)}` : m.nextSeason && m.nextSeason.date >= todayStr() ? `Season ${m.nextSeason.season} on ${day(m.nextSeason.date)}` : '';
+      const facts = m => [coming(m) || m.year, m.type === 'tv' && m.seasons ? m.seasons + (m.seasons === 1 ? ' season' : ' seasons') : hm(m.runtime), m.platform].filter(Boolean).join(' · ');
 
       // the area the list lives in (made the first time something is added; renamed or removed areas are respected)
       const area = make => {
@@ -63,7 +66,7 @@
         if (hit.type === 'game' || !nas()) return hit;
         try { const d = await getJson(`api/tmdb/title?type=${hit.type}&id=${hit.id}`); return d && !d.off ? { ...hit, ...d } : hit; } catch { return hit; }
       };
-      const pack = (kind, h, alts) => ({ kind, type: h.type, id: h.id, title: h.title, year: h.year || '', runtime: h.runtime || 0, seasons: h.seasons || 0,
+      const pack = (kind, h, alts) => ({ kind, type: h.type, id: h.id, title: h.title, year: h.year || '', released: h.released || null, runtime: h.runtime || 0, seasons: h.seasons || 0,
         poster: h.poster || null, genres: h.genres || [], by: h.by || [], cast: h.cast || [], overview: h.overview || '', link: h.link || (h.type !== 'game' ? `https://www.themoviedb.org/${h.type}/${h.id}` : ''),
         platform: h.platform || '', alts: (alts || []).filter(x => x.id !== h.id).slice(0, 6).map(x => ({ id: x.id, type: x.type, title: x.title, year: x.year, poster: x.poster, platform: x.platform || '' })) });
       const choose = async (id, hit) => {
@@ -104,6 +107,52 @@
         if (!t.dueDate) setTimeout(() => { const n = api.tasks.get(t.id); if (n && !n.done && n.dueDate === api.util.todayKey()) api.tasks.update(t.id, { dueDate: null }); }, 0);
         fill(t, t.title);
       });
+
+      /* Your year (user, 2026-11-19): everything you watched and played this year: how many, the hours (films by their
+         runtime), favourite genres, month by month, the first and the latest, and the covers. */
+      function yearHtml() {
+        const y = new Date().getFullYear(), from = new Date(y, 0, 1).getTime();
+        const done = items(true).filter(t => (t.doneAt || 0) >= from).sort((a, b) => a.doneAt - b.doneAt);
+        if (!done.length) return `<p class="muted">Nothing watched or played yet in ${y}. When you mark something Watched or Played, it counts here.</p>`;
+        const films = done.filter(t => t.media.kind !== 'game' && t.media.type !== 'tv'), shows = done.filter(t => t.media.type === 'tv'), games = done.filter(t => t.media.kind === 'game');
+        const mins = films.reduce((a, t) => a + (t.media.runtime || 0), 0);
+        const g = {}; for (const t of done) for (const x of t.media.genres || []) g[x] = (g[x] || 0) + 1;
+        const genres = Object.entries(g).sort((a, b) => b[1] - a[1]).slice(0, 3).map(x => x[0]);
+        const months = Array.from({ length: 12 }, (_, i) => done.filter(t => new Date(t.doneAt).getMonth() === i).length), top = Math.max(1, ...months);
+        const stat = (n, l) => `<div class="wq-ys"><b>${n}</b><span class="muted">${l}</span></div>`;
+        return `<div class="wq-year">
+          <div class="wq-ystats">${stat(films.length, films.length === 1 ? 'film' : 'films')}${stat(shows.length, shows.length === 1 ? 'show' : 'shows')}${stat(games.length, games.length === 1 ? 'game' : 'games')}${mins ? stat(Math.round(mins / 60), 'hours of film') : ''}</div>
+          ${genres.length ? `<p class="muted">Mostly ${E(genres.join(', ').replace(/, ([^,]*)$/, ' and $1'))}.</p>` : ''}
+          <div class="wq-ym" role="img" aria-label="Month by month">${months.map((n, i) => `<div><i style="height:${Math.round(n / top * 100)}%"></i><span>${new Date(y, i, 1).toLocaleDateString(undefined, { month: 'narrow' })}</span>${n ? `<b>${n}</b>` : ''}</div>`).join('')}</div>
+          <p class="muted">First: <b>${E(done[0].title)}</b>, ${E(new Date(done[0].doneAt).toLocaleDateString(undefined, { month: 'long', day: 'numeric' }))}. Latest: <b>${E(done[done.length - 1].title)}</b>.</p>
+          ${grid(done.slice().reverse(), true)}</div>`;
+      }
+
+      /* Reminders (user, 2026-11-19): a quiet note on the day a film or game on your list comes out, or a show on it starts
+         a new season. Checked once a day while THING is open; each one is said once. Release dates fill in for older
+         items from TMDB as they're checked. */
+      async function checkReleases() {
+        if (!nas()) return;
+        const today = todayStr(); if (api.storage.get('relCheck') === today) return; api.storage.set('relCheck', today);
+        const told = new Set(api.storage.get('told') || []), tell = (k, title, body, id) => { if (told.has(k)) return; told.add(k); api.notify({ title, body, route: 'view-watch', taskId: id }); };
+        for (const t of items(false).slice(0, 80)) {
+          const m = t.media; if (!m.id) continue;
+          try {
+            if (m.kind !== 'game' && !m.released) { const d = await getJson(`api/tmdb/title?type=${m.type === 'tv' ? 'tv' : 'movie'}&id=${m.id}`); if (d && d.released) api.tasks.update(t.id, { media: { ...m, released: d.released } }); }
+            if (m.type === 'tv') {
+              const n = await getJson(`api/tmdb/next?id=${m.id}`);
+              if (n && n.next && n.next.date && n.next.episode === 1) {
+                if (!m.nextSeason || m.nextSeason.date !== n.next.date) api.tasks.update(t.id, { media: { ...(api.tasks.get(t.id) || t).media, nextSeason: { season: n.next.season, date: n.next.date } } });
+                if (n.next.date === today) tell(`s|${m.id}|${n.next.season}`, `${t.title}: season ${n.next.season} starts today`, 'On your Watch list');
+              }
+            } else if (m.released === today) tell(`r|${m.kind}|${m.id}`, `${t.title} is out today`, 'On your Watch list');
+          } catch {}
+        }
+        api.storage.set('told', [...told].slice(-300));
+      }
+      setTimeout(checkReleases, 8000);
+      window.__wqCheck = () => { api.storage.set('relCheck', null); return checkReleases(); };   // for the tests
+      clearInterval(window.__wqRel); window.__wqRel = setInterval(checkReleases, 6 * 3600e3);
 
       // "More like this" from TasteDive (2026-11-19): asked once per title, kept on the NAS; nothing shows if there's no key
       // or TasteDive doesn't answer
@@ -201,11 +250,11 @@
           <div class="wq-add"><div class="wq-kind" role="tablist">${[[KIND.film, 'Film or show', 'film'], [KIND.game, 'Game', 'gamepad-2']].map(([k, l, i]) => `<button role="tab" class="${G.kind === k ? 'on' : ''}" data-wq-kind="${k}">${ic(i)} ${l}</button>`).join('')}</div>
             <input class="inp" id="wq-q" placeholder="${G.kind === KIND.game ? 'Add a game, like Hades' : 'Add a film or show, like Dune'}" value="${E(G.q)}" autocomplete="off" data-no-grammar>${G.busy ? '<span class="muted wq-busy">Looking…</span>' : ''}</div>
           ${sug}
-          <div class="wq-tabs">${[['next', `Up next <i>${films.length + games.length}</i>`], ['shelf', `Watched and played <i>${shelf.length}</i>`]].map(([k, l]) => `<button class="${G.tab === k ? 'on' : ''}" data-wq-tab="${k}">${l}</button>`).join('')}</div>
+          <div class="wq-tabs">${[['next', `Up next <i>${films.length + games.length}</i>`], ['shelf', `Watched and played <i>${shelf.length}</i>`], ['year', `Your ${new Date().getFullYear()}`]].map(([k, l]) => `<button class="${G.tab === k ? 'on' : ''}" data-wq-tab="${k}">${l}</button>`).join('')}</div>
           ${G.tab === 'next' && (films.length || games.length) ? tnHtml() : ''}
           ${G.tab === 'next' && shelf.length ? (() => { const last = shelf[0], l = similarTo(last.media.title || last.title, simType(last.media));
             return l.length ? `<div class="wq-sims wq-simpage"><span class="muted">Because you ${last.media.kind === 'game' ? 'played' : 'watched'} <b>${E(last.title)}</b></span>${simChips(l, last.media.kind)}<small class="muted">Suggestions from TasteDive</small></div>` : ''; })() : ''}
-          ${G.tab === 'next' ? (films.length || games.length ? `${films.length ? `<h3>To watch</h3>${grid(films, false)}` : ''}${games.length ? `<h3>To play</h3>${grid(games, false)}` : ''}`
+          ${G.tab === 'year' ? yearHtml() : G.tab === 'next' ? (films.length || games.length ? `${films.length ? `<h3>To watch</h3>${grid(films, false)}` : ''}${games.length ? `<h3>To play</h3>${grid(games, false)}` : ''}`
             : `<p class="muted">Nothing on the list yet. Search above, or type "watch Dune" or "play Hades" in quick add.</p>`)
             : shelf.length ? grid(shelf, true) : '<p class="muted">What you watch and play shows up here, newest first.</p>'}
           <p class="wq-credit">Films and shows from TMDB, games from TheGamesDB. This product uses the TMDB API but is not endorsed or certified by TMDB.</p></div>`;
@@ -260,6 +309,14 @@
         .wq-sims{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:10px}.wq-sims>span{margin-right:4px;font-size:13px}.wq-sims small{width:100%;font-size:11.5px}
         .wq-sim{cursor:pointer;display:inline-flex;gap:4px;align-items:center}.wq-sim svg{width:12px;height:12px}
         .wq-simpage{margin:0 0 16px;padding:10px 14px;border:1px dashed var(--line);border-radius:calc(var(--r,8px) + 4px)}
+        .wq-year{display:flex;flex-direction:column;gap:12px}
+        .wq-ystats{display:flex;gap:10px;flex-wrap:wrap}
+        .wq-ys{border:1px solid var(--line);border-radius:calc(var(--r,8px) + 4px);background:var(--panel);padding:12px 16px;display:flex;flex-direction:column;min-width:110px}
+        .wq-ys b{font-size:26px;font-weight:700;line-height:1.1}
+        .wq-ym{display:grid;grid-template-columns:repeat(12,1fr);gap:6px;height:120px;align-items:end;margin:4px 0}
+        .wq-ym div{position:relative;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;height:100%;gap:4px}
+        .wq-ym i{display:block;width:100%;max-width:28px;min-height:2px;border-radius:4px 4px 2px 2px;background:var(--accent)}
+        .wq-ym span{font-size:11px;color:var(--muted)}.wq-ym b{position:absolute;top:0;font-size:11px;color:var(--muted);font-weight:600}
         .wq-tn{border:1px solid var(--line);border-radius:calc(var(--r,8px) + 4px);background:var(--panel);padding:12px 14px;margin:6px 0 16px}
         .wq-tnh{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
         .wq-tnh>b{display:flex;gap:6px;align-items:center;font-weight:650}.wq-tnh svg{width:16px;height:16px}

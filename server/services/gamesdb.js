@@ -69,7 +69,7 @@ async function find({ q = '' } = {}) {
   const results = games.slice(0, 8).map(g => { const f = (box[g.id] || []).find(b => b.side === 'front');
     const pl = plats[g.platform] && plats[g.platform].name;
     return { id: g.id, type: 'game', title: g.game_title, year: String(g.release_date || '').slice(0, 4), platform: pl || '',
-      poster: f ? pic('medium/' + f.filename) : null, overview: String(g.overview || '').slice(0, 600), link: `https://thegamesdb.net/game.php?id=${g.id}` }; });
+      poster: f ? pic('medium/' + f.filename) : null, released: g.release_date || null, overview: String(g.overview || '').slice(0, 600), link: `https://thegamesdb.net/game.php?id=${g.id}` }; });
   const v = { results };
   const c2 = readCache(); c2[key] = { at: Date.now(), v }; try { fs.writeFileSync(CACHE(), JSON.stringify(c2)); } catch {}
   return v;

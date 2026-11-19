@@ -21,7 +21,8 @@ test.beforeAll(async () => {
     if (u.pathname === '/3/movie/438631') return json({ id: 438631, title: 'Dune', release_date: '2021-09-15', runtime: 155, genres: [{ name: 'Science Fiction' }], poster_path: '/dune2021.jpg', credits: { crew: [{ job: 'Director', name: 'Denis Villeneuve' }], cast: [{ name: 'Timothée Chalamet' }] } });
     if (u.pathname === '/3/movie/329') return json({ id: 329, title: 'Jurassic Park', release_date: '1993-06-11', runtime: 127, genres: [{ name: 'Adventure' }], poster_path: '/jp000001.jpg', credits: { crew: [{ job: 'Director', name: 'Steven Spielberg' }], cast: [] } });
     if (u.pathname === '/3/movie/841') return json({ id: 841, title: 'Dune', release_date: '1984-12-14', runtime: 137, genres: [], poster_path: '/dune1984.jpg', credits: { crew: [{ job: 'Director', name: 'David Lynch' }], cast: [] } });
-    if (u.pathname === '/3/tv/95396') return json({ id: 95396, name: 'Severance', first_air_date: '2022-02-17', episode_run_time: [50], number_of_seasons: 2, genres: [{ name: 'Drama' }], created_by: [{ name: 'Dan Erickson' }], poster_path: '/sev00001.jpg', credits: { cast: [] } });
+    if (u.pathname === '/3/tv/95396') return json({ id: 95396, name: 'Severance', first_air_date: '2022-02-17', episode_run_time: [50], number_of_seasons: 2, status: 'Returning Series',
+      next_episode_to_air: { air_date: new Date().toLocaleDateString('en-CA'), season_number: 3, episode_number: 1, name: 'Made-up episode' }, genres: [{ name: 'Drama' }], created_by: [{ name: 'Dan Erickson' }], poster_path: '/sev00001.jpg', credits: { cast: [] } });
     if (u.pathname.startsWith('/t/p/')) { res.writeHead(200, { 'Content-Type': 'image/png' }); return res.end(PNG); }
     if (u.pathname === '/v1/Games/ByGameName') return json({ data: { games: q === 'hades' ? [{ id: 2, game_title: 'Hades II', release_date: '2024-05-06', platform: 1 }, { id: 1, game_title: 'Hades', release_date: '2020-09-17', platform: 1 }] : [] },
       include: { boxart: { base_url: {}, data: { 1: [{ side: 'front', filename: 'boxart/front/1-1.jpg' }] } }, platform: { data: { 1: { id: 1, name: 'PC' } } } } });
@@ -141,4 +142,19 @@ test('More like this: because you watched one, suggestions from TasteDive add wi
   await expect(box.locator('[data-wq-sim="Severance"]')).toHaveCount(0);   // already on your list
   await box.locator('[data-wq-sim="Mr. Robot"]').click();
   await expect(page.locator('.wq-it', { hasText: 'Mr. Robot' })).toBeVisible({ timeout: 8000 });
+});
+
+test('a show on your list starting a new season today: a quiet note, and the date on its card; Your year counts', async ({ page }) => {
+  await page.goto(B + '/#today');
+  await expect(page.locator('#qa')).toBeVisible({ timeout: 15000 });
+  await page.click('[data-act=space][data-s=life]');
+  await page.fill('#qa', 'watch severance'); await page.press('#qa', 'Enter');
+  await expect.poll(() => page.evaluate(() => (JSON.parse(localStorage.getItem('cadence.life.v1')).tasks.filter(t => t.media && t.media.id === 95396 && !t.done)).length), { timeout: 10000 }).toBeGreaterThan(0);
+  await page.evaluate(() => window.__wqCheck());
+  await expect.poll(() => page.evaluate(() => { const t = JSON.parse(localStorage.getItem('cadence.life.v1')).tasks.find(t => t.media && t.media.id === 95396 && !t.done); return t && t.media.nextSeason && t.media.nextSeason.season; }), { timeout: 10000 }).toBe(3);
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('cadence.life.v1')).pluginData.watchlist.told)).toContain('s|95396|3');
+  await page.goto(B + '/#view-watch');
+  await expect(page.locator('.wq-it', { hasText: 'Season 3 on' }).first()).toContainText('Severance', { timeout: 10000 });
+  await page.click('[data-wq-tab=year]');
+  await expect(page.locator('.wq-year')).toContainText(/show/);
 });

@@ -214,7 +214,10 @@ checking the code.
   add looks the title up (TMDB through /api/tmdb/find and /api/tmdb/title, TheGamesDB through /api/gdb/find, cached 30
   days) and files it in a "Watch list" area with its poster, year and runtime, without a due date. The Watch list page
   has posters of what's next, a search box with suggestions, and a shelf of what you've watched and played. The task's
-  card lists the other matches, plus "Not a film", which puts back what you typed. Works in both spaces since 2026-11-18 (each
+  card lists the other matches, plus "Not a film", which puts back what you typed. Reminders (2026-11-19): once a day
+  while THING is open it checks release dates (TMDB, TheGamesDB) and shows' next episode (/api/tmdb/next, 12 h) and
+  sends one quiet note when a film or game is out today or a season starts; cards say "Out Mar 3" / "Season 3 on Jan 17".
+  Your year tab: counts, hours of film, favourite genres, month by month, covers. Works in both spaces since 2026-11-18 (each
   space has its own list), and every "added" toast has See the list. Tonight (same day): pick how much time you have (45 min to
   All evening) and it suggests one thing that fits; what's waited longest comes up more often. Next ideas from the same list: a
   "Tonight" picker, quiet release reminders, a reward shelf, and a year in review.

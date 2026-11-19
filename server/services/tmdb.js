@@ -73,7 +73,7 @@ async function title({ type = 'movie', id = '' } = {}) {
   if (!on()) return { off: true };
   type = type === 'tv' ? 'tv' : 'movie'; id = String(id).replace(/\D/g, '').slice(0, 12);
   if (!id) throw Object.assign(new Error('Which title?'), { code: 400 });
-  return memo(`title|${type}|${id}`, async () => {
+  return memo(`title2|${type}|${id}`, async () => {
     const x = await api(`/${type}/${id}`, { append_to_response: 'credits' });
     const by = type === 'tv' ? (x.created_by || []).map(c => c.name) : ((x.credits && x.credits.crew) || []).filter(c => c.job === 'Director').map(c => c.name);
     const cast = ((x.credits && x.credits.cast) || []).slice(0, 4).map(c => c.name);
@@ -81,8 +81,21 @@ async function title({ type = 'movie', id = '' } = {}) {
     return { id: x.id, type, title: x.title || x.name, year: yearOf(x), runtime: rt, seasons: type === 'tv' ? x.number_of_seasons || 0 : 0,
       genres: (x.genres || []).map(g => g.name).slice(0, 3), by: by.slice(0, 2), cast, overview: String(x.overview || '').slice(0, 600),
       tagline: String(x.tagline || '').slice(0, 160), poster: x.poster_path ? `api/tmdb/img/w342${x.poster_path}` : null,
+      released: x.release_date || x.first_air_date || null, status: x.status || null,
       link: `https://www.themoviedb.org/${type}/${x.id}` };
   });
+}
+// a show's next episode (for the Watch list's "new season starts today"): asked at most every 12 hours, kept in memory
+const nextKept = new Map();
+async function next({ id = '' } = {}) {
+  if (!on()) return { off: true };
+  id = String(id).replace(/\D/g, '').slice(0, 12); if (!id) throw Object.assign(new Error('Which show?'), { code: 400 });
+  const h = nextKept.get(id); if (h && Date.now() - h.at < 12 * 3600e3) return h.v;
+  const x = await api(`/tv/${id}`), n = x.next_episode_to_air;
+  const v = { status: x.status || null, next: n ? { date: n.air_date || null, season: n.season_number || null, episode: n.episode_number || null, name: String(n.name || '').slice(0, 120) } : null,
+    seasons: x.number_of_seasons || 0, last: x.last_air_date || null };
+  nextKept.set(id, { at: Date.now(), v }); if (nextKept.size > 500) nextKept.delete(nextKept.keys().next().value);
+  return v;
 }
 // one picture, kept on the NAS after the first time
 async function img(size, file, res) {
@@ -99,4 +112,4 @@ async function img(size, file, res) {
   res.writeHead(200, { 'Content-Type': type, 'Cache-Control': 'private, max-age=2592000', 'X-Content-Type-Options': 'nosniff' });
   res.end(buf);
 }
-module.exports = { on, art, img, find, title };
+module.exports = { on, art, img, find, title, next };
