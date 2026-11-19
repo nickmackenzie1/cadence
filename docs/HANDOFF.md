@@ -242,3 +242,9 @@ checking the code.
   is done (backfills, the search index) have no fixed pace to change. Laid out like Immich's Jobs page (user, same
   day): a card per job, grouped (KEXP, Music, Reading, Notifications, Upkeep), with Last run and Next run counters and
   Run now, Pause and More on the right.
+- **One Havoc** (2026-11-18; user: "Elements should be the go-to for everything destructive and awesome, but keep how
+  the words float and explode"): Havoc's physics toolbar is now Grab, Blast, Fire, Lava, Acid, Rain, Black hole,
+  Zero-G and Collapse (keys 1–9), plus a Wizard button that starts Wizard vs bosses. The letters stay physics; fire (on
+  oil), lava, acid, the rain and the blasts' flames are Elements matter (havoc.js, the havoc:fx event). Physics' own
+  rain streaks and water beads are gone; its invisible drops still knock letters loose. The full Elements mode (the
+  page as sand) is still behind the toolbar's Elements switch.

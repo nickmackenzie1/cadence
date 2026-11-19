@@ -11,19 +11,26 @@
   const rand = (a, b) => a + Math.random() * (b - a);
   const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
   const TOOLS = [
+    // one Havoc (user, 2026-11-18: "Elements should be the go-to for everything destructive, but keep the words
+    // floating and exploding"): the letters are physics; fire, lava, acid, rain and blasts are real Elements matter
     { id: 'grab',   key: '1', name: 'Grab',       hint: 'Drag & fling anything',              color: '#7cf7d4' },
-    { id: 'blast',  key: '2', name: 'Blast',      hint: 'Click to detonate',                  color: '#ff7a3d' },
-    { id: 'melt',   key: '3', name: 'Melt',       hint: 'Click text or images to melt them',  color: '#ff4fa3' },
-    { id: 'rain',   key: '4', name: 'Rain',       hint: 'Toggle a storm — drops bead on images', color: '#5cc8ff' },
-    { id: 'hole',   key: '5', name: 'Black hole', hint: 'Click to open a singularity',         color: '#b28cff' },
-    { id: 'zerog',  key: '6', name: 'Zero-G',     hint: 'Toggle gravity',                      color: '#ffe066' },
-    { id: 'quake',  key: '7', name: 'Collapse',   hint: 'Bring the whole page down',           color: '#ff3b3b' },
+    { id: 'blast',  key: '2', name: 'Blast',      hint: 'Click to detonate: words fly, the blast burns', color: '#ff7a3d' },
+    { id: 'fire',   key: '3', name: 'Fire',       hint: 'Click or drag to set things alight; burning words float up', color: '#ffa94d' },
+    { id: 'melt',   key: '4', name: 'Lava',       hint: 'Pour lava: text and images melt',    color: '#ff4fa3' },
+    { id: 'acid',   key: '5', name: 'Acid',       hint: 'Drip acid: words dissolve',          color: '#a9e34b' },
+    { id: 'rain',   key: '6', name: 'Rain',       hint: 'Toggle a storm of real water that pools on the cards', color: '#5cc8ff' },
+    { id: 'hole',   key: '7', name: 'Black hole', hint: 'Click to open a singularity',         color: '#b28cff' },
+    { id: 'zerog',  key: '8', name: 'Zero-G',     hint: 'Toggle gravity',                      color: '#ffe066' },
+    { id: 'quake',  key: '9', name: 'Collapse',   hint: 'Bring the whole page down',           color: '#ff3b3b' },
   ];
   const ICONS = {
     grab:  '<path d="M8 13V5.5a1.5 1.5 0 0 1 3 0V11m0-1.5V4a1.5 1.5 0 0 1 3 0v6m0-4.5a1.5 1.5 0 0 1 3 0V12m0-3.5a1.5 1.5 0 0 1 3 0V15a6 6 0 0 1-6 6h-1.5a6 6 0 0 1-4.9-2.5L5 15.5a1.6 1.6 0 0 1 2.6-1.9L8 14"/>',
     blast: '<path d="M12 2l1.8 5.2L19 5l-2.2 5.2L22 12l-5.2 1.8L19 19l-5.2-2.2L12 22l-1.8-5.2L5 19l2.2-5.2L2 12l5.2-1.8L5 5l5.2 2.2z"/>',
     melt:  '<path d="M4 4h16v6c0 1.5-1 2-2 2s-1.5.8-1.5 2v3.5a1.5 1.5 0 0 1-3 0V13c0-1-.6-1.5-1.5-1.5S10.5 12 10.5 13v1.5a1.5 1.5 0 0 1-3 0V12c0-1-.5-1.5-1.5-1.5S4 10 4 9z"/>',
     rain:  '<path d="M7 15a4.5 4.5 0 0 1-.5-9 6 6 0 0 1 11.3 1.5A3.8 3.8 0 0 1 17.5 15z"/><path d="M8 18l-1 3M12 18l-1 3M16 18l-1 3"/>',
+    fire:  '<path d="M12 22c4 0 7-2.7 7-7 0-3.5-2.5-6-4-8-.5 2-1.5 3-3 3 0-3-1-6-4-8 0 4-4 7-4 12 0 4.3 3.4 8 8 8z"/>',
+    acid:  '<path d="M9 3h6M10 3v6l-5 9a2 2 0 0 0 1.8 3h10.4A2 2 0 0 0 19 18l-5-9V3"/><path d="M7.5 14h9"/>',
+    fight: '<path d="M6 21l12-12M15 6l3-3 3 3-3 3M5 14l5 5M3 16l5 5"/><path d="M12 3l1 2 2 1-2 1-1 2-1-2-2-1 2-1z"/>',
     hole:  '<circle cx="12" cy="12" r="3.2"/><path d="M12 3a9 9 0 0 1 9 9M21 12a9 9 0 0 1-9 9M12 21a9 9 0 0 1-9-9M3 12a9 9 0 0 1 9-9" opacity=".55"/><path d="M12 6.5a5.5 5.5 0 0 1 5.5 5.5M6.5 12A5.5 5.5 0 0 0 12 17.5"/>',
     zerog: '<circle cx="12" cy="12" r="4"/><ellipse cx="12" cy="12" rx="10" ry="3.6" transform="rotate(-20 12 12)"/>',
     quake: '<path d="M3 21h18M5 21V9l4-3 4 3v12M13 21V12l3-2 3 2v9"/><path d="M8 11l1.5 2-1 2 1 2M16 14l-1 1.5 1 1.5"/>',
@@ -324,7 +331,7 @@
     shake = Math.max(shake, 18);
     rings.push({ x, y, r: 10, max: 260, life: 1, color: '255,170,90', w: 10 });
     rings.push({ x, y, r: 4, max: 140, life: 1, color: '255,255,255', w: 3 });
-    for (let i = 0; i < 70; i++) { const a = rand(0, Math.PI * 2), v = rand(3, 16); particles.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 3, life: rand(0.5, 1.2), size: rand(1.5, 4), color: Math.random() < 0.5 ? '255,200,90' : '255,110,40', g: 0.3, glow: true }); }
+    for (let i = 0; i < 24; i++) { const a = rand(0, Math.PI * 2), v = rand(3, 16); particles.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 3, life: rand(0.5, 1.2), size: rand(1.5, 4), color: Math.random() < 0.5 ? '255,200,90' : '255,110,40', g: 0.3, glow: true }); }
     for (let i = 0; i < 24; i++) { const a = rand(0, Math.PI * 2), v = rand(0.5, 3); particles.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 1, life: rand(1.2, 2.4), size: rand(14, 34), color: '60,55,52', g: -0.02, smoke: true }); }
     flash = 1; flashPos = { x, y };
     damage(x, y);
@@ -402,8 +409,13 @@
       }
     }
   }
-  function melt(x, y) {
-    tellFx('melt', x, y);
+  // fire: the flames are Elements (on a splash of oil so they keep burning); the words nearby come loose and float up
+  function ignite(x, y) {
+    tellFx('fire', x, y);
+    for (const o of bodiesNear(x, y, 55)) if (o.kind === 'L') release(o, rand(-1.2, 1.2), rand(-7, -3), rand(-0.25, 0.25));
+  }
+  function melt(x, y, as = 'melt') {
+    tellFx(as, x, y);
     const R = 110; let hitAny = false;
     for (const o of images) if (o.alive && !o.melt) { const b = o.body.bounds; if (x >= b.min.x && x <= b.max.x && y >= b.min.y && y <= b.max.y) { startMelt(o, x, y); hitAny = true; } }
     for (const o of letters) {
@@ -472,9 +484,9 @@
       const hitBodies = Query.point(Composite.allBodies(engine.world), { x: d.x, y: d.y });
       let hitIt = null; for (const b of hitBodies) { const o = bodyMap.get(b.id); if (o && o.alive) { hitIt = o; break; } }
       if (hitIt) {
-        d.dead = true; splash(d.x, d.y, 5);
+        d.dead = true;
         if (hitIt.kind === 'L') { if (hitIt.body.isStatic) { if (Math.random() < 0.55) release(hitIt, rand(-0.5, 0.5), rand(0.5, 2), rand(-0.1, 0.1)); } else Body.applyForce(hitIt.body, hitIt.body.position, { x: 0, y: 0.00025 * hitIt.body.mass }); sfx.plink(); }
-        else if (hitIt.kind === 'I' && !hitIt.melt) {
+        else if (false && hitIt.kind === 'I' && !hitIt.melt) {   // water beads on images: Elements rain does the water now
           const b = hitIt.body, lx = d.x - (b.position.x - hitIt.w / 2), ly = d.y - (b.position.y - hitIt.h / 2);
           if (Math.abs(b.angle) < 0.05) {
             const near = hitIt.beads.find(bd => Math.hypot(bd.x - lx, bd.y - ly) < bd.r + 4);
@@ -534,7 +546,7 @@
   function drawFx(dt) {
     const c = fxc; c.setTransform(DPR, 0, 0, DPR, 0, 0); c.clearRect(0, 0, W, Hh);
     // rain streaks
-    if (drops.length) {
+    if (false && drops.length) {   // no drawn streaks: the rain you see is Elements water (user: "hate the rain on physics")
       c.strokeStyle = 'rgba(170,215,255,.55)'; c.lineWidth = 1.2; c.beginPath();
       for (const d of drops) { c.moveTo(d.x, d.y); c.lineTo(d.x - d.vx * d.len / d.vy, d.y - d.len); }
       c.stroke();
@@ -592,12 +604,16 @@
       for (const b of hits) { const o = bodyMap.get(b.id); if (o && o.alive && b.isStatic) { release(o); sfx.click(); } }
     } else if (tool === 'blast') blast(x, y);
     else if (tool === 'melt') melt(x, y);
+    else if (tool === 'fire') ignite(x, y);
+    else if (tool === 'acid') melt(x, y, 'acid');
     else if (tool === 'hole') openHole(x, y);
     else if (tool === 'rain') setRain(!raining);
     else if (tool === 'quake') collapse();
     else if (tool === 'zerog') toggleZeroG();
   }
-  function onMove(e) { pointer.x = e.clientX; pointer.y = e.clientY; pointer.inside = true; if (tool === 'melt' && pointer.down && Math.random() < 0.25) melt(pointer.x, pointer.y); }
+  function onMove(e) { pointer.x = e.clientX; pointer.y = e.clientY; pointer.inside = true; if (tool === 'melt' && pointer.down && Math.random() < 0.25) melt(pointer.x, pointer.y);
+    if (tool === 'fire' && pointer.down && Math.random() < 0.35) ignite(pointer.x, pointer.y);
+    if (tool === 'acid' && pointer.down && Math.random() < 0.25) melt(pointer.x, pointer.y, 'acid'); }
   function onKey(e) {
     if (!H.active || bare) return;
     if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); stop(); return; }
@@ -666,7 +682,7 @@
   function buildHud() {
     hud = document.createElement('div'); hud.className = 'hud';
     const btn = (id, title, color, key) => `<button data-id="${id}" style="--c:${color || '#fff'}" aria-label="${title}">${'<svg viewBox="0 0 24 24">' + ICONS[id] + '</svg>'}${key ? `<span class="k">${key}</span>` : ''}</button>`;
-    hud.innerHTML = `<div class="brand"><i></i>HAVOC</div><div class="modes" role="group" aria-label="Mode"><button class="mode on" data-mode="physics" aria-pressed="true">Physics</button><button class="mode" data-mode="elements" aria-pressed="false">Elements</button></div><div class="sep"></div>` + TOOLS.map(t => btn(t.id, t.name, t.color, t.key)).join('') + `<div class="sep"></div>` + btn('sound', 'Sound', '#fff') + btn('reset', 'Restore page', '#fff') + btn('close', 'Exit (Esc)', '#fff');
+    hud.innerHTML = `<div class="brand"><i></i>HAVOC</div><div class="modes" role="group" aria-label="Mode"><button class="mode on" data-mode="physics" aria-pressed="true">Physics</button><button class="mode" data-mode="elements" aria-pressed="false">Elements</button></div><div class="sep"></div>` + TOOLS.map(t => btn(t.id, t.name, t.color, t.key)).join('') + `<div class="sep"></div>` + btn('fight', 'Wizard vs bosses', '#b197fc') + btn('sound', 'Sound', '#fff') + btn('reset', 'Restore page', '#fff') + btn('close', 'Exit (Esc)', '#fff');
     tipEl = document.createElement('div'); tipEl.className = 'tip';
     hud.addEventListener('click', e => {
       const b = e.target.closest('button'); if (!b) return; e.stopPropagation();
@@ -676,12 +692,13 @@
       if (id === 'sound') { muted = !muted; if (!muted) sfx.click(); syncHud(); }
       else if (id === 'reset') { stop(); setTimeout(start, 60); }
       else if (id === 'close') stop();
+      else if (id === 'fight') { stop(); dispatchEvent(new CustomEvent('havoc:fight')); }   // havoc-fight.js takes it from here
       else pick(id);
     });
     hud.addEventListener('pointerover', e => {
       const b = e.target.closest('button'); if (!b || b.dataset.mode) return;
       const t = TOOLS.find(x => x.id === b.dataset.id);
-      const label = t ? `<b>${t.name}</b> · ${t.hint}` : b.dataset.id === 'sound' ? (muted ? 'Sound off · M' : 'Sound on · M') : b.dataset.id === 'reset' ? 'Rebuild the page and start over' : 'Exit and restore · Esc';
+      const label = t ? `<b>${t.name}</b> · ${t.hint}` : b.dataset.id === 'sound' ? (muted ? 'Sound off · M' : 'Sound on · M') : b.dataset.id === 'reset' ? 'Rebuild the page and start over' : b.dataset.id === 'fight' ? '<b>Wizard vs bosses</b> · a pixel wizard fights four bosses on this page' : 'Exit and restore · Esc';
       tipEl.style.setProperty('--c', t ? t.color : '#fff'); tipEl.innerHTML = label; tipEl.classList.add('show');
     });
     hud.addEventListener('pointerout', () => tipEl.classList.remove('show'));

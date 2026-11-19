@@ -24,6 +24,10 @@
         e.preventDefault(); go(api);
       };
       addEventListener('keydown', window.__hfKey);
+      // the Wizard button on Havoc's toolbar
+      window.__hfFromHavoc && removeEventListener('havoc:fight', window.__hfFromHavoc);
+      window.__hfFromHavoc = () => setTimeout(() => go(api), 80);
+      addEventListener('havoc:fight', window.__hfFromHavoc);
     }
   });
 })();

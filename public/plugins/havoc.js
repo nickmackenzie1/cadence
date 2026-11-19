@@ -1,5 +1,6 @@
 /* Havoc — wreck the Cadence page itself. Two engines, switched from the toolbar:
-     Physics  — vendor/havoc-engine.js (Matter.js): blast, melt, rain, black hole, zero-G, collapse
+     Physics  — vendor/havoc-engine.js (Matter.js): the words float, fly and explode; its fire, lava, acid, rain and
+                blasts are played out as real Elements matter (one Havoc: user, 2026-11-18)
      Elements — vendor/elements-engine.js (falling sand): the page becomes matter you can burn, flood, freeze and bury
    Shift+H (or the command palette) opens the one you used last. Esc restores everything. */
 (() => {
@@ -43,11 +44,14 @@
       window.__havocFx && removeEventListener('havoc:fx', window.__havocFx);
       window.__havocFx = e => {
         const d = e.detail || {}; if (!window.CadenceFX) return;
-        if (d.type === 'rain' || d.type === 'stop') { window.CadenceFX.want('havoc', d.type === 'rain' && d.on ? { rain: 4 } : null); return; }
+        if (d.type === 'rain' || d.type === 'stop') { window.CadenceFX.want('havoc', d.type === 'rain' && d.on ? { rain: 7 } : null); return; }
         window.CadenceFX.world().then(w => {
           if (!w) return;
           if (d.type === 'blast') { w.explode(d.x, d.y, 7); w.spawn(d.x, d.y, w.M.FIRE, 5, 0.5, 15, 40); w.spawn(d.x, d.y + 10, w.M.SAND, 6, 0.4); }
-          else if (d.type === 'melt') { w.spawn(d.x, d.y, w.M.LAVA, 3, 0.7); w.heatAt(d.x, d.y, 700, 1); }
+          else if (d.type === 'melt') { w.spawn(d.x, d.y, w.M.LAVA, 4, 0.75); w.heatAt(d.x, d.y, 800, 2); }
+          // Fire and Acid tools: the flames sit on a splash of oil so they keep burning; acid eats what it lands on
+          else if (d.type === 'fire') { w.spawn(d.x, d.y + 4, w.M.OIL, 4, 0.5); w.spawn(d.x, d.y, w.M.FIRE, 6, 0.65, 30, 80); }
+          else if (d.type === 'acid') w.spawn(d.x, d.y, w.M.ACID, 4, 0.7);
           else if (d.type === 'hole') { let n = 0; const iv = setInterval(() => { w.clearAt(d.x, d.y, 30 + n * 6); if (++n > 60) clearInterval(iv); }, 110); }
         });
       };

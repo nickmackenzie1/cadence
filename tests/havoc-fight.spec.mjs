@@ -60,3 +60,30 @@ test('pixel fight on both engines: four bosses, the spells, the skeleton trick, 
   expect(await styled()).toBe(before);
   expect(errs).toEqual([]);
 });
+
+test('one Havoc: Fire and Acid tools, the letters float, the Wizard button starts the fight', async ({ page }) => {
+  const errs = []; page.on('pageerror', e => errs.push(String(e)));
+  await page.setViewportSize({ width: 1200, height: 800 });
+  await page.goto(B + '/?demo=1#today');
+  await expect(page.locator('#view .task').first()).toBeVisible({ timeout: 15000 });
+  const fx = []; await page.exposeFunction('__fxSeen', t => fx.push(t));
+  await page.evaluate(() => addEventListener('havoc:fx', e => window.__fxSeen(e.detail.type)));
+  await page.locator('body').press('Shift+H');
+  await expect.poll(() => page.evaluate(() => !!(window.__havoc && window.__havoc.active)), { timeout: 10000 }).toBe(true);
+  const hud = sel => page.evaluate(s => !!document.getElementById('havoc-host').shadowRoot.querySelector(s), sel);
+  expect(await hud('button[data-id=fire]')).toBe(true); expect(await hud('button[data-id=acid]')).toBe(true); expect(await hud('button[data-id=fight]')).toBe(true);
+  // Fire on a heading: Elements fire, and the words come loose
+  const box = await page.locator('#view h1').boundingBox();
+  await page.keyboard.press('3');
+  await page.mouse.click(box.x + 30, box.y + box.height / 2);
+  await page.keyboard.press('5');
+  await page.mouse.click(box.x + 80, box.y + box.height / 2);
+  await expect.poll(() => fx.join(' ')).toContain('fire');
+  expect(fx).toContain('acid');
+  // the Wizard button: Havoc steps aside and the fight starts
+  await page.evaluate(() => document.getElementById('havoc-host').shadowRoot.querySelector('button[data-id=fight]').click());
+  await expect(page.locator('canvas.hf-canvas')).toBeVisible({ timeout: 10000 });
+  await page.keyboard.press('Escape');
+  await expect(page.locator('canvas.hf-canvas')).toHaveCount(0);
+  expect(errs).toEqual([]);
+});
