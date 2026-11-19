@@ -53,7 +53,6 @@ checking the code.
   - Deploys: run deploy.sh's two Docker builds at low priority (nice / ionice) so the app keeps the CPU and disk;
     maybe take new releases only at quiet hours.
   - Sync: measure the size of a full save; if it's big, move the JSON parse/stringify and the write off the main thread.
-- Havoc's ⌘K commands start with emoji (💥, 🔥): swap them for Lucide icons (no-emoji rule).
 
 ## Check from the NAS (the agent workspace can't reach these)
 - Amherst Island Radio's stream; the six blog feed addresses added in 0.8.0 (warnings in Sources).

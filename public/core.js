@@ -4601,6 +4601,7 @@
       ...Reg.commands.map(c => ({
         title: c.title,
         k: c.hint,
+        ic: c.icon,
         run: () => {
           closeModal();
           c.run(makeApi(c.pid));
@@ -4681,7 +4682,7 @@
         list
           .map(
             (c, i) =>
-              `<div class="pal-item ${i === sel ? 'on' : ''}" data-i="${i}">${esc(c.title)}${c.k ? `<span class="k">${esc(c.k)}</span>` : ''}</div>`
+              `<div class="pal-item ${i === sel ? 'on' : ''}" data-i="${i}">${c.ic ? icon(c.ic) : ''}${esc(c.title)}${c.k ? `<span class="k">${esc(c.k)}</span>` : ''}</div>`
           )
           .join('') || '<div class="muted" style="padding:12px">No matches</div>';
       const on = $('#pal-list .pal-item.on');

@@ -90,7 +90,7 @@ interface CadenceApi {
   clients: CadenceApiClients;
   meetings: CadenceApiMeetings;
   on(ev: string, fn: (...a: any[]) => any): void;
-  commands: { add(c: { title: string; hint?: string; run: (api?: CadenceApi) => any; [k: string]: any }): void };
+  commands: { add(c: { title: string; hint?: string; /** a Lucide icon name, shown before the title */ icon?: string; run: (api?: CadenceApi) => any; [k: string]: any }): void };
   search: { add(fn: (q: string) => CadenceSearchHit[] | Promise<CadenceSearchHit[]>): void };
   views: { add(v: { id: string; title: string; render: (el: HTMLElement, ...a: any[]) => any; [k: string]: any }): void };
   db: { snapshot(): any };
