@@ -270,3 +270,12 @@ checking the code.
   you watched" on the Watch list page, "Fans also like" on artist pages; kept 30 days, stops at 250 an hour, hides
   itself without a key or an answer. Not built: Audiometa (browse by tempo/key; a key), Open Guitar Chords (chord shapes only), Verome (scrapes
   YouTube, streams through Piped/Invidious: skip).
+
+- **Idea (2026-11-19): Last.fm API needs Pro from 1 December 2026; look at Koito.** Last.fm keys stop working
+  unless the key owner pays for Pro. THING only uses Last.fm in Music Radar (charts and tags source, listener
+  counts for the "small but buzzing" boost and the mainstream cut-off, the "Last.fm listeners" line on artist
+  pages, similar artists). Scrobbling already goes to ListenBrainz. Plan: keep Last.fm working when a key is set,
+  but make the free path the default (ListenBrainz popularity and sitewide stats, MusicBrainz tags, ListenBrainz
+  Labs similar artists), and quietly skip Last.fm when the key is rejected. Koito
+  (https://github.com/gabehf/koito, MIT, self-hosted, ListenBrainz-compatible, imports Last.fm history) could run
+  on the NAS as a private listening history, with THING sending listens to it through LISTENBRAINZ_API.
