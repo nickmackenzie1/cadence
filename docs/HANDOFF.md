@@ -50,8 +50,9 @@ checking the code.
   - Calendar: keep the parsed and expanded events (now the raw .ics is cached but parsed and expanded on every request,
     on the main thread); refresh on a timer and let requests read the result.
   - Feeds: refresh followed feeds on a timer so no request parses one inline on a cache miss.
-  - Deploys: run deploy.sh's two Docker builds at low priority (nice / ionice) so the app keeps the CPU and disk;
-    maybe take new releases only at quiet hours.
+  - Deploys: done 2026-11-18. .dockerignore (an allow-list) stops every rebuild sending data/, .git and the cert
+    folders to Docker (gigabytes of disk reads per release), and deploy.sh runs its builds under nice/ionice (each used
+    only if it works on the NAS), then swaps the container at normal priority. Not done: releases only at quiet hours.
   - Sync: measure the size of a full save; if it's big, move the JSON parse/stringify and the write off the main thread.
 
 ## Check from the NAS (the agent workspace can't reach these)

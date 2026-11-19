@@ -1,0 +1,10 @@
+# Only what the image needs goes to Docker (2026-11-18). Without this file every rebuild sent the whole folder,
+# data/ with both databases and their backups, .git, certs/ and .mkcert-ca/, to the Docker daemon: gigabytes of disk
+# reads per release, and secrets that never belong near a build. Keep this an allow-list: everything out, then the four
+# things the Dockerfile copies back in.
+*
+!Dockerfile
+!entrypoint.sh
+!server.js
+!server/
+!public/

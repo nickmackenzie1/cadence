@@ -31,8 +31,13 @@ else
   # no Git package installed: use a throwaway git container
   g(){ docker run --rm --name "cadence-git-$$-$RANDOM" -v "$DIR:/repo" -w /repo alpine/git -c safe.directory='*' "$@"; }
 fi
-if docker compose version >/dev/null 2>&1; then dc(){ docker compose -p cadence "$@"; }
-else dc(){ docker-compose -p cadence "$@"; }; fi
+# builds run at the lowest priority (2026-11-18), so Cadence stays quick while a release builds: nice for the CPU,
+# ionice for the disk. The docker CLI is what reads and sends the build context, so that's where ionice helps most.
+# (.dockerignore keeps the context to the app's own files, not data/.)
+LOW=""; command -v nice >/dev/null 2>&1 && LOW="nice -n 19"
+command -v ionice >/dev/null 2>&1 && LOW="$LOW ionice -c 2 -n 7"
+if docker compose version >/dev/null 2>&1; then dc(){ docker compose -p cadence "$@"; }; dcb(){ $LOW docker compose -p cadence build "$@"; }
+else dc(){ docker-compose -p cadence "$@"; }; dcb(){ $LOW docker-compose -p cadence build "$@"; }; fi
 
 # make sure the app is up (self-heal if the container was stopped or deleted)
 ensure_running(){
@@ -134,7 +139,7 @@ echo "$CHANGED" | grep -qE '^(all|server\.js|server/.*|Dockerfile|entrypoint\.sh
 # build the new image from a clean copy BEFORE touching the live files, so a broken build changes nothing
 if [ "$REBUILD" = yes ] && [ "$OLD" != none ]; then
   TRY="$(mktemp -d /tmp/cadence-build.XXXXXX)"
-  if g archive "$NEW" | tar -x -C "$TRY" && docker build -q -t cadence-precheck "$TRY" >> "$LOG" 2>&1; then
+  if g archive "$NEW" | $LOW tar -x -C "$TRY" && $LOW docker build -q -t cadence-precheck "$TRY" >> "$LOG" 2>&1; then
     rm -rf "$TRY"
   else
     rm -rf "$TRY"; echo "$NEW" > .deploy-bad
@@ -153,7 +158,8 @@ fix_owner
 if [ "$REBUILD" = yes ]; then
   log "deploy $(echo "$NEW" | cut -c1-7): rebuilding container"
   clear_stale
-  if dc up -d --build --remove-orphans >> "$LOG" 2>&1 && healthy; then
+  # build (low priority; mostly cached from the precheck), then swap the container over at normal priority
+  if dcb >> "$LOG" 2>&1 && dc up -d --remove-orphans >> "$LOG" 2>&1 && healthy; then
     log "rebuild ok"; rm -f .deploy-bad; mark_env
     log "app runs as: $(docker exec cadence stat -c %U /proc/1 2>/dev/null || echo unknown)$(docker logs cadence 2>&1 | grep -m1 'staying root' | sed 's/^cadence: / — /')"
   elif [ "$OLD" != none ]; then
@@ -162,7 +168,7 @@ if [ "$REBUILD" = yes ]; then
     log "NEW VERSION DIDN'T START — rolling back to $(echo "$OLD" | cut -c1-7)"
     g reset -q --hard "$OLD"
     clear_stale
-    dc up -d --build --remove-orphans >> "$LOG" 2>&1 && healthy && log "rollback ok" || log "ROLLBACK FAILED — check docker logs cadence"
+    dcb >> "$LOG" 2>&1 && dc up -d --remove-orphans >> "$LOG" 2>&1 && healthy && log "rollback ok" || log "ROLLBACK FAILED — check docker logs cadence"
   else
     log "REBUILD FAILED — see above"
   fi
