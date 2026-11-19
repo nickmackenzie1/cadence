@@ -83,7 +83,8 @@ self.addEventListener('message', e => { if (e.data === 'cadence-clear-shell') e.
 
 self.addEventListener('push', e => {
   let d = {}; try { d = e.data ? e.data.json() : {}; } catch (er) { d = { body: e.data && e.data.text() }; }
-  e.waitUntil(self.registration.showNotification(d.title || 'Cadence', { body: d.body || '', tag: d.tag || undefined, renotify: !!d.tag, icon: 'favicon.svg', badge: 'favicon.svg', data: { url: d.url || '/' } }));
+  const noEmoji = x => String(x || '').replace(/\p{Extended_Pictographic}(?:\uFE0F|\u200D\p{Extended_Pictographic})*\s?/gu, '').trim();   // no emoji anywhere (user, 2026-11-18)
+  e.waitUntil(self.registration.showNotification(noEmoji(d.title) || 'Cadence', { body: noEmoji(d.body), tag: d.tag || undefined, renotify: !!d.tag, icon: 'favicon.svg', badge: 'favicon.svg', data: { url: d.url || '/' } }));
 });
 self.addEventListener('notificationclick', e => {
   e.notification.close(); const url = (e.notification.data && e.notification.data.url) || '/';

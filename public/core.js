@@ -2193,6 +2193,7 @@
   const iconFor = e =>
     EMOJI_ICONS[e] || EMOJI_ICONS[e.replace(/\uFE0F/g, '')] || EMOJI_ICONS[e + '\uFE0F'] || EMOJI_ICONS[e.replace(/\u200D[\s\S]*/, '')];
   const Deemoji = (() => {
+    const ATTRS = ['title', 'placeholder', 'aria-label'];
     const skip = n => {
       const p = n.parentElement;
       return !p || p.closest('script,style,textarea,svg,[contenteditable="true"],.keep-emoji');
@@ -2208,15 +2209,18 @@
           m,
           any = false;
         while ((m = EMO_RE.exec(t))) {
+          // one with a matching Lucide icon becomes the icon; any other emoji is left out (user, 2026-11-18: "all emojis")
           const n = iconFor(m[0]);
-          if (!n) continue;
           any = true;
           if (m.index > last) frag.appendChild(document.createTextNode(t.slice(last, m.index)));
-          const sp = document.createElement('span');
-          sp.className = 'lu-w';
-          sp.innerHTML = icon(n);
-          frag.appendChild(sp);
+          if (n) {
+            const sp = document.createElement('span');
+            sp.className = 'lu-w';
+            sp.innerHTML = icon(n);
+            frag.appendChild(sp);
+          }
           last = m.index + m[0].length;
+          if (!n && t[last] === ' ') last++;
           if (t[last] === ' ' && t[last + 1] === ' ') last++;
         }
         EMO_RE.lastIndex = 0;
@@ -2226,6 +2230,9 @@
         return;
       }
       if (node.nodeType !== 1 || node.matches('script,style,textarea,svg,canvas')) return;
+      // words in tooltips, placeholders and screen-reader labels can't hold an icon: the emoji just goes (user, 2026-11-18: "all emojis")
+      const attrs = el => { for (const a of ATTRS) { const v = el.getAttribute(a); if (v && EMO_RE.test(v)) { EMO_RE.lastIndex = 0; el.setAttribute(a, v.replace(EMO_RE, '').replace(/\s{2,}/g, ' ').trim()); } EMO_RE.lastIndex = 0; } };
+      if (!node.closest('.keep-emoji')) { attrs(node); node.querySelectorAll('[title],[placeholder],[aria-label]').forEach(attrs); }
       const w = document.createTreeWalker(node, NodeFilter.SHOW_TEXT),
         list = [];
       let n;
@@ -2247,6 +2254,7 @@
     const mo = new MutationObserver(ms => {
       for (const m of ms) {
         if (m.type === 'characterData') queue.add(m.target);
+        else if (m.type === 'attributes') queue.add(m.target);
         else m.addedNodes.forEach(x => queue.add(x));
       }
       if (!sched) {
@@ -2255,8 +2263,10 @@
       }
     });
     const start = () => {
-      fix(document.body);
-      mo.observe(document.body, { childList: true, subtree: true, characterData: true });
+      fix(document.documentElement);
+      mo.observe(document.documentElement, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ATTRS });
+      const tt = () => { if (EMO_RE.test(document.title)) { EMO_RE.lastIndex = 0; document.title = document.title.replace(EMO_RE, '').replace(/\s{2,}/g, ' ').trim(); } EMO_RE.lastIndex = 0; };
+      tt(); const te = document.querySelector('title'); if (te) new MutationObserver(tt).observe(te, { childList: true, characterData: true, subtree: true });
     };
     if (document.body) start();
     else addEventListener('DOMContentLoaded', start);

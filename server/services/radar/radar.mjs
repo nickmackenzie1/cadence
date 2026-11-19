@@ -138,7 +138,7 @@ export async function run({ top = 15, demoPosts = null, playlist = false, quiet 
     state.picks.push({ id: `${c.key.replace(/\s+/g, "-")}-${Math.round(t).toString(36)}`, key: c.key, artist: c.artist,
       song: c.song, type: c.type, score: +c.score.toFixed(2), link: c.link, thread: c.thread, genres: c.genres, subs: c.subs,
       listeners: c.listeners ?? null, blurb: blurbs[c.artist] || defaultBlurb(c), ts: t });
-    log(`  ${c.score.toFixed(1).padStart(7)}  ${c.type !== "track" ? "💿 " : ""}${c.artist} — ${c.song ?? "(recommended in comments)"}  [${c.subs.join(", ")}]`);
+    log(`  ${c.score.toFixed(1).padStart(7)}  ${c.type !== "track" ? "[album] " : ""}${c.artist} — ${c.song ?? "(recommended in comments)"}  [${c.subs.join(", ")}]`);
   }
 
   // 8. phone alert when something suddenly spikes across communities
@@ -147,9 +147,9 @@ export async function run({ top = 15, demoPosts = null, playlist = false, quiet 
     const spiking = c.subs.length >= 2 && c.score >= ALERT_MIN_SCORE && c.score >= 2 * before;
     if (spiking && !(t - (state.alerts[c.key] || 0) < 7 * DAY)) {
       state.alerts[c.key] = t;
-      await notify({ title: `🚀 ${c.artist} is spiking`, url: c.link,
+      await notify({ title: `${c.artist} is getting a lot of attention`, url: c.link,
         message: `${c.song ? c.song + " · " : ""}${c.mentions} mentions across ${c.subs.join(", ")} (score ${c.score.toFixed(0)}${before ? `, was ${before.toFixed(0)}` : ""})` });
-      log(`  🔔 alert: ${c.artist}`);
+      log(`  alert: ${c.artist}`);
     }
   }
 

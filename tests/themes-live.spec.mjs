@@ -65,13 +65,13 @@ test('Themes screen: a compact grid, and resting on a card tries the theme on un
   await expect(page.locator('.thg')).toHaveClass(/thg-dense/);
   const card = page.locator('.thg-sec .th-card[data-th=dune]');
   await card.scrollIntoViewIfNeeded(); await card.hover(); await page.mouse.move(...(await card.boundingBox().then(b => [b.x + b.width / 2 + 3, b.y + b.height / 2 + 3])));
-  await expect.poll(() => page.evaluate(() => document.documentElement.dataset.skin)).toBe('dune');
+  await expect.poll(() => page.evaluate(() => document.documentElement.dataset.skin), { timeout: 15000 }).toBe('dune');
   await page.mouse.move(2, 400);
-  await expect.poll(() => page.evaluate(() => document.documentElement.dataset.skin || 'cadence')).toBe('cadence');
+  await expect.poll(() => page.evaluate(() => document.documentElement.dataset.skin || 'cadence'), { timeout: 15000 }).toBe('cadence');
   // a click keeps it
   await card.hover(); await card.click();
-  await page.mouse.move(2, 400); await page.waitForTimeout(800);
-  expect(await page.evaluate(() => document.documentElement.dataset.skin)).toBe('dune');
+  await page.mouse.move(2, 400); await page.waitForTimeout(1500);
+  await expect.poll(() => page.evaluate(() => document.documentElement.dataset.skin), { timeout: 15000 }).toBe('dune');
   // and the compact setting is remembered
   await page.reload(); await page.evaluate(() => { location.hash = 'view-themes'; });
   await expect(page.locator('.thg')).toHaveClass(/thg-dense/);

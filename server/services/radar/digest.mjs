@@ -60,11 +60,11 @@ ${d.trackRecord.checked ? `<h3>Track record</h3><p>${d.trackRecord.hits} of ${d.
     + `<body style="font-family:system-ui,sans-serif;max-width:680px;margin:2rem auto;padding:0 1rem;line-height:1.5">`
     + `<h1>Music Radar — week of ${date}</h1>${html}</body>`);
   state.digests = state.digests.filter((x) => x.id !== date);
-  state.digests.push({ id: date, ts: t, title: `📬 Weekly digest — ${date}`, file, html });
+  state.digests.push({ id: date, ts: t, title: `Weekly digest, ${date}`, file, html });
 
   if (!offline) {
     try { const r = await updatePlaylist(state); if (r) console.log(`Spotify playlist: ${r.count} tracks`); } catch (e) { console.log(`  ! Spotify: ${e.message}`); }
-    await notify({ title: "📬 Your weekly Music Radar", message: intro.slice(0, 300), url: `${API}/digests/${file}` });
+    await notify({ title: "Your weekly Music Radar", message: intro.slice(0, 300), url: `${API}/digests/${file}` });
   }
   saveState(state);
   writeRss(state);
