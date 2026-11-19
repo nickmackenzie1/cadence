@@ -130,7 +130,7 @@
         if (c.visibility === 'hidden' || +c.opacity === 0) { styleCache.set(p, false); continue; }
         let color = c.webkitTextFillColor && c.webkitTextFillColor !== c.color && !/rgba\(0, 0, 0, 0\)/.test(c.webkitTextFillColor) ? c.webkitTextFillColor : c.color;
         if (/rgba\(\d+, \d+, \d+, 0\)|transparent/.test(color)) color = '#222';
-        cs = { font: `${c.fontStyle} ${c.fontWeight} ${c.fontSize} ${c.fontFamily}`, color, shadow: c.textShadow !== 'none' ? c.textShadow : '', transform: c.textTransform };
+        cs = { font: `${c.fontStyle} ${c.fontWeight} ${c.fontSize} ${c.fontFamily}`, color, shadow: c.textShadow !== 'none' ? c.textShadow : '', transform: c.textTransform, ls: c.letterSpacing && c.letterSpacing !== 'normal' ? c.letterSpacing : '' };
         styleCache.set(p, cs);
       }
       if (!cs) continue;
@@ -144,7 +144,7 @@
         const r = range.getClientRects()[0];
         if (len === 2) i++;
         if (!r || !inView(r) || r.width < 1) continue;
-        out.push({ ch: text.substr(i - len + 1, len), x: r.left, y: r.top, w: r.width, h: r.height, cs });
+        out.push({ ch: text.substr(i - len + 1, len), x: r.left, y: r.top, w: r.width, h: r.height, cs, node: n, at: i - len + 1 });
         any = true;
       }
       if (any) parents.add(p);
@@ -178,19 +178,65 @@
   }
 
   /* ------------------------------------------------------------------ building the stage */
-  function makeLetter(g) {
+  // Words (2026-11-19): the letters of a word travel as one piece of real text (one element, one body) until something
+  // hits it hard enough, then it breaks into its letters right where it is. Five times fewer pieces for the browser
+  // and the physics, and the page's own kerning while it's whole.
+  const BREAK = 15;   // a knock faster than this (px per step) breaks a word; so does slamming into something at 1.5×
+  const shown = (g, first) => { const t = g.cs.transform; return t === 'uppercase' ? g.ch.toUpperCase() : t === 'lowercase' ? g.ch.toLowerCase() : t === 'capitalize' && first ? g.ch.toUpperCase() : g.ch; };
+  function groupWords(glyphs) {
+    const out = []; let cur = null;
+    for (const g of glyphs) {
+      const joins = cur && cur.node === g.node && g.at === cur.end && Math.abs(g.y - cur.y) < g.h * 0.5 && g.cs === cur.cs;
+      if (joins) { cur.gs.push(g); cur.end = g.at + g.ch.length; }
+      else { cur = { node: g.node, end: g.at + g.ch.length, y: g.y, cs: g.cs, gs: [g] }; out.push(cur); }
+    }
+    return out.map(w => w.gs);
+  }
+  function makeWord(gs) {
+    if (gs.length === 1) return makeLetter(gs[0], true);
+    const cs = gs[0].cs, x0 = Math.min(...gs.map(g => g.x)), y0 = Math.min(...gs.map(g => g.y));
+    const w = Math.max(...gs.map(g => g.x + g.w)) - x0, h = Math.max(...gs.map(g => g.y + g.h)) - y0;
+    const el = document.createElement('div');
+    el.className = 'l w'; el.textContent = gs.map((g, i) => shown(g, i === 0)).join('');
+    el.style.cssText = `width:${w}px;height:${h}px;line-height:${h}px;font:${cs.font};color:${cs.color};${cs.shadow ? 'text-shadow:' + cs.shadow + ';' : ''}${cs.ls ? 'letter-spacing:' + cs.ls + ';' : ''}text-align:left;transform:translate(${x0}px,${y0}px)`;
+    stage.appendChild(el);
+    const body = Bodies.rectangle(x0 + w / 2, y0 + h / 2, Math.max(2, w), Math.max(2, h * 0.82), { friction: 0.4, frictionAir: 0.012, restitution: 0.26, density: 0.0016, slop: 0.02, label: 'W' });
+    Body.setStatic(body, true);
+    // where each letter sits inside the word, from its centre
+    const parts = gs.map((g, i) => ({ g, ch: shown(g, i === 0), dx: g.x + g.w / 2 - (x0 + w / 2), dy: g.y + g.h / 2 - (y0 + h / 2) }));
+    const o = { kind: 'W', el, body, w, h, alive: true, color: cs.color, parts };
+    bodyMap.set(body.id, o); letters.push(o);
+    return body;
+  }
+  // a word breaks into its letters, each carrying on from where it was with the word's speed plus the knock
+  function shatter(o, vx = 0, vy = 0, spin = 0) {
+    if (!o.alive || o.kind !== 'W') return [];
+    const b = o.body, a = b.angle, ca = Math.cos(a), sa = Math.sin(a), bv = b.isStatic ? { x: 0, y: 0 } : b.velocity, out = [];
+    kill(o);
+    for (const p of o.parts) {
+      const x = b.position.x + p.dx * ca - p.dy * sa, y = b.position.y + p.dx * sa + p.dy * ca;
+      const l = makeLetter({ ...p.g, ch: p.ch, x: x - p.g.w / 2, y: y - p.g.h / 2 }, false, a);
+      Composite.add(engine.world, l.body);
+      const out_ = Math.sign(p.dx || rand(-1, 1));
+      Body.setVelocity(l.body, { x: bv.x + vx + out_ * rand(0.5, 2.5), y: bv.y + vy + rand(-2, 1) }); Body.setAngularVelocity(l.body, spin + rand(-0.3, 0.3));
+      out.push(l);
+    }
+    return out;
+  }
+  const breakQ = [];
+  function makeLetter(g, frozen = true, angle = 0) {
     const el = document.createElement('div');
     el.className = 'l'; el.textContent = g.ch;
-    el.style.cssText = `width:${g.w}px;height:${g.h}px;line-height:${g.h}px;font:${g.cs.font};color:${g.cs.color};${g.cs.shadow ? 'text-shadow:' + g.cs.shadow + ';' : ''}transform:translate(${g.x}px,${g.y}px)`;
+    el.style.cssText = `width:${g.w}px;height:${g.h}px;line-height:${g.h}px;font:${g.cs.font};color:${g.cs.color};${g.cs.shadow ? 'text-shadow:' + g.cs.shadow + ';' : ''}transform:translate(${g.x}px,${g.y}px)${angle ? ` rotate(${angle}rad)` : ''}`;
     if (g.cs.transform && g.cs.transform !== 'none') el.style.textTransform = 'none';
     stage.appendChild(el);
     const body = Bodies.rectangle(g.x + g.w / 2, g.y + g.h / 2, Math.max(2, g.w), Math.max(2, g.h * 0.82), {
-      friction: 0.4, frictionAir: 0.012, restitution: 0.28, density: 0.0016, slop: 0.02, label: 'L'
+      friction: 0.4, frictionAir: 0.012, restitution: 0.28, density: 0.0016, slop: 0.02, label: 'L', angle
     });
-    Body.setStatic(body, true);   // freeze; created-static bodies can't be properly unfrozen in Matter
+    if (frozen) Body.setStatic(body, true);   // freeze; created-static bodies can't be properly unfrozen in Matter
     const o = { kind: 'L', el, body, w: g.w, h: g.h, alive: true, color: g.cs.color };
     bodyMap.set(body.id, o); letters.push(o);
-    return body;
+    return frozen ? body : o;
   }
   function fitRect(sw, sh, w, h, fit) {
     if (fit === 'cover') { const s = Math.max(w / sw, h / sh), cw = w / s, ch = h / s; return [(sw - cw) / 2, (sh - ch) / 2, cw, ch, 0, 0, w, h]; }
@@ -308,13 +354,18 @@
   /* ------------------------------------------------------------------ actions */
   const release = (o, vx = 0, vy = 0, spin = 0) => {
     if (!o.alive || !o.body) return;
+    if (o.kind === 'W' && Math.hypot(vx, vy) > BREAK) { shatter(o, vx, vy, spin); return; }
     if (o.body.isStatic) Body.setStatic(o.body, false);
     Sleeping.set(o.body, false);
     Body.setVelocity(o.body, { x: vx, y: vy }); Body.setAngularVelocity(o.body, spin);
   };
   function bodiesNear(x, y, r) {
     const out = [];
-    for (const o of letters) if (o.alive && o.body && Math.hypot(o.body.position.x - x, o.body.position.y - y) < r) out.push(o);
+    for (const o of letters) {
+      if (!o.alive || !o.body) continue;
+      if (o.kind === 'W') { const b = o.body.bounds; if (Math.hypot(clamp(x, b.min.x, b.max.x) - x, clamp(y, b.min.y, b.max.y) - y) < r) out.push(o); }
+      else if (Math.hypot(o.body.position.x - x, o.body.position.y - y) < r) out.push(o);
+    }
     for (const o of images) if (o.alive && !o.melt) { const b = o.body.bounds; const cx = clamp(x, b.min.x, b.max.x), cy = clamp(y, b.min.y, b.max.y); if (Math.hypot(cx - x, cy - y) < r) out.push(o); }
     return out;
   }
@@ -390,36 +441,49 @@
     }
   }
   // the page's own boxes (cards, inputs, buttons) get knocked askew by the shockwave and stay that way
+  // the boxes a blast can knock: found once per Havoc (2026-11-19: it used to ask the page 28 times on every blast)
+  let dentBoxes = null;
+  function boxes() {
+    if (dentBoxes) return dentBoxes;
+    dentBoxes = [];
+    const all = document.body ? document.body.querySelectorAll('*') : [];
+    for (const el of all) {
+      if (el === host || el === scorchHost || el.closest('#havoc-host, #havoc-scorch')) continue;
+      const r = el.getBoundingClientRect(); if (!inView(r) || r.width < 36 || r.height < 18 || r.width > W * 0.7 || r.height > Hh * 0.6) continue;
+      const cs = getComputedStyle(el), boxy = (cs.backgroundColor && !/rgba\(0, 0, 0, 0\)|transparent/.test(cs.backgroundColor)) || parseFloat(cs.borderTopWidth) > 0 || cs.boxShadow !== 'none';
+      if (!boxy || cs.position === 'fixed' || cs.visibility === 'hidden') continue;
+      dentBoxes.push({ el, l: r.left, t: r.top, r: r.right, b: r.bottom });
+    }
+    return dentBoxes;
+  }
   function dent(x, y, R) {
-    const seen = new Set();
-    for (let i = 0; i < 28; i++) {
-      const a = (i / 28) * Math.PI * 2, d = i % 2 ? R * 0.35 : R * 0.8;
-      for (const el of document.elementsFromPoint(x + Math.cos(a) * d, y + Math.sin(a) * d)) {
-        if (seen.has(el) || el === host || el === scorchHost || el === document.body || el === document.documentElement) continue; seen.add(el);
-        const r = el.getBoundingClientRect(); if (r.width < 36 || r.height < 18 || r.width > W * 0.7 || r.height > Hh * 0.6) continue;
-        const cs = getComputedStyle(el), boxy = (cs.backgroundColor && !/rgba\(0, 0, 0, 0\)|transparent/.test(cs.backgroundColor)) || parseFloat(cs.borderTopWidth) > 0 || cs.boxShadow !== 'none';
-        if (!boxy || cs.position === 'fixed') continue;
+    // the boxes the blast reaches; of nested ones, only the innermost (the card, not the column it sits in)
+    const hitB = boxes().filter(q => Math.hypot(clamp(x, q.l, q.r) - x, clamp(y, q.t, q.b) - y) < R * 0.8);
+    const inner = hitB.filter(q => !hitB.some(z => z !== q && z.l >= q.l && z.r <= q.r && z.t >= q.t && z.b <= q.b));
+    for (const q of inner) {
+      const el = q.el, r = { left: q.l, top: q.t, width: q.r - q.l, height: q.b - q.t };
+      {
         const cx = r.left + r.width / 2, cy = r.top + r.height / 2, dd = Math.max(20, Math.hypot(cx - x, cy - y)), k = Math.max(0, 1 - dd / (R * 1.8)); if (k <= 0.05) continue;
         const st = el.__hv || (el.__hv = { r: 0, x: 0, y: 0, init: false });
         if (!st.init) { st.init = true; hideEl(el, 'transition', 'transform .45s cubic-bezier(.2,1.5,.4,1)'); hideEl(el, 'transform', 'none'); restore.push(() => { delete el.__hv; }); }
         const side = Math.sign((cx - x) || 1);
         st.r = Math.max(-9, Math.min(9, st.r + side * rand(1.2, 3.6) * k)); st.x += (cx - x) / dd * 9 * k; st.y += (cy - y) / dd * 7 * k + 2 * k;
         el.style.setProperty('transform', `translate(${st.x.toFixed(1)}px,${st.y.toFixed(1)}px) rotate(${st.r.toFixed(2)}deg)`, 'important');
-        break; // one box per sample point: the innermost card
       }
     }
   }
   // fire: the flames are Elements (on a splash of oil so they keep burning); the words nearby come loose and float up
   function ignite(x, y) {
     tellFx('fire', x, y);
-    for (const o of bodiesNear(x, y, 55)) if (o.kind === 'L') release(o, rand(-1.2, 1.2), rand(-7, -3), rand(-0.25, 0.25));
+    for (const o of bodiesNear(x, y, 55)) if (o.kind === 'L' || o.kind === 'W') release(o, rand(-1.2, 1.2), rand(-7, -3), rand(-0.25, 0.25));
   }
   function melt(x, y, as = 'melt') {
     tellFx(as, x, y);
     const R = 110; let hitAny = false;
     for (const o of images) if (o.alive && !o.melt) { const b = o.body.bounds; if (x >= b.min.x && x <= b.max.x && y >= b.min.y && y <= b.max.y) { startMelt(o, x, y); hitAny = true; } }
-    for (const o of letters) {
-      if (!o.alive || o.drip) continue;
+    for (const o of bodiesNear(x, y, R)) if (o.kind === 'W') shatter(o);
+    for (const o of letters.slice()) {
+      if (!o.alive || o.drip || o.kind !== 'L') continue;
       const p = o.body.position, d = Math.hypot(p.x - x, p.y - y); if (d > R) continue;
       o.drip = { vy: rand(0.05, 0.3), a: rand(0.004, 0.02), delay: d * rand(4, 9), y: 0, len: 0, x0: p.x - o.w / 2, y0: p.y - o.h / 2, ang: o.body.angle };
       Composite.remove(engine.world, o.body);
@@ -455,10 +519,11 @@
   }
 
   /* ------------------------------------------------------------------ frame loop */
-  let flash = 0, flashPos = { x: 0, y: 0 }, rainAcc = 0;
+  let flash = 0, flashPos = { x: 0, y: 0 }, rainAcc = 0, acc = 0;
+  const STEP = 1000 / 60;
   function frame(now) {
     raf = requestAnimationFrame(frame);
-    const dt = Math.min(0.033, (now - (lastT || now)) / 1000); lastT = now;
+    const dt = Math.min(0.05, (now - (lastT || now)) / 1000); lastT = now;
     // black holes pull
     for (const h of holes) {
       h.t += dt; h.r = Math.min(h.max, h.r + dt * 160);
@@ -470,7 +535,7 @@
         if (o.body.isStatic) release(o, 0, 0, 0);
         const f = (o.kind === 'I' ? 0.00035 : 0.00009) * o.body.mass * clamp(260 / (d + 20), 0.6, 9);
         Body.applyForce(o.body, p, { x: dx / d * f + (-dy / d) * f * 0.9, y: dy / d * f + (dx / d) * f * 0.9 });
-        if (d < (o.kind === 'I' ? 40 : 16)) { h.eaten++; sfx.pop(); spaghettify(o, h); }
+        if (d < (o.kind === 'I' ? 40 : o.kind === 'W' ? 26 : 16)) { h.eaten++; sfx.pop(); spaghettify(o, h); }
       }
     }
     holes = holes.filter(h => h.t < h.life);
@@ -485,7 +550,7 @@
       let hitIt = null; for (const b of hitBodies) { const o = bodyMap.get(b.id); if (o && o.alive) { hitIt = o; break; } }
       if (hitIt) {
         d.dead = true;
-        if (hitIt.kind === 'L') { if (hitIt.body.isStatic) { if (Math.random() < 0.55) release(hitIt, rand(-0.5, 0.5), rand(0.5, 2), rand(-0.1, 0.1)); } else Body.applyForce(hitIt.body, hitIt.body.position, { x: 0, y: 0.00025 * hitIt.body.mass }); sfx.plink(); }
+        if (hitIt.kind === 'L' || hitIt.kind === 'W') { if (hitIt.body.isStatic) { if (Math.random() < 0.55) release(hitIt, rand(-0.5, 0.5), rand(0.5, 2), rand(-0.1, 0.1)); } else Body.applyForce(hitIt.body, hitIt.body.position, { x: 0, y: 0.00025 * hitIt.body.mass }); sfx.plink(); }
         else if (false && hitIt.kind === 'I' && !hitIt.melt) {   // water beads on images: Elements rain does the water now
           const b = hitIt.body, lx = d.x - (b.position.x - hitIt.w / 2), ly = d.y - (b.position.y - hitIt.h / 2);
           if (Math.abs(b.angle) < 0.05) {
@@ -500,9 +565,14 @@
       } else if (d.y > Hh) { d.dead = true; splash(d.x, Hh - 2, 3); }
     }
     drops = drops.filter(d => !d.dead);
-    // physics
-    const steps = Math.ceil(dt * 1000 / 16.6);
-    for (let i = 0; i < steps; i++) Engine.update(engine, dt * 1000 / steps);
+    // physics on a steady clock (2026-11-19): always 1/60 s steps, as many as the time that passed (at most 3, so a
+    // slow device goes briefly slow-motion instead of falling further behind), and the leftover carried to the next
+    // frame. What's drawn is blended between the last two steps, so 120 Hz screens still move smoothly.
+    acc = Math.min(acc + dt * 1000, STEP * 3);
+    while (acc >= STEP) { Engine.update(engine, STEP); acc -= STEP; }
+    const blend = acc / STEP;
+    // words that slammed into something during those steps break up now
+    while (breakQ.length) { const [o, v] = breakQ.pop(); if (o.alive) shatter(o, v.x * 0.3, v.y * 0.3, 0); }
     // sync DOM
     for (const o of letters) {
       if (!o.alive) continue;
@@ -519,11 +589,12 @@
       const b = o.body;
       if (b.isStatic || b.isSleeping) { if (o.mv) { o.mv = false; o.el.classList.remove('mv'); } continue; }
       if (!o.mv) { o.mv = true; o.el.classList.add('mv'); }
-      // only write when it has really moved: a quarter pixel, or a sliver of a turn
-      const px = b.position.x - o.w / 2, py = b.position.y - o.h / 2;
-      if (Math.abs(px - (o.px ?? 1e9)) > 0.25 || Math.abs(py - o.py) > 0.25 || Math.abs(b.angle - o.pa) > 0.004) {
-        o.px = px; o.py = py; o.pa = b.angle;
-        o.el.style.transform = `translate(${px.toFixed(1)}px,${py.toFixed(1)}px) rotate(${b.angle.toFixed(3)}rad)`;
+      // only write when it has really moved: a quarter pixel, or a sliver of a turn (drawn between the last two steps)
+      const pp = b.positionPrev, ang = b.anglePrev + (b.angle - b.anglePrev) * blend;
+      const px = pp.x + (b.position.x - pp.x) * blend - o.w / 2, py = pp.y + (b.position.y - pp.y) * blend - o.h / 2;
+      if (Math.abs(px - (o.px ?? 1e9)) > 0.25 || Math.abs(py - o.py) > 0.25 || Math.abs(ang - o.pa) > 0.004) {
+        o.px = px; o.py = py; o.pa = ang;
+        o.el.style.transform = `translate(${px.toFixed(1)}px,${py.toFixed(1)}px) rotate(${ang.toFixed(3)}rad)`;
       }
       if (b.position.y > Hh + 400 || b.position.x < -600 || b.position.x > W + 600) kill(o);
     }
@@ -749,7 +820,15 @@
     for (const el of [de, bd]) if (el) hideEl(el, 'overflow', 'hidden');
 
     engine = Engine.create({ enableSleeping: true, positionIterations: 6, velocityIterations: 4 });
-    engine.gravity.y = 1;
+    engine.gravity.y = 1; acc = 0; breakQ.length = 0; dentBoxes = null;
+    // a word that slams into something (the floor, a wall, another piece) hard enough breaks into its letters
+    Events.on(engine, 'collisionStart', e => {
+      for (const pr of e.pairs) for (const [a, b] of [[pr.bodyA, pr.bodyB], [pr.bodyB, pr.bodyA]]) {
+        const o = bodyMap.get(a.id); if (!o || o.kind !== 'W' || !o.alive || o.queued) continue;
+        const rv = Math.hypot(a.velocity.x - (b.velocity ? b.velocity.x : 0), a.velocity.y - (b.velocity ? b.velocity.y : 0));
+        if (rv > BREAK * 1.5) { o.queued = true; breakQ.push([o, { x: a.velocity.x, y: a.velocity.y }]); }
+      }
+    });
     const T = 200;
     walls = [
       Bodies.rectangle(W / 2, Hh + T / 2, W * 3, T, { isStatic: true, label: 'wall', friction: 0.8 }),
@@ -763,7 +842,7 @@
     const { glyphs, parents } = harvestText();
     const bodies = [];
     for (const info of imgs) bodies.push(makeImage(info));
-    for (const g of glyphs) bodies.push(makeLetter(g));
+    for (const gs of groupWords(glyphs)) bodies.push(makeWord(gs.length === 1 ? [{ ...gs[0], ch: shown(gs[0], true) }] : gs));
     parents.forEach(hideText);
     Composite.add(engine.world, bodies);
 

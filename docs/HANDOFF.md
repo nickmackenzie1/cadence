@@ -421,3 +421,11 @@ checking the code.
   mid-blast unchanged here (software compositing is what this machine is worst at), to be judged on a real GPU.
   Next for the moving case, keeping real text: words as one element and one body until hit hard (≈5× fewer of both),
   a fixed 60 Hz physics step, and caching the boxes dent() pushes.
+- **Done (2026-11-19, physics 1–3):** (1) words: each word is one element and one body (`kind: 'W'`, the page's own
+  kerning) until a knock faster than BREAK (15 px/step) or a collision at 1.5× that breaks it into letters where it
+  stands (`shatter`); melt/acid break words first so their letters drip; 891 letters on the demo page start as 225
+  pieces. (2) Physics on a fixed 1/60 s step with an accumulator (max 3 steps a frame), drawn blended between the last
+  two steps (positionPrev/anglePrev). (3) dent() finds the page's boxes once per Havoc (`boxes()`), then picks the
+  innermost ones in reach. Measured headless: Collapse ~23 → ~35–50 fps, the settled pile ~56–60.
+  User's next asks: images burst into pixels (Elements matter that pours, burns, dissolves, drips), letters and
+  Elements react to each other, cards as shelves, weight by size.
