@@ -34,6 +34,27 @@
     preview: { bg: 'repeating-linear-gradient(0deg,#e9ecef 0 46px,#cfd5db 46px 48px)', panel: '#fafbfc', side: '#dde2e7', text: '#20262c', accent: '#1e86d8', line: '#c4ccd4', r: '6px' },
     css: `${glass}:skin body{background:repeating-linear-gradient(0deg,transparent 0 118px,rgba(32,38,44,.06) 118px 120px),repeating-linear-gradient(90deg,transparent 0 118px,rgba(32,38,44,.06) 118px 120px),#e9ecef}
       :skin .btn.primary{box-shadow:0 0 0 2px rgba(30,134,216,.25),0 0 14px rgba(30,134,216,.35)}:skin .task:hover{box-shadow:inset 3px 0 0 #f08a1c}` });
+  // Steam (user's backlog, 2026-11-18): the desktop client's library. Navy-to-slate gradient, light-blue links, the
+  // green Play button, and the logo from Steam's own site. No game fanart: it's the launcher, not one game.
+  R({ id: 'steam', name: 'Steam', category: 'Games', site: 'store.steampowered.com',
+    tagline: 'The Steam library: deep navy, steel-blue panels, light-blue links and the green Play button.',
+    font: 'Arial,"Helvetica Neue",Helvetica,system-ui,sans-serif',
+    vars: pal('#1b2838', '#16202d', '#171d25', '#c7d5e0', '#8f98a0', '#66c0f4', '#0e1a26', 'rgba(102,192,244,.16)', '3px',
+      { '--faint': '#6b7682', '--hover': 'rgba(102,192,244,.08)', '--client': '#a4d007', '--ok': '#a4d007', '--accent-soft': 'rgba(102,192,244,.14)' }),
+    preview: { bg: 'linear-gradient(180deg,#2a475e,#1b2838 70%)', panel: '#16202d', side: '#171d25', text: '#c7d5e0', accent: '#66c0f4', line: '#2a3f5a', r: '3px' },
+    css: `${glass}:skin body{background:radial-gradient(ellipse at 70% -10%,rgba(102,192,244,.16),transparent 55%),linear-gradient(180deg,#2a475e 0,#1b2838 340px,#1b2838)}
+      :skin .side{background:linear-gradient(180deg,#23262e,#171d25 70%);border-right:1px solid #0e141b}
+      :skin .head h1{text-transform:uppercase;letter-spacing:.04em;font-weight:700;color:#fff}
+      :skin .ntile.on,:skin #side .nav a.on{background:linear-gradient(90deg,rgba(102,192,244,.22),rgba(102,192,244,.06));color:#fff}
+      :skin .task{border-radius:2px;background:linear-gradient(90deg,rgba(32,47,65,.85),rgba(22,32,45,.85))}
+      :skin .task:hover{background:linear-gradient(90deg,rgba(62,90,118,.75),rgba(32,47,65,.85))}
+      :skin .card,:skin .modal{background:linear-gradient(180deg,#1e2c3d,#16202d);border:1px solid rgba(0,0,0,.35);box-shadow:0 2px 12px rgba(0,0,0,.35)}
+      :skin a{color:#66c0f4}
+      :skin .btn{border-radius:2px;background:rgba(103,193,245,.2);color:#66c0f4;border:0}:skin .btn:hover{background:#66c0f4;color:#fff}
+      :skin .btn.primary{background:linear-gradient(90deg,#75b022 5%,#588a1b 95%);color:#d2efa9;text-shadow:0 1px 0 rgba(0,0,0,.25);border:0}
+      :skin .btn.primary:hover{background:linear-gradient(90deg,#8ed629 5%,#6aa621 95%);color:#fff}
+      :skin .qa{background:rgba(14,20,27,.6);border:1px solid #2a3f5a;border-radius:3px}
+      :skin .chip{background:rgba(103,193,245,.08);color:#9fd4f5;border-radius:2px}` });
   R({ id: 'borderlands', name: 'Borderlands', category: 'Games', site: 'borderlands.com', game: { title: 'Borderlands 2' },
     tagline: 'Cel-shaded: thick black ink lines around everything, sun-baked yellows. Fanart from TheGamesDB.',
     fonts: [F('Anton', 'anton-latin-400-normal.woff2')],

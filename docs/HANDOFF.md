@@ -76,7 +76,6 @@ checking the code.
 - Webamp (winamp2-js, MIT) to load real Winamp .wsz skins the user brings.
 
 ## Themes and effects
-- A Steam theme (the other game themes are done: CS:GO, Half-Life, Portal, Borderlands, Vice City).
 - Kill Bill: blood drips from panel edges that pool on ledges, a splash on finishing a task (Elements engine;
   stylised, not gory; respects Effects off / reduced motion).
 - Havok physics option (@babylonjs/havok, MIT WASM ~2 MB, vendored, loaded only when picked): task cards as real
