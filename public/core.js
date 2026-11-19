@@ -278,6 +278,50 @@
       }
     };
   })();
+  /* Freezes, measured where you use THING (2026-11-19, "the saving locks things up"): the steps that can take a while
+   (saving on this device, working out what changed for the NAS, drawing the page) note how long they took, and a
+   heartbeat notices when the page stops answering. A step over 400 ms, or a freeze over 700 ms while the page is in
+   front, goes to Problems (at most one a minute) with what was running and how big the spaces are. */
+  const Slow = (() => {
+    const recent = [];
+    let last = 0;
+    const sizes = () => {
+      try {
+        const out = [];
+        for (const sp of ['work', 'life']) {
+          const d = sp === SPACE ? S : otherDoc();
+          if (!d) continue;
+          const plug = Object.entries(d.pluginData || {}).map(([k, v]) => [k, JSON.stringify(v || null).length]).sort((a, b) => b[1] - a[1]);
+          out.push(`${sp}: ${Math.round(JSON.stringify(d).length / 1024)} KB, ${(d.tasks || []).length} tasks; biggest plugin data ${plug.slice(0, 3).map(([k, n]) => `${k} ${Math.round(n / 1024)} KB`).join(', ')}`);
+        }
+        return out.join(' · ');
+      } catch (e) { return ''; }
+    };
+    const report = (msg) => {
+      if (Date.now() - last < 60e3 || !/^https?:$/.test(location.protocol) || DEMO) return;
+      last = Date.now();
+      let version = null; try { version = (window.__cadenceBundle && window.__cadenceBundle.version) || null; } catch (e) {}
+      const dev = (() => { try { return Sync.device(); } catch (e) { return ''; } })();
+      fetch('api/problems/browser', { method: 'POST', headers: { 'Content-Type': 'application/json' }, keepalive: true,
+        body: JSON.stringify({ kind: 'slow', msg: msg + (dev ? ` (${dev})` : ''), where: location.hash || '/', version, detail: sizes() }) }).catch(() => {});
+    };
+    let beat = performance.now(), vis = document.visibilityState === 'visible';
+    setInterval(() => {
+      const now = performance.now(), gap = now - beat - 250, wasVis = vis;
+      beat = now; vis = document.visibilityState === 'visible';
+      if (!wasVis || !vis || gap < 700 || gap > 60e3) return;   // hidden tabs and sleep aren't freezes
+      const cause = recent.filter(r => now - r.at < gap + 1000).sort((a, b) => b.ms - a.ms)[0];
+      report(`The page froze for ${(gap / 1000).toFixed(1)} s` + (cause ? `, mostly ${cause.what} (${Math.round(cause.ms)} ms)` : ''));
+    }, 250);
+    return {
+      note(what, ms) {
+        recent.push({ what, ms, at: performance.now() });
+        if (recent.length > 30) recent.shift();
+        if (ms > 400) report(`${what.charAt(0).toUpperCase() + what.slice(1)} took ${(ms / 1000).toFixed(1)} s`);
+      },
+      recent: () => recent.slice()
+    };
+  })();
   const BIG = new Set(); // keys whose current copy is only in IndexedDB
   addEventListener('pagehide', () => IDB.flush());
   function lsRead(k) {
@@ -291,6 +335,7 @@
   }
   function lsWrite(k, obj) {
     if (HOLD.on) return; // still opening the IndexedDB copy: never save the placeholder over it
+    if (IDB.ok && BIG.has(k)) return IDB.put(k, obj, true);   // already IndexedDB-only: no need to turn it into text
     const j = JSON.stringify(obj);
     // big documents live in IndexedDB only (2026-11-19): compressing them for localStorage on every save took most of
     // the time an edit spent saving (about a second each with a few thousand tasks). A marker stays in localStorage,
@@ -810,7 +855,9 @@
         return;
       }
       if (!Sync.st.init) return this.pull(true);
+      const td = performance.now();
       const { changes, sent } = Sync.diff();
+      Slow.note('working out what changed for the NAS', performance.now() - td);
       if (!changes.length) return;
       this.busy = true;
       emit('sync', { phase: 'push' });
@@ -1321,16 +1368,52 @@
     render();
   }
   function persistLocal() {
+    const t0 = performance.now();
     try {
       lsWrite(LS_KEYS[SPACE], S);
       noteOff(SPACE, S);
     } catch (e) {
       localSaveFailed(e);
     }
+    Slow.note('saving on this device', performance.now() - t0);
   }
+  // an edit's own save waits a moment (2026-11-19: "the saving locks things up"): the click, the typing and the redraw
+  // happen first, and a run of quick edits is written once. Written at once when the page is hidden or closed, before
+  // switching space, and by anything that calls persistLocal() itself. Sync to the NAS reads memory, so it's unaffected.
+  // Small spaces save in a few ms, so they're still written straight away; only once a save has taken longer than
+  // 12 ms does the wait kick in.
+  const LocalQ = {
+    t: 0,
+    ms: 0,
+    docs: new Map(),
+    add() {
+      this.docs.set(SPACE, S);
+      clearTimeout(this.t);
+      if (this.ms <= 12 && !BIG.has(LS_KEYS[SPACE])) return this.flush();
+      this.t = setTimeout(() => this.flush(), 250);
+    },
+    flush() {
+      clearTimeout(this.t);
+      if (!this.docs.size) return;
+      const t0 = performance.now();
+      for (const [sp, d] of this.docs) {
+        try {
+          lsWrite(LS_KEYS[sp], d);
+          noteOff(sp, d);
+        } catch (e) {
+          localSaveFailed(e);
+        }
+      }
+      this.docs.clear();
+      this.ms = performance.now() - t0;
+      Slow.note('saving on this device', this.ms);
+    }
+  };
+  addEventListener('pagehide', () => LocalQ.flush());
+  document.addEventListener('visibilitychange', () => { if (document.hidden) LocalQ.flush(); });
   function save() {
     S.updatedAt = Date.now();
-    persistLocal();
+    LocalQ.add();
     Store.schedule();
   }
 
@@ -2029,6 +2112,7 @@
   function switchSpace(to) {
     if (to !== 'work' && to !== 'life') to = LIFE() ? 'work' : 'life';
     if (to === SPACE) return;
+    LocalQ.flush();
     const prev = S,
       next = otherDoc() || (to === 'life' ? lifeSeed() : Object.assign(blank(), {}));
     persistLocal();
@@ -3346,8 +3430,8 @@
     } catch (e) { /* never break a redraw */ }
   }
   function renderView() {
-    const v = $('#view'), k = v ? keepBefore(v, route()) : null;
-    try { renderViewNow(); } finally { if (v && k) keepAfter(v, k); }
+    const v = $('#view'), k = v ? keepBefore(v, route()) : null, t0 = performance.now();
+    try { renderViewNow(); } finally { if (v && k) keepAfter(v, k); Slow.note('drawing the page (' + route() + ')', performance.now() - t0); }
   }
   function renderViewNow() {
     const r = route(),

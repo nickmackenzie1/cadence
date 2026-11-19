@@ -23,6 +23,8 @@ module.exports = async function problemsRoutes(req, res, { p }) {
     if (Date.now() - window0.at > 60e3) window0 = { at: Date.now(), n: 0 };
     if (++window0.n > 30) return send(res, 429, { error: 'enough for now' });
     let b = {}; try { b = JSON.parse(await readBody(req, 16 * 1024) || '{}'); } catch {}
+    // kind 'slow': a freeze or a slow step measured in the browser (core.js Slow), with how big the spaces are
+    if (b.kind === 'slow') { P.record('slow', String(b.msg || 'The page froze').slice(0, 300), { where: b.where ? String(b.where).slice(0, 120) : null, version: b.version ? String(b.version).slice(0, 20) : null, detail: b.detail ? String(b.detail).slice(0, 600) : null, from: 'browser', mb: null }); return send(res, 200, { ok: true }); }
     P.record('browser', String(b.msg || 'Unknown error').slice(0, 300), { stack: b.stack ? String(b.stack).slice(0, 3000) : null, where: b.where ? String(b.where).slice(0, 120) : null, version: b.version ? String(b.version).slice(0, 20) : null });
     return send(res, 200, { ok: true });
   }

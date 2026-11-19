@@ -374,3 +374,14 @@ checking the code.
   localStorage uses `window.CadenceWorkDoc()` now.
 - **Done (2026-11-19, review item 5):** plugin pages already kept focus, typing, scroll and opened sections on a redraw
   (keepBefore/keepAfter in core.js); dashboard cards now do too (`api.widgets.render` wraps the same keep).
+- **2026-11-19, user: "i feel like the saving locks things up"** (after 0.44.4 had already taken out the lz-string
+  compression; no freeze could be reproduced here with 3,000 tasks, so the next step is real numbers):
+  - Saving on the device is adaptive (core.js LocalQ): while a save takes ≤ 12 ms it's written straight away, as
+    before; once one takes longer (or the space is IndexedDB-only), an edit's save waits 250 ms and a run of quick
+    edits is written once. Written at once on pagehide, when the page is hidden, and before switching space.
+    IndexedDB-only keys skip JSON.stringify entirely.
+  - Freeze logging (core.js Slow): saving on the device, working out what changed for the NAS, and drawing the page
+    note their time; a heartbeat notices the page not answering. A step over 400 ms or a freeze over 700 ms (page in
+    front only, not sleep) goes to Problems as kind "slow", from "browser", with the device, page, version and the
+    sizes of both spaces and their three biggest plugin-data entries. At most one a minute.
+  - Read those Problems entries before guessing further: they say which step it was and which plugin's data is big.
