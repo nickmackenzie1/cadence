@@ -33,8 +33,8 @@ checking the code.
 - Music on the NAS: Navidrome (LAN-only, Subsonic API) or Cadence serving the folder itself.
 
 ## Next up (agreed)
-- README rewrite (after the rename, or now and rename later). Current README is out of date: sessions, the JSON
-  mirror, Synology-only setup.
+- README rewritten 2026-11-18 under the name THING (user: "its just called THING"). The rest of the app still says
+  Cadence: ask before renaming the UI, title, manifest, login and container (see the Name item above).
 
 ## Upkeep
 - Page weight: with everything on, `bundle.js` is ~1.9 MB (560 KB gzipped). `ALWAYS` in `server/lib/bundle.js` loads
