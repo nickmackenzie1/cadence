@@ -13,8 +13,8 @@
   Cadence.registerPlugin({
     id: 'havoc-fight', name: 'Wizard vs bosses', version: '1.0.0', category: 'Fun', color: '#4c5fd5',
     icon: '<path d="m14.5 17.5-11-11V3h3.5l11 11"/><path d="m13 19 6-6"/><path d="m16 16 4 4"/><path d="m19 21 2-2"/><path d="M14.5 6.5 18 3h3v3l-3.5 3.5"/><path d="m5 14 4 4"/><path d="m7 17-3 3"/><path d="m3 19 2 2"/>',
-    tagline: 'A wizard fights a dragon on your page',
-    description: 'A wizard walks along the bottom of the page and fights with fireballs from his staff: a fire-breathing dragon, then a vampire cat that swoops in to bite, then Blobby, who chases him along the ground. Each boss goes down after a random number of hits, the next one comes out, and every round wrecks the page a little more. Click to aim, arrow keys to move. Shift+F or ⌘K to start, Esc puts everything back.',
+    tagline: 'A pixel wizard fights four bosses on your page',
+    description: 'A pixel-art wizard fights on your page, shouting his spells: purple fireballs, Kablammo, Meltdown, Zappity zap and Frostbite. The bosses take turns: a fire-breathing dragon, a vampire cat that swoops in to bite, Blobby the jelly cube (Splat splat bursts him into acid, and he pulls himself back together) and a skeleton who throws bones, or tricks the wizard into coming close, then shakes him and throws him. Words fly with Havoc\'s physics, and fire, lava and acid are real Elements. Click to aim, 1 to 6 for spells. Shift+F or ⌘K to start, Esc puts everything back.',
     setup(api) {
       api.commands.add({ title: 'Havoc: wizard vs the dragon', icon: 'swords', hint: '⇧F', run: api => go(api) });
       window.__hfKey && removeEventListener('keydown', window.__hfKey);

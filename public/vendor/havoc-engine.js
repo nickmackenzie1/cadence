@@ -40,6 +40,8 @@
   let letters = [], images = [], bodyMap = new Map(), restore = [], touched = new Map();
   const touch = el => { if (!touched.has(el)) touched.set(el, el.getAttribute('style')); };
   let tool = 'blast', raining = false, zeroG = false, muted = false;
+  // bare (Wizard vs bosses, 2026-11-18): no toolbar, no mouse tools, no keys; another game drives it through H.blast / H.melt / H.knock
+  let bare = false;
   let particles = [], rings = [], holes = [], drops = [], shake = 0, pointer = { x: W / 2, y: Hh / 2, down: false, inside: false };
   let walls = [];
 
@@ -597,7 +599,7 @@
   }
   function onMove(e) { pointer.x = e.clientX; pointer.y = e.clientY; pointer.inside = true; if (tool === 'melt' && pointer.down && Math.random() < 0.25) melt(pointer.x, pointer.y); }
   function onKey(e) {
-    if (!H.active) return;
+    if (!H.active || bare) return;
     if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); stop(); return; }
     const t = TOOLS.find(t => t.key === e.key); if (t) { e.preventDefault(); e.stopPropagation(); pick(t.id); }
     if (e.key.toLowerCase() === 'm' && !e.metaKey && !e.ctrlKey) { muted = !muted; syncHud(); }
@@ -697,8 +699,9 @@
 
   /* ------------------------------------------------------------------ lifecycle */
   function sizeCanvas(cv) { cv.width = Math.round(W * DPR); cv.height = Math.round(Hh * DPR); }
-  function start() {
+  function start(opts = {}) {
     if (H.active) return;
+    bare = !!opts.bare;
     H.active = true; W = innerWidth; Hh = innerHeight; DPR = Math.min(2, devicePixelRatio || 1);
     letters = []; images = []; bodyMap = new Map(); restore = []; particles = []; rings = []; holes = []; drops = []; shake = 0; raining = false; zeroG = false; tool = 'blast';
     host = document.createElement('div'); host.id = 'havoc-host';
@@ -755,16 +758,19 @@
     addEventListener('keydown', onKey, true);
     addEventListener('resize', onResize);
 
-    buildHud();
+    if (bare) hit.style.pointerEvents = 'none';
+    if (!bare) buildHud();
+    if (!bare) {
     const intro = document.createElement('div'); intro.className = 'intro'; root.appendChild(intro); setTimeout(() => intro.remove(), 1100);
     const stamp = document.createElement('div'); stamp.className = 'stamp'; stamp.textContent = 'HAVOC'; root.appendChild(stamp); setTimeout(() => stamp.remove(), 1300);
+    }
     sfx.arm();
     (document.fullscreenElement || document.documentElement).appendChild(host);
     lastT = 0; raf = requestAnimationFrame(frame);
     H.stats = { letters: letters.length, images: images.length };
   }
   let resizeT;
-  function onResize() { clearTimeout(resizeT); resizeT = setTimeout(() => { if (H.active) { stop(); start(); } }, 300); }
+  function onResize() { clearTimeout(resizeT); resizeT = setTimeout(() => { if (H.active) { const b = bare; stop(); start({ bare: b }); } }, 300); }
   function stop() {
     if (!H.active) return;
     H.active = false; cancelAnimationFrame(raf); raining = false; tellFx('stop', 0, 0);
@@ -777,5 +783,14 @@
     restore = []; touched = new Map(); letters = []; images = []; bodyMap.clear();
   }
   H.start = start; H.stop = stop;
-  start();
+  H.blast = (x, y) => { if (H.active) blast(x, y); };
+  H.melt = (x, y) => { if (H.active) melt(x, y); };
+  // a smaller knock than a blast: the words nearby fly off, no boom
+  H.knock = (x, y, r = 90, pow = 12) => {
+    if (!H.active) return;
+    for (const o of bodiesNear(x, y, r)) { const p = o.body.position, dx = p.x - x, dy = p.y - y, d = Math.max(8, Math.hypot(dx, dy)), k = 1 - Math.min(1, d / r);
+      release(o, dx / d * pow * k + rand(-1.5, 1.5), dy / d * pow * k - rand(2, 6) * k, rand(-0.4, 0.4)); }
+    if (Math.random() < 0.15) damage(x, y);   // a crack now and then, not on every hit
+  };
+  start(window.__havocOpts || {}); window.__havocOpts = null;
 })();

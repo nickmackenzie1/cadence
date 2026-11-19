@@ -14,35 +14,49 @@ test.beforeAll(async () => {
 });
 test.afterAll(() => { server && server.kill(); rmSync(dir, { recursive: true, force: true }); });
 
-test('dragon, then the vampire cat, then Blobby; the page gets wrecked and comes back', async ({ page }) => {
+test('pixel fight on both engines: four bosses, the spells, the skeleton trick, and the page comes back', async ({ page }) => {
+  test.setTimeout(90e3);
   const errs = []; page.on('pageerror', e => errs.push(String(e)));
   await page.setViewportSize({ width: 1200, height: 800 });
   await page.goto(B + '/?demo=1#today');
   await expect(page.locator('#view .task').first()).toBeVisible({ timeout: 15000 });
-  const before = await page.evaluate(() => [...document.querySelectorAll('#app *')].filter(e => e.getAttribute('style')).length);
+  const text = () => page.evaluate(() => document.querySelector('#view h1').textContent);
+  const h1 = await text();
+  const styled = () => page.evaluate(() => [...document.querySelectorAll('#app *')].filter(e => e.getAttribute('style')).length);
+  const before = await styled();
   await page.locator('body').press('Shift+F');
-  await expect(page.locator('canvas.hf-canvas')).toBeVisible({ timeout: 8000 });
-  await expect.poll(() => page.evaluate(() => window.HavocFight.state().boss)).toBe('dragon');
-  // the fight goes on by itself: fireballs fly and the page takes hits
-  await page.mouse.click(700, 200); await page.mouse.click(400, 300);
+  await expect(page.locator('canvas.hf-canvas')).toBeVisible({ timeout: 10000 });
   const st = () => page.evaluate(() => window.HavocFight.state());
-  // knock the dragon down: the cat comes out, round 2
+  // the words are physics now (no Havoc toolbar), the matter is the Elements layer
+  await expect.poll(async () => (await st()).physics, { timeout: 8000 }).toBe(true);
+  expect(await page.evaluate(() => !!document.getElementById('havoc-host').shadowRoot.querySelector('.hud'))).toBe(false);
+  expect((await st()).boss).toBe('dragon');
+  // a spell shouts its name
+  await page.waitForTimeout(2000);
+  await page.keyboard.press('2');
+  await expect.poll(async () => (await st()).bubbles.join(' '), { timeout: 3000 }).toContain('Kablammo');
+  const hits = await page.evaluate(() => window.HavocFight.debug.impact(500, 300, 'blast', 2) || window.HavocFight.state().hits);
+  expect(hits).toBeGreaterThan(0);
+  for (const next of ['cat', 'blobby']) { await page.evaluate(() => window.HavocFight.debug.hit(99)); await expect.poll(async () => (await st()).boss, { timeout: 5000 }).toBe(next); }
+  // Splat splat: Blobby bursts, then pulls himself back together
+  await page.waitForTimeout(2000);
+  await page.evaluate(() => window.HavocFight.debug.cast('splat'));
+  await expect.poll(async () => (await st()).solid).toBe(false);
+  await expect.poll(async () => (await st()).solid, { timeout: 10000 }).toBe(true);
   await page.evaluate(() => window.HavocFight.debug.hit(99));
-  await expect.poll(async () => (await st()).boss, { timeout: 5000 }).toBe('cat');
-  expect((await st()).round).toBe(2);
-  const hp = (await st()).max; expect(hp).toBeGreaterThanOrEqual(5); expect(hp).toBeLessThanOrEqual(10);
-  await page.evaluate(() => window.HavocFight.debug.hit(99));
-  await expect.poll(async () => (await st()).boss, { timeout: 5000 }).toBe('blobby');
-  // round 3: hits make bits come loose and fall
-  const row = '#view .task:has(> .check)', box = await page.locator(row).first().boundingBox();
-  await page.evaluate(([x, y]) => window.HavocFight.debug.wreck(x, y, 1), [box.x + box.width / 2, box.y + box.height / 2]);
-  await expect.poll(() => page.evaluate(() => (e => e.getAnimations().length + (e.style.filter ? 1 : 0))(document.querySelector('#view .task:has(> .check)')))).toBeGreaterThan(0);
-  expect((await st()).touched).toBeGreaterThan(0);
-  await page.waitForTimeout(1500);
-  // Esc: everything back where it was
+  await expect.poll(async () => (await st()).boss, { timeout: 5000 }).toBe('skeleton');
+  // the trick: an offer, the wizard walks over, gets grabbed and shaken, then thrown
+  await page.waitForTimeout(2000);
+  await page.evaluate(() => window.HavocFight.debug.trick());
+  await expect.poll(async () => (await st()).mode, { timeout: 3000 }).toBe('offer');
+  await expect.poll(async () => (await st()).wizard.held, { timeout: 15000 }).toBe(true);
+  await expect.poll(async () => (await st()).wizard.flying, { timeout: 5000 }).toBe(true);
+  await expect.poll(async () => (await st()).wizard.flying, { timeout: 5000 }).toBe(false);
+  // Esc: the words go back, nothing left behind
   await page.keyboard.press('Escape');
   await expect(page.locator('canvas.hf-canvas')).toHaveCount(0);
-  expect(await page.evaluate(() => [...document.querySelectorAll('#app *')].filter(e => e.getAttribute('style')).length)).toBe(before);
-  expect(await page.evaluate(() => [...document.querySelectorAll('#view .task')].some(e => e.getAnimations().length))).toBe(false);
+  await expect.poll(() => page.evaluate(() => !!(window.__havoc && window.__havoc.active))).toBe(false);
+  expect(await text()).toBe(h1);
+  expect(await styled()).toBe(before);
   expect(errs).toEqual([]);
 });

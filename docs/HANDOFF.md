@@ -223,6 +223,12 @@ checking the code.
   - when the dragon comes out, a wizard comes out too and fights it with fireballs from his staff; after a random
     number of hits the dragon is beaten and the next boss comes out, wrecking more of the screen each round.
   - Built 2026-11-18 as "Wizard vs bosses" (public/plugins/havoc-fight.js, game in public/vendor/havoc-fight.js; Shift+F or
-    ⌘K). The bosses take turns: Dragon, Vampire cat, Blobby, then again angrier. Round 1 scorches, round 2 knocks bits
-    crooked and chars them, round 3 on makes them fall. Fire is real Elements fire when the effects layer is on. Esc
-    restores. Still to do: Havoc's own toolbar has no button for it, and the dragon in the item above is separate.
+    ⌘K). Rebuilt the same day as pixel art (user: "pixel art, it should use our physics and elements engines"):
+    sprites are flat shapes snapped to hard pixels with an outline. Words fly with Havoc's physics engine, which now
+    runs "bare" for it (havoc-engine.js start({bare:true}): no toolbar or keys; H.blast / H.melt / H.knock). Fire (on
+    oil, so it lasts), lava, acid and ice are the ambient Elements layer. The wizard shouts his spells in comic
+    bubbles: purple Fireball, Kablammo, Meltdown, Zappity zap, Frostbite, and Splat splat (Blobby only: he bursts
+    into acid and pulls himself back together). Bosses: Dragon (fireballs, lava), Vampire cat (claws the page, swoops,
+    sometimes latches on and bites), Blobby (a jelly cube), and Skeleton (throws bones, or the trick: offers something
+    nice, then grabs the wizard, shakes him and throws him; user, 2026-11-18). Esc restores everything.
+    Still to do: Havoc's own toolbar has no button for it, and the dragon in the item above is separate.
