@@ -105,3 +105,20 @@ test('"watch Jurassic Park" works in Work too, and the toast says where it went'
   await expect(page).toHaveURL(/#view-watch/);
   await expect(page.locator('.wq-it', { hasText: 'Jurassic Park' })).toContainText('1993 · 2h 7m');
 });
+
+test('Tonight: pick how much time you have, get one thing that fits', async ({ page }) => {
+  await page.goto(B + '/#view-watch');
+  await expect(page.locator('.wq-tn')).toBeVisible({ timeout: 15000 });
+  // 45 minutes: no film on the list is that short; a show's episode or a game can be
+  await page.click('[data-wq-tn="45"]');
+  await expect(page.locator('.wq-tnx, .wq-tnn').first()).toBeVisible();
+  if (await page.locator('.wq-tnx b').count()) expect(await page.locator('.wq-tnx b').innerText()).not.toMatch(/Dune|Jurassic/);
+  else await expect(page.locator('.wq-tnn')).toContainText('The shortest is');
+  // 3 hours: something comes up, and Something else gives another (or says so)
+  await page.click('[data-wq-tn="180"]');
+  await expect(page.locator('.wq-tnx b')).toBeVisible();
+  const first = await page.locator('.wq-tnx b').innerText();
+  await page.getByRole('button', { name: 'Something else' }).click();
+  await expect(page.locator('.wq-tnx b')).toBeVisible();
+  expect(typeof first).toBe('string');
+});

@@ -126,7 +126,39 @@
       });
 
       // the page
-      const G = { q: '', kind: KIND.film, res: null, busy: false, tab: 'next' };
+      const G = { q: '', kind: KIND.film, res: null, busy: false, tab: 'next', tn: { mins: 0, pick: null, seen: [] } };
+      // Tonight (user, 2026-11-18): say how much time you have, get one thing from the list that fits. Films by their
+      // runtime, shows by how many episodes fit, games always (play for as long as you've got). What's waited longest
+      // comes up more often; "Something else" doesn't repeat until it has run out.
+      const TIMES = [[45, '45 min'], [90, '1½ h'], [120, '2 h'], [180, '3 h'], [300, 'All evening']];
+      function tonight(mins) {
+        const seen = G.tn.seen, all = items(false).map(t => {
+          const m = t.media, age = (Date.now() - (t.createdAt || Date.now())) / 86400e3;
+          let fit = true, why = '', w = 1 + Math.min(age, 120) / 14;
+          if (m.kind === 'game') why = `Play for ${mins >= 300 ? 'the evening' : hm(mins)}`;
+          else if (m.type === 'tv') { const rt = m.runtime || 45, n = Math.floor(mins / rt); fit = n >= 1; why = n === 1 ? `One episode (${hm(rt)})` : `About ${Math.min(n, 8)} episodes`; }
+          else if (m.runtime) { fit = m.runtime <= mins + 5; const left = mins - m.runtime; why = `${hm(m.runtime)}${left >= 15 && mins < 300 ? `, ${hm(left)} to spare` : ''}`; w *= 0.6 + 0.6 * Math.min(1, m.runtime / mins); }
+          else { why = 'Length unknown'; w *= 0.4; }
+          return { t, fit, why, w };
+        }).filter(c => c.fit);
+        let pool = all.filter(c => !seen.includes(c.t.id)); if (!pool.length) { G.tn.seen = []; pool = all; }
+        if (!pool.length) return null;
+        let r = Math.random() * pool.reduce((a, c) => a + c.w, 0);
+        for (const c of pool) { if ((r -= c.w) <= 0) return c; }
+        return pool[pool.length - 1];
+      }
+      const shortest = () => items(false).filter(t => t.media.kind !== 'game' && t.media.runtime).sort((a, b) => (a.media.type === 'tv' ? a.media.runtime : a.media.runtime) - b.media.runtime)[0];
+      const tnHtml = () => {
+        const T = G.tn, p = T.pick && api.tasks.get(T.pick.t.id) && !api.tasks.get(T.pick.t.id).done ? T.pick : null, m = p && p.t.media;
+        const sh = !p && T.mins ? shortest() : null;
+        return `<div class="wq-tn"><div class="wq-tnh"><b>${ic('popcorn')} Tonight</b><span class="muted">How much time do you have?</span>
+            <div class="wq-tnt">${TIMES.map(([v, l]) => `<button class="chip${T.mins === v ? ' on' : ''}" data-wq-tn="${v}">${l}</button>`).join('')}</div></div>
+          ${p ? `<div class="wq-tnp"><button class="wq-tnc" data-wq-open="${E(p.t.id)}" aria-label="Open ${E(p.t.title)}">${m.poster ? `<img src="${E(m.poster)}" alt="">` : `<span class="wq-none">${ic(m.kind === 'game' ? 'gamepad-2' : 'film')}</span>`}</button>
+              <div class="wq-tnx"><span class="muted">${E(label(m))}${m.year ? ' · ' + E(m.year) : ''}</span><b>${E(p.t.title)}</b><span>${E(p.why)}</span>
+                ${m.overview ? `<p class="muted">${E(m.overview.length > 180 ? m.overview.slice(0, 180) + '…' : m.overview)}</p>` : ''}
+                <div class="wq-tnb"><button class="btn sm" data-wq-done="${E(p.t.id)}">${ic('check')} ${m.kind === 'game' ? 'Played it' : 'Watched it'}</button><button class="btn sm ghost" data-wq-tn="${T.mins}">${ic('shuffle')} Something else</button></div></div></div>`
+            : T.mins ? `<p class="muted wq-tnn">Nothing on the list fits in ${E(TIMES.find(x => x[0] === T.mins)[1])}.${sh ? ` The shortest is ${E(sh.title)} (${E(hm(sh.media.runtime))}).` : ''}</p>` : ''}</div>`;
+      };
       let timer = 0;
       const items = done => api.tasks.list(t => isMedia(t) && !!t.done === done);
       const cover = (t, done) => {
@@ -148,6 +180,7 @@
             <input class="inp" id="wq-q" placeholder="${G.kind === KIND.game ? 'Add a game, like Hades' : 'Add a film or show, like Dune'}" value="${E(G.q)}" autocomplete="off" data-no-grammar>${G.busy ? '<span class="muted wq-busy">Looking…</span>' : ''}</div>
           ${sug}
           <div class="wq-tabs">${[['next', `Up next <i>${films.length + games.length}</i>`], ['shelf', `Watched and played <i>${shelf.length}</i>`]].map(([k, l]) => `<button class="${G.tab === k ? 'on' : ''}" data-wq-tab="${k}">${l}</button>`).join('')}</div>
+          ${G.tab === 'next' && (films.length || games.length) ? tnHtml() : ''}
           ${G.tab === 'next' ? (films.length || games.length ? `${films.length ? `<h3>To watch</h3>${grid(films, false)}` : ''}${games.length ? `<h3>To play</h3>${grid(games, false)}` : ''}`
             : `<p class="muted">Nothing on the list yet. Search above, or type "watch Dune" or "play Hades" in quick add.</p>`)
             : shelf.length ? grid(shelf, true) : '<p class="muted">What you watch and play shows up here, newest first.</p>'}
@@ -160,6 +193,9 @@
         q.onkeydown = e => { if (e.key === 'Enter' && G.q.trim()) { e.preventDefault(); const h = G.res && G.res.results && G.res.results[0]; add(h && norm(h.title) === norm(G.q) ? h : null, el); } if (e.key === 'Escape') { G.q = ''; G.res = null; redraw(el, true); } };
         el.querySelectorAll('[data-wq-add]').forEach(b => b.onclick = () => add(G.res.results[+b.dataset.wqAdd], el));
         el.querySelectorAll('[data-wq-kind]').forEach(b => b.onclick = () => { G.kind = b.dataset.wqKind; G.res = null; redraw(el, true); if (G.q.trim()) q.dispatchEvent(new Event('input')); });
+        el.querySelectorAll('[data-wq-tn]').forEach(b => b.onclick = () => { const v = +b.dataset.wqTn, T = G.tn;
+          if (T.pick && v === T.mins) T.seen.push(T.pick.t.id); else T.seen = [];
+          T.mins = v; T.pick = tonight(v); if (T.pick) T.seen.push(T.pick.t.id); redraw(el); });
         el.querySelectorAll('[data-wq-tab]').forEach(b => b.onclick = () => { G.tab = b.dataset.wqTab; redraw(el); });
         el.querySelectorAll('[data-wq-open]').forEach(b => b.onclick = () => api.ui.openTask(b.dataset.wqOpen));
         el.querySelectorAll('[data-wq-done]').forEach(b => b.onclick = () => { const t = api.tasks.get(b.dataset.wqDone); api.tasks.complete(b.dataset.wqDone);
@@ -177,6 +213,7 @@
       };
       api.views.add({ id: 'watch', title: 'Watch list', icon: '🎬', subtitle: 'Films, shows and games to get to, and what you\'ve watched', wide: true, render: el => render(el) });
       api.commands.add({ title: 'Watch list: films, shows and games to get to', icon: 'film', run: () => api.ui.navigate('view-watch') });
+      api.commands.add({ title: 'Tonight: what should I watch?', icon: 'popcorn', run: () => { G.tab = 'next'; api.ui.navigate('view-watch'); } });
       api.search.add(q => q.length < 2 ? [] : items(false).concat(items(true)).filter(t => norm(t.title).includes(norm(q))).slice(0, 5)
         .map(t => ({ title: t.title, k: t.done ? (t.media.kind === 'game' ? 'Played' : 'Watched') : 'Watch list', run: () => api.ui.openTask(t.id) })));
 
@@ -196,6 +233,17 @@
         .wq-s:hover{background:var(--hover)}
         .wq-s img,.wq-s .wq-none{width:40px;height:60px;object-fit:cover;border-radius:4px;flex:none}
         .wq-s span{display:flex;flex-direction:column;min-width:0}.wq-s b{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.wq-s i{font-style:normal;color:var(--muted);font-size:12.5px}
+        .wq-tn{border:1px solid var(--line);border-radius:calc(var(--r,8px) + 4px);background:var(--panel);padding:12px 14px;margin:6px 0 16px}
+        .wq-tnh{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+        .wq-tnh>b{display:flex;gap:6px;align-items:center;font-weight:650}.wq-tnh svg{width:16px;height:16px}
+        .wq-tnt{display:flex;gap:6px;flex-wrap:wrap;margin-left:auto}
+        .wq-tnp{display:flex;gap:14px;margin-top:12px;align-items:flex-start}
+        .wq-tnc{padding:0;border:0;background:var(--hover);border-radius:8px;overflow:hidden;width:92px;aspect-ratio:2/3;flex:none;cursor:pointer}
+        .wq-tnc img{width:100%;height:100%;object-fit:cover;display:block}
+        .wq-tnx{display:flex;flex-direction:column;gap:3px;min-width:0;font-size:13.5px}
+        .wq-tnx b{font-size:17px;font-weight:650}.wq-tnx p{margin:4px 0 0;font-size:13px;line-height:1.45}
+        .wq-tnb{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap}.wq-tnb svg{width:14px;height:14px}
+        .wq-tnn{margin:10px 0 0}
         .wq-tabs{display:flex;gap:4px;border-bottom:1px solid var(--line);margin:6px 0 14px}
         .wq-tabs button{border-radius:0;border-bottom:2px solid transparent;margin-bottom:-1px}
         .wq-tabs button.on{color:var(--text);border-bottom-color:var(--accent)}
