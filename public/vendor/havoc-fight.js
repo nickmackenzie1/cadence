@@ -161,7 +161,7 @@
     if (kind === 'dragon') Object.assign(b, { x: side < 0 ? -170 : innerWidth + 170, y: innerHeight * 0.22, R: 58, home: innerHeight * rnd(0.16, 0.28), breath: 0 });
     if (kind === 'cat') Object.assign(b, { x: side < 0 ? -80 : innerWidth + 80, y: innerHeight * 0.3, R: 28, mode: 'fly', mt: rnd(2.5, 4) });
     if (kind === 'blobby') Object.assign(b, { x: side < 0 ? -70 : innerWidth + 70, y: G(), R: 42, squash: 0, grounded: true, hopT: 0.6, solid: true,
-      splat() { this.solid = false; this.reform = 2.6; const R = this.R;
+      splat() { this.solid = false; this.reform = 2.6; this.backBy = performance.now() + 5200; const R = this.R;   // back by then in real time, however slow the frames
         for (let i = 0; i < 26; i++) { const a = rnd(Math.PI, TAU), v = rnd(250, 560); S.jelly.push({ x: this.x + rnd(-R, R), y: this.y - rnd(0, 2 * R), vx: Math.cos(a) * v, vy: Math.sin(a) * v, s: irnd(6, 14), home: false }); }
         for (let i = 0; i < 6; i++) setTimeout(() => S && impact(this.x + rnd(-200, 200), this.y - rnd(40, 300), 'acid', 1), i * 90);
         shake(1.5); } });
@@ -211,7 +211,7 @@
       if (!b.solid) {   // in bits: pulls himself back together
         b.reform -= dt;
         // back together once the bits are home, or after 2.5 s of pulling whatever's left (slow devices never quite settle)
-        if (b.reform <= 0) { for (const j of S.jelly) j.home = true; if (b.reform < -2.5 || S.jelly.every(j => Math.hypot(j.x - b.x, j.y - (b.y - b.R)) < 14)) { S.jelly = []; b.solid = true; b.squash = 0.5; say(b, pick(['Blorp!', 'Still here!', 'Glorp.'])); } }
+        if (b.reform <= 0 || performance.now() > b.backBy - 2500) { for (const j of S.jelly) j.home = true; if (b.reform < -2.5 || performance.now() > b.backBy || S.jelly.every(j => Math.hypot(j.x - b.x, j.y - (b.y - b.R)) < 14)) { S.jelly = []; b.solid = true; b.squash = 0.5; say(b, pick(['Blorp!', 'Still here!', 'Glorp.'])); } }
         return;
       }
       b.hopT -= fdt;
