@@ -414,3 +414,10 @@ checking the code.
   (14) lava pushes letters as it flows.
   Fixes: (15) resizing the window restarts Havoc and loses the mess: move the walls instead; (16) screen shake ignores
   "reduce motion"; (17) touch: two fingers to throw, and a long press to grab on the iPhone.
+- **Havoc stays real text (2026-11-19, user: drawing letters on a canvas would look "rendered", which is what's lost).**
+  Letters stay page elements. Done: `will-change: transform` only on letters that are moving (class `mv`, dropped
+  when they sleep or are static) instead of on all of them (900 layers at rest); transforms are written only when a
+  letter moved more than a quarter pixel or 0.004 rad. Measured (headless, software rendering): at rest ~28 → ~55 fps;
+  mid-blast unchanged here (software compositing is what this machine is worst at), to be judged on a real GPU.
+  Next for the moving case, keeping real text: words as one element and one body until hit hard (≈5× fewer of both),
+  a fixed 60 Hz physics step, and caching the boxes dent() pushes.

@@ -516,8 +516,15 @@
         if (dr.y > 330 || dr.y0 + dr.y > Hh + 40) kill(o);
         continue;
       }
-      const b = o.body; if (b.isStatic || b.isSleeping) continue;
-      o.el.style.transform = `translate(${b.position.x - o.w / 2}px,${b.position.y - o.h / 2}px) rotate(${b.angle}rad)`;
+      const b = o.body;
+      if (b.isStatic || b.isSleeping) { if (o.mv) { o.mv = false; o.el.classList.remove('mv'); } continue; }
+      if (!o.mv) { o.mv = true; o.el.classList.add('mv'); }
+      // only write when it has really moved: a quarter pixel, or a sliver of a turn
+      const px = b.position.x - o.w / 2, py = b.position.y - o.h / 2;
+      if (Math.abs(px - (o.px ?? 1e9)) > 0.25 || Math.abs(py - o.py) > 0.25 || Math.abs(b.angle - o.pa) > 0.004) {
+        o.px = px; o.py = py; o.pa = b.angle;
+        o.el.style.transform = `translate(${px.toFixed(1)}px,${py.toFixed(1)}px) rotate(${b.angle.toFixed(3)}rad)`;
+      }
       if (b.position.y > Hh + 400 || b.position.x < -600 || b.position.x > W + 600) kill(o);
     }
     for (const o of images) {
@@ -646,7 +653,8 @@
   :host{all:initial}
   *{box-sizing:border-box}
   .stage{position:fixed;inset:0;pointer-events:none;overflow:hidden;contain:strict}
-  .l{position:absolute;left:0;top:0;white-space:pre;text-align:center;will-change:transform;transform-origin:50% 50%;user-select:none;font-kerning:none;margin:0;padding:0;letter-spacing:0;word-spacing:0;text-decoration:none;-webkit-font-smoothing:antialiased}
+  .l{position:absolute;left:0;top:0;white-space:pre;text-align:center;transform-origin:50% 50%;user-select:none;font-kerning:none;margin:0;padding:0;letter-spacing:0;word-spacing:0;text-decoration:none;-webkit-font-smoothing:antialiased}
+  .l.mv,.l.drip{will-change:transform}
   .l.drip{transform-origin:50% 0}
   .l.drip::after{content:"";position:absolute;left:38%;width:24%;bottom:100%;height:var(--trail,0px);background:linear-gradient(to top,currentColor,transparent);border-radius:0 0 50% 50%;opacity:.55}
   .img{position:absolute;left:0;top:0;will-change:transform;transform-origin:50% 50%}
