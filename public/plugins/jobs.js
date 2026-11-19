@@ -23,15 +23,6 @@
       const dur = ms => ms < 1000 ? ms + ' ms' : ms < 60e3 ? (ms / 1000).toFixed(1) + ' s' : Math.round(ms / 60e3) + ' min';
       const every = ms => !ms ? '' : ms < 60e3 ? 'in small steps' : ms < 3600e3 ? `every ${Math.round(ms / 60e3)} min` : ms < 86400e3 ? `every ${+(ms / 3600e3).toFixed(1)} h` : ms === 86400e3 ? 'once a day' : `every ${+(ms / 86400e3).toFixed(1)} days`;
       const PACES = [[15 * 60e3, 'Every 15 minutes'], [3600e3, 'Every hour'], [3 * 3600e3, 'Every 3 hours'], [6 * 3600e3, 'Every 6 hours'], [12 * 3600e3, 'Every 12 hours'], [86400e3, 'Once a day'], [7 * 86400e3, 'Once a week']];
-      const STATE = {
-        running: ['Running now', 'loader'], waiting: ['Waiting', 'hourglass'], scheduled: ['Scheduled', 'clock'],
-        paused: ['Paused', 'pause'], finished: ['Done', 'check'], stopped: ['Stopped', 'pause']
-      };
-      const ORDER = ['running', 'waiting', 'scheduled', 'paused', 'finished', 'stopped'];
-      const now = j => j.state === 'running' ? 'Running now' : j.state === 'paused' ? 'Paused. It won’t run until you resume it'
-        : j.state === 'waiting' ? (j.waiting ? j.waiting.charAt(0).toUpperCase() + j.waiting.slice(1) : 'Waiting its turn') + (j.soon ? ' (you asked for it now)' : '')
-        : j.state === 'finished' ? 'Done: nothing left to do for now' : j.state === 'stopped' ? 'Stopped' : j.next ? 'Next run ' + until(j.next) : 'Scheduled';
-      const last = j => !j.last ? 'Hasn’t run yet' : `Last ran ${ago(j.last.at)}, took ${dur(j.last.ms)}` + (j.last.ok ? (j.last.note ? ` · ${j.last.note}` : '') : ' · didn’t finish');
       const tags = j => [j.where === 'music' ? 'Music side' : 'App', j.heavy && 'takes turns', j.quiet && 'waits while you use Cadence', j.hours && `only ${j.hours[0]}:00–${j.hours[1]}:00`, j.every && every(j.every) + (j.changed ? ' (changed)' : '')].filter(Boolean);
 
       async function act(j, body) {
@@ -53,38 +44,69 @@
         load();
       }
 
+      // Laid out like Immich's Jobs page (user, 2026-11-18: "base it off immich"): a card per job with its icon, name and
+      // a line on what it does, two counters (Last run, Next run) and its buttons on the right; grouped by what they serve
+      const GROUPS = [
+        [/^KEXP/i, 'KEXP', 'radio', '#e8590c'], [/Radar|ListenBrainz|Discogs|Wikidata|Gramophone|Artist pages/i, 'Music', 'radar', '#7048e8'],
+        [/^Radio/i, 'Music', 'radio', '#7048e8'], [/Feeds/i, 'Reading', 'rss', '#1c7ed6'], [/Reminders/i, 'Notifications', 'bell', '#2b8a3e'],
+        [/Database/i, 'Upkeep', 'database', '#495057']];
+      const groupOf = j => { const g = GROUPS.find(([re]) => re.test(j.label)) || [null, 'Other', 'cog', '#495057']; return { name: g[1], icon: g[2], col: g[3] }; };
+      const ICON = j => /Discogs/i.test(j.label) ? 'disc-3' : /ListenBrainz/i.test(j.label) ? 'headphones' : /Wikidata/i.test(j.label) ? 'globe' : /Gramophone/i.test(j.label) ? 'book-open'
+        : /Artist pages/i.test(j.label) ? 'user' : /search index/i.test(j.label) ? 'search' : /keep|saving/i.test(j.label) ? 'archive' : /lists|Top/i.test(j.label) ? 'trophy' : groupOf(j).icon;
+      const title = j => { const i = j.label.indexOf(': '); return i > 0 && i < 24 ? [j.label.slice(0, i), j.label.slice(i + 2)] : [j.label, '']; };
+      const stat = (head, val, sub, cls = '') => `<div class="jb-stat ${cls}"><div class="jb-sh">${head}</div><div class="jb-sv">${val}</div>${sub ? `<div class="jb-ss">${sub}</div>` : ''}</div>`;
+      const lastStat = j => !j.last ? stat('Last run', '–', 'not yet') : stat('Last run', E(ago(j.last.at)), j.last.ok ? E(dur(j.last.ms)) : 'didn’t finish', j.last.ok ? '' : 'jb-soft');
+      const nextStat = j => j.state === 'running' ? stat('Now', 'Running', '', 'jb-live') : j.state === 'paused' ? stat('Next run', 'Paused', '') : j.state === 'finished' ? stat('Next run', 'Done', 'nothing left')
+        : j.state === 'waiting' ? stat('Next run', 'Waiting', E(j.waiting ? j.waiting.replace(/^waits /, '') : 'its turn')) : j.next ? stat('Next run', E(until(j.next).replace('in about ', '')), j.every ? E(every(j.every)) : '') : stat('Next run', '–', '');
+
       let root = null;
       function draw() {
         if (!root || !root.isConnected) return;
         if (!G.list) { root.innerHTML = '<p class="muted">Loading…</p>'; return; }
-        const list = G.list.slice().sort((a, b) => ORDER.indexOf(a.state) - ORDER.indexOf(b.state) || a.label.localeCompare(b.label));
+        const list = G.list.slice();
         const paused = list.filter(j => j.state === 'paused').length, live = list.filter(j => j.state !== 'paused' && j.state !== 'finished').length;
-        const counts = ORDER.map(s => [s, list.filter(j => j.state === s).length]).filter(([, n]) => n);
+        const n = s => list.filter(j => j.state === s).length;
+        const groups = []; for (const j of list) { const g = groupOf(j); let e = groups.find(x => x.name === g.name); if (!e) groups.push(e = { ...g, jobs: [] }); e.jobs.push(j); }
+        const ORDG = ['KEXP', 'Music', 'Reading', 'Notifications', 'Upkeep', 'Other']; groups.sort((a, b) => ORDG.indexOf(a.name) - ORDG.indexOf(b.name));
         root.innerHTML = `<div class="jb">
-          <div class="jb-top"><p class="muted">${counts.map(([s, n]) => `${n} ${STATE[s][0].toLowerCase()}`).join(' · ')}. Heavy jobs take turns, one at a time, and most wait while you're using Cadence.</p>
-            <div class="jb-all">${live ? `<button class="btn ghost" data-jall="pause">${ic('pause')} Pause all</button>` : ''}${paused ? `<button class="btn ghost" data-jall="resume">${ic('play')} Resume all</button>` : ''}<button class="btn ghost" id="jb-re">${ic('refresh-cw')} Check again</button></div></div>
-          <ul class="jb-l">${list.map(j => { const k = j.where + j.name, open = !!G.open[k], busy = !!G.busy[k], [, icon] = STATE[j.state] || ['', 'clock'];
-            const canPace = j.base && j.base >= 60e3;
-            return `<li class="jb-j jb-${j.state}${j.last && !j.last.ok ? ' jb-fail' : ''}" data-k="${E(k)}">
-              <button class="jb-row" data-jo="${E(k)}" aria-expanded="${open}"><span class="jb-ic">${ic(icon)}</span>
-                <span class="jb-tx"><b>${E(j.label)}</b><span class="muted">${E(now(j))}</span><span class="muted jb-last">${E(last(j))}</span></span>
-                <span class="jb-chev">${ic(open ? 'chevron-up' : 'chevron-down')}</span></button>
-              ${open ? `<div class="jb-more">
-                <div class="jb-tags">${tags(j).map(t => `<span class="chip">${E(t)}</span>`).join('')}<span class="muted">${j.runs} run${j.runs === 1 ? '' : 's'} since the NAS last started${j.fails ? `, ${j.fails} didn’t finish` : ''}</span></div>
-                ${j.last && !j.last.ok ? `<p class="jb-err">What went wrong last time: ${E(j.last.error || 'no details')}</p>` : ''}
-                <div class="jb-ctl">
-                  <button class="btn sm" data-ja="run" ${busy || j.state === 'running' ? 'disabled' : ''}>${ic('play')} Run now</button>
-                  ${j.state === 'paused' ? `<button class="btn sm" data-ja="resume" ${busy ? 'disabled' : ''}>${ic('play')} Resume</button>` : j.state !== 'finished' ? `<button class="btn sm ghost" data-ja="pause" ${busy ? 'disabled' : ''}>${ic('pause')} Pause</button>` : ''}
-                  ${canPace ? `<label class="jb-pace">How often <select class="inp sm" data-jp>${[[j.base, `As it came (${every(j.base)})`], ...PACES.filter(([v]) => v !== j.base)].map(([v, l]) => `<option value="${v}" ${v === j.every ? 'selected' : ''}>${E(l)}</option>`).join('')}${PACES.some(([v]) => v === j.every) || j.every === j.base ? '' : `<option value="${j.every}" selected>${E(every(j.every))}</option>`}</select></label>` : '<span class="muted jb-note">Runs in small steps until its work is done, so it has no fixed pace.</span>'}
-                </div>
-                ${j.history && j.history.length ? `<div class="jb-h"><span class="muted">Recent runs</span><ol>${j.history.map(h => `<li><span>${E(new Date(h.at).toLocaleString([], { weekday: 'short', hour: 'numeric', minute: '2-digit' }))}</span><span>${h.n > 1 ? `${h.n} steps, ` : ''}${E(dur(h.ms))}</span><span class="muted">${h.ok ? E(h.note || 'Finished') : 'Didn’t finish: ' + E(h.error || '')}</span></li>`).join('')}</ol></div>` : ''}
-              </div>` : ''}</li>`; }).join('')}</ul></div>`;
+          <div class="jb-top">
+            <div class="jb-sum">${[['running', 'Running'], ['waiting', 'Waiting'], ['scheduled', 'Scheduled'], ['paused', 'Paused']].map(([s, l]) => `<div class="jb-pill${n(s) ? '' : ' zero'}"><b>${n(s)}</b>${l}</div>`).join('')}</div>
+            <div class="jb-all">${live ? `<button class="btn ghost" data-jall="pause">${ic('pause')} Pause all</button>` : ''}${paused ? `<button class="btn ghost" data-jall="resume">${ic('play')} Resume all</button>` : ''}<button class="btn ghost" id="jb-re">${ic('refresh-cw')} Refresh</button></div>
+          </div>
+          <p class="muted jb-intro">Heavy jobs take turns, one at a time, and most wait while you're using Cadence. Run now skips the wait.</p>
+          ${groups.map(g => `<h3 class="jb-gh">${E(g.name)}</h3>${g.jobs.sort((a, b) => a.label.localeCompare(b.label)).map(j => card(j, g)).join('')}`).join('')}
+        </div>`;
         root.querySelectorAll('[data-jo]').forEach(b => b.onclick = () => { const k = b.dataset.jo; G.open[k] = !G.open[k]; draw(); });
         const job = el => { const k = el.closest('[data-k]').dataset.k; return G.list.find(j => j.where + j.name === k); };
         root.querySelectorAll('[data-ja]').forEach(b => b.onclick = () => act(job(b), { action: b.dataset.ja }));
         root.querySelectorAll('[data-jp]').forEach(s => s.onchange = () => act(job(s), { action: 'every', every: +s.value }));
         root.querySelectorAll('[data-jall]').forEach(b => b.onclick = () => all(b.dataset.jall));
         const re = root.querySelector('#jb-re'); if (re) re.onclick = () => load();
+      }
+      function card(j, g) {
+        const k = j.where + j.name, open = !!G.open[k], busy = !!G.busy[k], canPace = j.base && j.base >= 60e3;
+        // under the KEXP heading, "KEXP: saving the shows you keep" reads as "Saving the shows you keep"
+        let [t1, t2] = title(j); if (t2 && t1.toLowerCase() === g.name.toLowerCase()) { t1 = t2.charAt(0).toUpperCase() + t2.slice(1); t2 = ''; }
+        return `<section class="jb-j jb-${j.state}" data-k="${E(k)}" style="--jc:${g.col}">
+          <div class="jb-card">
+            <div class="jb-ic">${ic(ICON(j))}</div>
+            <div class="jb-tx"><b>${E(t1)}</b>${t2 ? `<span>${E(t2)}</span>` : ''}
+              <div class="jb-tags">${tags(j).map(t => `<span class="chip">${E(t)}</span>`).join('')}</div>
+              ${j.last && j.last.ok && j.last.note ? `<div class="muted jb-note">${E(j.last.note)}</div>` : ''}
+              ${j.last && !j.last.ok ? `<div class="jb-err">Last time it didn’t finish: ${E(j.last.error || 'no details')}</div>` : ''}</div>
+            <div class="jb-stats">${lastStat(j)}${nextStat(j)}</div>
+            <div class="jb-btns">
+              <button class="btn sm jb-run" data-ja="run" ${busy || j.state === 'running' ? 'disabled' : ''}>${ic('play')} Run now</button>
+              ${j.state === 'paused' ? `<button class="btn sm" data-ja="resume" ${busy ? 'disabled' : ''}>${ic('play')} Resume</button>` : j.state !== 'finished' ? `<button class="btn sm ghost" data-ja="pause" ${busy ? 'disabled' : ''}>${ic('pause')} Pause</button>` : ''}
+              <button class="btn sm ghost jb-row" data-jo="${E(k)}" aria-expanded="${open}">${ic('settings')} ${open ? 'Less' : 'More'}</button>
+            </div>
+          </div>
+          ${open ? `<div class="jb-more">
+            <div class="jb-ctl">${canPace ? `<label class="jb-pace">How often <select class="inp sm" data-jp>${[[j.base, `As it came (${every(j.base)})`], ...PACES.filter(([v]) => v !== j.base)].map(([v, l]) => `<option value="${v}" ${v === j.every ? 'selected' : ''}>${E(l)}</option>`).join('')}${PACES.some(([v]) => v === j.every) || j.every === j.base ? '' : `<option value="${j.every}" selected>${E(every(j.every))}</option>`}</select></label>` : '<span class="muted">Runs in small steps until its work is done, so it has no fixed pace.</span>'}
+              <span class="muted">${j.runs} run${j.runs === 1 ? '' : 's'} since the NAS last started${j.fails ? `, ${j.fails} didn’t finish` : ''}</span></div>
+            ${j.history && j.history.length ? `<div class="jb-h"><span class="muted">Recent runs</span><ol>${j.history.map(h => `<li><span>${E(new Date(h.at).toLocaleString([], { weekday: 'short', hour: 'numeric', minute: '2-digit' }))}</span><span>${h.n > 1 ? `${h.n} steps, ` : ''}${E(dur(h.ms))}</span><span class="muted">${h.ok ? E(h.note || 'Finished') : 'Didn’t finish: ' + E(h.error || '')}</span></li>`).join('')}</ol></div>` : '<span class="muted">No runs yet since the NAS last started.</span>'}
+          </div>` : ''}
+        </section>`;
       }
       api.views.add({ id: 'jobs', title: 'Background work', icon: '⏱️', subtitle: 'What the NAS does on its own, and when', render: el => {
         if (api.system().mode !== 'nas') { el.innerHTML = '<p class="muted">Background work runs on the NAS.</p>'; return; }
@@ -97,34 +119,45 @@
       api.commands.add({ title: 'Background work: see and control the NAS’s jobs', icon: 'timer', run: () => api.ui.navigate('view-jobs') });
 
       window.CadenceKit.css('jb-css', `
-        .jb{max-width:860px}
-        .jb-top{display:flex;gap:12px;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;margin-bottom:12px}
-        .jb-top p{margin:4px 0;max-width:520px}
-        .jb-all{display:flex;gap:6px;flex-wrap:wrap}
-        .jb-l{list-style:none;margin:0;padding:0;border-top:1px solid var(--line)}
-        .jb-j{border-bottom:1px solid var(--line)}
-        .jb-row{display:flex;gap:12px;align-items:flex-start;width:100%;text-align:left;background:none;border:0;padding:12px 6px;color:inherit;font:inherit;cursor:pointer;border-radius:var(--r,8px)}
-        .jb-row:hover{background:var(--hover)}
-        .jb-ic{flex:none;margin-top:2px;color:var(--muted)}.jb-ic svg{width:17px;height:17px}
-        .jb-running .jb-ic{color:var(--accent)}.jb-running .jb-ic svg{animation:jbspin 1.6s linear infinite}
-        @keyframes jbspin{to{transform:rotate(360deg)}}
+        .jb{max-width:980px}
+        .jb-top{display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+        .jb-sum{display:flex;gap:8px;flex-wrap:wrap}
+        .jb-pill{display:flex;gap:6px;align-items:baseline;padding:6px 12px;border-radius:999px;background:var(--hover);font-size:13px;color:var(--muted)}
+        .jb-pill b{font-size:16px;color:var(--text)}.jb-pill.zero{opacity:.6}
+        .jb-all{display:flex;gap:6px;flex-wrap:wrap}.jb-all svg{width:15px;height:15px}
+        .jb-intro{margin:10px 0 4px;font-size:13px}
+        .jb-gh{font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:600;margin:22px 0 8px}
+        .jb-j{border:1px solid var(--line);border-radius:calc(var(--r,8px) + 4px);background:var(--panel);margin-bottom:10px;overflow:hidden}
+        .jb-card{display:grid;grid-template-columns:44px minmax(0,1fr) auto auto;gap:16px;align-items:center;padding:14px 16px}
+        .jb-ic{width:44px;height:44px;border-radius:12px;display:grid;place-items:center;color:var(--jc);background:color-mix(in srgb,var(--jc) 13%,transparent)}
+        .jb-ic svg{width:22px;height:22px}
+        .jb-running .jb-ic svg{animation:jbpulse 1.6s ease-in-out infinite}
+        @keyframes jbpulse{50%{opacity:.45}}
         @media (prefers-reduced-motion:reduce){.jb-running .jb-ic svg{animation:none}}
-        .jb-paused .jb-tx b{color:var(--muted)}
-        .jb-tx{display:flex;flex-direction:column;gap:2px;min-width:0;flex:1;font-size:13.5px}
-        .jb-tx b{font-weight:600;font-size:14px}
-        .jb-last{font-size:12.5px}
-        .jb-fail .jb-last{color:var(--text)}
-        .jb-chev{color:var(--faint)}.jb-chev svg{width:16px;height:16px}
-        .jb-more{padding:0 6px 14px 35px;display:flex;flex-direction:column;gap:10px;font-size:13px}
-        .jb-tags{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
-        .jb-err{margin:0;padding:8px 10px;background:var(--hover);border-radius:var(--r,8px)}
-        .jb-ctl{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
-        .jb-ctl svg{width:14px;height:14px}
+        .jb-tx{display:flex;flex-direction:column;gap:3px;min-width:0}
+        .jb-tx b{font-size:15px;font-weight:650;letter-spacing:.01em}
+        .jb-tx>span{font-size:13.5px;color:var(--muted)}
+        .jb-tags{display:flex;gap:5px;flex-wrap:wrap;margin-top:4px}.jb-tags .chip{font-size:11.5px}
+        .jb-note{font-size:12.5px;margin-top:2px}
+        .jb-err{font-size:12.5px;margin-top:4px;padding:6px 8px;border-radius:6px;background:var(--hover)}
+        .jb-stats{display:flex;gap:8px}
+        .jb-stat{width:112px;border:1px solid var(--line);border-radius:10px;overflow:hidden;text-align:center;background:var(--bg)}
+        .jb-sh{font-size:10.5px;text-transform:uppercase;letter-spacing:.07em;font-weight:600;padding:4px 0;background:var(--hover);color:var(--muted)}
+        .jb-sv{font-size:16px;font-weight:650;padding:7px 4px 1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+        .jb-ss{font-size:11.5px;color:var(--muted);padding:0 4px 7px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+        .jb-stat:not(:has(.jb-ss)) .jb-sv{padding-bottom:9px}
+        .jb-live .jb-sh{background:color-mix(in srgb,var(--jc) 18%,transparent);color:var(--jc)}
+        .jb-soft .jb-ss{color:var(--text)}
+        .jb-paused .jb-ic{filter:grayscale(1);opacity:.6}.jb-paused .jb-tx b{color:var(--muted)}
+        .jb-btns{display:flex;flex-direction:column;gap:6px;min-width:112px}
+        .jb-btns .btn{justify-content:center;display:flex;gap:6px;align-items:center}.jb-btns svg{width:14px;height:14px}
+        .jb-more{border-top:1px solid var(--line);padding:12px 16px 14px 76px;display:flex;flex-direction:column;gap:10px;font-size:13px;background:var(--bg)}
+        .jb-ctl{display:flex;gap:14px;flex-wrap:wrap;align-items:center}
         .jb-pace{display:flex;gap:6px;align-items:center;color:var(--muted);white-space:nowrap}
-        .jb-note{font-size:12.5px}
         .jb-h ol{list-style:none;margin:6px 0 0;padding:0;display:flex;flex-direction:column;gap:3px}
         .jb-h li{display:grid;grid-template-columns:120px 110px 1fr;gap:10px;font-size:12.5px}
-        @media (max-width:640px){.jb-more{padding-left:6px}.jb-h li{grid-template-columns:1fr 1fr}.jb-h li span:last-child{grid-column:1/-1}}
+        @media (max-width:760px){.jb-card{grid-template-columns:44px minmax(0,1fr)}.jb-stats,.jb-btns{grid-column:1/-1}.jb-stat{flex:1;width:auto}.jb-btns{flex-direction:row;flex-wrap:wrap}
+          .jb-more{padding-left:16px}.jb-h li{grid-template-columns:1fr 1fr}.jb-h li span:last-child{grid-column:1/-1}}
       `);
     }
   });

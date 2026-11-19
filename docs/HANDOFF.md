@@ -237,4 +237,6 @@ checking the code.
   runs. You can run one now, which skips the wait for a quiet moment (heavy jobs still take turns), pause it, or change
   how often it runs. Pauses and pace changes are kept in DATA_DIR/jobs-app.json and jobs-music.json
   (scheduler.control; POST /api/jobs/<name> and /api/radar/jobs/<name>). Jobs that run in small steps until their work
-  is done (backfills, the search index) have no fixed pace to change.
+  is done (backfills, the search index) have no fixed pace to change. Laid out like Immich's Jobs page (user, same
+  day): a card per job, grouped (KEXP, Music, Reading, Notifications, Upkeep), with Last run and Next run counters and
+  Run now, Pause and More on the right.
