@@ -40,8 +40,10 @@ checking the code.
 - Page weight: with everything on, `bundle.js` is ~2 MB: 610 KB gzipped, 460 KB as Brotli (served since 2026-11-18,
   made off the main thread once per combination). The ten `ALWAYS` files are real dependencies (the audio player,
   the Island, the date picker, Life kit…); skipping them when unused would save only ~30 KB. The big remaining piece
-  is the theme files (~400 KB raw, always loaded so the picker can list every theme): loading only the current
-  theme's file and the rest when the Themes page opens is the next step if it's wanted.
+  was the theme packs: since 2026-11-18 only the pack holding each space's current theme loads with the app
+  (localStorage cadence.theme.work / .life tell the chooser); the gallery lists the rest from a small manifest and
+  fetches a pack when one of its themes is applied, or all of them when the Themes page opens. A theme a pack makes
+  on the fly (not in the manifest) means every pack loads, as before. About 290 KB less script to run on each load.
 - Dark mode check after the design passes.
 - Redraws: core views morph in place with idiomorph (0.41.0; `localStorage cadence.morph = off` turns it off).
   Plugin views (data-binding their own handlers) and dashboard widgets still redraw in full, so they don't keep

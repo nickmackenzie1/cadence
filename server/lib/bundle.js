@@ -32,23 +32,40 @@ const skippable = src => src.startsWith('plugins/') && !src.startsWith('plugins/
 // run the plugin files in a throwaway sandbox (in page order, sharing globals like the browser) and record what each registers
 function manifestOf(files) {
   const stub = new Proxy(function () {}, { get: (t, k) => k === Symbol.toPrimitive ? () => '' : k === 'then' ? undefined : k === Symbol.iterator ? function* () {} : stub, apply: () => stub, construct: () => stub, set: () => true, has: () => false });
-  let defs = [];
+  let defs = [], themeDefs = [];
   const noop = () => 0, g = { CustomEvent: function () {}, Event: function () {}, HTMLElement: function () {}, MutationObserver: function () { return stub; }, ResizeObserver: function () { return stub; }, IntersectionObserver: function () { return stub; },
     Image: function () { return stub; }, fetch: () => new Promise(() => {}), Intl, RegExp, Number, String, Boolean, Symbol, Error, WeakMap, WeakSet, Reflect, Proxy, Math, JSON, Date, Object, Array, Promise, Map, Set, URL,
     parseInt, parseFloat, isNaN, encodeURIComponent, decodeURIComponent, btoa: s => s, atob: s => s, innerWidth: 1200, innerHeight: 800, devicePixelRatio: 1, performance: { now: noop },
     setTimeout: noop, setInterval: noop, clearTimeout: noop, clearInterval: noop, requestAnimationFrame: noop, cancelAnimationFrame: noop, requestIdleCallback: noop, queueMicrotask: noop, addEventListener: noop, removeEventListener: noop,
-    document: stub, localStorage: stub, sessionStorage: stub, navigator: stub, location: stub, matchMedia: stub, getComputedStyle: stub, CSS: stub, CadenceKit: stub, CadenceThemes: stub,
+    document: stub, localStorage: stub, sessionStorage: stub, navigator: stub, location: stub, matchMedia: stub, getComputedStyle: stub, CSS: stub, CadenceKit: stub,
     console: { log: noop, warn: noop, error: noop, info: noop }, Cadence: new Proxy({ registerPlugin: d => defs.push(d) }, { get: (t, k) => (k in t ? t[k] : stub) }) };
+  // theme registrations are recorded too (themes.js's own window.CadenceThemes = … is ignored here)
+  const themeRec = new Proxy({ register: t => themeDefs.push(t), list: () => [] }, { get: (t, k) => (k in t ? t[k] : stub) });
+  Object.defineProperty(g, 'CadenceThemes', { get: () => themeRec, set: () => {}, configurable: true });
   g.window = g; g.self = g; g.globalThis = g; vm.createContext(g);
-  const out = {};
+  const out = {}, themes = {};
   for (const [src, code] of files) {
     if (!src.startsWith('plugins/')) continue;
-    defs = [];
-    try { vm.runInContext(code, g, { filename: src, timeout: 1000 }); } catch (e) { continue; } // can't tell what it registers: always load it
+    defs = []; themeDefs = [];
+    try { vm.runInContext(code, g, { filename: src, timeout: 1000 }); } catch (e) { if (process.env.BUNDLE_DEBUG) console.warn(src, e.message); continue; } // can't tell what it registers: always load it
+    // a theme pack (only themes, no plugins): it can stay on the server until one of its themes is used
+    if (themeDefs.length && !defs.length && /^plugins\/themes-/.test(src)) themes[src] = themeDefs.filter(t => t && t.id).map(themeMeta);
     if (!defs.length || !skippable(src)) continue;
     out[src] = defs.filter(d => d && d.id).map(d => Object.fromEntries(META.filter(k => d[k] != null && typeof d[k] !== 'function').map(k => [k, d[k]])));
   }
-  return out;
+  return { plugins: out, themes };
+}
+// what the Themes page needs to show a theme whose pack isn't loaded: its name, where it's filed, and its colours
+function themeMeta(t) {
+  const v = t.vars || {}, l = t.light || {}, pv = t.preview || {}, s = x => (typeof x === 'string' ? x.slice(0, 300) : undefined);
+  const p = { bg: v['--bg'] || l['--bg'], panel: v['--panel'] || l['--panel'], side: v['--side'] || l['--side'], text: v['--text'] || l['--text'], accent: v['--accent'] || l['--accent'], line: v['--line'] || l['--line'], r: v['--r'] };
+  for (const k of ['bg', 'panel', 'side', 'text', 'accent', 'line', 'r', 'font', 'extra']) if (pv[k] != null) p[k] = pv[k];
+  for (const k of Object.keys(p)) { p[k] = s(p[k]); if (p[k] == null) delete p[k]; }
+  const m = { id: t.id, name: s(t.name) || t.id, category: s(t.category) || 'Fun', tagline: s(t.tagline), family: s(t.family), p };
+  if (typeof t.effects === 'function') m.fx = 1;
+  if (t.light && t.dark) m.both = 1;
+  for (const k of Object.keys(m)) if (m[k] == null) delete m[k];
+  return m;
 }
 
 function build(srcs) {
@@ -56,8 +73,8 @@ function build(srcs) {
   if (cache && cache.sig === sig) return cache;
   const files = srcs.map(s => { try { return [s, fs.readFileSync(path.join(PUBLIC_DIR, s), 'utf8')]; } catch (e) { return [s, `console.warn(${JSON.stringify('Cadence: missing ' + s)})`]; } });
   const hash = crypto.createHash('sha1'); for (const [s, c] of files) hash.update(s + '\0' + c + '\0');
-  let manifest = {}; try { manifest = manifestOf(files); } catch (e) { console.warn('bundle manifest', e.message); }
-  cache = { sig, hash: hash.digest('hex').slice(0, 12), files, manifest, out: new Map() };
+  let manifest = {}, themes = {}; try { ({ plugins: manifest, themes } = manifestOf(files)); } catch (e) { console.warn('bundle manifest', e.message); }
+  cache = { sig, hash: hash.digest('hex').slice(0, 12), files, manifest, themes, out: new Map() };
   return cache;
 }
 
@@ -81,7 +98,7 @@ function brotli(buf) {
 function jsFor(b, { skip = [], only = null } = {}) {
   const key = only ? 'only:' + only.join(',') : 'skip:' + skip.join(',');
   let hit = b.out.get(key); if (hit) return hit;
-  const sk = new Set(skip.filter(s => b.manifest[s])), on = only && new Set(only.filter(s => b.files.some(f => f[0] === s)));
+  const sk = new Set(skip.filter(s => b.manifest[s] || b.themes[s])), on = only && new Set(only.filter(s => b.files.some(f => f[0] === s)));
   const files = b.files.filter(([s]) => (on ? on.has(s) : !sk.has(s)));
   const js = Buffer.from(`/* Cadence bundle: ${files.length} files${sk.size ? `, ${sk.size} switched-off plugin files left out` : ''}, see server/lib/bundle.js */\n`
     + `(function(F){for(var i=0;i<F.length;i++){var s=document.createElement('script');s.dataset.src=F[i][0];s.text=F[i][1]+'\\n//# sourceURL='+F[i][0];document.body.appendChild(s);}})(${JSON.stringify(files)});\n`);
@@ -105,6 +122,11 @@ var W=demo?null:off('cadence.v1','work'),L=demo?null:off('cadence.life.v1','life
 // a space this browser has never opened counts as all off: moving to it fetches what it needs
 var isOff=function(p,sp,list){return (p.spaces&&p.spaces.indexOf(sp)<0)||!list||list.indexOf(p.id)>=0;};
 if(W||L)for(var f in B.plugins){if(B.plugins[f].every(function(p){return isOff(p,'work',W)&&isOff(p,'life',L);}))skip.push(f);}
+// theme packs: only the one(s) holding each space's current theme load now; the Themes page fetches the rest (2026-11-18)
+var TW=null,TL=null;try{TW=localStorage.getItem('cadence.theme.work');TL=localStorage.getItem('cadence.theme.life');}catch(e){}
+var known=function(id){if(!id||id==='cadence')return true;for(var k in B.themes)if(B.themes[k].some(function(t){return t.id===id;}))return true;return false;};
+// (a theme that isn't listed, say one a pack makes on the fly, means every pack loads, as before)
+if(!demo&&(TW||TL)&&B.themes&&known(TW)&&known(TL))for(var tf in B.themes){if(!B.themes[tf].some(function(t){return t.id===TW||t.id===TL;}))skip.push(tf);}
 B.skipped=skip;document.write('<script src="bundle.js?v='+B.v+(skip.length?'&skip='+encodeURIComponent(skip.join(',')):'')+'"><\\/script>');
 })(window.__cadenceBundle)`;
 
@@ -114,7 +136,7 @@ function page(html, url) {
   if (!srcs || !srcs.length) return html;
   const b = build(srcs);
   let version = '?'; try { version = JSON.parse(fs.readFileSync(path.join(PUBLIC_DIR, 'version.json'), 'utf8')).version; } catch (e) {}
-  const boot = JSON.stringify({ v: b.hash, version, plugins: b.manifest }).replace(/</g, '\\u003c');
+  const boot = JSON.stringify({ v: b.hash, version, plugins: b.manifest, themes: b.themes }).replace(/</g, '\\u003c');
   return text.replace(BLOCK, () => `<script>window.__cadenceBundle=${boot};\n${CHOOSER}</script>`);
 }
 

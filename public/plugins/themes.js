@@ -19,6 +19,7 @@
      CadenceThemes.on(fn)  or  document.addEventListener('cadence:theme', e => e.detail) */
 (() => {
   const T = new Map(), subs = new Set();
+  let applySeq = 0;
   const html = document.documentElement;
   const st = document.createElement('style'); st.id = 'cadence-skin'; document.head.appendChild(st);
   let current = 'cadence', links = [], fx = null, enh = null, apiRef = null;
@@ -155,6 +156,9 @@
     mine = () => bits.forEach(f => { try { f(); } catch (e) {} });
   }
   function apply(id, opts = {}) {
+    // a theme whose pack is still on the server: fetch it, then apply (the pack's register() replaces the placeholder)
+    const t0 = T.get(id), my = ++applySeq;
+    if (t0 && t0.stub) { loadPack(t0.stub).then(() => { const t1 = T.get(id); if (t1 && !t1.stub && my === applySeq) apply(id, opts); }); return; }   // unless another theme was picked meanwhile
     const t = T.get(id) || T.get('cadence');
     for (const f of [fx, enh]) if (f) { try { f(); } catch (e) { console.warn('theme cleanup', e); } }
     fx = enh = null;
@@ -177,6 +181,8 @@
     }
     requestAnimationFrame(() => { const m = document.querySelector('meta[name=theme-color]'); if (m) m.content = token('--bg') || m.content; });
     if (opts.save && apiRef) { apiRef.storage.set('theme', t.id); apiRef.storage.set('recent', [t.id, ...(apiRef.storage.get('recent') || []).filter(x => x !== t.id)].slice(0, 6)); }
+    // the next page load only fetches the theme pack this space uses (server/lib/bundle.js); trying one on doesn't count
+    if (opts.save || (stored('theme') || 'cadence') === t.id) { try { localStorage.setItem('cadence.theme.' + (localStorage.getItem('cadence.space') === 'life' ? 'life' : 'work'), t.id); } catch (e) {} }
     const detail = { id: t.id, theme: t, dark: isDark() };
     subs.forEach(fn => { try { fn(detail); } catch (e) { console.error(e); } });
     document.dispatchEvent(new CustomEvent('cadence:theme', { detail }));
@@ -234,6 +240,25 @@
   // the built-in default: Cadence as it was designed (light/dark follow the moon toggle)
   window.CadenceThemes.register({ id: 'cadence', name: 'Cadence', category: 'Useful', tagline: 'The original. Follows light and dark.',
     preview: { bg: '#f7f6f3', panel: '#fff', side: '#f0eee9', text: '#1d1c1a', accent: '#5b5bd6', line: '#e7e4dd' } });
+  /* Theme packs left on the server (2026-11-18, lighter app download): only the pack with each space's current theme
+     loads with the app. The rest show in the gallery from a small list the server sends (name, category, colours), and
+     their pack is fetched when one is applied, or all at once when the Themes page opens. */
+  const BUN = window.__cadenceBundle, packs = new Map();
+  function loadPack(f) {
+    if (!BUN) return Promise.resolve();
+    if (!packs.has(f)) packs.set(f, new Promise(res => { const s = document.createElement('script'); s.src = `bundle.js?v=${BUN.v}&only=${encodeURIComponent(f)}`; s.onload = res; s.onerror = () => { packs.delete(f); res(); }; document.body.appendChild(s); }));
+    return packs.get(f);
+  }
+  const waiting = () => (BUN && BUN.skipped || []).filter(f => BUN.themes && BUN.themes[f] && !packs.has(f));
+  function loadAllPacks() {
+    const fs = waiting(); if (!fs.length) return Promise.resolve();
+    const p = new Promise(res => { const s = document.createElement('script'); s.src = `bundle.js?v=${BUN.v}&only=${encodeURIComponent(fs.join(','))}`; s.onload = res; s.onerror = () => { for (const f of fs) packs.delete(f); res(); }; document.body.appendChild(s); });
+    for (const f of fs) packs.set(f, p);
+    return p;
+  }
+  if (BUN && BUN.themes) for (const f of BUN.skipped || []) for (const m of BUN.themes[f] || []) if (!T.has(m.id)) T.set(m.id, Object.freeze({ id: m.id, name: m.name, category: m.category, tagline: m.tagline, family: m.family,
+    preview: m.p, effects: m.fx ? true : undefined, light: m.both ? {} : undefined, dark: m.both ? {} : undefined, stub: f }));
+  window.CadenceThemes.loadAll = loadAllPacks;
   apply(stored('theme') || 'cadence');     // as early as possible: no flash of the wrong theme
 
   const CATS = ['Useful', 'Live', 'Editor', 'daisyUI', 'Fun', 'Movie & TV', 'Studio Ghibli', 'Games', 'Brands', 'Seasonal', 'Crazy'];
@@ -337,6 +362,7 @@
       const catsNow = () => { const seen = [...new Set([...T.values()].map(t => t.category || 'Fun'))]; return [...CATS.filter(c => seen.includes(c)), ...seen.filter(c => !CATS.includes(c)).sort()]; };
 
       function gallery(el) {
+        if (waiting().length) loadAllPacks().then(() => { if (api.ui.currentRoute() === 'view-themes') api.ui.refresh(); });
         const E = api.ui.esc, c = api.storage.get('custom') || {}, level = api.storage.get('effects') || 'full';
         const cats = catsNow(), all = [...T.values()], cur = T.get(current) || T.get('cadence');
         const recent = (api.storage.get('recent') || []).filter(id => T.has(id) && id !== current && !(T.get(id).family && T.get(id).family === (T.get(current) || {}).family)).slice(0, 6).map(id => T.get(id));
