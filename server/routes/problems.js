@@ -5,6 +5,9 @@ const P = require('../lib/problems');
 let window0 = { at: 0, n: 0 };
 module.exports = async function problemsRoutes(req, res, { p }) {
   // background jobs in this process (lib/scheduler.js); the music side's are at /api/radar/jobs
+  // "Check outside services" on Background work (server/services/checks.js): POST runs every check once, GET gives the last
+  if (p === '/api/checks' && req.method === 'POST') return send(res, 200, await require('../services/checks').run());
+  if (p === '/api/checks' && req.method === 'GET') return send(res, 200, require('../services/checks').last() || {});
   if (p === '/api/jobs' && req.method === 'GET') return send(res, 200, require('../lib/scheduler').list('app'));
   // run now, pause, resume, how often (the Background work page)
   if (p.startsWith('/api/jobs/')) {

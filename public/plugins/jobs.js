@@ -78,6 +78,7 @@
           </div>
           <p class="muted jb-intro">Heavy jobs take turns, one at a time, and most wait while you're using Cadence. Run now skips the wait.</p>
           ${groups.map(g => `<h3 class="jb-gh">${E(g.name)}</h3>${g.jobs.sort((a, b) => a.label.localeCompare(b.label)).map(j => card(j, g)).join('')}`).join('')}
+          ${checksHtml()}
         </div>`;
         root.querySelectorAll('[data-jo]').forEach(b => b.onclick = () => { const k = b.dataset.jo; G.open[k] = !G.open[k]; draw(); });
         const job = el => { const k = el.closest('[data-k]').dataset.k; return G.list.find(j => j.where + j.name === k); };
@@ -85,6 +86,28 @@
         root.querySelectorAll('[data-jp]').forEach(s => s.onchange = () => act(job(s), { action: 'every', every: +s.value }));
         root.querySelectorAll('[data-jall]').forEach(b => b.onclick = () => all(b.dataset.jall));
         const re = root.querySelector('#jb-re'); if (re) re.onclick = () => load();
+        const ck = root.querySelector('#jb-check'); if (ck) ck.onclick = runChecks;
+      }
+      // ---- Check outside services (2026-11-19): every service THING reaches, asked once, and whether THING can read it ----
+      const CK = { d: null, busy: false };
+      fetch('api/checks').then(r => r.ok ? r.json() : null).then(d => { if (d && d.results) { CK.d = d; draw(); } }, () => {});
+      async function runChecks() {
+        if (CK.busy) return; CK.busy = true; draw();
+        try { const r = await fetch('api/checks', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' }); CK.d = r.ok ? await r.json() : CK.d; }
+        catch { api.ui.toast("Couldn't reach the NAS"); }
+        CK.busy = false; draw();
+      }
+      const CKS = { ok: ['circle-check', 'Works'], nokey: ['key-round', 'No key'], unreadable: ['circle-help', "Can't read it"], down: ['cloud-off', "Didn't answer"] };
+      function checksHtml() {
+        const d = CK.d, rs = d && d.results ? d.results.slice().sort((a, b) => ['unreadable', 'down', 'nokey', 'ok'].indexOf(a.state) - ['unreadable', 'down', 'nokey', 'ok'].indexOf(b.state)) : [];
+        const okN = rs.filter(r => r.state === 'ok').length;
+        return `<h3 class="jb-gh">Outside services</h3>
+          <div class="jb-ck">
+            <div class="jb-ck-top"><p class="muted">Asks each outside service THING uses, once, and checks THING can read the answer.${d && d.at ? ` Last checked ${E(new Date(d.at).toLocaleString(undefined, { weekday: 'short', hour: 'numeric', minute: '2-digit' }))}: ${okN} of ${rs.length} work.` : ''}</p>
+              <button class="btn" id="jb-check" ${CK.busy ? 'disabled' : ''}>${ic(CK.busy ? 'loader' : 'globe')}${CK.busy ? 'Checking…' : 'Check outside services'}</button></div>
+            ${CK.busy && !rs.length ? '<div class="skel skel-card"></div>' : ''}
+            ${rs.length ? `<ul class="jb-ck-l">${rs.map(r => `<li class="ck-${r.state}">${ic(CKS[r.state][0])}<div><b>${E(r.name)}</b> <span class="muted">${E(r.what)}</span><div class="ck-n">${E(CKS[r.state][1])}${r.note ? ' · ' + E(r.note) : ''}${r.ms != null ? ` <span class="muted">· ${r.ms < 1000 ? r.ms + ' ms' : (r.ms / 1000).toFixed(1) + ' s'}</span>` : ''}</div></div></li>`).join('')}</ul>` : ''}
+          </div>`;
       }
       function card(j, g) {
         const k = j.where + j.name, open = !!G.open[k], busy = !!G.busy[k], canPace = j.base && j.base >= 60e3;
@@ -129,6 +152,9 @@
         .jb-pill b{font-size:16px;color:var(--text)}.jb-pill.zero{opacity:.6}
         .jb-all{display:flex;gap:6px;flex-wrap:wrap}.jb-all svg{width:15px;height:15px}
         .jb-intro{margin:10px 0 4px;font-size:13px}
+        .jb-ck{border:1px solid var(--line);border-radius:var(--r);background:var(--panel);padding:12px 14px;margin-bottom:24px}.jb-ck-top{display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap}.jb-ck-top p{margin:0;flex:1;min-width:220px;font-size:13px}
+        .jb-ck-l{list-style:none;margin:12px 0 0;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:8px 16px}.jb-ck-l li{display:flex;gap:8px;align-items:flex-start;font-size:13px}.jb-ck-l li svg{flex:none;margin-top:2px;width:15px;height:15px}
+        .jb-ck-l .ck-n{font-size:12px}.ck-ok svg{color:var(--good,#3a9d6a)}.ck-nokey svg{color:var(--muted)}.ck-unreadable svg,.ck-down svg{color:var(--warn,#c08a2b)}
         .jb-gh{font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:600;margin:22px 0 8px}
         .jb-j{border:1px solid var(--line);border-radius:calc(var(--r,8px) + 4px);background:var(--panel);margin-bottom:10px;overflow:hidden}
         .jb-card{display:grid;grid-template-columns:44px minmax(0,1fr) auto auto;gap:16px;align-items:center;padding:14px 16px}

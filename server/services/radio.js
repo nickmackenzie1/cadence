@@ -131,7 +131,7 @@ async function kexpShow(id) {
 const OLD = 20 * 60e3;
 const unent = t => String(t || '').replace(/<[^>]*>/g, ' ').replace(/&amp;/g, '&').replace(/&#0?39;|&apos;|&#x27;/g, "'").replace(/&quot;/g, '"')
   .replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&nbsp;/g, ' ').replace(/&#(\d+);/g, (_, n) => String.fromCodePoint(+n)).replace(/\s+/g, ' ').trim();
-const fresh = (at, now) => !at || !isFinite(at) || now - at < OLD;
+const fresh = (at, now) => now === null || !at || !isFinite(at) || now - at < OLD;   // now === null: any age (the service check)
 // { entries: [{ id, add_time, entry_type, artist_name, track_title, album_title, artwork_url }], on_air: { dj_name } | null }
 function parseWxyc(j, now = Date.now()) {
   const e = (j && Array.isArray(j.entries) ? j.entries : []).filter(x => x && (x.entry_type || 'track') === 'track' && x.artist_name && x.track_title)
@@ -171,7 +171,7 @@ function parseWfuv(html, now = Date.now()) {
     const td = (row.match(/<td[\s\S]*?<\/td>/gi) || []).map(unent);
     if (td.length < 3 || !td[1] || !td[2]) continue;
     const m = td[0].match(/(\d{1,2})\/(\d{1,2}),?\s*(\d{1,2}):(\d{2})\s*([ap])\.?m/i);
-    const at = m ? nyTime(+m[1], +m[2], (+m[3] % 12) + (/p/i.test(m[5]) ? 12 : 0), +m[4], now) : NaN;
+    const at = m ? nyTime(+m[1], +m[2], (+m[3] % 12) + (/p/i.test(m[5]) ? 12 : 0), +m[4], now ?? Date.now()) : NaN;
     if (!fresh(at, now)) return null;
     return { artist: td[2], song: td[1], album: td[3] || null, at: isFinite(at) ? new Date(at).toISOString() : null };
   }

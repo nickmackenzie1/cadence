@@ -352,3 +352,10 @@ checking the code.
   Outside (outdoors.js, per place), Daily bits (each card), Home bits TV, Database (dbview.js), KEXP through the years
   (kexp-race.js) and every RSS feed (rss.js: the last copy of each feed, then the NAS's). Saved copies are
   `cadence.c.*` in localStorage; `window.CadenceCached` is `api.cached` for code outside setup().
+- **Done (2026-11-19, review item 8): Check outside services**, at the bottom of Background work (jobs.js;
+  server/services/checks.js; POST /api/checks runs them, GET gives the last). 19 services asked at once with a
+  10 s limit each: Radio Browser, KEXP, the WXYC/KSUA/WFUV playlists (through the real readers, ignoring age, so a
+  changed page shows as "Can't read it"), SomaFM, MusicBrainz, ListenBrainz, LRCLIB, TMDB, TheGamesDB, TasteDive,
+  Last.fm, NHL, TVmaze, Open-Meteo, Wikipedia, xkcd, Hacker News. Ones needing a key that isn't set say "No key".
+  States: Works, No key, Can't read it, Didn't answer (calm colours). Radar's own sources keep their check on Radar's
+  Sources page. Add a line to CHECKS when THING starts using a new outside service.
