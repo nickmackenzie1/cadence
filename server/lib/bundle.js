@@ -115,13 +115,17 @@ function jsFor(b, { skip = [], only = null } = {}) {
 }
 
 // runs in the page before anything else: which plugin files can stay on the server for now?
-// A file is left out only if every plugin in it is off (or not offered) in BOTH spaces, per this browser's saved copy.
+// A file is left out when every plugin in it is off (or not offered) in the space the page opens in, per this browser's
+// saved copy; switching space loads the rest.
 const CHOOSER = `(function(B){var off=function(k,sp){try{var o=localStorage.getItem('cadence.off.'+sp);if(o)return JSON.parse(o);var r=localStorage.getItem(k);if(!r||r.slice(0,4)==='lz1:')return null;var d=JSON.parse(r);return d&&Array.isArray(d.disabled)?d.disabled:null;}catch(e){return null;}};
 var demo=/[?&]demo(?!=0)/.test(location.search)||(function(){try{return !!sessionStorage.getItem('cadence.demo');}catch(e){return false;}})();
 var W=demo?null:off('cadence.v1','work'),L=demo?null:off('cadence.life.v1','life'),skip=[];
-// a space this browser has never opened counts as all off: moving to it fetches what it needs
+// only what the space you're opening in uses (2026-11-19): a file whose plugins are all off in this space (or don't
+// belong to it) stays on the server, and moving to the other space fetches what that space needs (core.js LazyPlugins)
 var isOff=function(p,sp,list){return (p.spaces&&p.spaces.indexOf(sp)<0)||!list||list.indexOf(p.id)>=0;};
-if(W||L)for(var f in B.plugins){if(B.plugins[f].every(function(p){return isOff(p,'work',W)&&isOff(p,'life',L);}))skip.push(f);}
+var cur='work';try{cur=localStorage.getItem('cadence.space')==='life'?'life':'work';}catch(e){}
+var CL=cur==='life'?L:W;
+if(CL)for(var f in B.plugins){if(B.plugins[f].every(function(p){return isOff(p,cur,CL);}))skip.push(f);}
 // theme packs: only the one(s) holding each space's current theme load now; the Themes page fetches the rest (2026-11-18)
 var TW=null,TL=null;try{TW=localStorage.getItem('cadence.theme.work');TL=localStorage.getItem('cadence.theme.life');}catch(e){}
 var known=function(id){if(!id||id==='cadence')return true;for(var k in B.themes)if(B.themes[k].some(function(t){return t.id===id;}))return true;return false;};
