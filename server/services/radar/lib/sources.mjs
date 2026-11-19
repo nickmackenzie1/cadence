@@ -12,6 +12,7 @@ import { httpJson, httpText } from "./http.mjs";
 import { norm, parseTitle, isArtist, cleanName } from "./extract.mjs";
 import { hasAI, claude, parseJson } from "./ai.mjs";
 import { now, DAY } from "./config.mjs";
+import { lastfmTurnedDown, lastfmJson } from "./enrich.mjs";
 
 const require = createRequire(import.meta.url);
 let parseFeed = null;
@@ -89,11 +90,11 @@ export function blogList(cfg) {
   return b.map((x) => { const d = DEFAULT_BLOGS.find((d) => d.url === x.url || d.name === x.name); return { ...x, tier: x.tier || d?.tier, skip: x.skip || d?.skip }; });
 }
 export const DEFAULT_CFG = {
-  on: { listenbrainz: true, apple: true, audius: true, lastfm: true, bandcamp: true, hypem: true, blogs: true, kexp: true, earshot: true, kexpchart: true },
+  on: { listenbrainz: true, lbcharts: true, apple: true, audius: true, lastfm: true, bandcamp: true, hypem: true, blogs: true, kexp: true, earshot: true, kexpchart: true },
   lbUser: "",            // ListenBrainz username for your own fresh releases
   appleCountry: "ca",
   audiusGenres: ["", "Electronic", "Hip-Hop/Rap", "Alternative"],   // "" = all genres
-  tags: [],              // Bandcamp + Last.fm tags; empty = your top taste genres, else a starter set
+  tags: [],              // Bandcamp (+ Last.fm, with a working key) tags; empty = your top taste genres, else a starter set
   blogs: DEFAULT_BLOGS,
 };
 const STARTER_TAGS = ["indie", "shoegaze", "hip-hop", "electronic", "post-punk"];
@@ -154,16 +155,31 @@ export const SOURCES = {
       return out;
     },
   },
+  // Last.fm keys need Pro from 1 December 2026: this runs only while the key works (ListenBrainz charts cover the rest)
   lastfm: {
     name: "Last.fm", kind: "Charts and tags", site: "https://www.last.fm/charts", needs: "LASTFM_API_KEY",
     async fetch(cfg, ctx) {
-      const key = process.env.LASTFM_API_KEY; if (!key) throw new Error("needs LASTFM_API_KEY on the NAS");
-      const api = (q) => httpJson(`https://ws.audioscrobbler.com/2.0/?${q}&api_key=${key}&format=json&limit=50`), out = [];
+      const down = lastfmTurnedDown();
+      if (down) throw new Error("skipped: Last.fm turned the key down (keys need Pro from 1 December 2026); ListenBrainz charts cover this");
+      const api = (q) => lastfmJson(`${q}&limit=50`), out = [];
       const chart = await api("method=chart.gettopartists");
       arr(pick(chart, "artists.artist")).forEach((a, i) => a.name && out.push({ uid: `chart:${a.name}`, artist: a.name, title: a.name, type: "artist", rank: i + 1, metric: +a.listeners || null, url: a.url, feed: "Top artists" }));
       for (const tag of ctx.tags.slice(0, 6)) {
         const t = await api(`method=tag.gettopartists&tag=${encodeURIComponent(tag)}`);
         arr(pick(t, "topartists.artist")).forEach((a, i) => a.name && out.push({ uid: `tag:${tag}:${a.name}`, artist: a.name, title: a.name, type: "artist", rank: i + 1, url: a.url, genres: [tag], feed: `Tag: ${tag}` }));
+      }
+      return out;
+    },
+  },
+  // the free chart (2026-11-19): who ListenBrainz listeners played most this week and month, no key
+  lbcharts: {
+    name: "ListenBrainz charts", kind: "Charts", site: "https://listenbrainz.org/statistics/",
+    async fetch() {
+      const out = [], base = process.env.LISTENBRAINZ_API || "https://api.listenbrainz.org";
+      for (const [range, feed] of [["week", "Top artists this week"], ["month", "Top artists this month"]]) {
+        const j = await httpJson(`${base}/1/stats/sitewide/artists?count=100&range=${range}`);
+        arr(pick(j, "payload.artists")).forEach((a, i) => a.artist_name && out.push({ uid: `lbc:${range}:${a.artist_name}`, artist: a.artist_name, title: a.artist_name,
+          type: "artist", rank: i + 1, metric: +a.listen_count || null, url: (a.artist_mbid || (a.artist_mbids || [])[0]) ? `https://listenbrainz.org/artist/${a.artist_mbid || a.artist_mbids[0]}/` : null, feed }));
       }
       return out;
     },

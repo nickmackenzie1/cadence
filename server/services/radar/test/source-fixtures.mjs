@@ -46,6 +46,7 @@ export function mockFetch(day) {
   const text = (b) => new Response(b, { status: 200, headers: { "Content-Type": "application/rss+xml" } });
   return async (url) => {
     url = String(url);
+    if (url.includes("/stats/sitewide/artists")) return json({ payload: { artists: [...INDIE.slice(0, 4), ...FILL.slice(0, 4)].map((a, i) => ({ artist_name: a, artist_mbid: `mb-${i}`, listen_count: 9000 - i * 500 })) } });
     if (url.includes("listenbrainz.org")) return json(p.lb);
     if (url.includes("applemarketingtools.com")) return json(p.apple(url.includes("/songs.json") ? "songs" : "albums"));
     if (url.includes("api.audius.co")) return json(url.includes("genre=") ? { data: p.audius.data.slice(0, 8) } : p.audius);

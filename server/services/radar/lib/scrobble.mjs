@@ -5,7 +5,19 @@ import { getKv, setKv } from "./store.mjs";
 import { httpJson } from "./http.mjs";
 
 const QKEY = "lbScrobbleQueue", MIN_SECS = 120;
-export const scrobbleOn = () => !!process.env.LISTENBRAINZ_TOKEN;
+// Koito (2026-11-19): a self-hosted scrobbler on your own network that speaks the ListenBrainz API. KOITO_URL is its
+// address (http://nas:4110), KOITO_TOKEN an API key made in Koito. Listens go to ListenBrainz, Koito, or both;
+// each has its own queue, so one being down doesn't hold the other up.
+export const koitoBase = () => String(process.env.KOITO_URL || "").trim().replace(/\/+$/, "").replace(/\/apis\/listenbrainz(\/1)?$/, "");
+export const koitoOn = () => !!(koitoBase() && process.env.KOITO_TOKEN);
+export const lbOn = () => !!process.env.LISTENBRAINZ_TOKEN;
+export const scrobbleOn = () => lbOn() || koitoOn();
+export function targets() {
+  const t = [];
+  if (lbOn()) t.push({ id: "lb", q: QKEY, last: "lbScrobbleLast", url: `${process.env.LISTENBRAINZ_API || "https://api.listenbrainz.org"}/1/submit-listens`, token: process.env.LISTENBRAINZ_TOKEN });
+  if (koitoOn()) t.push({ id: "koito", q: "koitoScrobbleQueue", last: "koitoScrobbleLast", url: `${koitoBase()}/apis/listenbrainz/1/submit-listens`, token: process.env.KOITO_TOKEN });
+  return t;
+}
 export const worthSending = (l) => (l.kind === "live" || l.kind === "kexp") && !!l.title && l.secs >= MIN_SECS && !l.skipped;
 export function listenPayload(l) {
   return {
@@ -14,18 +26,26 @@ export function listenPayload(l) {
       additional_info: { media_player: "THING", submission_client: "THING", ...(l.station ? { music_service_name: l.station } : {}) } },
   };
 }
-// queue one listen and send everything waiting (up to 100 at a time)
+// queue one listen and send everything waiting (up to 100 at a time) to each place that's set up
 export async function scrobble(l) {
-  if (!scrobbleOn()) return { sent: 0, off: true };
-  const q = (getKv(QKEY) || []).concat(l && worthSending(l) ? [listenPayload(l)] : []).slice(-500);
+  const ts = targets();
+  if (!ts.length) return { sent: 0, off: true };
+  const one = l && worthSending(l) ? [listenPayload(l)] : [];
+  const out = {};
+  for (const t of ts) out[t.id] = await sendTo(t, one);
+  const lb = out.lb || out.koito;   // the old single answer: ListenBrainz when it's on
+  return { ...lb, ...(out.lb && out.koito ? { koito: out.koito } : {}) };
+}
+async function sendTo(t, one) {
+  const q = (getKv(t.q) || []).concat(one).slice(-500);
   if (!q.length) return { sent: 0 };
   const batch = q.slice(0, 100);
   try {
-    await httpJson(`${process.env.LISTENBRAINZ_API || "https://api.listenbrainz.org"}/1/submit-listens`, {
-      method: "POST", headers: { Authorization: `Token ${process.env.LISTENBRAINZ_TOKEN}`, "Content-Type": "application/json" },
+    await httpJson(t.url, {
+      method: "POST", headers: { Authorization: `Token ${t.token}`, "Content-Type": "application/json" },
       body: JSON.stringify({ listen_type: batch.length === 1 ? "single" : "import", payload: batch }),
     });
-    setKv(QKEY, q.slice(batch.length)); setKv("lbScrobbleLast", { at: Date.now(), n: batch.length });
+    setKv(t.q, q.slice(batch.length)); setKv(t.last, { at: Date.now(), n: batch.length });
     return { sent: batch.length };
-  } catch (e) { setKv(QKEY, q); setKv("lbScrobbleLast", { at: Date.now(), error: String(e.message || e).slice(0, 200) }); return { sent: 0, error: e.message }; }
+  } catch (e) { setKv(t.q, q); setKv(t.last, { at: Date.now(), error: String(e.message || e).slice(0, 200) }); return { sent: 0, error: e.message }; }
 }

@@ -10,6 +10,7 @@ import { soundOfArtist } from "./sound.mjs";
 import { SOURCES, blogList } from "./sources.mjs";
 import { sourcesCfg } from "./sources-data.mjs";
 import { isMainstream } from "./mainstream.mjs";
+import { sizeOf } from "./enrich.mjs";
 
 const SOURCE_NAME = (id) => (id === "community" ? "Lemmy & Mastodon" : SOURCES[id]?.name || id);
 
@@ -46,7 +47,7 @@ export function artistData(name, { kexp = null } = {}) {
   return {
     name: mb.info?.name || a?.name || sig[0]?.artist || picks[0]?.artist || name, key, isArtist: isArtist(name),
     mainstream: isMainstream(name, a, { chartArtists }),
-    radar: a ? { listeners: a.listeners ?? null, firstSeen: Math.min(...Object.values(a.firstSeen || {}), Infinity) || null, communities: Object.keys(a.firstSeen || {}) } : null,
+    radar: a ? { listeners: sizeOf(a)?.n ?? null, listenersFrom: sizeOf(a)?.from ?? null, firstSeen: Math.min(...Object.values(a.firstSeen || {}), Infinity) || null, communities: Object.keys(a.firstSeen || {}) } : null,
     genres: [...genres.entries()].sort((x, y) => y[1] - x[1]).slice(0, 8).map(([g]) => g),
     // players and links blog posts carried (Bandcamp, Spotify, SoundCloud), newest first, one of each address
     listen: sig.flatMap((s) => (s.listen || []).map((l) => ({ ...l, feed: s.feed, title: s.title }))).filter((l, i, all) => all.findIndex((x) => x.url === l.url) === i).slice(0, 6),

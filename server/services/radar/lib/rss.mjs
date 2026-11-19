@@ -26,7 +26,7 @@ export function buildRss(state, limit = 80, base = PUBLIC_URL) {
     const fb = (v) => `${api}/feedback?id=${encodeURIComponent(p.id)}&v=${v}`;
     const desc = `<p><b>You should check this out.</b> ${esc(p.blurb)}</p>`
       + (p.genres?.length ? `<p>Genres: ${esc(p.genres.join(", "))}</p>` : "")
-      + (p.listeners != null ? `<p>Last.fm listeners: ${p.listeners.toLocaleString()}</p>` : "")
+      + (p.listeners != null ? `<p>${p.listenersFrom === "lb" ? "ListenBrainz" : "Last.fm"} listeners: ${p.listeners.toLocaleString()}</p>` : "")
       + `<p>Radar score: ${p.score.toFixed(1)}</p>`
       + `<p><a href="${esc(p.link)}">Listen</a> · <a href="${esc(p.thread)}">Reddit thread</a></p>`
       + `<p><a href="${esc(fb(1))}">More like this</a> · <a href="${esc(fb(-1))}">Not for me</a></p>`;

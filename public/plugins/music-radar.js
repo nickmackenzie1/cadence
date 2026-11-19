@@ -62,10 +62,10 @@
     </svg>`;
   }
 
-  const SRC_NAMES = { community: 'Lemmy & Mastodon', listenbrainz: 'ListenBrainz', apple: 'Apple Music', audius: 'Audius', lastfm: 'Last.fm', bandcamp: 'Bandcamp', hypem: 'Hype Machine', blogs: 'Blogs', kexp: 'KEXP', kexpchart: 'KEXP charts', earshot: '!earshot' };
-  const SRC_COL = { community: '#6364ff', listenbrainz: '#eb743b', apple: '#ec4899', audius: '#8b5cf6', lastfm: '#ef4444', bandcamp: '#14b8a6', hypem: '#3b82f6', blogs: '#eab308', kexp: '#64748b', kexpchart: '#475569', earshot: '#0d9488' };
+  const SRC_NAMES = { community: 'Lemmy & Mastodon', listenbrainz: 'ListenBrainz', lbcharts: 'ListenBrainz charts', apple: 'Apple Music', audius: 'Audius', lastfm: 'Last.fm', bandcamp: 'Bandcamp', hypem: 'Hype Machine', blogs: 'Blogs', kexp: 'KEXP', kexpchart: 'KEXP charts', earshot: '!earshot' };
+  const SRC_COL = { community: '#6364ff', listenbrainz: '#eb743b', lbcharts: '#d9a441', apple: '#ec4899', audius: '#8b5cf6', lastfm: '#ef4444', bandcamp: '#14b8a6', hypem: '#3b82f6', blogs: '#eab308', kexp: '#64748b', kexpchart: '#475569', earshot: '#0d9488' };
   // logos next to each source (user, 2026-11-16): the source's own site, or for blogs the blog's site
-  const SRC_SITE = { community: 'joinmastodon.org', listenbrainz: 'listenbrainz.org', apple: 'music.apple.com', audius: 'audius.co', lastfm: 'last.fm', bandcamp: 'bandcamp.com', hypem: 'hypem.com', kexp: 'kexp.org', kexpchart: 'kexp.org', earshot: 'earshot-online.com' };
+  const SRC_SITE = { community: 'joinmastodon.org', listenbrainz: 'listenbrainz.org', lbcharts: 'listenbrainz.org', apple: 'music.apple.com', audius: 'audius.co', lastfm: 'last.fm', bandcamp: 'bandcamp.com', hypem: 'hypem.com', kexp: 'kexp.org', kexpchart: 'kexp.org', earshot: 'earshot-online.com' };
   let BLOG_SITE = {};
   const srcLogo = (id, feed) => { const K = window.CadenceKit; if (!K || !K.logo) return ''; const site = id === 'blogs' ? BLOG_SITE[feed] : SRC_SITE[id]; return site ? K.logo(site, { size: 14 }) : ''; };
   const learnSites = S0 => { if (!S0) return; for (const b of (S0.cfg && S0.cfg.blogs) || []) BLOG_SITE[b.name] = b.url; for (const x of S0.list || []) if (x.site && !SRC_SITE[x.id]) SRC_SITE[x.id] = x.site; };
@@ -138,7 +138,7 @@
   function sourcesDialog(api, S0) {
     const c = S0.cfg, E = esc;
     api.ui.modal('Sources', `<div class="mr-dlg">
-      <p class="mr-small">Checked after every scan, or with Check sources. Each one is free; Last.fm uses the key on the NAS.</p>
+      <p class="mr-small">Checked after every scan, or with Check sources. Each one is free; Last.fm only runs with a key that has Last.fm Pro (from 1 December 2026).</p>
       ${S0.list.map(x => `<label class="mr-srcrow"><input type="checkbox" data-on="${x.id}" ${c.on[x.id] ? 'checked' : ''}> ${srcLogo(x.id)}<b>${E(x.name)}</b> <span class="mr-small">${E(x.kind)}${x.missing ? ' · needs ' + E(x.needs) : ''}</span></label>`).join('')}
       <div class="field"><label>ListenBrainz username (adds releases picked for you)</label><input class="inp" id="mr-lb" value="${E(c.lbUser || '')}" placeholder="optional"></div>
       <div class="field"><label>Apple Music chart country</label><input class="inp" id="mr-cc" value="${E(c.appleCountry || 'ca')}" maxlength="2" style="width:5em"></div>
@@ -195,6 +195,7 @@
               <button class="btn" id="mr-scan" ${S.job ? 'disabled' : ''}>${ic('radar')}Scan now</button>
               <button class="btn" id="mr-digest" ${S.job ? 'disabled' : ''}>${ic('mail')}Write the digest</button>
               <a class="btn" href="api/radar/feed.xml" target="_blank" rel="noopener">${ic('rss')}RSS feed</a>
+              ${S.koito ? `<a class="btn" href="${esc(S.koito)}" target="_blank" rel="noopener" title="Your listening history in Koito">${ic('chart-line')}Your listening</a>` : ''}
               ${D.spotify.connected ? (D.spotify.url ? `<a class="btn" href="${esc(D.spotify.url)}" target="_blank" rel="noopener">${ic('music')}Spotify playlist</a>` : '') : D.spotify.app ? `<a class="btn" href="api/radar/spotify/login">${ic('music')}Connect Spotify</a>` : ''}
             </span>
           </div>
@@ -272,7 +273,7 @@
             </div></details>
           <details class="mr-more" data-more="record" ${G.more['record'] ? 'open' : ''}><summary><b>How it's doing</b><span class="mr-sub">Track record, what it's learned about your taste, weekly digests</span></summary>
             <div class="mr-grid">
-            <section class="mr-card w6"><h3>Track record</h3><p class="mr-sub">Picks from 30+ days ago: did their Last.fm listeners grow 25% or more?</p>
+            <section class="mr-card w6"><h3>Track record</h3><p class="mr-sub">Picks from 30+ days ago: did their listeners (ListenBrainz, or Last.fm) grow 25% or more?</p>
               ${D.trackRecord.checked ? `<p>${D.trackRecord.hits} of ${D.trackRecord.checked} checked picks were hits.</p><table class="mr-t"><tr><th>Artist</th><th class="n">Then</th><th class="n">Now</th><th class="n">Growth</th></tr>${D.trackRecord.best.map(b => `<tr><td>${esc(b.artist)}</td><td class="n">${fmt(b.before)}</td><td class="n">${fmt(b.now)}</td><td class="n">${pct(b.growth)}</td></tr>`).join('')}</table>` : empty('Needs a Last.fm key and picks that are 30+ days old.')}</section>
             <section class="mr-card w6"><h3>What it's learned</h3>
               <div class="mr-small">${D.taste.liked + D.taste.disliked ? `${D.taste.liked} liked · ${D.taste.disliked} not for me<br>${Object.entries(D.taste.genres).sort((a, b) => b[1] - a[1]).slice(0, 8).map(([g, w]) => `${esc(g)} ×${w}`).join(' · ')}` : 'Rate a few picks and it starts weighting genres and subreddits.'}</div></section>
@@ -281,7 +282,7 @@
               <details class="mr-setup"><summary>Setup: optional keys on the NAS</summary>
                 <p class="mr-small">Everything works without them; each one unlocks more. Add them to the NAS <code>.env</code>; they never leave the NAS.</p>
                 <ul>${setupRow(keys.ai, 'ANTHROPIC_API_KEY', 'Claude reads posts and comments: better artists and genres, "sounds like" pairs, nicer blurbs and digest')}
-                  ${setupRow(keys.lastfm, 'LASTFM_API_KEY', 'real listener counts (small-but-buzzing gets boosted), track record')}
+                  ${setupRow(keys.lastfm, 'LASTFM_API_KEY', keys.lastfmDown ? 'Last.fm turned this key down (keys need a Last.fm Pro account from 1 December 2026). Listener counts come from ListenBrainz instead, so nothing is missing.' : 'optional: Last.fm listener counts, charts and similar artists. Keys need a Last.fm Pro account from 1 December 2026; without one, ListenBrainz counts are used.')}
                   ${setupRow(keys.ntfy, 'NTFY_TOPIC', 'phone alerts when an artist spikes, plus the weekly digest')}
                   ${setupRow(keys.spotify, 'SPOTIFY_CLIENT_ID / _SECRET', `a "Music Radar" playlist. Redirect address: <code id="mr-redir">…</code>`)}</ul>
                 ${S.log && S.log.length ? `<pre class="mr-log">${esc(S.log.join('\n'))}</pre>` : ''}</details></section>
@@ -296,7 +297,7 @@
               <h4>Hide mainstream artists</h4>
               <label class="mr-small mr-chk"><input type="checkbox" id="mr-ms-on" ${G.comm.mainstream.on ? 'checked' : ''}> Hide them everywhere on this page${D.mainstream && D.mainstream.hiding ? ` (${D.mainstream.hiding} hidden now)` : ''}</label>
               <label class="mr-small mr-chk"><input type="checkbox" id="mr-ms-charts" ${G.comm.mainstream.charts ? 'checked' : ''}> Anyone on the Apple Music chart</label>
-              <label class="mr-small mr-chk">Anyone with more than <input class="inp mr-num" id="mr-ms-l" type="number" min="0" step="100000" value="${G.comm.mainstream.listeners}"> Last.fm listeners${G.st && G.st.keys && G.st.keys.lastfm ? '' : ' (needs LASTFM_API_KEY)'}</label>
+              <label class="mr-small mr-chk">Anyone with more than <input class="inp mr-num" id="mr-ms-l" type="number" min="0" step="100000" value="${G.comm.mainstream.listeners}"> listeners <span class="mr-sub">(in Last.fm numbers; ListenBrainz has fewer people, so its counts are scaled up to compare)</span></label>
               <label class="mr-small">And these artists (one per line)</label>
               <textarea class="inp mr-ta" id="mr-ms-list" rows="6" spellcheck="false">${esc(G.comm.mainstream.list.join('\n'))}</textarea>
               <div class="mr-row"><button class="btn" id="mr-comm-save">Save</button><span class="mr-small">Takes effect on the next scan; the mainstream filter right away.</span></div>

@@ -119,7 +119,7 @@ function writeState(s) {
     for (const [key, v] of Object.entries(s.artists || {})) {
       const first = Object.values(v.firstSeen || {});
       a.run(key, v.name ?? key, Object.entries(v.genres || {}).sort((x, y) => y[1] - x[1]).map(([g]) => g).join(", ") || null,
-        list(v.firstSeen), first.length ? Math.min(...first) : null, v.lastfm?.listeners ?? null, J(v));
+        list(v.firstSeen), first.length ? Math.min(...first) : null, v.listeners ?? v.lastfm?.listeners ?? null, J(v));
     }
     const p = db.prepare("INSERT OR REPLACE INTO radar_picks (id, ts, artist, song, type, score, genres, subs, link, thread, json) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
     for (const x of s.picks || []) p.run(String(x.id), x.ts ?? null, x.artist ?? null, x.song ?? null, x.type ?? null, x.score ?? null, list(x.genres), list(x.subs), x.link ?? null, x.thread ?? null, J(x));

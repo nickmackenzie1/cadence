@@ -279,3 +279,20 @@ checking the code.
   Labs similar artists), and quietly skip Last.fm when the key is rejected. Koito
   (https://github.com/gabehf/koito, MIT, self-hosted, ListenBrainz-compatible, imports Last.fm history) could run
   on the NAS as a private listening history, with THING sending listens to it through LISTENBRAINZ_API.
+
+- **Built (0.43.0, 2026-11-19): Music Radar off Last.fm, and Koito.** How big an artist is now comes from ListenBrainz
+  (`POST /1/popularity/artist` by MusicBrainz id, cached a week on `a.lb`; artists without an id are looked up in the
+  background and counted next run), in `server/services/radar/lib/enrich.mjs`. Counts are kept as given
+  (`{ n, from: "lb" | "lastfm" }`, `sizeOf`, `sizeText`); scoring (`sizeFactor`) and the mainstream limit use
+  Last.fm-sized numbers, so ListenBrainz counts are multiplied by `RADAR_LB_SCALE` (25, a rough guess: tune it on the
+  NAS if too many or too few artists get hidden). Last.fm is used only while `lastfmOk()`: a key is set and Last.fm
+  hasn't turned it down (HTTP 401/403 or error 4/9/10/26 → `lastfmRejected` in radar_kv; retried after a day or with
+  a new key). Every Last.fm call goes through `lastfmJson`. Radar's Setup says when the key was turned down.
+  New free source `lbcharts` (ListenBrainz sitewide top artists, week and month). The track record compares like with
+  like (`p.listenersFrom`). Fixed on the way: `a.listeners` was never set, so the listener part of the mainstream
+  filter and the artist page's listener line never showed; `sizeCandidates` sets it now.
+  Koito: `KOITO_URL` + `KOITO_TOKEN` (env or Settings → Connections) sends listens to
+  `<KOITO_URL>/apis/listenbrainz/1/submit-listens` with `Token <key>`, next to ListenBrainz or alone, each with its
+  own queue (`koitoScrobbleQueue`). Radar's top bar has a "Your listening" link to Koito (the address only goes to the
+  browser, never the token). Koito itself isn't in THING's container: run it beside THING on the NAS (its compose
+  file needs Postgres), LAN only, and import your Last.fm history there before 1 December.

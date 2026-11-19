@@ -129,7 +129,8 @@ and the container restarts with the change within 5 minutes. Everything below is
 | `THEGAMESDB_API_KEY` | Game box art for the Watch list and game themes |
 | `DISCOGS_TOKEN` | Your records and wantlist in Music Radar |
 | `LISTENBRAINZ_TOKEN` | Send what you listen to on the radio to ListenBrainz |
-| `LASTFM_API_KEY` | Similar artists and tags in Music Radar |
+| `KOITO_URL`, `KOITO_TOKEN` | Send them to your own [Koito](https://github.com/gabehf/koito) on your network too (or instead) |
+| `LASTFM_API_KEY` | Optional Last.fm counts, charts and similar artists in Music Radar. Needs Last.fm Pro from 1 December 2026; without it Radar uses ListenBrainz |
 | `SPOTIFY_CLIENT_ID`, `SPOTIFY_CLIENT_SECRET` | Connect Spotify in Music Radar |
 | `TICKETMASTER_API_KEY`, `BANDSINTOWN_APP_ID` | Shows nearby |
 | `HOME_LAT`, `HOME_LON` | Where "nearby" and "close to home" are measured from |

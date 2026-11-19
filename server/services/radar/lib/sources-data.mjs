@@ -12,9 +12,9 @@ import { SOURCES, DEFAULT_CFG, tagsFor, blogList } from "./sources.mjs";
 import { nfmCfg, nfmSourceOff } from "./foryou.mjs";
 // catch-all tags that say little about a sound (also used by For you)
 export const UMBRELLA = new Set(["alternative", "pop", "rock", "electronic", "electronica", "dance", "hip hop", "hip-hop", "hip hop/rap", "rap", "r&b", "r&b/soul", "soul", "country", "singer/songwriter", "world", "music", "indie", "energizing", "chill", "workout", "focus", "party", "relaxing", "feel good", "happy", "sad", "romantic", "upbeat", "mellow", "fun", "sleep", "study", "instrumental", "soundtrack", "latin", "k-pop", "j-pop"]);
-const WEIGHT = { community: 3, blogs: 3, hypem: 3, kexp: 3.5, kexpchart: 3, earshot: 3, audius: 2, bandcamp: 1.5, listenbrainz: 0.75, apple: 1, lastfm: 1 };
+const WEIGHT = { community: 3, blogs: 3, hypem: 3, kexp: 3.5, kexpchart: 3, earshot: 3, audius: 2, bandcamp: 1.5, listenbrainz: 0.75, apple: 1, lastfm: 1, lbcharts: 1 };
 const TIER_WEIGHT = { big: 1.5, small: 3.5 };
-const CHARTS = new Set(["apple", "audius", "lastfm", "hypem", "earshot", "kexpchart"]);
+const CHARTS = new Set(["apple", "audius", "lastfm", "lbcharts", "hypem", "earshot", "kexpchart"]);
 export const sourcesCfg = () => { const c = store.getKv("sourcesCfg", {}) || {}; return { ...DEFAULT_CFG, ...c, on: { ...DEFAULT_CFG.on, ...(c.on || {}) } }; };
 
 export function sourcesData(state, snaps, hide = null) {

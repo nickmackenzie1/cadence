@@ -531,7 +531,7 @@
         const kept = u => (u ? 'api/logo?u=' + encodeURIComponent(u) : '');
         const formed = (mb && mb.since && year(mb.since)) || (ad && (ad.formed || ad.born)) || null;
         const facts = [mb && mb.type, (mb && (mb.from || mb.country)) || (ad && ad.country), formed && `since ${formed}${(mb && mb.ended) || (ad && ad.disbanded) ? ' (ended)' : ''}`,
-          ad && ad.members > 1 && `${ad.members} members`, ad && ad.label, d.radar && d.radar.listeners && `${d.radar.listeners.toLocaleString()} Last.fm listeners`].filter(Boolean);
+          ad && ad.members > 1 && `${ad.members} members`, ad && ad.label, d.radar && d.radar.listeners && `${d.radar.listeners.toLocaleString()} ${d.radar.listenersFrom === 'lb' ? 'ListenBrainz' : 'Last.fm'} listeners`].filter(Boolean);
         const tags = [...new Set([...(d.genres || []), ...((mb && mb.tags) || []), ...(ad ? [ad.genre, ad.style, ad.mood].filter(Boolean) : [])].map(t => t.toLowerCase()))].slice(0, 12);
         // links: MusicBrainz first, then anything TheAudioDB adds on a site MusicBrainz didn't list
         const host = u => { try { return new URL(u).hostname.replace(/^www\./, ''); } catch (e) { return ''; } };

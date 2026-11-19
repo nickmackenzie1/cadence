@@ -34,7 +34,7 @@ test.beforeAll(async () => {
   server = spawn(process.execPath, ['--disable-warning=ExperimentalWarning', 'server.js'], { env: { ...process.env, PORT: String(PORT), DATA_DIR: dir, COMMONS_API: F, LASTFM_API_KEY: 'from-env-1234', TMDB_API_KEY: '', DISCOGS_TOKEN: '' }, stdio: 'ignore' });
   for (let i = 0; i < 150; i++) { try { if ((await fetch(B + '/api/health')).ok) break; } catch {} await new Promise(r => setTimeout(r, 100)); }
 });
-test.afterAll(() => { server && server.kill(); fake && fake.close(); rmSync(dir, { recursive: true, force: true }); });
+test.afterAll(() => { server && server.kill(); fake && fake.close(); rmSync(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 }); });
 
 test('keys: saved on the NAS, never sent back, .env still counts, removing brings .env back', async () => {
   const list = async () => (await (await fetch(B + '/api/keys')).json());

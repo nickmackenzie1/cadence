@@ -12,7 +12,7 @@ import { extractAll, norm } from "./lib/extract.mjs";
 import { hotness, buildCandidates, albumBoard } from "./lib/score.mjs";
 import { subWeights } from "./lib/trends.mjs";
 import { tasteModel } from "./lib/taste.mjs";
-import { lastfmInfo, sizeFactor, hasLastfm } from "./lib/enrich.mjs";
+import { sizeCandidates, sizeFactor, scaled, sizeText } from "./lib/enrich.mjs";
 import { hasAI, claude, parseJson } from "./lib/ai.mjs";
 import { notify } from "./lib/notify.mjs";
 import { writeRss } from "./lib/rss.mjs";
@@ -24,7 +24,7 @@ function defaultBlurb(c) {
   else bits.push("recommended by commenters");
   if (c.genres.length) bits.push(c.genres.slice(0, 2).join(" / "));
   if (c.fresh) bits.push("brand-new release");
-  if (c.listeners != null) bits.push(`${c.listeners.toLocaleString()} Last.fm listeners`);
+  if (c.listeners != null) bits.push(sizeText({ n: c.listeners, from: c.listenersFrom }));
   if (c.sentiment > 0.3) bits.push("comments love it");
   return bits.join(" · ");
 }
@@ -32,7 +32,7 @@ function defaultBlurb(c) {
 async function aiBlurbs(picks) {
   if (!hasAI() || !picks.length) return {};
   const data = picks.map((p) => ({ artist: p.artist, title: p.song, type: p.type, subs: p.subs, genres: p.genres,
-    mentions: p.mentions, upvotes: p.upvotes, comments: p.comments, listeners: p.listeners, sentiment: +p.sentiment.toFixed(2),
+    mentions: p.mentions, upvotes: p.upvotes, comments: p.comments, listeners: p.listeners, listenersFrom: p.listenersFrom, sentiment: +p.sentiment.toFixed(2),
     post_titles: p.titles }));
   try {
     return parseJson(await claude("You're a friend with great music taste writing a personal music radar feed. "
@@ -102,16 +102,10 @@ export async function run({ top = 15, demoPosts = null, playlist = false, quiet 
   const taste = tasteModel(state);
   let cands = buildCandidates(windowPosts, { now: t, subWeights: subWeights(state.artists), taste, ext: state.extractCache });
 
-  // 5. how big are they really? (Last.fm) — otherwise fall back to the hand-made list
-  if (hasLastfm()) {
-    for (const c of cands.slice(0, 40)) {
-      const info = await lastfmInfo(state, c.key, c.artist);
-      c.listeners = info?.listeners ?? null;
-      c.score *= sizeFactor(c.listeners);
-      if (!c.genres.length && info?.tags?.length) c.genres = info.tags.slice(0, 3);
-    }
-    cands = cands.filter((c) => c.score > 0);
-  } else cands = cands.filter((c) => !TOO_BIG.has(c.key));
+  // 5. how big are they really? (ListenBrainz, or Last.fm while its key works) — otherwise the hand-made list
+  await sizeCandidates(state, cands.slice(0, 40));
+  for (const c of cands.slice(0, 40)) c.score *= sizeFactor(scaled(c.listeners == null ? null : { n: c.listeners, from: c.listenersFrom }));
+  cands = cands.filter((c) => c.score > 0 && (c.listeners != null || !TOO_BIG.has(c.key)));
   cands.sort((a, b) => b.score - a.score);
   const albums = albumBoard(cands);
 
@@ -120,7 +114,7 @@ export async function run({ top = 15, demoPosts = null, playlist = false, quiet 
   for (const s of readJsonl("snapshots", t - 3 * DAY)) if (s.ts < t && s.kind !== "album") prev.set(s.key, Math.max(prev.get(s.key) || 0, s.score));
   appendJsonl("snapshots", [
     ...cands.slice(0, 200).map((c) => ({ ts: t, kind: "artist", key: c.key, artist: c.artist, score: +c.score.toFixed(2),
-      mentions: c.mentions, subs: c.subs, upvotes: c.upvotes, genres: c.genres, listeners: c.listeners ?? null })),
+      mentions: c.mentions, subs: c.subs, upvotes: c.upvotes, genres: c.genres, listeners: c.listeners ?? null, listenersFrom: c.listenersFrom ?? null })),
     ...albums.slice(0, 50).map((a) => ({ ts: t, kind: "album", key: a.key, artist: a.artist, album: a.album, type: a.type,
       score: +a.score.toFixed(2), subs: a.subs, link: a.link, thread: a.thread })),
   ]);
@@ -137,7 +131,7 @@ export async function run({ top = 15, demoPosts = null, playlist = false, quiet 
   for (const c of picks) {
     state.picks.push({ id: `${c.key.replace(/\s+/g, "-")}-${Math.round(t).toString(36)}`, key: c.key, artist: c.artist,
       song: c.song, type: c.type, score: +c.score.toFixed(2), link: c.link, thread: c.thread, genres: c.genres, subs: c.subs,
-      listeners: c.listeners ?? null, blurb: blurbs[c.artist] || defaultBlurb(c), ts: t });
+      listeners: c.listeners ?? null, listenersFrom: c.listenersFrom ?? null, blurb: blurbs[c.artist] || defaultBlurb(c), ts: t });
     log(`  ${c.score.toFixed(1).padStart(7)}  ${c.type !== "track" ? "[album] " : ""}${c.artist} — ${c.song ?? "(recommended in comments)"}  [${c.subs.join(", ")}]`);
   }
 

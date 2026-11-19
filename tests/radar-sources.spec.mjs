@@ -21,7 +21,7 @@ test('every source parses its format, stores signals, and a failing source is re
     globalThis.fetch = async (u, o) => (String(u).includes('hypem.com') ? new Response('nope', { status: 503 }) : mock(u, o));   // Hype Machine is down today
     const out = await runSources({ blogs: TEST_BLOGS }, { store, state: { picks: [], feedback: {} }, log: () => {} });
     const by = Object.fromEntries(out.map(r => [r.id, r]));
-    for (const id of ['listenbrainz', 'apple', 'audius', 'bandcamp', 'blogs']) expect(by[id].n, id).toBeGreaterThan(0);
+    for (const id of ['listenbrainz', 'lbcharts', 'apple', 'audius', 'bandcamp', 'blogs']) expect(by[id].n, id).toBeGreaterThan(0);
     expect(by.hypem.error).toContain('503');
     expect(by.lastfm).toBeUndefined();   // skipped without a key, recorded as a run
     const runs = Object.fromEntries(store.sourceRuns().map(r => [r.source, r]));
@@ -29,6 +29,7 @@ test('every source parses its format, stores signals, and a failing source is re
     expect(runs.hypem.ok).toBe(0);
     const sig = store.signals();
     expect(sig.find(s => s.source === 'apple' && s.artist === 'Ketamine Kids').rank).toBe(1);
+    expect(sig.find(s => s.source === 'lbcharts' && s.artist === 'Wednesday' && s.feed === 'Top artists this week')).toMatchObject({ rank: 1, feed: 'Top artists this week' });
     expect(sig.find(s => s.source === 'audius' && s.artist === 'Glass Lantern').url).toBe('https://audius.co/glasslantern/undertow');
     expect(sig.find(s => s.source === 'blogs' && s.artist === 'Wednesday').title).toBe('Bleeds');
     expect(sig.some(s => s.source === 'blogs' && /best albums/i.test(s.title || ''))).toBe(false);   // lists are skipped

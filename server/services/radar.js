@@ -90,9 +90,16 @@ sched.add('radar-scan', async () => {
   await jobDone; return { note: job ? null : 'done' };
 }, { label: 'Music Radar: scans and the weekly digest', heavy: true, quiet: true, every: 10 * 60e3 });
 
+// Koito's address for a "Your listening" link (the address only; its token stays on the NAS)
+function koitoLink() {
+  const u = String(process.env.KOITO_URL || '').trim().replace(/\/+$/, '').replace(/\/apis\/listenbrainz(\/1)?$/, '');
+  return process.env.KOITO_TOKEN && /^https?:\/\/[^\s"'<>]+$/i.test(u) ? u : null;
+}
 function status() {
   const s = readSettings();
-  return { ...s, job, log: log.slice(-40), keys: { ai: !!process.env.ANTHROPIC_API_KEY, lastfm: !!process.env.LASTFM_API_KEY, ntfy: !!process.env.NTFY_TOPIC, spotify: !!(process.env.SPOTIFY_CLIENT_ID && process.env.SPOTIFY_CLIENT_SECRET) } };
+  // Last.fm keys need Pro from 1 Dec 2026: when it turned the key down, say so (ListenBrainz counts are used instead)
+  let lastfmDown = null; try { const r = mods && mods.store.getKv('lastfmRejected'); if (r && process.env.LASTFM_API_KEY && r.key === process.env.LASTFM_API_KEY.slice(-6)) lastfmDown = r.at; } catch {}
+  return { ...s, job, log: log.slice(-40), koito: koitoLink(), keys: { ai: !!process.env.ANTHROPIC_API_KEY, lastfm: !!process.env.LASTFM_API_KEY && !lastfmDown, lastfmDown, ntfy: !!process.env.NTFY_TOPIC, spotify: !!(process.env.SPOTIFY_CLIENT_ID && process.env.SPOTIFY_CLIENT_SECRET) } };
 }
 // ---- raw tables for the Database view (read-only): the radar_* tables in cadence.db, KEXP's in kexp.db ----
 async function raw(name, offset = 0, limit = 50) {
@@ -132,7 +139,7 @@ async function listen(b = {}) {
   const row = { ts: Math.floor(Date.now() / 1000), artist, artist_key: norm(artist), title: b.title ? String(b.title).slice(0, 200) : null, kind, station: b.station ? String(b.station).slice(0, 80) : null, secs, skipped: !!b.skipped };
   store.addListen(row); bust();
   // and to ListenBrainz, when you've given Cadence your token (in the background: the page doesn't wait)
-  if (process.env.LISTENBRAINZ_TOKEN) import(pathToFileURL(path.join(__dirname, 'radar', 'lib', 'scrobble.mjs')).href).then(S => S.worthSending(row) && S.scrobble(row)).catch(() => {});
+  if (process.env.LISTENBRAINZ_TOKEN || (process.env.KOITO_URL && process.env.KOITO_TOKEN)) import(pathToFileURL(path.join(__dirname, 'radar', 'lib', 'scrobble.mjs')).href).then(S => S.worthSending(row) && S.scrobble(row)).catch(() => {});
   return { ok: true };
 }
 // the sound of a song, read from its preview in your browser (Essentia.js): tempo, key, danceability, loudness
@@ -453,7 +460,7 @@ async function find(q) {
 // ---- following artists (user, 2026-11-16): a list kept on the NAS, and calm notes about what's new for each since you
 // last looked: blog posts, chart entries, releases (every Radar source), KEXP plays, plays on stations whose history is
 // kept, and nearby shows. radar_kv: follows [{ name, key, since }], followSeen { key: unix s }, followShows [ids].
-const CHART_SRC = new Set(['apple', 'audius', 'lastfm', 'hypem', 'earshot', 'kexpchart']);
+const CHART_SRC = new Set(['apple', 'audius', 'lastfm', 'lbcharts', 'hypem', 'earshot', 'kexpchart']);
 async function follow(input = {}) {
   const { store } = await load(), X = await import(pathToFileURL(path.join(__dirname, 'radar', 'lib', 'extract.mjs')).href);
   let list = store.getKv('follows', []) || [];
