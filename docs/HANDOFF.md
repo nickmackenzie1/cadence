@@ -216,3 +216,9 @@ checking the code.
   it spreads and burns real page bits); and marry Havoc's two screens, Physics (Matter.js) and Elements (falling sand),
   into one, so pieces knocked loose fall into sand, water and fire and burn, float or sink. Ties in with the Havok
   physics item above. The dragon is Cadence's own design, not a known character.
+- Havoc creatures (user, 2026-11-18), alongside the dragon above, all Cadence's own designs:
+  - a blobby that chases the wizard along the ground (the bottom of the page)
+  - the dragon blows fireballs
+  - a vampire cat that flies around trying to bite the wizard
+  - when the dragon comes out, a wizard comes out too and fights it with fireballs from his staff; after a random
+    number of hits the dragon is beaten and the next boss comes out, wrecking more of the screen each round.
