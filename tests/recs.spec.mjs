@@ -75,7 +75,7 @@ test('ListenBrainz scrobbling: only real radio listens, sent with your token, ke
   expect(S.worthSending(row({ kind: 'preview', secs: 30 }))).toBe(false);
   expect(S.worthSending(row({ secs: 60 }))).toBe(false);
   expect(S.worthSending(row({ title: null }))).toBe(false);
-  expect(S.listenPayload(row())).toMatchObject({ listened_at: 1_800_000_000 - 200, track_metadata: { artist_name: 'Wet Leg', track_name: 'Chaise Longue', additional_info: { music_service_name: 'CFRC', submission_client: 'Cadence' } } });
+  expect(S.listenPayload(row())).toMatchObject({ listened_at: 1_800_000_000 - 200, track_metadata: { artist_name: 'Wet Leg', track_name: 'Chaise Longue', additional_info: { music_service_name: 'CFRC', submission_client: 'THING' } } });
   delete process.env.LISTENBRAINZ_TOKEN;
   expect(await S.scrobble(row())).toEqual({ sent: 0, off: true });
   process.env.LISTENBRAINZ_TOKEN = 'tok';

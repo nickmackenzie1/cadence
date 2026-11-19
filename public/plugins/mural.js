@@ -220,7 +220,7 @@
         document.querySelectorAll('[data-p]').forEach(b => b.onclick = async () => {
           const p = PRESETS.find(x => x.id === b.dataset.p); msg.textContent = `Loading ${p.name}…`;
           try { const img = await loadImg(viaNas(remote(p.file)), api.system().mode !== 'nas'); await start(img, { id: p.id + '-' + Date.now().toString(36), name: p.name, by: p.by, src: 'Wikimedia Commons' }); }
-          catch (e) { msg.textContent = `Couldn’t load ${p.name} — ${api.system().mode === 'nas' ? 'is the NAS online?' : 'open Cadence on your NAS, or upload an image'}.`; }
+          catch (e) { msg.textContent = `Couldn’t load ${p.name} — ${api.system().mode === 'nas' ? 'is the NAS online?' : 'open THING on your NAS, or upload an image'}.`; }
         });
         document.querySelector('#mo-up').onchange = e => { const f = e.target.files[0]; if (!f) return; const url = URL.createObjectURL(f);
           loadImg(url, false).then(img => start(img, { id: 'own-' + Date.now().toString(36), name: f.name.replace(/\.[^.]+$/, '').replace(/[-_]+/g, ' ').slice(0, 40) || 'My image', by: 'Your upload' })).finally(() => setTimeout(() => URL.revokeObjectURL(url), 5000)); };
@@ -250,7 +250,7 @@
           c2.fillStyle = 'rgba(40,30,20,.82)'; c2.font = '600 30px Inter, ui-sans-serif, system-ui'; c2.fillText(t.name + (t.by ? ', after ' + t.by.split(',')[0] : ''), 60, art.height + 120);
           c2.fillStyle = 'rgba(40,30,20,.5)'; c2.font = '400 20px Inter, ui-sans-serif, system-ui'; c2.fillText(`${m.tiles.length.toLocaleString()} client logos · one per slice of finished work`, 60, art.height + 154);
           try { big.toBlob(b => { const a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = 'cadence-mosaic.png'; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000); }); }
-          catch (e) { api.ui.toast('Logos from other sites can’t be exported here — open Cadence on your NAS for the poster'); }
+          catch (e) { api.ui.toast('Logos from other sites can’t be exported here — open THING on your NAS for the poster'); }
         };
       }
       if (!G.mosStyle) { G.mosStyle = document.createElement('style'); G.mosStyle.textContent = `

@@ -41,7 +41,7 @@ setInterval(() => { const lag = Date.now() - tick - 1000; tick = Date.now(); if 
 const { storage, storageNote } = storageInfo();
 const tag = `data=${DATA_DIR}  storage=${storage}${storageNote ? ' (' + storageNote + ')' : ''}  ai=${aiKey() ? 'on' : 'off'}  auth=${PASSWORD ? 'on' : 'off'}`;
 if (TLS) {
-  require('https').createServer(TLS, timed).listen(HTTPS_PORT, () => console.log(`Cadence running on https :${HTTPS_PORT}  ${tag}  CA ${caFingerprint() || 'unknown'}`));
+  require('https').createServer(TLS, timed).listen(HTTPS_PORT, () => console.log(`THING running on https :${HTTPS_PORT}  ${tag}  CA ${caFingerprint() || 'unknown'}`));
   // plain HTTP: nothing but a redirect (so a password is never sent unencrypted) and the public CA download
   http.createServer((req, res) => {
     const u = new URL(req.url, 'http://x');
@@ -50,7 +50,7 @@ if (TLS) {
     const host = String(req.headers.host || 'localhost').replace(/:\d+$/, '').replace(/[^\w.\-\[\]:]/g, '');
     res.writeHead(307, { Location: `https://${host}:${HTTPS_PUBLIC_PORT}${u.pathname}${u.search}`, 'Cache-Control': 'no-store' });
     res.end();
-  }).listen(PORT, () => console.log(`Cadence http :${PORT} redirects to https :${HTTPS_PORT}`));
+  }).listen(PORT, () => console.log(`THING http :${PORT} redirects to https :${HTTPS_PORT}`));
 } else {
-  http.createServer(timed).listen(PORT, () => console.log(`Cadence running on :${PORT}  ${tag}  https=off`));
+  http.createServer(timed).listen(PORT, () => console.log(`THING running on :${PORT}  ${tag}  https=off`));
 }

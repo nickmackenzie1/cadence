@@ -34,7 +34,7 @@ function guardedLookup(host, options, cb) {
     cb(null, addrs[0].address, addrs[0].family);
   }, cb);
 }
-const UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124 Safari/537.36 Cadence';
+const UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124 Safari/537.36 THING';
 // one GET through node:http(s) with the guarded lookup; decompresses, stops reading past `max` bytes
 function getOnce(url, headers, max, ms) {
   return new Promise((resolve, reject) => {

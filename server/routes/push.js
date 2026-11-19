@@ -23,7 +23,7 @@ module.exports = async function pushRoutes(req, res, { p }) {
   }
   if (p === '/api/push/test' && req.method === 'POST') {
     const b = JSON.parse(await readBody(req, 4096) || '{}');
-    return send(res, 200, await pushAll({ title: String(b.title || 'Cadence').slice(0, 80), body: String(b.body || 'Push notifications are working.').slice(0, 200), tag: 'test', url: '/' }, { force: true }));
+    return send(res, 200, await pushAll({ title: String(b.title || 'THING').slice(0, 80), body: String(b.body || 'Push notifications are working.').slice(0, 200), tag: 'test', url: '/' }, { force: true }));
   }
   return NEXT;   // not ours
 };

@@ -1,5 +1,5 @@
 /* Demo mode data — a believable consultant's month: 12 clients, ~170 tasks, meetings with notes,
-   a grown garden, mural strokes, links and feeds. Only used when Cadence runs with ?demo (per tab). */
+   a grown garden, mural strokes, links and feeds. Only used when THING runs with ?demo (per tab). */
 window.CadenceDemo = (() => {
   let seed = 7;
   const R = () => (seed = (seed * 16807) % 2147483647) / 2147483647;

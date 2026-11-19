@@ -1,7 +1,7 @@
 /* Cadence service worker.
-   1. Push notifications (reminders, plugin notices) even with no Cadence tab open; clicking one opens Cadence.
+   1. Push notifications (reminders, plugin notices) even with no THING tab open; clicking one opens Cadence.
    2. Offline app shell (2026-11-13): a copy of the app itself (the page, bundle.js, styles, icons, fonts, vendor files)
-      so Cadence opens when the NAS can't be reached, from the data this browser already keeps; it syncs when you're
+      so THING opens when the NAS can't be reached, from the data this browser already keeps; it syncs when you're
       back. Your data is never cached here, and /api/* always goes to the network.
       - the page: network first, the saved copy only when the network fails (a sign-in redirect is passed through and
         never saved)
@@ -31,7 +31,7 @@ self.addEventListener('fetch', e => {
         return res;
       } catch (err) {
         const hit = await caches.match('__page');
-        return hit || new Response('<!doctype html><meta name=viewport content="width=device-width"><body style="font-family:system-ui;padding:2rem"><h2>Can’t reach Cadence</h2><p>This device hasn’t saved an offline copy yet. Open Cadence once while you’re on your home network, then it will open here too.</p>', { headers: { 'Content-Type': 'text/html; charset=utf-8' } });
+        return hit || new Response('<!doctype html><meta name=viewport content="width=device-width"><body style="font-family:system-ui;padding:2rem"><h2>Can’t reach THING</h2><p>This device hasn’t saved an offline copy yet. Open THING once while you’re on your home network, then it will open here too.</p>', { headers: { 'Content-Type': 'text/html; charset=utf-8' } });
       }
     })());
     return;
@@ -84,7 +84,7 @@ self.addEventListener('message', e => { if (e.data === 'cadence-clear-shell') e.
 self.addEventListener('push', e => {
   let d = {}; try { d = e.data ? e.data.json() : {}; } catch (er) { d = { body: e.data && e.data.text() }; }
   const noEmoji = x => String(x || '').replace(/\p{Extended_Pictographic}(?:\uFE0F|\u200D\p{Extended_Pictographic})*\s?/gu, '').trim();   // no emoji anywhere (user, 2026-11-18)
-  e.waitUntil(self.registration.showNotification(noEmoji(d.title) || 'Cadence', { body: noEmoji(d.body), tag: d.tag || undefined, renotify: !!d.tag, icon: 'favicon.svg', badge: 'favicon.svg', data: { url: d.url || '/' } }));
+  e.waitUntil(self.registration.showNotification(noEmoji(d.title) || 'THING', { body: noEmoji(d.body), tag: d.tag || undefined, renotify: !!d.tag, icon: 'favicon.svg', badge: 'favicon.svg', data: { url: d.url || '/' } }));
 });
 self.addEventListener('notificationclick', e => {
   e.notification.close(); const url = (e.notification.data && e.notification.data.url) || '/';

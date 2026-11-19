@@ -23,7 +23,7 @@
       const dur = ms => ms < 1000 ? ms + ' ms' : ms < 60e3 ? (ms / 1000).toFixed(1) + ' s' : Math.round(ms / 60e3) + ' min';
       const every = ms => !ms ? '' : ms < 60e3 ? 'in small steps' : ms < 3600e3 ? `every ${Math.round(ms / 60e3)} min` : ms < 86400e3 ? `every ${+(ms / 3600e3).toFixed(1)} h` : ms === 86400e3 ? 'once a day' : `every ${+(ms / 86400e3).toFixed(1)} days`;
       const PACES = [[15 * 60e3, 'Every 15 minutes'], [3600e3, 'Every hour'], [3 * 3600e3, 'Every 3 hours'], [6 * 3600e3, 'Every 6 hours'], [12 * 3600e3, 'Every 12 hours'], [86400e3, 'Once a day'], [7 * 86400e3, 'Once a week']];
-      const tags = j => [j.where === 'music' ? 'Music side' : 'App', j.heavy && 'takes turns', j.quiet && 'waits while you use Cadence', j.hours && `only ${j.hours[0]}:00–${j.hours[1]}:00`, j.every && every(j.every) + (j.changed ? ' (changed)' : '')].filter(Boolean);
+      const tags = j => [j.where === 'music' ? 'Music side' : 'App', j.heavy && 'takes turns', j.quiet && 'waits while you use THING', j.hours && `only ${j.hours[0]}:00–${j.hours[1]}:00`, j.every && every(j.every) + (j.changed ? ' (changed)' : '')].filter(Boolean);
 
       async function act(j, body) {
         G.busy[j.where + j.name] = true; draw();

@@ -26,15 +26,14 @@ checking the code.
 - User location: Amherstview, Ontario (Loyalist Township). Garbage: Tuesday east of Speers Blvd, Wednesday west.
 
 ## Waiting on the user
-- Name: shortlist Almanac, Hearth, Porchlight, Stella (earlier: Homebase, Lantern). When chosen: UI strings,
-  title/manifest/icons, login, README, docs, image/container names; keep reading `cadence.*` storage keys and keep a
-  window.Cadence alias; don't move the NAS data dir or .env without a migration.
 - Plugin settings offered but not answered (0.18.0): Daily page picks, Rival pace, Focus aquarium lengths, energy check-in.
 - Music on the NAS: Navidrome (LAN-only, Subsonic API) or Cadence serving the folder itself.
 
 ## Next up (agreed)
-- README rewritten 2026-11-18 under the name THING (user: "its just called THING"). The rest of the app still says
-  Cadence: ask before renaming the UI, title, manifest, login and container (see the Name item above).
+- Renamed THING (user, 2026-11-18/19): README, and every word on screen (title, home-screen name, sign-in page,
+  sidebar, notifications, messages, the ListenBrainz client name). Kept as cadence on purpose: code names
+  (window.Cadence, CadenceKit…), storage keys (cadence.*), the X-Cadence-Active header, the Docker container and
+  image (deploy.sh, health checks), the NAS folder and outbound User-Agents. Renaming those needs a migration.
 
 ## Upkeep
 - Page weight: with everything on, `bundle.js` is ~2 MB: 610 KB gzipped, 460 KB as Brotli (served since 2026-11-18,

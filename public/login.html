@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Sign in · Cadence</title>
+<title>Sign in · THING</title>
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
 <link rel="manifest" href="manifest.webmanifest">
@@ -58,7 +58,7 @@ input:focus{border-color:var(--accent);box-shadow:0 0 0 3px color-mix(in srgb,va
 <main class="card" id="card">
   <img class="logo" src="favicon.svg" alt="">
   <h1>Welcome back</h1>
-  <p class="sub">Sign in to Cadence</p>
+  <p class="sub">Sign in to THING</p>
   <form id="f" autocomplete="on" novalidate>
     <div class="f"><label for="u">Username</label><input type="text" id="u" name="username" autocomplete="username" autocapitalize="none" spellcheck="false" required></div>
     <div class="f pw"><label for="p">Password</label><input type="password" id="p" name="password" autocomplete="current-password" required><button type="button" class="show" id="show" aria-label="Show password">Show</button></div>
@@ -112,7 +112,7 @@ input:focus{border-color:var(--accent);box-shadow:0 0 0 3px color-mix(in srgb,va
       fail(j.error || 'Could not sign in.');
       $('#p').select();
       if (j.wait) countdown(j.wait);
-    } catch (err) { go.classList.remove('busy'); go.disabled = false; fail('Cadence is not reachable. Is the NAS on?'); }
+    } catch (err) { go.classList.remove('busy'); go.disabled = false; fail('THING is not reachable. Is the NAS on?'); }
   };
 })();
 </script>

@@ -1,5 +1,5 @@
 /* Live themes (user, 2026-11-18: "lets do some amazing themes with all the apis we have now … all of them"): themes
-   that change by themselves from what Cadence already knows.
+   that change by themselves from what THING already knows.
      Record of the day (your Discogs shelf), KEXP live (who's on air and what's playing), Movie night (the last film
      in your Letterboxd diary, pictures from TMDB), Weather window (Amherstview's weather drives the effects and the
      sky), Game shelf (fanart from your games on TheGamesDB, a different one each day), and Seasons (picks the

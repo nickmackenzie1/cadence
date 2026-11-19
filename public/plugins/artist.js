@@ -596,7 +596,7 @@
           <section><h3>Charts</h3>
             ${charts.length ? `<ul class="ap-list">${charts.map(m => { const run = (m.run || []).map(x => x.rank); const first = run[0], lastR = run[run.length - 1];
               return `<li><span class="ap-src">${api.ui.logo(m.url || '', { size: 14 })}${E(m.sourceName)}</span><div>${E(m.feed || '')}${m.title ? ' · ' + E(m.title) : ''}<span class="muted">now #${m.rank}${m.best && m.best !== m.rank ? `, best #${m.best}` : ''}${run.length > 1 ? ` · #${first} → #${lastR} over ${run.length} checks` : ''}</span>
-                ${run.length > 1 ? spark(run) : ''}</div></li>`; }).join('')}</ul>` : '<p class="muted">Not on any chart Cadence follows.</p>'}</section>
+                ${run.length > 1 ? spark(run) : ''}</div></li>`; }).join('')}</ul>` : '<p class="muted">Not on any chart THING follows.</p>'}</section>
 
           ${d.stg && d.stg.length ? `<section><h3>${api.ui.logo('saidthegramophone.com')}On Said the Gramophone's best-of lists</h3><ul class="ap-list ap-stg">${d.stg.map(x => `<li><span class="ap-src">${x.year}</span><div><span>${x.kind === 'song' ? `#${x.rank} song: ` : 'Album of the year: '}${A(x.url, E(x.title))}</span></div>${window.CadencePreview.buttons(d.name, x.title, x.kind, "Said the Gramophone " + x.year)}</li>`).join('')}</ul></section>` : ''}
 

@@ -44,7 +44,7 @@
 
   Cadence.registerPlugin({
     id: 'calendar', spaces: ['work'], name: 'Calendar', version: '1.0.0', settings: () => window.__cal.settings && window.__cal.settings(), icon: '<rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 9.5h16M8.5 3v4M15.5 3v4M12 13v3l2 1.2"/>', color: '#e5484d', category: 'Meetings', tagline: 'Meetings matched to clients',
-    description: 'Your meetings in Cadence: today’s schedule matched to clients, a heads-up before each meeting with Prep / Start, and a nudge to import Fireflies notes afterwards. Reads iCal feeds through the NAS.',
+    description: 'Your meetings in THING: today’s schedule matched to clients, a heads-up before each meeting with Prep / Start, and a nudge to import Fireflies notes afterwards. Reads iCal feeds through the NAS.',
     setup(api) {
       const E = api.ui.esc, opts = () => Object.assign({ sample: false, lead: 10 }, api.storage.get('settings') || {}, api.system().demo ? { sample: true } : {});
 
@@ -177,7 +177,7 @@
             <p class="muted" style="margin:0;font-size:13px">Paste a private iCal link. It’s stored only on your NAS — never synced, never sent to GitHub.<br>
             <b>${api.ui.logo('calendar.google.com', { size: 13 })}Google:</b> Calendar settings → your calendar → Integrate calendar → “Secret address in iCal format”. <b>${api.ui.logo('outlook.live.com', { size: 13 })}Outlook:</b> Settings → Calendar → Shared calendars → Publish → ICS link.</p>
             <div>${cals.map((c, i) => `<div class="cal-cfg"><i style="background:${E(c.color)}"></i><div><b style="font-size:13px">${c.host ? api.ui.logo(c.host, { size: 13 }) : ''}${E(c.name)}</b><div class="muted" style="font-size:11px">${E(c.host || 'new')}</div></div><input type="color" value="${E(c.color)}" data-col="${i}" style="width:28px;height:24px;border:0;background:none"><button class="btn ghost danger" data-del="${i}">✕</button></div>`).join('')}</div>
-            ${api.system().mode === 'nas' ? `<div class="field"><label>Add a calendar</label><div class="row"><input class="inp" id="cal-name" placeholder="Name (e.g. Work)" style="max-width:150px"><input class="inp" id="cal-url" placeholder="https://calendar.google.com/calendar/ical/…/basic.ics"></div></div>` : '<div class="muted" style="font-size:13px">Calendar links are read by your NAS — open Cadence there to connect one.</div>'}
+            ${api.system().mode === 'nas' ? `<div class="field"><label>Add a calendar</label><div class="row"><input class="inp" id="cal-name" placeholder="Name (e.g. Work)" style="max-width:150px"><input class="inp" id="cal-url" placeholder="https://calendar.google.com/calendar/ical/…/basic.ics"></div></div>` : '<div class="muted" style="font-size:13px">Calendar links are read by your NAS — open THING there to connect one.</div>'}
             <div class="row" style="gap:16px;align-items:center;flex-wrap:wrap">
               <label class="row" style="align-items:center;gap:6px;font-size:13px"><input type="checkbox" id="cal-sample" ${o.sample ? 'checked' : ''}> Use a sample calendar (preview)</label>
               <label class="row" style="align-items:center;gap:6px;font-size:13px">Heads-up <select class="inp" id="cal-lead" style="width:auto;padding:4px 8px">${[5, 10, 15].map(n => `<option ${o.lead === n ? 'selected' : ''}>${n}</option>`).join('')}</select> min before</label>

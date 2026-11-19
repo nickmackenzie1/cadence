@@ -4,14 +4,14 @@
      api.island.notify({...}), window.CadenceIsland.notify({...}) or Cadence.notify({...}).
    - Per-plugin switches: mute any plugin's notices, or let them through to desktop notifications too.
    - Quiet hours: nothing pops up or pings (still kept in the history).
-   - Push notifications: this device subscribes through a service worker; the NAS sends reminders even when no Cadence tab
+   - Push notifications: this device subscribes through a service worker; the NAS sends reminders even when no THING tab
      is open (keys and subscriptions live on the NAS only; the push goes out through your browser's push service). */
 (() => {
   const BELL_UNUSED = '<svg class="lu" viewBox="0 0 24 24" aria-hidden="true"><path d="M10.268 21a2 2 0 0 0 3.464 0"/><path d="M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326"/></svg>';
   const G = window.__notify = window.__notify || {};
   Cadence.registerPlugin({
     id: 'notify', name: 'Notifications', version: '1.0.0', category: 'Essentials', spaces: ['work', 'life'],
-    description: 'A notification centre with history, per-plugin settings, quiet hours, and push notifications to this device even when Cadence is closed.',
+    description: 'A notification centre with history, per-plugin settings, quiet hours, and push notifications to this device even when THING is closed.',
     tagline: 'Bell, history, quiet hours, push', color: '#f59e0b',
     icon: '<path d="M10.268 21a2 2 0 0 0 3.464 0"/><path d="M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326"/>',
     settings() { G.settings && G.settings(); },
@@ -24,7 +24,7 @@
       const badge = () => window.CadenceIsland && window.CadenceIsland.setBadge(unread());
       const unread = () => list().filter(n => !n.read).length;
       const inQuiet = () => { const q = cfg().quiet; if (!q || !q.from || !q.to) return false; const d = new Date(), m = d.getHours() * 60 + d.getMinutes(), [a, b] = [q.from, q.to].map(x => { const [h, mm] = x.split(':').map(Number); return h * 60 + mm; }); return a < b ? m >= a && m < b : m >= a || m < b; };
-      const nameOf = pid => pid === 'reminders' ? 'Reminders' : pid === 'core' ? 'Cadence' : (api.plugins.list().find(p => p.id === pid) || {}).name || pid;
+      const nameOf = pid => pid === 'reminders' ? 'Reminders' : pid === 'core' ? 'THING' : (api.plugins.list().find(p => p.id === pid) || {}).name || pid;
 
       /* incoming */
       api.on('notify', n => {
@@ -110,10 +110,10 @@
           <div class="field"><label>Quiet hours</label><div class="row" style="gap:8px;align-items:center"><label class="xm-row" style="margin:0"><input type="checkbox" id="nt-qon" ${c.quiet ? 'checked' : ''}> From</label><input class="inp" type="time" id="nt-qf" value="${esc((c.quiet && c.quiet.from) || '21:00')}" style="width:auto"> to <input class="inp" type="time" id="nt-qt" value="${esc((c.quiet && c.quiet.to) || '07:30')}" style="width:auto"></div>
             <div class="muted" style="font-size:12px;margin-top:6px">Nothing pops up or pings during quiet hours. It all still lands in the centre.</div></div>
           <div class="field"><label>Desktop notifications in this browser</label><div class="muted" style="font-size:13px">${perm === 'granted' ? 'Allowed.' : perm === 'denied' ? 'Blocked in this browser’s site settings.' : perm === 'unsupported' ? 'Not supported here.' : 'Not allowed yet.'}</div>${perm === 'default' ? '<button class="btn" id="nt-perm" style="margin-top:6px">Allow desktop notifications</button>' : ''}</div>
-          <div class="field"><label>Push to this device (works when Cadence is closed)</label>
+          <div class="field"><label>Push to this device (works when THING is closed)</label>
             ${pushOK() ? `<div class="row" style="gap:8px;flex-wrap:wrap"><button class="btn ${subd ? '' : 'primary'}" id="nt-push">${subd ? 'Turn off push on this device' : 'Turn on push on this device'}</button>${subd ? '<button class="btn" id="nt-test">Send a test</button>' : ''}</div>
               ${srv ? `<div class="muted" style="font-size:12px;margin-top:6px">${srv.devices.length ? srv.devices.length + ' device' + (srv.devices.length === 1 ? '' : 's') + ' get pushes: ' + srv.devices.map(d => esc(d.device || d.host)).join(', ') : 'No devices yet.'} Reminders are sent by the NAS at the reminder time.</div>` : ''}`
-              : `<div class="muted" style="font-size:13px">${!window.isSecureContext ? 'Open Cadence at its HTTPS address on your network to use push.' : api.system().mode !== 'nas' ? 'Push needs the Cadence server on your NAS.' : 'This browser has no push support.'}</div>`}</div>`,
+              : `<div class="muted" style="font-size:13px">${!window.isSecureContext ? 'Open THING at its HTTPS address on your network to use push.' : api.system().mode !== 'nas' ? 'Push needs the THING server on your NAS.' : 'This browser has no push support.'}</div>`}</div>`,
           `<button class="btn primary" id="nt-done">Done</button>`);
         const $ = id => document.getElementById(id);
         const save = () => {

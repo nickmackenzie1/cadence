@@ -108,7 +108,7 @@
         if (!S.d && !S.err) { el.innerHTML = '<p class="muted">Loading…</p>'; load(); return; }
         if (S.err && !S.d) { el.innerHTML = `<p class="muted">Couldn't load the chart: ${E(S.err)}. <button class="lnk" id="kr-retry">Try again</button></p>`; el.querySelector('#kr-retry').onclick = () => { S.err = null; load(); }; return; }
         if (!S.d.ready) {
-          el.innerHTML = `<div class="kr"><p>Your NAS is counting KEXP's plays month by month (${Math.round((S.d.progress || 0) * 100)}% so far). It works on this while you're not using Cadence, so check back later.</p></div>`;
+          el.innerHTML = `<div class="kr"><p>Your NAS is counting KEXP's plays month by month (${Math.round((S.d.progress || 0) * 100)}% so far). It works on this while you're not using THING, so check back later.</p></div>`;
           return;
         }
         const end = S.d.months.length - 1;

@@ -35,7 +35,7 @@
 
   Cadence.registerPlugin({
     id: 'havoc', name: 'Havoc', version: '1.1.0', icon: '<path d="M12 2.5l2 5.5 5.5-1.5-3.8 4.5 4.8 3.5-5.8.8.8 5.7-3.5-3.8-3.5 3.8.8-5.7-5.8-.8 4.8-3.5L4.5 6.5 10 8z"/>', color: '#f76b15', category: 'Fun', tagline: 'Wreck the page with physics, or turn it into sand, fire and water',
-    description: 'Blow off steam: blast, melt or black-hole the Cadence page, or switch to Elements and burn, flood, freeze and bury it. Shift+H to unleash, Esc to restore.',
+    description: 'Blow off steam: blast, melt or black-hole the THING page, or switch to Elements and burn, flood, freeze and bury it. Shift+H to unleash, Esc to restore.',
     setup(api) {
       api.commands.add({ title: 'Havoc: wreck this page', icon: 'bomb', hint: '⇧H', run: api => unleash(api) });
       api.commands.add({ title: 'Elements: turn this page into sand, fire and water', icon: 'flame', run: api => { remember('elements'); unleash(api, 'elements'); } });

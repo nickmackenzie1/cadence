@@ -156,6 +156,6 @@ export async function run({ top = 15, demoPosts = null, playlist = false, quiet 
   saveState(state);
   const out = writeRss(state);
   if (playlist) { try { const r = await updatePlaylist(state); if (r) log(`Spotify playlist updated: ${r.count} tracks`); } catch (e) { log(`  ! Spotify: ${e.message}`); } }
-  log(`Wrote ${picks.length} new picks → ${out}  (dashboard: Cadence → Life → Music Radar)`);
+  log(`Wrote ${picks.length} new picks → ${out}  (dashboard: THING → Life → Music Radar)`);
   return { picks, cands, albums };
 }

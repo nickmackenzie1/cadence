@@ -1,6 +1,6 @@
 'use strict';
 /* Web Push (RFC 8291 aes128gcm + VAPID), no dependencies. Keys and subscriptions live on the NAS only.
-   Reminders are pushed from here even when no Cadence tab is open. */
+   Reminders are pushed from here even when no THING tab is open. */
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');

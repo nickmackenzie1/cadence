@@ -1,6 +1,6 @@
 /* Watch list (user, 2026-11-18: "i would love a movies to watch section"). Works in both spaces (user, same day:
    "watch Jurassic Park" should just add the film, wherever you type it); each space keeps its own list.
-   - Quick add: "watch Dune" or "see Severance" adds a film or show, "play Hades" a game. Cadence finds it (TMDB for
+   - Quick add: "watch Dune" or "see Severance" adds a film or show, "play Hades" a game. THING finds it (TMDB for
      films and shows, TheGamesDB for games, both through the NAS) and the task gets its poster or box art, year and
      runtime. It goes in a "Watch list" area, so it stays out of your Inbox.
    - The Watch list page: posters of what's next (films and shows, then games), a search box with suggestions to add

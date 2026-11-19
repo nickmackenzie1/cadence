@@ -11,7 +11,7 @@ export function listenPayload(l) {
   return {
     listened_at: Math.max(0, Math.floor(l.ts - l.secs)),
     track_metadata: { artist_name: l.artist, track_name: l.title,
-      additional_info: { media_player: "Cadence", submission_client: "Cadence", ...(l.station ? { music_service_name: l.station } : {}) } },
+      additional_info: { media_player: "THING", submission_client: "THING", ...(l.station ? { music_service_name: l.station } : {}) } },
   };
 }
 // queue one listen and send everything waiting (up to 100 at a time)

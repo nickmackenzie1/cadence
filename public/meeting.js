@@ -251,7 +251,7 @@ function commitMeeting(){
 }
 function openImport(){
   const ex = Reg.extractors.filter(e => !e.available || e.available());
-  openModalHTML('Import meeting notes', `<p class="muted" style="margin:0">Paste a Fireflies summary, transcript, or any notes. Action items are split into <b>yours</b> and the <b>client’s</b>${core.S.settings.myName ? ` (matching “${esc(core.S.settings.myName)}” as you)` : ' — set your name in Settings so Cadence can tell them apart'}.</p>
+  openModalHTML('Import meeting notes', `<p class="muted" style="margin:0">Paste a Fireflies summary, transcript, or any notes. Action items are split into <b>yours</b> and the <b>client’s</b>${core.S.settings.myName ? ` (matching “${esc(core.S.settings.myName)}” as you)` : ' — set your name in Settings so THING can tell them apart'}.</p>
     <textarea class="inp" id="imp-text" style="min-height:240px" placeholder="Action Items&#10;&#10;**Alex Chen**&#10;Send revised Zoho CRM blueprint by Friday (12:41)&#10;&#10;**Sarah Lee**&#10;Share API credentials for Books integration (18:02)"></textarea>
     <div class="row"><select class="inp" id="imp-ex" style="width:auto">${ex.map(e => `<option value="${esc(e.id)}">${esc(e.name)}</option>`).join('')}</select><label class="row muted" style="align-items:center;gap:6px;font-size:13px"><input type="checkbox" id="imp-notes" checked> Also add to meeting notes</label></div>`,
     `<button class="btn" data-act="close-modal">Cancel</button><button class="btn primary" data-act="imp-run">Extract action items</button>`);

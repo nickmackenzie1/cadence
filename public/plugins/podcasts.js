@@ -3,7 +3,7 @@
    browser tab). Sync runs on the NAS (server/services/pocketcasts.js); this file never sees your login.
 
    The player is a single <audio> owned by window.CadencePodcasts, created once when this file loads and kept on
-   <html>, outside the page Cadence re-renders. A plugin rebuild or a space switch only redraws the controls around it.
+   <html>, outside the page THING re-renders. A plugin rebuild or a space switch only redraws the controls around it.
    Your place is saved locally every few seconds and sent back to Pocket Casts every 30 s, on pause, and at the end. */
 (() => {
   const E = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -159,7 +159,7 @@
         // after the user's own recreation (2026-11-16): gold title pills, lime-on-black time, cream seek bar with a gold
         // thumb, bevelled buttons where the active one lights up, and a playlist that folds open from its title
         const bt = (act, ic, label) => `<button data-pc="${act}" aria-label="${label}" title="${label}">${api.ui.icon(ic)}</button>`;
-        bar.innerHTML = `<div class="wa-box"><div class="wa-tt"><i class="wa-ln"></i><b>Cadence</b><i class="wa-ln"></i><button class="wa-x" data-pc="tuck" title="Tuck the player away" aria-label="Tuck the player away">${api.ui.icon('chevron-down')}</button><button class="wa-x" data-pc="skin" title="Back to the calm look" aria-label="Back to the calm look">${api.ui.icon('minimize-2')}</button></div>
+        bar.innerHTML = `<div class="wa-box"><div class="wa-tt"><i class="wa-ln"></i><b>THING</b><i class="wa-ln"></i><button class="wa-x" data-pc="tuck" title="Tuck the player away" aria-label="Tuck the player away">${api.ui.icon('chevron-down')}</button><button class="wa-x" data-pc="skin" title="Back to the calm look" aria-label="Back to the calm look">${api.ui.icon('minimize-2')}</button></div>
           <div class="wa-cmd"><div class="wa-row"><div class="wa-left"><div class="wa-time"><span class="wa-st"></span><span class="wa-t"></span></div><button class="wa-vis" data-pc="viz" title="Visualizer" aria-label="Open the visualizer"><canvas data-style="classic"></canvas></button></div>
             <div class="wa-right"><div class="wa-mq"><span></span></div><div class="wa-meta"><span class="wa-f wa-kind"></span><span class="wa-f wa-rate"></span><span class="wa-led wa-vled">vis</span><button class="wa-led wa-lled" data-pc="level" title="Even out the volume between stations" aria-label="Even out the volume between stations">lvl</button>${'' }</div>
               <input class="wa-vol" type="range" min="0" max="100" step="1" aria-label="Volume" title="Volume"></div></div>

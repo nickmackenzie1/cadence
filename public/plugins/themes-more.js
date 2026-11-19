@@ -167,7 +167,7 @@
   const MSN_ST = [['online', 'Online'], ['busy', 'Busy'], ['brb', 'Be Right Back'], ['away', 'Away'], ['offline', 'Appear Offline']];
   function popup(html) {
     let box = document.getElementById('msn-pops'); if (!box) { box = document.createElement('div'); box.id = 'msn-pops'; document.body.appendChild(box); }
-    const el = document.createElement('div'); el.className = 'msn-pop'; el.innerHTML = `<div class="mp-h">Cadence Messenger<span>×</span></div><div class="mp-b">${html}</div>`;
+    const el = document.createElement('div'); el.className = 'msn-pop'; el.innerHTML = `<div class="mp-h">THING Messenger<span>×</span></div><div class="mp-b">${html}</div>`;
     el.querySelector('span').onclick = () => el.remove(); box.appendChild(el); setTimeout(() => { el.classList.add('out'); setTimeout(() => el.remove(), 400); }, 4200);
   }
   function nudge(silent) {
@@ -180,7 +180,7 @@
     if (!api) return;
     const E = api.ui.esc, head = document.getElementById('side-head'), view = document.getElementById('view');
     const card = document.createElement('div'); card.className = 'msn-me';
-    const bar = document.createElement('div'); bar.className = 'msn-title'; bar.innerHTML = '<span class="msn-buddy"><i></i><i></i></span>Cadence Messenger<span class="msn-wb"><i>_</i><i>□</i><i>×</i></span>';
+    const bar = document.createElement('div'); bar.className = 'msn-title'; bar.innerHTML = '<span class="msn-buddy"><i></i><i></i></span>THING Messenger<span class="msn-wb"><i>_</i><i>□</i><i>×</i></span>';
     const nowPlaying = () => { const b = document.querySelector('[data-sw=rss] .tx b'), sp = document.querySelector('[data-sw=rss] .tx span:last-child'); return b ? `♫ ${b.textContent}${sp && sp.textContent ? ' - ' + sp.textContent.replace(/^C\$\S+\s*|NEW|VG\S*|NM\S*|G\+?/g, '').trim() : ''}` : ''; };
     const draw = () => {
       const s = msnState(), nm = myName(), lbl = Object.fromEntries(MSN_ST)[s.status];
@@ -201,7 +201,7 @@
     head && head.after(card); view && view.parentNode.insertBefore(bar, view); draw();
     // Windows XP: the contact list is its own window, with a menu bar and an "I want to…" panel
     const side = document.getElementById('side');
-    const sbar = document.createElement('div'); sbar.className = 'msn-title msn-side-title'; sbar.innerHTML = '<span class="msn-buddy"><i></i><i></i></span>Cadence Messenger<span class="msn-wb"><i>_</i><i>□</i><i>×</i></span>';
+    const sbar = document.createElement('div'); sbar.className = 'msn-title msn-side-title'; sbar.innerHTML = '<span class="msn-buddy"><i></i><i></i></span>THING Messenger<span class="msn-wb"><i>_</i><i>□</i><i>×</i></span>';
     const MENUS = { File: [['Settings', 'settings'], ['Themes', 'theme']], Contacts: [['Add a contact', 'add-client'], ['New project', 'add-project']], Actions: [['Start a meeting', 'meeting'], ['Send a Nudge', '#nudge'], ['Waiting on clients', '#go:waiting']], Tools: [['Plugins', 'open-plugins'], ['Keyboard shortcuts', 'shortcuts']], Help: [['Command palette (⌘K)', '#palette']] };
     const menubar = document.createElement('div'); menubar.className = 'msn-menubar'; menubar.innerHTML = Object.keys(MENUS).map(m => `<button data-m="${m}">${m}</button>`).join('');
     const iwant = document.createElement('div'); iwant.className = 'msn-iwant';

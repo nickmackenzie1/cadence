@@ -76,6 +76,6 @@ test('bundle.js goes out as Brotli once it is ready (about a quarter smaller tha
   await expect.poll(async () => (await get('gzip, br')).headers.get('content-encoding'), { timeout: 60000, intervals: [500] }).toBe('br');
   const r = await get('gzip, br');
   expect(r.headers.get('etag')).toMatch(/-br"$/);
-  const js = await r.text(); expect(js).toContain('Cadence bundle');   // decodes to the same script
+  const js = await r.text(); expect(js).toContain('THING bundle');   // decodes to the same script
   expect(gzLen).toBeGreaterThan(0);
 });

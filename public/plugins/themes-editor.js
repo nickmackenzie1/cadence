@@ -1,5 +1,5 @@
 /* Editor themes: the colour palettes of popular, open-source code-editor themes (all MIT licensed),
-   mapped onto Cadence's tokens. Palettes from each project's published spec. */
+   mapped onto THING's tokens. Palettes from each project's published spec. */
 (() => {
   const R = t => window.CadenceThemes.register(t);
   // p: bg, side, panel, text, muted, faint, line, accent, on (text on accent), red, green, yellow, [extra css]

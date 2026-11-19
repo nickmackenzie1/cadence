@@ -101,7 +101,7 @@
     try {
       pip = await documentPictureInPicture.requestWindow({ width: 360, height: 230 });
       const s = pip.document.createElement('style'); s.textContent = CSS + ':root{color-scheme:dark}'; pip.document.head.appendChild(s);
-      pip.document.title = 'Cadence visualizer'; pip.document.body.className = 'vz-pip';
+      pip.document.title = 'THING visualizer'; pip.document.body.className = 'vz-pip';
       pip.document.body.appendChild(box); box.querySelector('[data-vz-act="pip"]').hidden = true;
       cancel(); loop();
       pip.addEventListener('pagehide', () => { document.documentElement.appendChild(box); box.querySelector('[data-vz-act="pip"]').hidden = false; pip = null; place(null, null); cancel(); if (isOpen()) loop(); });

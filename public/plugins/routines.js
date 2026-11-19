@@ -68,7 +68,7 @@
         const open = api.tasks.list(t => !t.done && t.place), by = {}; open.forEach(t => (by[t.place] = by[t.place] || []).push(t));
         el.innerHTML = Object.keys(by).length ? Object.entries(by).sort((a, b) => b[1].length - a[1].length).map(([p, ts]) => `<div class="sect">${api.ui.icon('map-pin')} ${esc(p)} <span class="muted">${ts.length}</span></div>${ts.map(t => api.ui.taskRow(t)).join('')}`).join('')
           : `<div class="empty sm"><b>No places yet</b>Add one to a task (open it and fill in “Where can this be done?”), or type it in quick add: <code>buy lightbulbs at the hardware store</code>.</div>`;
-        el.insertAdjacentHTML('beforeend', '<p class="muted" style="font-size:12px;margin-top:20px">Nudges when you’re near a place need the Cadence phone app (coming later).</p>');
+        el.insertAdjacentHTML('beforeend', '<p class="muted" style="font-size:12px;margin-top:20px">Nudges when you’re near a place need the THING phone app (coming later).</p>');
       } });
       css('pl-css', `.pl-chip{color:#ef4444}.pl-chip svg{width:12px;height:12px;margin-right:3px}.pl-card{display:flex;align-items:center;gap:8px;margin-top:8px}.pl-card svg{width:15px;height:15px;color:var(--muted)}.pl-card .inp{padding:5px 9px;font-size:13px}`);
     },
@@ -122,7 +122,7 @@
         api.ui.modal('Install a shared ritual', `<div class="field"><label>Paste a ritual, or choose its file</label><textarea class="inp" id="ri-t" rows="8" style="font:12px var(--mono,monospace)" placeholder='{"cadenceRitual":1,"name":"…","tasks":[["Do the thing",{"unit":"week","n":1,"day":0}]]}'></textarea><input type="file" id="ri-f" accept=".json,application/json" style="margin-top:8px"></div><div id="ri-msg" class="muted" style="font-size:12px"></div>`, '<button class="btn primary" id="ri-go">Install</button>');
         const $ = id => document.getElementById(id);
         $('ri-f').onchange = async () => { const f = $('ri-f').files[0]; if (f) $('ri-t').value = await f.text(); };
-        $('ri-go').onclick = () => { try { const b = JSON.parse($('ri-t').value); if (!b.cadenceRitual || !Array.isArray(b.tasks) || !b.tasks.length) throw new Error('That isn’t a Cadence ritual.');
+        $('ri-go').onclick = () => { try { const b = JSON.parse($('ri-t').value); if (!b.cadenceRitual || !Array.isArray(b.tasks) || !b.tasks.length) throw new Error('That isn’t a THING ritual.');
           const clean = { id: 'shared-' + String(b.id || Date.now()).replace(/[^\w-]/g, '').slice(0, 40), name: String(b.name || 'Shared ritual').slice(0, 60), tasks: b.tasks.slice(0, 40).map(([t, r]) => [String(t).slice(0, 200), { unit: ['day', 'week', 'month', 'weekday'].includes(r && r.unit) ? r.unit : 'week', n: Math.max(1, Math.min(24, +(r && r.n) || 1)), ...(r && r.day != null ? { day: Math.max(0, Math.min(6, +r.day)) } : {}) }]) };
           api.ui.close(); install(clean); } catch (e) { $('ri-msg').textContent = e.message; } };
       }

@@ -2,7 +2,7 @@
    News (no AI): Google News headlines that actually mention the client, fetched and cached by your NAS. Per client you
    can set the search, words to exclude (for a client called "Apple": fruit, pie) or turn news off.
    Research (AI, optional): reads the client's website (homepage + about page, fetched by the NAS) together with the
-   headlines and what Cadence knows, and writes a brief: what they do, at a glance, recent happenings, people, and
+   headlines and what THING knows, and writes a brief: what they do, at a glance, recent happenings, people, and
    things worth mentioning in the next meeting. Saved on the client. It's told to leave things out rather than guess. */
 Cadence.registerPlugin({
   id: 'client-intel', name: 'Client intel', version: '1.0.0', category: 'Clients', spaces: ['work'],
@@ -41,7 +41,7 @@ Cadence.registerPlugin({
       const prompt = `You are preparing a consultant (Zoho implementation partner) for work with a client. Use ONLY the sources below plus well-established public facts you are confident about. If something isn't supported, use null or leave the list empty. Never invent people, numbers or events.
 
 Client: ${c.name}${c.domain ? ` (${c.domain})` : ''}
-What Cadence knows: ${c.description || 'nothing yet'}${c.industry ? `; industry: ${c.industry}` : ''}
+What THING knows: ${c.description || 'nothing yet'}${c.industry ? `; industry: ${c.industry}` : ''}
 Open work with them: ${tasks.join('; ') || 'none'}
 
 Website text:

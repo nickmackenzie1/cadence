@@ -179,7 +179,7 @@
       window.__radar = { load, get G() { return G; } };
 
       api.views.add({ id: 'radar', group: 'music', order: 10, title: 'Music Radar', icon: '📡', subtitle: 'Up-and-coming music before it breaks', wide: true, render: el => {
-        if (api.system().mode !== 'nas') { el.innerHTML = empty('Music Radar runs on your NAS. Open Cadence from the NAS to use it.'); return; }
+        if (api.system().mode !== 'nas') { el.innerHTML = empty('Music Radar runs on your NAS. Open THING from the NAS to use it.'); return; }
         if (!G.d || !G.st) { el.innerHTML = empty('Loading…'); load(); return; }
         const D = G.d, S = G.st, ic = n => api.ui.icon(n);
         const hot = D.genres.find(g => g.change != null && g.change > 0) || D.genres[0];

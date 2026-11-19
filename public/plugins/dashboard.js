@@ -1,6 +1,6 @@
 /* Dashboards: build your own pages out of widgets. Drag from the library, move, resize, configure.
    Any plugin can offer widgets with api.widgets.add(); this plugin also ships a starter set.
-   Pages can be your home page (Cadence opens there) or docked as a side panel next to everything else. */
+   Pages can be your home page (THING opens there) or docked as a side panel next to everything else. */
 Cadence.registerPlugin({
   id: 'dashboard', name: 'Dashboards', version: '1.0.0', category: 'Productivity',
   description: 'Build your own pages from widgets: today\'s focus, quick add, notes, clocks, Zoho status, links and anything other plugins offer. Drag to move, pull the corner to resize, make a page your home screen or dock it beside the app.',
@@ -343,7 +343,7 @@ Cadence.registerPlugin({
       const page = cur(), home = api.storage.get('home') === page.id, n = pages().length;
       api.ui.modal('Page settings', `<div class="field"><label>Name</label><input class="inp" id="ps-n" value="${E(page.name)}"></div>
         <div class="field"><label>Icon (an emoji or a symbol)</label><input class="inp" id="ps-i" value="${E(page.icon || '')}" maxlength="4"></div>
-        <label style="display:flex;gap:8px;align-items:center;margin:4px 0"><input type="checkbox" id="ps-h" ${home ? 'checked' : ''}> Open Cadence on this page</label>`,
+        <label style="display:flex;gap:8px;align-items:center;margin:4px 0"><input type="checkbox" id="ps-h" ${home ? 'checked' : ''}> Open THING on this page</label>`,
         `${n > 1 ? '<button class="btn ghost danger" id="ps-del" style="margin-right:auto">Delete page</button>' : ''}<button class="btn" data-act="close-modal">Cancel</button><button class="btn primary" id="ps-save">Save</button>`);
       document.getElementById('ps-save').onclick = () => {
         updatePage(pg => { pg.name = document.getElementById('ps-n').value.trim() || pg.name; pg.icon = document.getElementById('ps-i').value.trim(); });

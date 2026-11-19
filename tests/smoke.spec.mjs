@@ -154,6 +154,7 @@ test('calendar: ICS feed is parsed and its URL is never sent back', async ({ req
 });
 
 test('themes: engine applies, persists, cleans up effects, and plugins can register their own', async ({ page }) => {
+  test.setTimeout(90e3);   // applies every theme (160 and counting)
   const errs = errorsOf(page); await boot(page);
   const ids = await page.evaluate(() => CadenceThemes.list().map(t => t.id));
   expect(ids.length).toBeGreaterThanOrEqual(15);

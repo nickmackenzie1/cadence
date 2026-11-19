@@ -159,7 +159,7 @@
       const main = document.querySelector('.main'); if (!main) return;
       const top = el('div', 'tt-top'), keys = el('nav', 'tt-keys'); keys.setAttribute('aria-label', 'Shortcuts');
       keys.innerHTML = [['#today', 'Today'], ['#upcoming', 'Upcoming'], ['#music', 'Music'], ['#settings', 'Settings']].map(([h, l]) => `<a href="${h}">${l}</a>`).join('');
-      const draw = () => { const h = (location.hash || '#today').slice(1), pg = (PAGES.find(p => h === p[0] || h.startsWith(p[0])) || [0, 101, 'Cadence']);
+      const draw = () => { const h = (location.hash || '#today').slice(1), pg = (PAGES.find(p => h === p[0] || h.startsWith(p[0])) || [0, 101, 'THING']);
         const d = new Date(); top.innerHTML = `<b>P${pg[1]}</b><span>CADENCE</span><span>${d.toLocaleDateString(undefined, { weekday: 'short', day: '2-digit', month: 'short' })} ${d.toTimeString().slice(0, 8)}</span>`; };
       main.prepend(top); document.body.appendChild(keys); draw(); const iv = setInterval(draw, 1000);
       return () => { clearInterval(iv); top.remove(); keys.remove(); };

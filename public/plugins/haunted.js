@@ -8,7 +8,7 @@ Cadence.registerPlugin({
   icon: '<path d="M6 20V11a6 6 0 0 1 12 0v9l-2-1.5-2 1.5-2-1.5-2 1.5-2-1.5z"/><path d="M10 11h.01M14 11h.01"/>',
   settings(api) {
     const cur = api.storage.get('level') || 'full';
-    api.ui.modal('Haunted backlog', `<p style="color:var(--muted);margin:0 0 12px">How haunted should Cadence be?</p>
+    api.ui.modal('Haunted backlog', `<p style="color:var(--muted);margin:0 0 12px">How haunted should THING be?</p>
       ${[['mild', 'Mild', 'Up to 3 ghosts, slow, very faint'], ['full', 'Full', 'Up to 8 ghosts, speed grows with age'], ['off', 'Exorcised', 'No ghosts (keeps the plugin on)']].map(([k, t, d]) =>
         `<label style="display:flex;gap:10px;align-items:flex-start;padding:8px 0;cursor:pointer"><input type="radio" name="hl" value="${k}" ${k === cur ? 'checked' : ''} style="margin-top:3px"><span><b>${t}</b><br><span style="color:var(--muted);font-size:13px">${d}</span></span></label>`).join('')}`,
       `<button class="btn primary" id="hl-save">Done</button>`);

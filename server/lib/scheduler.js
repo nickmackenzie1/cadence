@@ -12,7 +12,7 @@
    add(name, fn, { label, every, first, heavy, quiet, hours: [from, to], retry })
      every   ms between runs (or a function returning ms); first: ms before the first run (default: every)
      retry   ms before trying again after an error (default: every)
-   touch()   call on every request that means "someone is using Cadence" (app.js, music.js)
+   touch()   call on every request that means "someone is using THING" (app.js, music.js)
    list()    for /api/jobs and /api/radar/jobs
    control(name, { action: 'run' | 'pause' | 'resume' | 'every', every })   the Background work page (user, 2026-11-18:
              "a place where we could view these jobs and control them"). Run now skips the waiting for a quiet moment
@@ -57,7 +57,7 @@ function tick() {
     if (j.paused || j.stopped || j.running || now < j.next) continue;
     if (j.force) { if (j.heavy && heavyNow) { j.waiting = `waits for ${heavyNow.label}`; continue; } run(j); continue; }
     if (j.hours && !inHours(j.hours)) { j.waiting = `waits for ${j.hours[0]}:00–${j.hours[1]}:00`; j.next = now + 5 * 60e3; continue; }
-    if (j.quiet && inUse()) { j.waiting = 'waits while you use Cadence'; continue; }
+    if (j.quiet && inUse()) { j.waiting = 'waits while you use THING'; continue; }
     if (j.heavy && heavyNow) { j.waiting = `waits for ${heavyNow.label}`; continue; }
     run(j);
   }

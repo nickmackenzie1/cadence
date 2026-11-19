@@ -2,7 +2,7 @@
 /* Music Radar on the NAS (Nick's music-radar app, in server/services/radar/). Once you switch it on in Life → Music
    Radar, it reads music communities on Lemmy and Mastodon every 6 hours (plus blogs, charts and radio as "other
    sources") and writes the weekly digest every 7 days. Off by default. Reddit was removed 2026-11-16 at the user's
-   request. Its own data lives in data/radar; optional keys (Last.fm, Spotify, ntfy, and the Anthropic key Cadence
+   request. Its own data lives in data/radar; optional keys (Last.fm, Spotify, ntfy, and the Anthropic key THING
    already uses) come from the NAS .env and never leave the NAS. */
 const fs = require('fs');
 const path = require('path');

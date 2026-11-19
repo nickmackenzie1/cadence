@@ -189,7 +189,7 @@ Cadence.registerPlugin({
       const p = prof(), a = p.answers, home = api.clients.list().find(c => c.name.toLowerCase() === 'home');
       const tasks = api.tasks.list(t => t.gh && !t.done);
       if (!a) {
-        el.innerHTML = `<div class="gh-hero"><div class="gh-house">🏡</div><h2>Let's look after your home</h2><p>A few quick questions about your place, and Cadence sets up every recurring maintenance job: furnace filters, eavestroughs, detector batteries, the water heater, winter tires. Timed for ${DEFAULTS.climate === 'cold' ? 'cold winters like Toronto\'s' : 'your climate'}.</p><button class="btn primary" id="gh-start">Start the 2-minute setup</button></div>`;
+        el.innerHTML = `<div class="gh-hero"><div class="gh-house">🏡</div><h2>Let's look after your home</h2><p>A few quick questions about your place, and THING sets up every recurring maintenance job: furnace filters, eavestroughs, detector batteries, the water heater, winter tires. Timed for ${DEFAULTS.climate === 'cold' ? 'cold winters like Toronto\'s' : 'your climate'}.</p><button class="btn primary" id="gh-start">Start the 2-minute setup</button></div>`;
         el.querySelector('#gh-start').onclick = wizard; return;
       }
       // the year at a glance: which jobs land in which month
@@ -278,7 +278,7 @@ Cadence.registerPlugin({
       const q = prof(), h = q.history || {}, files = q.files || {}, seen = new Set();
       const jobs = tasks.filter(t => t.gh && !seen.has(t.gh) && seen.add(t.gh)).sort((x, y) => x.title.localeCompare(y.title));
       return `<section class="gh-card gh-jobs"><h4>Job history, manuals and photos</h4>${jobs.map(t => { const last = (h[t.gh] || [])[0], fs = files[t.gh] || [];
-        return `<div class="gh-job"><div class="gh-jt"><b>${E(t.title)}</b><span>${last ? `Last done ${E(new Date(last).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' }))}${(h[t.gh] || []).length > 1 ? ` · ${(h[t.gh] || []).length} times` : ''}` : 'Not done in Cadence yet'}</span></div>
+        return `<div class="gh-job"><div class="gh-jt"><b>${E(t.title)}</b><span>${last ? `Last done ${E(new Date(last).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' }))}${(h[t.gh] || []).length > 1 ? ` · ${(h[t.gh] || []).length} times` : ''}` : 'Not done in THING yet'}</span></div>
           <div class="gh-files">${fs.map((f, i) => f.type === 'img' ? `<a href="${E(f.url)}" target="_blank" class="gh-ph" title="${E(f.name)}" style="background-image:url('${E(f.url)}')"><button data-fdel="${E(t.gh)}:${i}" title="Remove">✕</button></a>` : `<span class="gh-ln"><a href="${E(f.url)}" target="_blank" rel="noopener">${E(f.name)}</a><button data-fdel="${E(t.gh)}:${i}" title="Remove">✕</button></span>`).join('')}
           <button class="lk-btn" data-flink="${E(t.gh)}">+ Manual link</button><label class="lk-btn">+ Photo<input type="file" accept="image/*" data-fimg="${E(t.gh)}" hidden></label></div></div>`; }).join('') || '<div class="muted">Run the setup to see your jobs here.</div>'}</section>`;
     }

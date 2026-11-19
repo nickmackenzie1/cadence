@@ -80,7 +80,7 @@
     preview: { bg: '#3a6ea5', panel: '#fff', side: '#d6dff7', text: '#000', accent: '#0a246a', line: '#7f9db9', r: '3px' },
     css: `:skin .main{background:linear-gradient(#5a7edc,#3a6ea5)}
       :skin .wrap{background:#ece9d8;margin:22px auto 40px;padding:48px 26px 48px;position:relative;border:3px solid #0831d9;border-top:0;border-radius:8px 8px 0 0}
-      :skin .wrap::before{${TITLEBAR('linear-gradient(#0997ff,#0053ee 8%,#0050ee 40%,#06f 88%,#06f 93%,#005bff 95%,#003dd7 96%,#003dd7)', 'Cadence', 28)};left:-3px;right:-3px;top:0;border-radius:8px 8px 0 0;font:700 13px Trebuchet MS,Tahoma;text-shadow:1px 1px #0f1089;padding-left:10px}
+      :skin .wrap::before{${TITLEBAR('linear-gradient(#0997ff,#0053ee 8%,#0050ee 40%,#06f 88%,#06f 93%,#005bff 95%,#003dd7 96%,#003dd7)', 'THING', 28)};left:-3px;right:-3px;top:0;border-radius:8px 8px 0 0;font:700 13px Trebuchet MS,Tahoma;text-shadow:1px 1px #0f1089;padding-left:10px}
       :skin .wrap::after{content:'✕';position:absolute;right:4px;top:4px;width:21px;height:21px;border:1px solid #fff;border-radius:3px;background:radial-gradient(circle at 90% 90%,#cc4600,#dc6527 55%,#e1a28a);color:#fff;font:700 12px/19px Tahoma;text-align:center}
       :skin .side{background:linear-gradient(180deg,#5a86d8,#4058c2);color:#fff;--text:#fff;--muted:#eef2ff;--faint:#c8d4f6;--hover:rgba(255,255,255,.15)}
       /* white on the old light blue was too faint (theme check, 2026-11-18); the selected space and the counts were white on white */
@@ -120,7 +120,7 @@
     css: `:skin body{font-size:16px;-webkit-font-smoothing:none}
       :skin .main{background:repeating-conic-gradient(#000 0 25%,#fff 0 50%) 0 0/2px 2px}
       :skin .wrap{background:#fff;border:1px solid #000;box-shadow:2px 2px 0 #000;margin:22px auto 40px;padding-top:44px;position:relative}
-      :skin .wrap::before{content:'Cadence';position:absolute;left:0;right:0;top:0;height:20px;border-bottom:1px solid #000;font:16px ChicagoFLF;text-align:center;line-height:20px;background:linear-gradient(#fff,#fff) center/90px 100% no-repeat,repeating-linear-gradient(#fff 0 2px,#000 2px 3px) 0 3px/100% 14px no-repeat,#fff}
+      :skin .wrap::before{content:'THING';position:absolute;left:0;right:0;top:0;height:20px;border-bottom:1px solid #000;font:16px ChicagoFLF;text-align:center;line-height:20px;background:linear-gradient(#fff,#fff) center/90px 100% no-repeat,repeating-linear-gradient(#fff 0 2px,#000 2px 3px) 0 3px/100% 14px no-repeat,#fff}
       :skin .head h1{font-family:ChicagoFLF;font-weight:400;font-size:28px;letter-spacing:0}
       :skin *{border-radius:0!important} :skin .btn{border-radius:6px!important;border:1px solid #000;background:#fff;color:#000}
       :skin .btn:active{background:#000;color:#fff} :skin .btn.primary{color:#000;box-shadow:0 0 0 1px #fff,0 0 0 3px #000}
@@ -349,7 +349,7 @@
     effects({ layer, level }) {
       let n = 0; try { n = +(localStorage.getItem('cadence.geo.hits') || 1337) + 1; localStorage.setItem('cadence.geo.hits', n); } catch (e) { n = 1338; }
       layer.innerHTML = `<div style="position:absolute;right:14px;bottom:14px;background:#000;color:#0f0;font:700 13px monospace;padding:4px 8px;border:2px inset #c0c0c0">You are visitor #<span style="letter-spacing:2px;background:#111;padding:0 4px">${String(n).padStart(8, '0')}</span></div>
-        <div style="position:absolute;left:0;right:0;bottom:0;height:22px;background:#000080;color:#ffff00;font:700 13px/22px 'Comic Neue';white-space:nowrap;overflow:hidden"><span style="display:inline-block;padding-left:100%;animation:geomq 18s linear infinite">★ Welcome to my Cadence homepage!!! ★ Sign my guestbook ★ Best viewed in Netscape Navigator at 800×600 ★ Don't forget to finish your tasks ★</span></div>
+        <div style="position:absolute;left:0;right:0;bottom:0;height:22px;background:#000080;color:#ffff00;font:700 13px/22px 'Comic Neue';white-space:nowrap;overflow:hidden"><span style="display:inline-block;padding-left:100%;animation:geomq 18s linear infinite">★ Welcome to my THING homepage!!! ★ Sign my guestbook ★ Best viewed in Netscape Navigator at 800×600 ★ Don't forget to finish your tasks ★</span></div>
         <style>@keyframes geomq{to{transform:translateX(-100%)}}@keyframes geosp{to{transform:translateY(26px) scale(0) rotate(180deg);opacity:0}}</style>`;
       // sparkle trail behind the cursor
       const colors = ['#ff00ff', '#ffff00', '#00ffff', '#ff6600', '#fff'];

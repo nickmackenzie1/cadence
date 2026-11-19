@@ -1,7 +1,7 @@
 /* Cadence core — state, storage, parsing, rendering, plugin host.
    Plugins live in plugins/*.js and use window.Cadence.registerPlugin (see docs/PLUGINS.md). */
 /* =========================================================
-   Cadence — a modular to-do app for consultants
+   THING — a modular to-do app for consultants
    Core: state, storage, parsing, rendering, plugin host
    ========================================================= */
 /* Problems: errors in this page are sent to the NAS's Problems log (Settings → Problems), at most once a minute per
@@ -378,7 +378,7 @@
   function localSaveFailed(e) {
     if (localSaveFailed.told) return;
     localSaveFailed.told = true;
-    console.warn('Cadence: local save failed', e);
+    console.warn('THING: local save failed', e);
     setTimeout(() => {
       let nas = false;
       try {
@@ -698,7 +698,7 @@
         });
         addEventListener('online', () => this.push());
       } catch (e) {
-        console.warn('No Cadence server found, using browser storage', e);
+        console.warn('No THING server found, using browser storage', e);
         this.retryServer();
       } finally {
         this.connecting = false;
@@ -1495,7 +1495,7 @@
     const c = client(cid);
     if (!c || !c.domain) return;
     if (!Store.server) {
-      if (!opts.quiet) toast('Company lookup runs on your NAS — open Cadence there to refresh');
+      if (!opts.quiet) toast('Company lookup runs on your NAS — open THING there to refresh');
       return;
     }
     const j = opts.quiet ? null : job('company:' + cid, `Looking up ${c.domain}`, { sub: 'logo, colours, industry, description' });
@@ -2301,7 +2301,7 @@
       } catch (x) {}
     };
     const text = () =>
-      `Cadence ${document.querySelector('meta[name=version]')?.content || ''} · ${navigator.userAgent}\n\n` +
+      `THING ${document.querySelector('meta[name=version]')?.content || ''} · ${navigator.userAgent}\n\n` +
       list.map(e => `${e.at} ${e.route}\n${e.msg}\n${e.stack}`).join('\n\n');
     const copy = () => copyText(text());
     addEventListener('error', e => {
@@ -2382,7 +2382,7 @@
       on: (ev, fn) => Reg.listeners.push({ pid, ev, fn }),
       commands: { add: c => Reg.commands.push({ ...c, pid }) },
       /* more results in ⌘K: api.search.add(async q => [{ title, k?, run() }]). Asked once you've typed two letters (and
-         paused); slow or failing ones are left out. Up to 5 results each, shown after Cadence's own. */
+         paused); slow or failing ones are left out. Up to 5 results each, shown after THING's own. */
       search: { add: fn => Reg.searchers.push({ fn, pid }) },
       views: { add: v => Reg.views.push({ ...v, pid }) },
       db: { snapshot: () => clone(S) },
@@ -2864,7 +2864,7 @@
       paused = cl0.filter(x => x.status === 'paused');
     if (!$('#side-head').firstChild)
       $('#side-head').innerHTML =
-        `<div class="brand"><span class="logo"></span>Cadence<kbd title="Command palette">⌘K</kbd></div><div class="space-sw" role="tablist" aria-label="Space"><i></i><button data-act="space" data-s="work" role="tab">Work</button><button data-act="space" data-s="life" role="tab">Life</button></div>`;
+        `<div class="brand"><span class="logo"></span>THING<kbd title="Command palette">⌘K</kbd></div><div class="space-sw" role="tablist" aria-label="Space"><i></i><button data-act="space" data-s="work" role="tab">Work</button><button data-act="space" data-s="life" role="tab">Life</button></div>`;
     $$('#side-head .space-sw button').forEach(b => {
       b.classList.toggle('on', b.dataset.s === SPACE);
       b.setAttribute('aria-selected', b.dataset.s === SPACE);
@@ -3520,7 +3520,7 @@
     emit('render', { route: r });
   }
   function onboarding() {
-    return `<div class="empty" style="text-align:left;max-width:480px;margin:0 auto"><b style="font-size:18px">Welcome to Cadence 👋</b><p class="muted">Start by adding the clients you work with, separated by commas. Add a website in brackets to pull in their logo.</p>
+    return `<div class="empty" style="text-align:left;max-width:480px;margin:0 auto"><b style="font-size:18px">Welcome to THING 👋</b><p class="muted">Start by adding the clients you work with, separated by commas. Add a website in brackets to pull in their logo.</p>
     <div class="row"><input class="inp" id="ob-clients" placeholder="Acme Corp (acme.com), Northwind, Globex…"><button class="btn primary" data-act="ob-add">Add</button></div>
     <p class="muted" style="margin-top:22px;font-size:13px">Then try typing in the box above:<br><code>Send proposal @acme fri 3pm !1</code> — a task with client, due time, and priority.<br><code>^ Share API credentials @acme tomorrow</code> — an item the <i>client</i> owes you.</p></div>`;
   }
@@ -4202,7 +4202,7 @@
       if (!handled)
         try {
           if ('Notification' in window && Notification.permission === 'granted')
-            new Notification('Cadence', { body: t.title + (c ? ' · ' + c.name : ''), tag: 'rem-' + t.id });
+            new Notification('THING', { body: t.title + (c ? ' · ' + c.name : ''), tag: 'rem-' + t.id });
         } catch (e) {}
       try {
         const a = new (window.AudioContext || window.webkitAudioContext)();
@@ -4218,7 +4218,7 @@
       emit('reminder', clone(t));
     }
     const n = S.tasks.filter(t => !t.done && t.reminded && t.remindAt && now - t.remindAt < 36e5).length;
-    document.title = (counts().over ? `(${counts().over}) ` : '') + 'Cadence';
+    document.title = (counts().over ? `(${counts().over}) ` : '') + 'THING';
   }
 
   /* ---------- toasts ---------- */
@@ -4234,7 +4234,7 @@
   /* Shared from the phone's share menu (user, 2026-11-17). manifest.webmanifest's share_target opens
      ./?share_title=…&share_text=…&share_url=… ; whatever came is put in quick add on Today, ready to check and add with
      Enter (nothing is saved by itself). Links become link cards like a pasted one. Android and desktop Chrome/Edge show
-     Cadence in the share menu once it's installed; iPhone doesn't offer this to web apps. */
+     THING in the share menu once it's installed; iPhone doesn't offer this to web apps. */
   function takeShare() {
     let q;
     try { q = new URLSearchParams(location.search); } catch (e) { return; }
@@ -4960,7 +4960,7 @@
       c ? 'Edit client' : 'Add client',
       `
     <div class="fav-prev"><span id="cl-av"></span><div style="flex:1"><div class="field"><label>Name</label><input class="inp" id="cl-name" value="${esc(draft.name)}" placeholder="Client or project name"></div></div></div>
-    <div class="field"><label>Website</label><div class="row"><input class="inp" id="cl-domain" value="${esc(draft.domain)}" placeholder="acme.com — pulls in their logo, industry & description">${Store.server ? `<button class="btn" id="cl-refresh" title="Fetch logo, industry and description from the website">↻ Fetch details</button>` : ''}</div><span class="suggest" id="cl-guess"></span><div class="muted" id="cl-found" style="font-size:12px;margin-top:6px">${Store.server ? '' : 'Logo, industry and description are fetched automatically when Cadence runs on your NAS.'}</div></div>
+    <div class="field"><label>Website</label><div class="row"><input class="inp" id="cl-domain" value="${esc(draft.domain)}" placeholder="acme.com — pulls in their logo, industry & description">${Store.server ? `<button class="btn" id="cl-refresh" title="Fetch logo, industry and description from the website">↻ Fetch details</button>` : ''}</div><span class="suggest" id="cl-guess"></span><div class="muted" id="cl-found" style="font-size:12px;margin-top:6px">${Store.server ? '' : 'Logo, industry and description are fetched automatically when THING runs on your NAS.'}</div></div>
     <div class="row" style="gap:12px"><div class="field" style="flex:1"><label>Industry</label><select class="inp" id="cl-ind"><option value="">—</option>${Object.entries(
       INDUSTRY
     )
@@ -5106,7 +5106,7 @@
     const cats = [...new Set(base.map(d => d.category || 'Other'))].sort((a, b) => PLUG_CATS.indexOf(a) - PLUG_CATS.indexOf(b));
     if (plugUI.cat !== 'All' && !cats.includes(plugUI.cat)) plugUI.cat = 'All';
     v.innerHTML = `<div class="pb">
-    <div class="pb-hero"><div><h1>Plugins</h1><div class="sub">${on.length} of ${all.length} on in <b>${LIFE() ? 'Life' : 'Work'}</b>. Each space has its own set. Cadence is whatever you make it: switch things on, tune them, or write your own.</div></div>
+    <div class="pb-hero"><div><h1>Plugins</h1><div class="sub">${on.length} of ${all.length} on in <b>${LIFE() ? 'Life' : 'Work'}</b>. Each space has its own set. THING is whatever you make it: switch things on, tune them, or write your own.</div></div>
       <div class="pb-search">${NAV_ICONS.puzzle}<input id="pb-q" placeholder="Search plugins…" value="${esc(plugUI.q)}" autocomplete="off"></div></div>
     <div class="pb-tabs">${tabs.map(([k, l, n]) => `<button class="${plugUI.tab === k ? 'on' : ''}" data-act="pl-tab" data-t="${k}">${l}<span>${n}</span></button>`).join('')}<button class="pb-dev" data-act="set-tab" data-tab="dev">+ Write a plugin</button></div>
     <div class="pl-cats">${['All', ...cats].map(c => `<button class="${c === plugUI.cat ? 'on' : ''}" data-act="pl-cat" data-c="${esc(c)}">${esc(c)}</button>`).join('')}</div>
@@ -5182,7 +5182,7 @@
     const box = $('#conn-list'); if (!box) return;
     let list;
     try { const r = await fetch('api/keys'); if (!r.ok) throw new Error(); list = await r.json(); }
-    catch (e) { box.innerHTML = '<p class="muted">Connections are kept on your NAS. Open Cadence from the NAS to set them up.</p>'; return; }
+    catch (e) { box.innerHTML = '<p class="muted">Connections are kept on your NAS. Open THING from the NAS to set them up.</p>'; return; }
     const row = k => `<div class="conn" data-k="${esc(k.id)}"><div class="conn-h"><b>${esc(k.name)}</b><span class="conn-st ${k.set ? 'on' : ''}">${k.set ? `${icon('check')}Connected${k.tail ? ' · ends in ' + esc(k.tail) : ''}${k.from === 'env' ? ' · from .env' : ''}` : 'Not connected'}</span></div>
       <div class="muted conn-for">${esc(k.for)}</div>
       <div class="row conn-in"><input class="inp" type="password" autocomplete="off" spellcheck="false" placeholder="${k.set ? 'Paste a new key to replace it' : 'Paste the key'}" aria-label="${esc(k.name)} key">
@@ -5218,7 +5218,7 @@
     if (settingsTab === 'general') {
       body += `<div class="field"><label>Your name</label><input class="inp" id="st-name" value="${esc(S.settings.myName)}" placeholder="Used to tell your action items apart in Fireflies notes"></div>
       <div class="field"><label>Default reminder</label><select class="inp" id="st-lead">${[0, 5, 10, 15, 30, 60].map(n => `<option value="${n}" ${S.settings.remindLead == n ? 'selected' : ''}>${n ? n + ' minutes before due time' : 'At due time'}</option>`).join('')}</select></div>
-      <div class="field"><label>Desktop notifications</label><button class="btn" data-act="notif">${'Notification' in window && Notification.permission === 'granted' ? '✓ Enabled' : 'Enable notifications'}</button><div class="muted" style="font-size:12px;margin-top:6px">Reminders always appear in-app with a chime. Keep Cadence open in a tab or pinned window.</div></div>
+      <div class="field"><label>Desktop notifications</label><button class="btn" data-act="notif">${'Notification' in window && Notification.permission === 'granted' ? '✓ Enabled' : 'Enable notifications'}</button><div class="muted" style="font-size:12px;margin-top:6px">Reminders always appear in-app with a chime. Keep THING open in a tab or pinned window.</div></div>
       <div class="field"><label>Theme</label><div class="seg"><button data-act="set-theme" data-v="light" class="${S.settings.theme === 'light' ? 'on' : ''}">Light</button><button data-act="set-theme" data-v="dark" class="${S.settings.theme === 'dark' ? 'on' : ''}">Dark</button></div></div>
       <div class="field"><label>Motion</label><div class="row" style="align-items:center"><select class="inp" id="set-motion" style="width:auto">${[
         ['auto', 'Match system'],
@@ -5258,7 +5258,7 @@
           .join('') || '<div class="muted" style="padding:20px 0;font-size:13px">No plugins match.</div>'
       }</div>`;
     } else if (settingsTab === 'connections') {
-      body += `<p class="muted" style="margin:0 0 12px">Keys for the outside services Cadence can use. Paste one and it's used straight away. Keys are kept on your NAS only: this page can save or remove them but never shows them again. Keys in <code>.env</code> work too; one pasted here takes over.</p><div id="conn-list"><p class="muted">Loading…</p></div>`;
+      body += `<p class="muted" style="margin:0 0 12px">Keys for the outside services THING can use. Paste one and it's used straight away. Keys are kept on your NAS only: this page can save or remove them but never shows them again. Keys in <code>.env</code> work too; one pasted here takes over.</p><div id="conn-list"><p class="muted">Loading…</p></div>`;
     } else if (settingsTab === 'dev') {
       body += `<p class="muted" style="margin:0">Everything beyond the core — Fireflies import, AI extraction, recap emails, Client Pulse — is a plugin built on this API. Write your own:</p>
 <pre class="code">Cadence.registerPlugin({
@@ -5296,7 +5296,7 @@
       <div class="field"><label>Install a plugin from code</label><textarea class="inp" id="dev-code" style="min-height:140px;font-family:var(--mono);font-size:12px" placeholder="Paste a Cadence.registerPlugin({...}) call"></textarea><div class="row" style="margin-top:8px"><button class="btn primary" data-act="dev-install">Install</button></div></div>`;
     } else {
       const oldDone = S.tasks.filter(t => t.done && t.doneAt < Date.now() - 30 * 864e5).length;
-      body += `<div class="field"><label>Storage</label><div class="muted">${Store.status === 'synced' ? (Store.server ? 'Saved on your Cadence server (NAS), with daily backups — shared by every device that opens it.' : 'Synced to your Claude account — available on any device where you open Cadence.') : 'Saved in this browser only.'} ${S.tasks.length} tasks · ${S.clients.length} clients · ${S.meetings.length} meetings.</div></div>
+      body += `<div class="field"><label>Storage</label><div class="muted">${Store.status === 'synced' ? (Store.server ? 'Saved on your THING server (NAS), with daily backups — shared by every device that opens it.' : 'Synced to your Claude account — available on any device where you open Cadence.') : 'Saved in this browser only.'} ${S.tasks.length} tasks · ${S.clients.length} clients · ${S.meetings.length} meetings.</div></div>
       <div class="field"><label>Demo mode</label><div class="row" style="align-items:center">${DEMO ? `<button class="btn" data-act="demo-reset">↺ Reset demo data</button><button class="btn primary" data-act="demo-exit">Exit demo</button>` : `<button class="btn" data-act="demo-open">Open demo in a new tab ↗</button>`}<span class="muted" style="font-size:12px">${DEMO ? 'You’re looking at fake data. Nothing here is saved to your NAS.' : 'Fake clients, tasks, meetings and calendar to play with — your real data isn’t touched.'}</span></div></div>
       <div class="field"><label>Backup</label><div class="row"><button class="btn" data-act="export">Copy backup (JSON)</button><button class="btn" data-act="import-open">Restore from backup…</button></div></div>
       <div class="field"><label>Housekeeping</label><button class="btn" data-act="purge" ${oldDone ? '' : 'disabled'}>Delete ${oldDone} tasks completed 30+ days ago</button></div>`;
@@ -5829,7 +5829,7 @@
       case 'import-run':
         try {
           const d = JSON.parse($('#imp-json').value);
-          if (!Array.isArray(d.tasks)) throw new Error('Not a Cadence backup');
+          if (!Array.isArray(d.tasks)) throw new Error('Not a THING backup');
           S = Object.assign(blank(), d);
           save();
           rebuildPlugins();
@@ -6413,7 +6413,7 @@
     if ($('#upd-bar')) return;
     const b = document.createElement('div');
     b.id = 'upd-bar';
-    b.innerHTML = `<span>✨ Cadence was updated on your NAS</span><button class="btn primary" id="upd-go">Reload</button><button class="upd-x" id="upd-x" title="Later">✕</button>`;
+    b.innerHTML = `<span>✨ THING was updated on your NAS</span><button class="btn primary" id="upd-go">Reload</button><button class="upd-x" id="upd-x" title="Later">✕</button>`;
     document.body.appendChild(b);
     $('#upd-go').onclick = reloadNow;
     $('#upd-x').onclick = () => b.remove();
@@ -6474,7 +6474,7 @@
       })
       .catch(e => {
         // couldn't read it: start this device fresh against the NAS (a full pull), never pushing the empty placeholder
-        console.warn('Cadence: IndexedDB copy unreadable', e);
+        console.warn('THING: IndexedDB copy unreadable', e);
         Sync.st = { init: false, cursor: 0, recs: {}, dirty: {} };
         toast("Couldn't open this browser's saved copy. Your NAS has everything; it's loading from there.");
       })

@@ -2,7 +2,7 @@
    Fire (embers rise, the box glows hot when you type fast), Ice (frost crystals shed from the caret, the box frosts over),
    Typewriter (clacks, a bell and the carriage return on Enter, ink specks), Confetti (a puff per word, a burst on Enter),
    Power (combo counter and a little shake as you get going), and Nib, a sticky-note helper with opinions who pops up
-   with Cadence tips for what you're typing in quick add.
+   with THING tips for what you're typing in quick add.
    One canvas that only runs while particles are alive. Off for password fields; particles off for reduced motion. */
 (() => {
   const MODES = [['off', 'Off'], ['fire', 'Fire'], ['ice', 'Ice'], ['typewriter', 'Typewriter'], ['confetti', 'Confetti'], ['power', 'Power'], ['helper', 'Helper only']];

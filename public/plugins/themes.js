@@ -238,7 +238,7 @@
   };
 
   // the built-in default: Cadence as it was designed (light/dark follow the moon toggle)
-  window.CadenceThemes.register({ id: 'cadence', name: 'Cadence', category: 'Useful', tagline: 'The original. Follows light and dark.',
+  window.CadenceThemes.register({ id: 'cadence', name: 'THING', category: 'Useful', tagline: 'The original. Follows light and dark.',
     preview: { bg: '#f7f6f3', panel: '#fff', side: '#f0eee9', text: '#1d1c1a', accent: '#5b5bd6', line: '#e7e4dd' } });
   /* Theme packs left on the server (2026-11-18, lighter app download): only the pack with each space's current theme
      loads with the app. The rest show in the gallery from a small list the server sends (name, category, colours), and

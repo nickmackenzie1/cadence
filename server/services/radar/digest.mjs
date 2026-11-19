@@ -51,7 +51,7 @@ export async function digest({ offline = false } = {}) {
 <h3>Genres blowing up</h3>${li(genres, (g) => `${esc(g.name)} <small>${pct(g.change)} (${g.thisWeek} posts)</small>`)}
 <h3>New scenes &amp; buzzwords</h3>${li(buzz, (g) => `${esc(g.name)} <small>${pct(g.change)}</small>`)}
 ${d.trackRecord.checked ? `<h3>Track record</h3><p>${d.trackRecord.hits} of ${d.trackRecord.checked} picks from a month+ ago grew 25%+ on Last.fm.</p>` : ""}
-<p><a href="${esc(PUBLIC_URL + "/#view-radar")}">Open Music Radar in Cadence</a></p>`;
+<p><a href="${esc(PUBLIC_URL + "/#view-radar")}">Open Music Radar in THING</a></p>`;
 
   const date = new Date(t * 1000).toISOString().slice(0, 10);
   const file = `${date}.html`;

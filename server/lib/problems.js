@@ -38,7 +38,7 @@ function clear() { for (const f of [FILE, OLD]) try { fs.unlinkSync(f); } catch 
 function startWatch(version) {
   try {
     const b = JSON.parse(fs.readFileSync(BEAT, 'utf8'));
-    if (b) record('stopped', `Cadence stopped unexpectedly, last seen ${b.at} (crash, out of memory, or the container was killed)`, { lastMb: b.mb, lastVersion: b.version, doing: b.doing || null });
+    if (b) record('stopped', `THING stopped unexpectedly, last seen ${b.at} (crash, out of memory, or the container was killed)`, { lastMb: b.mb, lastVersion: b.version, doing: b.doing || null });
   } catch {}
   // a clean stop removes the heartbeat (it never writes on the way out), so one left behind means it didn't stop cleanly
   const beat = () => { try { fs.writeFileSync(BEAT, JSON.stringify({ at: new Date().toISOString(), mb: mem(), version, doing: current() })); } catch {} };

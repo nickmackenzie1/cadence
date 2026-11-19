@@ -1,6 +1,6 @@
 {
-  "name": "Cadence",
-  "short_name": "Cadence",
+  "name": "THING",
+  "short_name": "THING",
   "description": "Tasks, meetings and follow-ups for client work",
   "start_url": "./",
   "display": "standalone",

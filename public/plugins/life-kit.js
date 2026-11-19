@@ -41,7 +41,7 @@
   function choose(api, name, icon) {
     const areas = api.clients.list().filter(c => !c.archived);
     api.ui.ask(`Where should ${name.toLowerCase()} things go?`, [{ k: 'a', label: 'Area', type: 'select', def: 'new', opts: [['new', `A new “${name}” area`], ...areas.map(c => [c.id, c.name]), ['none', 'No area']] }],
-      `Some ${name.toLowerCase()} reminders were just set up. Pick an area for them. Cadence remembers your answer.`).then(v => {
+      `Some ${name.toLowerCase()} reminders were just set up. Pick an area for them. THING remembers your answer.`).then(v => {
       const key = name.toLowerCase(); asking[key] = false; if (!v) return;
       let id = v.a; if (id === 'new') { const c = api.clients.add(name); if (icon) api.clients.update(c.id, { icon }); id = c.id; }
       localStorage.setItem('cadence.areas', JSON.stringify({ ...amap(), [key]: id }));
