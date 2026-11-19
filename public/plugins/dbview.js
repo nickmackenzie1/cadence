@@ -131,7 +131,7 @@
             ${(() => { const size = b => b == null ? '' : b < 1024 * 1024 ? Math.max(1, Math.round(b / 1024)) + ' KB' : (b / 1048576).toFixed(b < 10485760 ? 1 : 0) + ' MB';
               const group = (title, list, pre) => list.length ? `<div class="h">${title}${list.some(t => t.bytes != null) ? ` <span>${size(list.reduce((n, t) => n + (t.bytes || 0), 0))}</span>` : ''}</div>${list.map(t => `<button data-col="sql:${E(t.name)}" class="${'sql:' + t.name === st.col ? 'on' : ''}" title="${t.bytes != null ? E(size(t.bytes)) + ' on disk' : ''}">${E(t.name.replace(pre, ''))}<span>${t.count.toLocaleString()}${t.bytes != null ? ' · ' + size(t.bytes) : ''}</span></button>`).join('')}` : '';
               return group('Music Radar tables', rts.filter(t => t.name.startsWith('radar_')), /^radar_/) + group('KEXP history', rts.filter(t => t.name.startsWith('kexp_')), /^kexp_/); })()}
-            <div class="h">On the NAS</div><div id="dbv-nas" class="muted" style="font-size:12px;padding:0 8px">${sys.mode === 'nas' ? 'Loading…' : 'Open THING on your NAS to see files and backups.'}</div></div>
+            <div class="h">On the NAS</div><div id="dbv-nas" class="muted" style="font-size:12px;padding:0 8px">${sys.mode === 'nas' ? '<div class="skel skel-line"></div><div class="skel skel-line" style="width:70%"></div><div class="skel skel-card"></div>' : 'Open THING on your NAS to see files and backups.'}</div></div>
           <div class="dbv-main">
             ${st.src ? `<div class="dbv-banner">Viewing backup <b style="font-family:var(--mono)">${E(st.src.name)}</b> · read-only · <span class="dbv-diff">now vs then: ${diff}</span><button class="btn" data-back>Back to live</button></div>` : ''}
             <div class="dbv-stats">

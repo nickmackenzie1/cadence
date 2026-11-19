@@ -97,7 +97,9 @@
       const loadTv = async (force) => {
         if (!shows().length) { G.tv = []; return; }
         if (!force && G.tv && Date.now() - G.tvAt < 3 * 3600e3) return;
-        try { G.tv = await getJson('api/daily/tv?ids=' + shows().map(s => s.id).join(',')); G.tvAt = Date.now(); } catch (e) { G.tv = G.tv || []; }
+        const u = 'api/daily/tv?ids=' + shows().map(s => s.id).join(',');
+        if (G.tv === null) { try { const t = localStorage.getItem('cadence.c.' + u); if (t) { G.tv = JSON.parse(t); refresh(); } } catch {} }   // last copy first
+        try { G.tv = await getJson(u); G.tvAt = Date.now(); try { localStorage.setItem('cadence.c.' + u, JSON.stringify(G.tv)); } catch {} } catch (e) { G.tv = G.tv || []; }
         refresh();
       };
       const when = iso => { const d = new Date(iso), t = new Date(), tm = new Date(t); tm.setDate(t.getDate() + 1);
@@ -105,7 +107,7 @@
         return day + ' ' + d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' }); };
       const upcoming = (days = 7) => (G.tv || []).filter(s => s.next && s.next.airstamp && Date.parse(s.next.airstamp) - Date.now() < days * 864e5 && Date.parse(s.next.airstamp) > Date.now() - 3 * 3600e3)
         .sort((a, b) => Date.parse(a.next.airstamp) - Date.parse(b.next.airstamp));
-      const tvList = (days) => { if (G.tv === null) { loadTv(); return '<p class="muted">Loading…</p>'; }
+      const tvList = (days) => { if (G.tv === null) { loadTv(); if (G.tv === null) return '<div class="skel skel-card"></div><div class="skel skel-card"></div>'; }
         if (!shows().length) return '<p class="muted">Add the shows you watch to see when new episodes air.</p>';
         const u = upcoming(days);
         return u.length ? `<ul class="hb-tv">${u.map(s => `<li><b>${E(when(s.next.airstamp))}</b><span>${E(s.name)} · S${s.next.season}E${s.next.number}${s.next.name ? ' “' + E(s.next.name) + '”' : ''}</span><span class="muted">${E(s.network || '')}</span></li>`).join('')}</ul>` : `<p class="muted">Nothing new in the next ${days} days.</p>`; };

@@ -27,12 +27,14 @@
         if (!force && G.d && Date.now() - G.at < 20 * 60e3) return Promise.resolve(G.d);
         if (G.busy) return G.busy;
         const p = place();
-        G.busy = fetch(`api/daily/outdoors?lat=${p.lat}&lon=${p.lon}`).then(r => r.ok ? r.json() : null).then(d => { if (d) { G.d = d; G.at = Date.now(); } return d; }).catch(() => null).finally(() => { G.busy = null; api.ui.refreshWidgets && api.ui.refreshWidgets(); });
+        // this device's last copy for the same place straight away (2026-11-19), the NAS's when it lands
+        if (!G.d) { try { const c = JSON.parse(localStorage.getItem('cadence.c.outdoors') || 'null'); if (c && c.k === `${p.lat},${p.lon}`) G.d = c.d; } catch {} }
+        G.busy = fetch(`api/daily/outdoors?lat=${p.lat}&lon=${p.lon}`).then(r => r.ok ? r.json() : null).then(d => { if (d) { G.d = d; G.at = Date.now(); try { localStorage.setItem('cadence.c.outdoors', JSON.stringify({ k: `${p.lat},${p.lon}`, d })); } catch {} } return d; }).catch(() => null).finally(() => { G.busy = null; api.ui.refreshWidgets && api.ui.refreshWidgets(); });
         return G.busy;
       };
       const visiblePasses = d => (d && d.iss && Array.isArray(d.iss) ? d.iss.filter(x => x.visible && Date.parse(x.end) > Date.now()) : []);
       const lines = d => {
-        if (!d) return '<p class="muted">Loading…</p>';
+        if (!d) return api.ui.skeleton(0) + '<div class="skel skel-line"></div><div class="skel skel-line" style="width:70%"></div>';
         const out = [], a = d.air || {}, au = d.aurora || {}, ip = visiblePasses(d)[0];
         if (a.aqi != null) out.push(['wind', 'Air', `${E(a.aqiLabel)} <span class="muted">(AQI ${a.aqi})</span>`]);
         if (a.uvMax != null) out.push(['sun', 'UV today', `${E(a.uvLabel)} <span class="muted">(max ${a.uvMax})</span>`]);

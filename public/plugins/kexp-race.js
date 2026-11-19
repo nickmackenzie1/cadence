@@ -21,7 +21,9 @@
       const S = { d: null, err: null, mode: api.storage.get('mode') || 'roll', pos: 0, playing: false, raf: 0, last: 0, rec: null, loading: false };
       const load = () => {
         if (S.loading) return; S.loading = true;
-        getJson('api/radio/kexp?view=race').then(d => { S.d = d; S.err = null; if (d.ready && S.pos === 0) S.pos = Math.max(0, d.months.length - 1); }, e => { S.err = e.message; })
+        // this device's last copy draws at once (2026-11-19); the NAS's replaces it
+        const take = d => { S.d = d; S.err = null; if (d.ready && S.pos === 0) S.pos = Math.max(0, d.months.length - 1); };
+        api.cached('api/radio/kexp?view=race', take, { max: 800000 }).catch(e => { if (!S.d) S.err = e.message; })
           .finally(() => { S.loading = false; if (api.ui.currentRoute() === 'view-kexp-years') api.ui.refresh(); });
       };
       const frames = () => (S.d && S.d.ready ? (S.mode === 'all' ? S.d.all : S.d.roll) : []);
@@ -105,7 +107,7 @@
 
       api.views.add({ id: 'kexp-years', site: 'kexp.org', group: 'music', order: 31, title: 'KEXP through the years', icon: '📈', subtitle: 'Who KEXP played most, month by month', wide: true, render: el => {
         if (api.system().mode !== 'nas') { el.innerHTML = '<p class="muted">This chart needs the KEXP history on your NAS.</p>'; return; }
-        if (!S.d && !S.err) { el.innerHTML = '<p class="muted">Loading…</p>'; load(); return; }
+        if (!S.d && !S.err) { load(); if (!S.d) { el.innerHTML = api.ui.skeleton(1) + '<div class="skel" style="height:360px"></div>'; return; } }
         if (S.err && !S.d) { el.innerHTML = `<p class="muted">Couldn't load the chart: ${E(S.err)}. <button class="lnk" id="kr-retry">Try again</button></p>`; el.querySelector('#kr-retry').onclick = () => { S.err = null; load(); }; return; }
         if (!S.d.ready) {
           el.innerHTML = `<div class="kr"><p>Your NAS is counting KEXP's plays month by month (${Math.round((S.d.progress || 0) * 100)}% so far). It works on this while you're not using THING, so check back later.</p></div>`;

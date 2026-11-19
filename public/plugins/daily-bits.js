@@ -14,13 +14,15 @@
       const get = (k, url, ttl = 30 * 60e3) => {
         const c = G[k];
         if (c && (c.busy || Date.now() - c.at < ttl)) return c.v;
-        G[k] = { v: c ? c.v : undefined, at: Date.now(), busy: true };
+        // first ask this session: this device's last copy shows while the NAS answers (2026-11-19)
+        let saved; if (!c) { try { const t = localStorage.getItem('cadence.c.' + url); if (t) saved = JSON.parse(t); } catch {} }
+        G[k] = { v: c ? c.v : saved, at: Date.now(), busy: true };
         fetch(url).then(r => r.ok ? r.json() : Promise.reject(new Error('HTTP ' + r.status)))
-          .then(v => { G[k] = { v, at: Date.now() }; }, () => { G[k] = { v: (c && c.v) || null, at: Date.now() - ttl + 60e3 }; })
+          .then(v => { G[k] = { v, at: Date.now() }; try { const t = JSON.stringify(v); if (t.length < 300000) localStorage.setItem('cadence.c.' + url, t); } catch {} }, () => { G[k] = { v: (c && c.v) || null, at: Date.now() - ttl + 60e3 }; })
           .then(() => { api.ui.refreshWidgets && api.ui.refreshWidgets(); if (api.ui.currentRoute() === 'view-daily') api.ui.refresh(); });
         return G[k].v;
       };
-      const wait = v => v === undefined ? '<p class="muted">Loading…</p>' : v === null ? '<p class="muted">Not available right now.</p>' : '';
+      const wait = v => v === undefined ? '<div class="skel skel-line"></div><div class="skel skel-line" style="width:80%"></div><div class="skel skel-line" style="width:60%"></div>' : v === null ? '<p class="muted">Not available right now.</p>' : '';
       const nas = () => api.system().mode === 'nas';
 
       const otd = (n = 3) => { const v = get('otd', 'api/daily/onthisday', 3 * 3600e3); if (!v) return wait(v);

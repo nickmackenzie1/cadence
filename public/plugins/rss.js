@@ -237,8 +237,18 @@
     setup(api) {
       const E = api.ui.esc;
       const feeds = () => api.storage.get('feeds') || DEFAULT;
+      // a feed this device showed before draws from its saved copy at once (2026-11-19), and the NAS's fresh copy
+      // replaces it a moment later
+      const savedKey = f => 'cadence.c.feed:' + f.url;
       async function load(f, force) {
         const c = G.cache[f.url]; if (c && !force && Date.now() - c.at < 15 * 60 * 1000) return view(f, c.data);
+        if (!c && !force) { let saved = null; try { saved = JSON.parse(localStorage.getItem(savedKey(f)) || 'null'); } catch {}
+          if (saved && saved.items) {
+            G.cache[f.url] = { at: Date.now(), data: saved };
+            setTimeout(() => load(f, false).then(() => { api.ui.refreshWidgets && api.ui.refreshWidgets(); if (api.ui.currentRoute() === 'view-feeds') api.ui.refresh(); }, () => {}), 50);
+            G.cache[f.url].at = 0;   // so that call fetches
+            return view(f, saved);
+          } }
         // the NAS connection is confirmed a moment after startup — give it a few seconds
         for (let i = 0; i < 20 && api.system().mode !== 'nas'; i++) await new Promise(r => setTimeout(r, 250));
         if (api.system().mode !== 'nas') throw new Error('Feeds are fetched by your NAS');
@@ -246,7 +256,9 @@
         const j = await r.json(); if (!r.ok) throw new Error(j.error || 'feed error');
         // prices arrive a few at a time on first load: come back for the rest shortly
         if (f.style === 'records' && j.items.some(it => !it.price) && !G['pr' + f.url]) { G['pr' + f.url] = 1; setTimeout(() => { G['pr' + f.url] = 0; delete G.cache[f.url]; api.ui.refreshWidgets && api.ui.refreshWidgets(); }, 45000); }
-        G.cache[f.url] = { at: Date.now(), data: j }; return view(f, j);
+        G.cache[f.url] = { at: Date.now(), data: j };
+        try { const t = JSON.stringify(j); if (t.length < 250000) localStorage.setItem(savedKey(f), t); } catch {}
+        return view(f, j);
       }
       const recHtml = (it, f, big) => { const p = f.style === 'records' ? split(it.title) : { a: it.title, b: '', d: '' };
         return `<a class="rs-rec" href="${E(it.link)}" target="_blank" rel="noopener" title="${E(it.title)}"><div class="wrap"><div class="vin${f.style === 'records' ? vinStyle(it) : ''}"><div class="lab" style="background-image:url('${E(it.image)}')"></div></div><div class="sl" style="background-image:url('${E(it.image)}')"></div>${f.style === 'records' ? stickers(it, true) : ''}${relBadge(it)}</div><div class="ar">${E(p.a)}</div>${p.b ? `<div class="al">${E(p.b)}</div>` : ''}<div class="dt">${E(f.style === 'records' ? (recMeta(it).grade && recMeta(it).grade.notes) || recMeta(it).pressing || ago(it.date) : p.d || ago(it.date))}</div></a>`; };
@@ -296,7 +308,7 @@
           document.addEventListener('keydown', e => { if (e.key === 'Escape') p.classList.remove('on'); });
           document.addEventListener('pointerdown', e => { if (p.classList.contains('on') && !p.contains(e.target) && !e.target.closest('.rs-row')) p.classList.remove('on'); }, true); }
         const list = f ? [f] : feeds();
-        p.innerHTML = `<div class="hd"><span class="vin spin" style="width:18px;height:18px"><span class="lab"></span></span><b>${E(f ? f.title || 'Feed' : 'All feeds')}</b><button class="x" title="Close">×</button></div><div class="bd"><div class="muted" style="font-size:13px">Loading…</div></div>`;
+        p.innerHTML = `<div class="hd"><span class="vin spin" style="width:18px;height:18px"><span class="lab"></span></span><b>${E(f ? f.title || 'Feed' : 'All feeds')}</b><button class="x" title="Close">×</button></div><div class="bd"><div class="skel skel-line"></div><div class="skel skel-line" style="width:80%"></div><div class="skel skel-line" style="width:65%"></div></div>`;
         p.querySelector('.x').onclick = () => p.classList.remove('on');
         requestAnimationFrame(() => p.classList.add('on'));
         p.querySelector('.bd').innerHTML = (`<div class="row" style="margin:4px 0 2px"><a href="#view-feeds" style="font-size:12px;color:var(--muted)">Open the wall ›</a></div>`) + await timelineHtml(list);
@@ -396,7 +408,7 @@
         const anchor = document.querySelector('#view .glance') || document.querySelector('#view .head'); if (!anchor || document.querySelector('#view .rs-shelf')) return;
         list.slice().reverse().forEach(f => {
           const sh = document.createElement('div'); sh.className = 'rs-shelf';
-          sh.innerHTML = `<div class="rs-shelf-h">${f.style === 'records' ? '<span class="vin spin" style="width:14px;height:14px"><span class="lab"></span></span>' : api.ui.logo(f.url, { size: 14 })}${E(f.title || 'Feed')}<a href="#view-feeds">All ›</a></div><div class="muted" style="font-size:12px;padding:0 4px">Loading…</div>`;
+          sh.innerHTML = `<div class="rs-shelf-h">${f.style === 'records' ? '<span class="vin spin" style="width:14px;height:14px"><span class="lab"></span></span>' : api.ui.logo(f.url, { size: 14 })}${E(f.title || 'Feed')}<a href="#view-feeds">All ›</a></div><div class="skel-row" style="padding:0 4px"><div class="skel skel-card"></div><div class="skel skel-card"></div><div class="skel skel-card"></div></div>`;
           anchor.after(sh);
           load(f).then(d => { sh.lastElementChild.outerHTML = itemsHtml(f, d, 14); }).catch(e => { sh.lastElementChild.textContent = e.message; });
         });
@@ -436,7 +448,7 @@
       api.views.add({ id: 'feeds', title: 'Feeds', icon: '◉', subtitle: 'Your RSS and Atom feeds', render: (el) => {
         const list = feeds();
         const mode = api.storage.get('viewMode') || 'wall';
-        el.innerHTML = `<div class="row" style="justify-content:flex-end;align-items:center;margin:-10px 0 18px"><div class="rs-tabs"><button data-m="wall" class="${mode === 'wall' ? 'on' : ''}">Wall</button><button data-m="timeline" class="${mode === 'timeline' ? 'on' : ''}">Timeline</button></div><button class="btn" id="rs-cfg">Manage feeds</button></div>` + (mode === 'timeline' ? '<div id="rs-tlv" class="muted" style="font-size:13px">Loading…</div>' : list.map(f => `<div class="group" data-f="${f.id}"><div class="group-h">${E(f.title || f.url)}<span class="c"></span></div><div class="muted" style="padding:8px 4px;font-size:13px">Loading…</div></div>`).join('')) + (list.length ? '' : '<div class="empty"><b>No feeds yet</b>Add one with Manage feeds.</div>');
+        el.innerHTML = `<div class="row" style="justify-content:flex-end;align-items:center;margin:-10px 0 18px"><div class="rs-tabs"><button data-m="wall" class="${mode === 'wall' ? 'on' : ''}">Wall</button><button data-m="timeline" class="${mode === 'timeline' ? 'on' : ''}">Timeline</button></div><button class="btn" id="rs-cfg">Manage feeds</button></div>` + (mode === 'timeline' ? '<div id="rs-tlv">' + api.ui.skeleton(4) + '</div>' : list.map(f => `<div class="group" data-f="${f.id}"><div class="group-h">${E(f.title || f.url)}<span class="c"></span></div><div style="padding:8px 4px"><div class="skel skel-line"></div><div class="skel skel-line" style="width:75%"></div></div></div>`).join('')) + (list.length ? '' : '<div class="empty"><b>No feeds yet</b>Add one with Manage feeds.</div>');
         el.querySelector('#rs-cfg').onclick = manage;
         el.querySelectorAll('.rs-tabs button').forEach(b => b.onclick = () => { api.storage.set('viewMode', b.dataset.m); api.ui.refresh(); });
         if (mode === 'timeline') { timelineHtml(list).then(h => { const t = el.querySelector('#rs-tlv'); if (t) { t.className = ''; t.innerHTML = h; markSeen(); } }); return; }

@@ -136,11 +136,13 @@
       const prLoad = async () => {
         // background jobs on the NAS (server/lib/scheduler.js): the app's and the music side's
         const jobs = async u => { try { const r = await fetch(u); return r.ok ? await r.json() : []; } catch (e) { return []; } };
-        PR.jobs = [...await jobs('api/jobs'), ...await jobs('api/radar/jobs')];
-        try { PR.d = await (await fetch('api/problems')).json(); } catch (e) { PR.d = { error: e.message }; } PR.at = Date.now(); if (api.ui.currentRoute() === 'view-problems') api.ui.refresh(); };
+        // both at once, and the Problems list from this device's last copy first (2026-11-19)
+        const log = api.cached('api/problems', v => { PR.d = v; });   // hands over the saved copy before anything waits
+        const [j1, j2] = await Promise.all([jobs('api/jobs'), jobs('api/radar/jobs')]); PR.jobs = [...j1, ...j2];
+        try { await log; } catch (e) { PR.d = PR.d && !PR.d.error ? PR.d : { error: e.message }; } PR.at = Date.now(); if (api.ui.currentRoute() === 'view-problems') api.ui.refresh(); };
       api.views.add({ id: 'problems', title: 'Problems', icon: '🩺', subtitle: 'Errors, freezes and slow spots on the NAS and in this browser', render: el => {
         if (api.system().mode !== 'nas') { el.innerHTML = '<p class="muted">The Problems log lives on the NAS.</p>'; return; }
-        if (!PR.d || Date.now() - PR.at > 15e3) { prLoad(); if (!PR.d) { el.innerHTML = '<p class="muted">Loading…</p>'; return; } }
+        if (!PR.d || Date.now() - PR.at > 15e3) { prLoad(); if (!PR.d) { el.innerHTML = api.ui.skeleton(5, 'Loading the log'); return; } }
         if (PR.d.error) { el.innerHTML = `<p class="muted">Couldn't read the log: ${api.ui.esc(PR.d.error)}</p>`; return; }
         const E = api.ui.esc, list = PR.d, f = PR.f || 'all';
         const shown = list.filter(x => f === 'all' || (f === 'serious' ? ['error', 'failed', 'stopped', 'stuck', 'browser'].includes(x.kind) : x.kind === f));

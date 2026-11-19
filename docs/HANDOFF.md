@@ -347,3 +347,8 @@ checking the code.
   public/vendor/fonts (Inter and JetBrains Mono variable, latin + latin-ext; Bangers and Luckiest Guy for Momentum),
   @font-face at the top of core.css, licences beside them, served with a one-year immutable cache. No Google Fonts
   request anywhere now. (9) 💿 maps to Lucide disc-3.
+- **Done (2026-11-19, review item 3):** the last eight "Loading…" pages draw at once: Said the Gramophone and Want to
+  hear (artist.js), Problems (status.js; its two job lists are fetched together now), Background work (jobs.js),
+  Outside (outdoors.js, per place), Daily bits (each card), Home bits TV, Database (dbview.js), KEXP through the years
+  (kexp-race.js) and every RSS feed (rss.js: the last copy of each feed, then the NAS's). Saved copies are
+  `cadence.c.*` in localStorage; `window.CadenceCached` is `api.cached` for code outside setup().

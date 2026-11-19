@@ -2356,6 +2356,7 @@
       return JSON.parse(text);
     }).catch(e => { if (had) return JSON.parse(had); throw e; });
   }
+  window.CadenceCached = cachedGet;   // the same, for plugin code outside setup()
   function makeApi(pid) {
     return Object.freeze({
       pluginId: pid,

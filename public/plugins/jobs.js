@@ -13,8 +13,11 @@
       const G = { list: null, at: 0, open: {}, busy: {}, err: null, timer: 0 };
       const url = j => (j.where === 'music' ? 'api/radar/jobs/' : 'api/jobs/') + encodeURIComponent(j.name);
       const getJ = async u => { try { const r = await fetch(u); return r.ok ? await r.json() : []; } catch { return []; } };
+      // the list from this device's last copy straight away (2026-11-19), the NAS's when both answer
+      try { const a = JSON.parse(localStorage.getItem('cadence.c.jobs') || 'null'); if (Array.isArray(a)) G.list = a; } catch {}
       const load = async () => {
         const [a, m] = await Promise.all([getJ('api/jobs'), getJ('api/radar/jobs')]);
+        try { const t = JSON.stringify([...a, ...m]); if (t.length < 400000) localStorage.setItem('cadence.c.jobs', t); } catch {}
         G.list = [...a, ...m]; G.at = Date.now();
         if (api.ui.currentRoute() === 'view-jobs') draw();
       };
@@ -62,7 +65,7 @@
       let root = null;
       function draw() {
         if (!root || !root.isConnected) return;
-        if (!G.list) { root.innerHTML = '<p class="muted">Loading…</p>'; return; }
+        if (!G.list) { root.innerHTML = api.ui.skeleton(6, 'Loading the jobs'); return; }
         const list = G.list.slice();
         const paused = list.filter(j => j.state === 'paused').length, live = list.filter(j => j.state !== 'paused' && j.state !== 'finished').length;
         const n = s => list.filter(j => j.state === s).length;

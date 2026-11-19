@@ -13,7 +13,8 @@
   const P = () => window.CadencePodcasts;
   const PV = { queue: [], want: null, wantAt: 0, toast: m => {} };
   const key = (a, t) => (String(a) + '|' + (t || '')).toLowerCase();
-  const wantList = async (force) => { if (!force && PV.want && Date.now() - PV.wantAt < 30e3) return PV.want; try { PV.want = await (await fetch('api/radar/want')).json(); PV.wantAt = Date.now(); } catch (e) { PV.want = PV.want || []; } return PV.want; };
+  const wantList = async (force) => { if (!force && PV.want && Date.now() - PV.wantAt < 30e3) return PV.want;
+    try { PV.want = await window.CadenceCached('api/radar/want', v => { PV.want = v; }); PV.wantAt = Date.now(); } catch (e) { PV.want = PV.want || []; } return PV.want; };
   const wantPost = async body => { PV.want = await (await fetch('api/radar/want', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })).json(); PV.wantAt = Date.now(); window.dispatchEvent(new Event('cadence-want')); return PV.want; };
   const playOne = async (artist, title) => {
     const p = P(); if (!p) return;
@@ -259,12 +260,17 @@
       const msT1 = setTimeout(noteMusic, 35000), msT2 = setInterval(noteMusic, 60 * 60e3);
       // Said the Gramophone: Sean's 100 favourite songs and favourite albums of every year since 2005, read from the blog
       const SG = { d: null, year: null, tab: 'artists', at: 0 };
-      const sgLoad = async (year) => { try { SG.d = await (await fetch('api/radar/stg' + (year ? '?year=' + year : ''))).json(); SG.at = Date.now(); } catch (e) { SG.d = SG.d || { err: true }; }
-        if (api.ui.currentRoute() === 'view-stg') api.ui.refresh();
+      // the last copy on this device first (2026-11-19), then the NAS's
+      const sgLoad = async (year) => { let sync = true, changed = false;
+        const job = api.cached('api/radar/stg' + (year ? '?year=' + year : ''), v => { SG.d = v; SG.at = Date.now(); if (!sync) changed = true; });
+        sync = false;
+        try { await job; } catch (e) { SG.d = SG.d || { err: true }; changed = true; }
+        if (changed && api.ui.currentRoute() === 'view-stg') api.ui.refresh();
         if (SG.d && SG.d.status && SG.d.status.running) setTimeout(() => api.ui.currentRoute() === 'view-stg' && sgLoad(SG.year), 8000); };
       api.views.add({ id: 'stg', group: 'music', order: 50, site: 'saidthegramophone.com', title: 'Said the Gramophone', icon: '🎼', subtitle: 'Best songs and albums of every year, from the blog', render: el => {
+        if (!SG.d || Date.now() - SG.at > 60e3) sgLoad(SG.year);
         const d = SG.d;
-        if (!d || Date.now() - SG.at > 60e3) { sgLoad(SG.year); if (!d) { el.innerHTML = '<p class="muted">Loading…</p>'; return; } }
+        if (!d) { el.innerHTML = api.ui.skeleton(4); return; }
         if (d.err) { el.innerHTML = '<p class="muted">The NAS didn\'t answer. Try again in a moment.</p>'; return; }
         const st = d.status, errs = Object.entries(st.errors || {});
         const head = `<p class="muted">${st.years.length ? `${st.years.length} years, ${st.songs.toLocaleString()} songs and ${st.albums} albums of the year` : 'Nothing read yet'}${st.running ? ' · reading the archive now, a page every few seconds…' : ''}
@@ -471,7 +477,7 @@
 
       api.views.add({ id: 'want', group: 'music', order: 40, title: 'Want to hear', icon: '🎧', subtitle: 'Music you saved to listen to', render: el => {
         const list = PV.want;
-        if (!list) { el.innerHTML = '<p class="muted">Loading…</p>'; wantList(true).then(() => api.ui.refresh()); return; }
+        if (!list) { el.innerHTML = api.ui.skeleton(4); wantList(true).then(() => api.ui.refresh()); return; }
         el.innerHTML = `<div class="wh">${list.length ? `<button class="btn primary" id="wh-all">${api.ui.icon('play')}Play all previews</button>
           <ul class="wh-l">${list.map(x => `<li>${window.CadencePreview.buttons(x.artist, x.title, x.type, x.from)}<div><span><a class="ar-link" href="#view-artist" data-artist="${E(x.artist)}"><b>${E(x.artist)}</b></a>${x.title ? ' — ' + E(x.title) : ''}${DG.chip(x.artist, x.title)}</span>
             <span class="muted">${x.from ? 'from ' + E(x.from) + ' · ' : ''}saved ${new Date(x.at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</span></div>
