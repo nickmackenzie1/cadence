@@ -317,3 +317,14 @@ checking the code.
   synthesised with Web Audio (no sound file); goals against only change the score. No horn in a meeting or when the
   tab is hidden. One note at the final. Remembered per game, so reloading doesn't sound the horn again. Team names
   only, no logos. Pick any of the 32 teams.
+- **Built (2026-11-19): pages draw at once** (user: "we need to start gradually loading or loading on demand, show
+  something at least"). New core helper `api.cached(url, onData, {max})`: hands over this device's last copy of a NAS
+  answer straight away (synchronously, so the same render draws it; localStorage `cadence.c.<url>`, up to 1 MB each),
+  then the fresh answer when it lands, only if it changed. `api.ui.skeleton(cards, label)` draws placeholder outlines
+  (`.skel` in core.css, a gentle breathe, still with reduced motion). Music Radar: its six pieces each draw as they
+  land instead of waiting for the slowest (status, data, community, releases, called-it, home), and a revisit
+  refreshes quietly after a minute. Radio: the station list and KEXP history come from the saved copy first; the NAS
+  answers `/api/radio/stations` without waiting on Radio Browser (300 ms budget instead of 2.5 s, and a failed
+  look-up is remembered 10 minutes instead of being retried on every visit; the page already asks again for stations
+  still "looking up"). KEXP history pages: first visit in a session shows the saved copy for each view. Use
+  `api.cached` for any new page that reads the NAS on open.

@@ -170,18 +170,24 @@
       window.addEventListener('cadence-radar-reload', () => load());
       const get = async u => { const r = await fetch(u, { cache: 'no-store' }); if (!r.ok) throw new Error(r.status); return r.json(); };
       const post = async (u, b) => { const r = await fetch(u, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(b || {}) }); return r.json(); };
-      async function load() {
+      // each piece draws when it lands (2026-11-19); this device's last copy draws first, so the page is never blank
+      let redrawQ = 0;
+      const redraw = () => { if (redrawQ) return; redrawQ = requestAnimationFrame(() => { redrawQ = 0; if (api.ui.currentRoute() === 'view-radar') api.ui.refresh(); }); };
+      const PIECES = [['st', 'api/radar/status'], ['d', 'api/radar/data'], ['comm', 'api/radar/community'], ['rel', 'api/radar/releases'], ['called', 'api/radar/calledit'], ['home', 'api/radar/home']];
+      async function load({ quiet = false } = {}) {
         if (api.system().mode !== 'nas') return;
-        try { [G.st, G.d, G.comm, G.rel, G.called, G.home] = await Promise.all([get('api/radar/status'), get('api/radar/data'), get('api/radar/community').catch(() => G.comm || null), get('api/radar/releases').catch(() => null), get('api/radar/calledit').catch(() => null), get('api/radar/home').catch(() => null)]); } catch (e) { G.err = e.message; }
-        if (api.ui.currentRoute() === 'view-radar') api.ui.refresh();
+        G.loadedAt = Date.now();
+        await Promise.all(PIECES.map(([k, u]) => api.cached(u, (v, info) => { G[k] = v; if (!(quiet && info.stale)) redraw(); }).catch(() => { if (k === 'd' && !G.d) { G.err = true; redraw(); } })));
         clearTimeout(G.poll); if (G.st && G.st.job) G.poll = setTimeout(load, 3000);   // a scan is running: check back
       }
       window.__radar = { load, get G() { return G; } };
 
       api.views.add({ id: 'radar', group: 'music', order: 10, title: 'Music Radar', icon: '📡', subtitle: 'Up-and-coming music before it breaks', wide: true, render: el => {
         if (api.system().mode !== 'nas') { el.innerHTML = empty('Music Radar runs on your NAS. Open THING from the NAS to use it.'); return; }
-        if (!G.d || !G.st) { el.innerHTML = empty('Loading…'); load(); return; }
-        const D = G.d, S = G.st, ic = n => api.ui.icon(n);
+        // the last copy on this device fills G straight away (quiet: this render draws it); fresh pieces redraw as they land
+        if (!G.loadedAt || Date.now() - G.loadedAt > 60e3) load({ quiet: true });
+        if (!G.d) { el.innerHTML = G.err ? empty("Couldn't reach Music Radar on the NAS just now. It'll try again when you come back.") : `<div class="mr">${api.ui.skeleton(4, 'Loading Music Radar')}</div>`; return; }
+        const D = G.d, S = G.st || { keys: {}, on: false }, ic = n => api.ui.icon(n);
         const hot = D.genres.find(g => g.change != null && g.change > 0) || D.genres[0];
         learnSites(D.sources);
         const risers = D.rise.risers.filter(r => r.delta > 0).slice(0, 10);

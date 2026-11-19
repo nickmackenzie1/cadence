@@ -20,12 +20,18 @@
       let stations = null, results = null, searching = false, error = null, nowTimer = 0, hist = null, stTimer = 0;
       const mine = () => api.storage.get('mine') || [];
       const setMine = list => api.storage.set('mine', list);
-      const load = async () => {
-        const [st, h] = await Promise.allSettled([getJson('api/radio/stations'), getJson('api/radio/kexp-history')]);
-        if (st.status === 'fulfilled') { stations = st.value; error = null; } else { error = st.reason.message; stations = stations || []; }
-        hist = h.status === 'fulfilled' ? h.value : null; refresh();
+      // this device's last copy draws at once (2026-11-19); the NAS's answer redraws only if it changed
+      let loadedAt = 0;
+      const load = async ({ quiet = false } = {}) => {
+        loadedAt = Date.now();
+        const draw = info => { if (!(quiet && info.stale)) refresh(); };
+        const [st] = await Promise.allSettled([
+          api.cached('api/radio/stations', (v, info) => { stations = v; error = null; draw(info); }),
+          api.cached('api/radio/kexp-history', (v, info) => { hist = v; draw(info); }).catch(() => { hist = hist || null; }),
+        ]);
+        if (st.status === 'rejected' && !stations) { error = st.reason.message; stations = []; refresh(); }
         // stations the NAS is still looking up: ask again shortly (it keeps searching in the background)
-        clearTimeout(stTimer); if (stations.some(s => s.pending)) stTimer = setTimeout(load, 4000); };
+        clearTimeout(stTimer); if ((stations || []).some(s => s.pending)) stTimer = setTimeout(load, 3000); };
       const day = iso => new Date(iso).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
       const refresh = () => { if (api.ui.currentRoute() === 'view-radio') api.ui.refresh(); };
 
@@ -86,7 +92,8 @@
       };
 
       api.views.add({ id: 'radio', group: 'music', order: 20, title: 'Radio', icon: '📻', subtitle: 'Indie, college and community stations', wide: true, render: el => {
-        if (!stations) { el.innerHTML = `<div class="rd"><p class="muted">Tuning the dial…</p></div>`; load(); return; }
+        if (!loadedAt || Date.now() - loadedAt > 60e3) load({ quiet: true });
+        if (!stations) { el.innerHTML = `<div class="rd">${api.ui.skeleton(5, 'Tuning the dial')}</div>`; return; }
         const c = P.current, live = c && c.live ? c : null, n = live && live.now && !live.now.airbreak ? live.now : null;
         const my = mine();
         el.innerHTML = `<div class="rd">
@@ -176,9 +183,13 @@
           return had;
         }
         if (K.cache[key] !== undefined) return K.cache[key];
+        // first time this session: this device's last copy (if any) shows straight away, the fresh one replaces it
         K.cache[key] = null;
-        getJson('api/radio/kexp?' + qs).then(v => { K.cache[key] = v; }, e => { K.cache[key] = { error: e.message }; }).then(() => { if (api.ui.currentRoute() === 'view-kexp-history') api.ui.refresh(); });
-        return null;
+        let sync = true;
+        api.cached('api/radio/kexp?' + qs, v => { K.cache[key] = v; if (!sync && api.ui.currentRoute() === 'view-kexp-history') api.ui.refresh(); }, { max: 400000 })
+          .catch(e => { if (!K.cache[key]) { K.cache[key] = { error: e.message }; if (api.ui.currentRoute() === 'view-kexp-history') api.ui.refresh(); } });
+        sync = false;
+        return K.cache[key];
       };
       const when = iso => { const d = new Date(iso); return d.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short', year: d.getFullYear() === new Date().getFullYear() ? undefined : 'numeric' }) + ', ' + d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' }); };
       const ago = iso => { const days = Math.floor((Date.now() - Date.parse(iso)) / 864e5); return days < 1 ? 'today' : days < 2 ? 'yesterday' : days < 60 ? days + ' days ago' : new Date(iso).toLocaleDateString(undefined, { month: 'short', year: 'numeric' }); };
@@ -208,7 +219,7 @@
           ${p.comment ? `<details class="kx-c"><summary>DJ comment</summary><p>${E(p.comment)}</p></details>` : ''}</div>
         ${inArchive(p.at) ? `<button class="pc-ib" data-kx-arch="${E(p.at)}" data-title="${E((p.artist ? p.artist + ' – ' : '') + (p.song || ''))}" data-show="${E(p.show ? p.show.program : 'KEXP')}" aria-label="Listen from here, in KEXP's archive" title="Listen from here (KEXP keeps two weeks)">${api.ui.icon('headphones')}</button>` : ''}
         ${hl ? '' : `<button class="pc-ib" data-k="around" data-id="${p.id}" aria-label="Songs around this play" title="Songs around this play">${api.ui.icon('list-music')}</button>`}</li>`;
-      const list = (rows, fn, empty) => !rows ? '<p class="muted">Loading…</p>' : rows.error ? `<p class="pc-note">${api.ui.icon('refresh-cw')}${E(rows.error)}</p>` : rows.length ? `<ul class="kx-list">${rows.map(fn).join('')}</ul>` : `<p class="muted">${empty}</p>`;
+      const list = (rows, fn, empty) => !rows ? api.ui.skeleton(3, 'Loading') : rows.error ? `<p class="pc-note">${api.ui.icon('refresh-cw')}${E(rows.error)}</p>` : rows.length ? `<ul class="kx-list">${rows.map(fn).join('')}</ul>` : `<p class="muted">${empty}</p>`;
       const chips = (name, cur, opts) => `<div class="kx-chips" role="tablist">${opts.map(([v, l]) => `<button class="kx-chip${cur === v ? ' on' : ''}" data-k="${name}" data-v="${v}" role="tab" aria-selected="${cur === v}">${l}</button>`).join('')}</div>`;
       const bars = months => { const max = Math.max(1, ...months.map(m => m.plays)); return `<div class="kx-bars" aria-label="Plays per month">${months.map(m => `<span title="${E(m.month)}: ${m.plays}" style="height:${Math.max(4, Math.round(m.plays / max * 100))}%"></span>`).join('')}</div>`; };
 
@@ -334,7 +345,7 @@
       api.views.add({ id: 'kexp-history', site: 'kexp.org', group: 'music', order: 30, title: 'KEXP history', icon: '🎼', subtitle: 'Every song KEXP plays, kept on your NAS', wide: true, render: el => {
         if (K.away) { K.away = false; for (const k of Object.keys(K.cache)) if (!K.cache[k] || K.cache[k].error) delete K.cache[k]; K.stale = new Set(Object.keys(K.cache));
           if (hist) getJson('api/radio/kexp-history').then(h => { hist = h; }, () => {}); }
-        if (!hist) { el.innerHTML = '<div class="rd"><p class="muted">Loading…</p></div>'; getJson('api/radio/kexp-history').then(h => { hist = h; }, () => { hist = { on: false }; }).then(() => api.ui.refresh()); return; }
+        if (!hist) { el.innerHTML = `<div class="rd">${api.ui.skeleton(4)}</div>`; getJson('api/radio/kexp-history').then(h => { hist = h; }, () => { hist = { on: false }; }).then(() => api.ui.refresh()); return; }
         let body;
         if (!hist.on) body = `<p class="muted">Saving KEXP's playlist is turned off on your NAS (KEXP_LOG=0 in .env).</p>`;
         else if (!hist.plays) body = `<p class="muted">Your NAS starts saving KEXP's playlist a few seconds after it starts. Check back in a few minutes.</p>`;

@@ -10,7 +10,7 @@ const { safeFetch, guardedLookup, assertPublic } = require('../lib/net');
 const DATA = process.env.DATA_DIR || path.join(__dirname, '..', '..', 'data');
 const CACHE_FILE = path.join(DATA, 'radio-cache.json');
 const RB = ['https://de1.api.radio-browser.info', 'https://nl1.api.radio-browser.info', 'https://at1.api.radio-browser.info', 'https://de2.api.radio-browser.info'];
-const WEEK = 7 * 864e5, DAY = 864e5, BUDGET = +process.env.RADIO_LOOKUP_MS || 2500;
+const WEEK = 7 * 864e5, DAY = 864e5, BUDGET = process.env.RADIO_LOOKUP_MS != null ? +process.env.RADIO_LOOKUP_MS : 300;
 
 // Indie, college and community stations. `url` when the station publishes one; otherwise `find` is searched in Radio Browser.
 const PRESETS = [
@@ -74,12 +74,17 @@ function lookup(p) {
   return job;
 }
 // the stream for a preset: its own address, else what we know (refreshed in the background when it's old), else a
-// fresh lookup that gets BUDGET ms before the page is shown without it (it keeps going and is ready next time)
+// fresh lookup that gets BUDGET ms (300) before the list goes out without it: the page shows the station as "looking"
+// and asks again a few seconds later. A lookup that failed (directory unreachable) is remembered 10 minutes, so it
+// doesn't hold up every visit.
+const failed = new Map();
 async function resolve(p) {
   if (p.url) return { url: p.url };
   const c = cache[p.id], age = c ? Date.now() - c.at : Infinity;
   if (c && age < (c.miss ? DAY : WEEK)) return c;
-  const job = lookup(p).catch(e => { if (c) return c; throw e; });   // directory down: last known address beats nothing
+  const f = failed.get(p.id);
+  if (!c && f && Date.now() - f < 10 * 60e3) return { url: null, pending: false, failed: true };
+  const job = lookup(p).catch(e => { failed.set(p.id, Date.now()); if (c) return c; throw e; });   // directory down: last known address beats nothing
   if (c) { job.catch(() => {}); return c; }
   const timeout = new Promise(r => setTimeout(() => r({ url: null, pending: true }), BUDGET).unref());
   return Promise.race([job, timeout]);

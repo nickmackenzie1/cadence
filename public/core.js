@@ -2337,6 +2337,24 @@
         }
       }
   }
+  // Show something at once (2026-11-19): the last copy of a NAS answer saved on this device is handed over straight
+  // away (synchronously, so a view can draw it in the same render), then the fresh one when it arrives, only if it
+  // changed. Kept in localStorage per address, up to `max` characters (1 MB); errors are quiet when there's a copy.
+  function cachedGet(url, onData, o = {}) {
+    const key = 'cadence.c.' + url;
+    let had = null;
+    try { had = localStorage.getItem(key); } catch {}
+    if (had) { try { onData(JSON.parse(had), { stale: true }); } catch {} }
+    return fetch(url, { cache: 'no-store' }).then(async r => {
+      if (!r.ok) throw new Error(String(r.status));
+      const text = await r.text();
+      if (text !== had) {
+        try { if (text.length <= (o.max || 1e6)) localStorage.setItem(key, text); else localStorage.removeItem(key); } catch {}
+        onData(JSON.parse(text), { stale: false });
+      }
+      return JSON.parse(text);
+    }).catch(e => { if (had) return JSON.parse(had); throw e; });
+  }
   function makeApi(pid) {
     return Object.freeze({
       pluginId: pid,
@@ -2538,9 +2556,13 @@
         modal: openModalHTML,
         close: closeModal,
         currentRoute: () => route(),
+        // placeholder outlines for a page or section that's on its way: a title line, then `cards` cards
+        skeleton: (cards = 3, label = 'Loading') =>
+          `<div class="skel-wrap" role="status" aria-label="${esc(label)}"><div class="skel skel-line" style="width:38%"></div><div class="skel skel-line" style="width:62%"></div>${'<div class="skel skel-card"></div>'.repeat(Math.max(0, cards))}</div>`,
         empty: (title, sub, ic, sm) =>
           `<div class="empty${sm ? ' sm' : ''}">${ic ? `<div class="big">${ic}</div>` : ''}<b>${esc(title)}</b>${sub ? esc(sub) : ''}</div>`
       },
+      cached: (url, onData, o) => cachedGet(url, onData, o),
       storage: {
         get: k => (S.pluginData[pid] || {})[k],
         set: (k, v) => {

@@ -49,6 +49,8 @@ interface CadenceApiWidgets {
   render(key: string, el: HTMLElement, ctx?: any): boolean;
 }
 interface CadenceApiUi {
+  /** placeholder outlines (a title line and `cards` cards) while a page or section is on its way */
+  skeleton(cards?: number, label?: string): string;
   icon(name: string, ...a: any[]): CadenceHtml;
   reducedMotion(): boolean;
   toast(msg: string, actions?: any[], opts?: any): any;
@@ -113,6 +115,9 @@ interface CadenceApi {
   system(): CadenceApiSystem;
   ui: CadenceApiUi;
   storage: { get(key: string): any; set(key: string, value: any): void };
+  /** GET a NAS address, showing this device's last copy first: onData(copy, {stale:true}) right away (synchronously),
+   *  then onData(fresh, {stale:false}) when it arrives and differs. Resolves with the fresh answer (or the copy on error). */
+  cached(url: string, onData: (v: any, info: { stale: boolean }) => any, o?: { max?: number }): Promise<any>;
   readonly ai: any;
   settings(): any;
   util: CadenceApiUtil;
