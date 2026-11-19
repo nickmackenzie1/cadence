@@ -108,7 +108,7 @@ function jsFor(b, { skip = [], only = null } = {}) {
   hit = { js, gz: null, br: null, etag: `"${b.hash}-${crypto.createHash('sha1').update(key).digest('hex').slice(0, 8)}"` };
   const h = hit;
   h.gzP = new Promise(r => zlib.gzip(js, { level: 6 }, (e, out) => { h.gz = e ? null : out; r(h.gz); }));
-  h.gzP.then(() => brotli(js)).then(out => { if (out) h.br = out; });
+  h.brP = h.gzP.then(() => brotli(js)).then(out => { if (out) h.br = out; return out; });
   if (b.out.size > 40) b.out.clear();
   b.out.set(key, hit);
   return hit;
@@ -140,11 +140,34 @@ function page(html, url) {
   return text.replace(BLOCK, () => `<script>window.__cadenceBundle=${boot};\n${CHOOSER}</script>`);
 }
 
+// Ready before the first request (2026-11-19): the combinations this NAS's browsers asked for are remembered
+// (data/bundle-combos.json, the last 8), and compressed again as soon as the server starts, so the first visit after a
+// release gets Brotli instead of waiting for it.
+const COMBOS = () => path.join(process.env.DATA_DIR || path.join(__dirname, '..', '..', 'data'), 'bundle-combos.json');
+let combos = null, combosT = 0;
+function readCombos() { if (combos) return combos; try { combos = JSON.parse(fs.readFileSync(COMBOS(), 'utf8')).filter(x => typeof x === 'string').slice(0, 8); } catch { combos = []; } return combos; }
+function noteCombo(skip) {
+  const k = skip.join(','), c = readCombos();
+  if (c[0] === k) return;
+  combos = [k, ...c.filter(x => x !== k)].slice(0, 8);
+  clearTimeout(combosT); combosT = setTimeout(() => { try { fs.writeFileSync(COMBOS(), JSON.stringify(combos)); } catch {} }, 2000); combosT.unref && combosT.unref();
+}
+function warm() {
+  try {
+    const html = fs.readFileSync(path.join(PUBLIC_DIR, 'index.html'), 'utf8'), srcs = srcsOf(html);
+    if (!srcs || !srcs.length) return 0;
+    const b = build(srcs), list = readCombos().length ? readCombos() : [''];
+    for (const k of list) jsFor(b, { skip: k ? k.split(',') : [] });
+    return list.length;
+  } catch { return 0; }
+}
+
 // GET bundle.js[?skip=a,b | ?only=a] — immutable when asked for by the current hash, otherwise revalidate
 async function serve(req, res, url) {
   let html; try { html = fs.readFileSync(path.join(PUBLIC_DIR, 'index.html'), 'utf8'); } catch (e) { res.writeHead(404); return res.end(); }
   const b = build(srcsOf(html) || []), list = k => (url.searchParams.get(k) || '').split(',').filter(Boolean);
   const out = jsFor(b, url.searchParams.has('only') ? { only: list('only') } : { skip: list('skip') });
+  if (!url.searchParams.has('only')) noteCombo(list('skip'));
   const head = { 'Content-Type': 'text/javascript; charset=utf-8', ETag: out.etag, Vary: 'Accept-Encoding', 'X-Content-Type-Options': 'nosniff',
     'Cache-Control': url.searchParams.get('v') === b.hash ? 'private, max-age=31536000, immutable' : 'no-cache' };
   const inm = req.headers['if-none-match'] || '';
@@ -156,4 +179,4 @@ async function serve(req, res, url) {
   res.end(gz || out.js);
 }
 
-module.exports = { page, serve, build, srcsOf, ALWAYS };
+module.exports = { page, serve, build, srcsOf, warm, ALWAYS };

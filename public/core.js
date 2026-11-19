@@ -2025,6 +2025,7 @@
    is swapped for the matching Lucide icon as it renders. Text you're typing (inputs, editable fields) is left alone.
    icon('name') gives you a Lucide icon directly (also api.ui.icon). Icons: public/vendor/lucide (ISC). */
   const EMOJI_ICONS = {
+    '💿': 'disc-3',
     '🎧': 'headphones',
     '📻': 'radio',
     '🗓': 'calendar-days',

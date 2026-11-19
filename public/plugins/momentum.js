@@ -9,7 +9,8 @@
     G.layer = document.createElement('div');
     G.layer.style.cssText = 'position:fixed;inset:0;pointer-events:none;z-index:70;overflow:hidden';
     document.body.appendChild(G.layer);
-    const f = document.createElement('link'); f.rel = 'stylesheet'; f.href = 'https://fonts.googleapis.com/css2?family=Bangers&family=Luckiest+Guy&display=swap'; document.head.appendChild(f);
+    // Bangers (OFL) and Luckiest Guy (Apache 2.0), kept in the app: vendor/fonts (2026-11-19, was Google Fonts)
+    const f = document.createElement('style'); f.textContent = "@font-face{font-family:'Bangers';font-display:swap;src:url(vendor/fonts/bangers-latin-400-normal.woff2) format('woff2')}@font-face{font-family:'Luckiest Guy';font-display:swap;src:url(vendor/fonts/luckiest-guy-latin-400-normal.woff2) format('woff2')}"; document.head.appendChild(f);
     const st = document.createElement('style'); st.textContent = `
       .mo-num{position:absolute;left:0;top:0;font-family:Bangers,"Luckiest Guy",Impact,"Arial Black",sans-serif;font-weight:400;letter-spacing:.03em;white-space:nowrap;will-change:transform,opacity;line-height:.95;isolation:isolate;filter:drop-shadow(0 0 14px color-mix(in srgb,var(--g) 55%,transparent))}
       /* Borderlands-style: chunky black outline + offset shadow behind a top-lit gradient fill, slanted */

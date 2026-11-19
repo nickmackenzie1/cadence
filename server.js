@@ -54,3 +54,6 @@ if (TLS) {
 } else {
   http.createServer(timed).listen(PORT, () => console.log(`THING running on :${PORT}  ${tag}  https=off`));
 }
+
+// compress the bundles this NAS's browsers use, right away, so the first visit after a release gets the small copy
+setTimeout(() => { try { require('./server/lib/bundle').warm(); } catch {} }, 500).unref();

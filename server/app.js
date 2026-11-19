@@ -114,7 +114,8 @@ function sendVendor(req, res, file) {
     if (err || !st.isFile()) return send(res, 404, 'Not found', 'text/plain');
     const etag = `"${st.size.toString(36)}-${Math.round(st.mtimeMs).toString(36)}"`;
     const type = MIME[path.extname(file)] || 'application/octet-stream';
-    const head = { 'Content-Type': type, 'Cache-Control': 'no-cache', ETag: etag, 'X-Content-Type-Options': 'nosniff', Vary: 'Accept-Encoding' };
+    // fonts never change under the same name: kept a year, no "still the same?" on every load
+    const head = { 'Content-Type': type, 'Cache-Control': /[\\/]vendor[\\/]fonts[\\/]/.test(file) ? 'public, max-age=31536000, immutable' : 'no-cache', ETag: etag, 'X-Content-Type-Options': 'nosniff', Vary: 'Accept-Encoding' };
     if (req.headers['if-none-match'] === etag) { res.writeHead(304, head); return res.end(); }
     const gz = st.size > 256 * 1024 && /\bgzip\b/.test(req.headers['accept-encoding'] || '') && !/woff2$/.test(file);
     if (!gz) return fs.readFile(file, (e, buf) => { if (e) return send(res, 404, 'Not found', 'text/plain'); res.writeHead(200, head); res.end(buf); });

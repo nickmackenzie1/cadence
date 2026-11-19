@@ -328,3 +328,22 @@ checking the code.
   look-up is remembered 10 minutes instead of being retried on every visit; the page already asks again for stations
   still "looking up"). KEXP history pages: first visit in a session shows the saved copy for each view. Use
   `api.cached` for any new page that reads the NAS on open.
+- **App review (2026-11-19, user: "lets go over the whole app and see what improvements can be made"):**
+  Speed: (1) the first request after each release gets bundle.js uncompressed (2.1 MB; Brotli 466 KB is made after
+  that first request): compress before serving. (2) Inter and JetBrains Mono come from Google Fonts on every visit:
+  vendor them (OFL). (3) Eight more pages still open on "Loading…" (rss, artist, status, outdoors, jobs, dbview,
+  daily-bits, home-bits): move them to `api.cached` + `api.ui.skeleton`. (4) Every save writes the whole space to
+  localStorage and sends the whole space to the NAS: measure, then send changes only. (5) Plugin views redraw in full
+  (scroll and focus lost): morph them like core views. (6) Life-only plugins (artist, radar, radio, podcasts…) load
+  in Work too: skip per space, or load a plugin's file when its page first opens.
+  Reliability: (7) CI takes 8–19 min a run, 4 of the last 40 failed, 10 were cancelled by newer pushes: shard the
+  specs across parallel jobs. (8) A "Check outside services" button on Background work: runs each outside source once
+  (TMDB, LRCLIB, TasteDive, NHL, Radio Browser, the station playlists, KEXP charts, NACC…) and says which answered,
+  so the "Check from the NAS" list checks itself. Polish: (9) the 💿 icon has no Lucide match and shows as an emoji.
+  (10) Dark mode pass; chart colours in colour-blind mode.
+- **Done (2026-11-19, from the app review):** (1) bundles compressed before the first request: the skip lists this NAS's
+  browsers asked for are kept in data/bundle-combos.json (last 8) and compressed again when the server starts
+  (`bundle.warm()`), so the first visit after a release gets Brotli, not the 2 MB copy. (2) Fonts are in the app:
+  public/vendor/fonts (Inter and JetBrains Mono variable, latin + latin-ext; Bangers and Luckiest Guy for Momentum),
+  @font-face at the top of core.css, licences beside them, served with a one-year immutable cache. No Google Fonts
+  request anywhere now. (9) 💿 maps to Lucide disc-3.
