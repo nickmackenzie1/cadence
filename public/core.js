@@ -4638,7 +4638,7 @@
       seq = 0,
       timer = 0;
     $('#modal').className = 'modal pal';
-    $('#modal').innerHTML = `<input id="pal-in" placeholder="Type a command, client, task, note or meeting…"><div class="pal-list" id="pal-list"></div>`;
+    $('#modal').innerHTML = `<input id="pal-in" placeholder="Type a command, client, task, note or meeting…" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" data-no-grammar><div class="pal-list" id="pal-list"></div>`;
     $('#scrim').classList.add('open');
     /* ⌘K finds everything (user, 2026-11-17): commands; tasks by title or notes (open ones first, then done); meetings
        by their notes or client; then whatever plugins add (api.search, e.g. artists from Music). Every word you type
