@@ -85,7 +85,8 @@ checking the code.
 - Zelda fonts (Hylia Serif etc.): check each licence before vendoring.
 
 ## Look and feel
-- Colour-blind modes (protanopia, deuteranopia, tritanopia, achromatopsia): remap palette, add shape/pattern cues.
+- Colour-blind modes: done 2026-11-19 (public/plugins/colour-vision.js; Okabe–Ito colours over any theme, per device,
+  ⌘K "Colour-blind mode…"). Not covered yet: chart series colours in dashboards/insights.
 
 ## Everyday app
 - File browser for NAS shares (read-only, LAN-only, path-jailed).
