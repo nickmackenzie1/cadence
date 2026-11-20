@@ -218,7 +218,7 @@
     Body.setStatic(body, true);
     // where each letter sits inside the word, from its centre
     const parts = gs.map((g, i) => ({ g, ch: shown(g, i === 0), dx: g.x + g.w / 2 - (x0 + w / 2), dy: g.y + g.h / 2 - (y0 + h / 2) }));
-    const o = { kind: 'W', el, body, w, h, alive: true, color: cs.color, parts, home: [x0, y0] };
+    const o = { kind: 'W', el, body, w, h, alive: true, color: cs.color, parts, home: [x0, y0], cs, src: gs[0].node.parentElement };
     bodyMap.set(body.id, o); letters.push(o);
     return body;
   }
@@ -248,7 +248,7 @@
       friction: 0.4, slop: 0.02, label: 'L', angle, ...(g.cs.feel || {})
     });
     if (frozen) Body.setStatic(body, true);   // freeze; created-static bodies can't be properly unfrozen in Matter
-    const o = { kind: 'L', el, body, w: g.w, h: g.h, alive: true, color: g.cs.color, home: g.home || [g.x, g.y] };
+    const o = { kind: 'L', el, body, w: g.w, h: g.h, alive: true, color: g.cs.color, home: g.home || [g.x, g.y], cs: g.cs, src: g.node && g.node.parentElement };
     bodyMap.set(body.id, o); letters.push(o);
     return frozen ? body : o;
   }
@@ -367,7 +367,8 @@
 
   /* ------------------------------------------------------------------ actions */
   const release = (o, vx = 0, vy = 0, spin = 0) => {
-    if (!o.alive || !o.body) return;
+    if (!o.alive || !o.body || o.pinned) return;
+    if (o.stamped) unstamp(o);
     if (o.kind === 'W' && Math.hypot(vx, vy) > BREAK) { shatter(o, vx, vy, spin); return; }
     if (o.body.isStatic) Body.setStatic(o.body, false);
     Sleeping.set(o.body, false);
@@ -540,15 +541,15 @@
   // fire: the flames are Elements (on a splash of oil so they keep burning); the words nearby come loose and float up
   function ignite(x, y) {
     tellFx('fire', x, y);
-    for (const o of bodiesNear(x, y, 55)) if (o.kind === 'L' || o.kind === 'W') release(o, rand(-1.2, 1.2), rand(-7, -3), rand(-0.25, 0.25));
+    for (const o of bodiesNear(x, y, 55)) { if (o.stamped) { o.pinned = true; continue; } if (o.kind === 'L' || o.kind === 'W') release(o, rand(-1.2, 1.2), rand(-7, -3), rand(-0.25, 0.25)); }
   }
   function melt(x, y, as = 'melt') {
     tellFx(as, x, y);
     const R = 110; let hitAny = false;
     for (const o of images) if (o.alive && !o.melt) { const b = o.body.bounds; if (x >= b.min.x && x <= b.max.x && y >= b.min.y && y <= b.max.y) { startMelt(o, x, y); hitAny = true; } }
-    for (const o of bodiesNear(x, y, R)) if (o.kind === 'W') shatter(o);
+    for (const o of bodiesNear(x, y, R)) { if (o.stamped) { o.pinned = true; continue; } if (o.kind === 'W') shatter(o); }
     for (const o of letters.slice()) {
-      if (!o.alive || o.drip || o.kind !== 'L') continue;
+      if (!o.alive || o.drip || o.kind !== 'L' || o.stamped) continue;
       const p = o.body.position, d = Math.hypot(p.x - x, p.y - y); if (d > R) continue;
       o.drip = { vy: rand(0.05, 0.3), a: rand(0.004, 0.02), delay: d * rand(4, 9), y: 0, len: 0, x0: p.x - o.w / 2, y0: p.y - o.h / 2, ang: o.body.angle };
       Composite.remove(engine.world, o.body);
@@ -594,6 +595,7 @@
       for (let k = 0; k < list.length; k++) {
         const o = list[k]; if (!o.alive || !o.body) continue;
         const t = m[k], b = o.body, p = b.position;
+        if (o.stamped) { if (t === M_.FIRE || t === M_.EMBER || t === M_.LAVA || t === M_.ACID) o.pinned = true; continue; }
         if (t === M_.WATER) {
           if (b.isStatic) release(o, rand(-0.4, 0.4), rand(-1.5, -0.4), rand(-0.05, 0.05));
           wet.push(o);
@@ -618,6 +620,60 @@
         }
       }
     }, () => { probing = false; });
+  }
+  // The page as pixels (2026-11-19, user: "the page turns into pixels… this is what is amazing"): every word that hasn't
+  // moved is also page in the Elements layer, like Elements mode reads it. Untouched it's see-through (the real word
+  // shows); fire, acid, lava and lightning eat it pixel by pixel and paint the colour behind it over what's gone. A word
+  // that gets thrown leaves the page first (its pixels go) and flies as a word; a word that has started burning or
+  // dissolving stays put and burns as pixels.
+  const bgCache = new Map();
+  function bgOf(el) {
+    for (let e = el; e && e !== document.documentElement; e = e.parentElement) {
+      if (bgCache.has(e)) return bgCache.get(e);
+      const m = getComputedStyle(e).backgroundColor.match(/rgba?\(([\d.]+),\s*([\d.]+),\s*([\d.]+)(?:,\s*([\d.]+))?/);
+      if (m && (m[4] === undefined || +m[4] > 0.5)) { const c = [+m[1] | 0, +m[2] | 0, +m[3] | 0]; bgCache.set(e, c); return c; }
+    }
+    return null;
+  }
+  // Page words sit in a layer just under the Elements canvas (z 60): untouched cells are see-through so the word shows,
+  // burnt cells paint the background over it. A thrown word moves back up to the physics stage.
+  let lowHost = null, lowStage = null;
+  function low() {
+    if (lowStage) return lowStage;
+    lowHost = document.createElement('div'); lowHost.id = 'havoc-page';
+    lowHost.style.cssText = 'position:fixed!important;inset:0!important;z-index:59!important;pointer-events:none!important;display:block!important;margin:0!important;padding:0!important;border:0!important;background:none!important;transform:none!important;filter:none!important';
+    const r = lowHost.attachShadow({ mode: 'open' }), st = document.createElement('style'); st.textContent = CSS; r.appendChild(st);
+    lowStage = document.createElement('div'); lowStage.className = 'stage'; r.appendChild(lowStage);
+    (document.fullscreenElement || document.documentElement).appendChild(lowHost);
+    return lowStage;
+  }
+  function stampAll() {
+    if (!fxw || !fxw.stamp || !H.active) return;
+    const C = fxw.cellSize || 3, cw = Math.ceil(W / C), ch = Math.ceil(Hh / C);
+    const cv = document.createElement('canvas'); cv.width = cw; cv.height = ch;
+    const g = cv.getContext('2d', { willReadFrequently: true }); g.scale(1 / C, 1 / C); g.textBaseline = 'middle';
+    const idx = new Uint8Array(cw * ch).fill(255), cols = [], colIdx = new Map(), list = [];
+    const pageBg = bgOf(document.body) || [255, 255, 255];
+    for (const o of letters) {
+      if (!o.alive || !o.body || !o.body.isStatic || !o.home || !o.cs) continue;
+      g.font = o.cs.font; g.fillStyle = o.cs.color; try { g.letterSpacing = o.cs.ls || '0px'; } catch (_) {}
+      g.fillText(o.el.textContent, o.home[0], o.home[1] + o.h / 2);
+      const bg = bgOf(o.src) || pageBg, key = bg.join(',');
+      if (!colIdx.has(key)) { if (cols.length / 3 >= 250) continue; colIdx.set(key, cols.length / 3); cols.push(...bg); }
+      const bi = colIdx.get(key), x0 = Math.max(0, Math.floor(o.home[0] / C)), x1 = Math.min(cw, Math.ceil((o.home[0] + o.w) / C)), y0 = Math.max(0, Math.floor(o.home[1] / C)), y1 = Math.min(ch, Math.ceil((o.home[1] + o.h) / C));
+      for (let y = y0; y < y1; y++) idx.fill(bi, y * cw + x0, y * cw + x1);
+      list.push(o);
+    }
+    let px; try { px = g.getImageData(0, 0, cw, ch).data; } catch (_) { return; }
+    fxw.stamp(0, 0, cw, ch, new Uint8Array(px.buffer.slice(0)), idx, cols);
+    const ls = low();
+    for (const o of list) { o.stamped = true; ls.appendChild(o.el); }
+  }
+  // a word leaves the page: its untouched pixels go with it
+  function unstamp(o) {
+    if (!o.stamped) return; o.stamped = false;
+    if (stage && o.el.parentNode !== stage) stage.appendChild(o.el);
+    if (fxw && fxw.unstamp) fxw.unstamp({ left: o.home[0], top: o.home[1], right: o.home[0] + o.w, bottom: o.home[1] + o.h });
   }
   function kill(o) {
     if (!o.alive) return; o.alive = false;
@@ -1021,7 +1077,7 @@
     Composite.add(engine.world, bodies);
     loose = []; makeShelves();
     fxw = null; wet = []; probing = false;
-    if (canPixels()) window.CadenceFX.world().then(w => { if (H.active) fxw = w; }, () => {});
+    if (canPixels()) window.CadenceFX.world().then(w => { if (!H.active) return; fxw = w; setTimeout(stampAll, 60); }, () => {});
 
     mouse = Mouse.create(hit);
     mouse.pixelRatio = 1;
@@ -1091,6 +1147,8 @@
       const T = 200;
       Body.setPosition(walls[0], { x: W / 2, y: Hh + T / 2 }); Body.setPosition(walls[1], { x: -T / 2, y: Hh / 2 - 1000 }); Body.setPosition(walls[2], { x: W + T / 2, y: Hh / 2 - 1000 });
       for (const o of [...letters, ...images, ...loose]) if (o.alive && o.body && !o.body.isStatic) Sleeping.set(o.body, false);
+      // the Elements layer rebuilds at the new size: put the page words back into it
+      setTimeout(() => { if (H.active && fxw) { for (const o of letters) o.stamped = false; stampAll(); } }, 700);
     }, 200);
   }
   function stop() {
@@ -1098,7 +1156,7 @@
     H.active = false; H.rewinding = false; cancelAnimationFrame(raf); raining = false; tellFx('stop', 0, 0);
     removeEventListener('keydown', onKey, true); removeEventListener('resize', onResize);
     try { Engine.clear(engine); } catch (e) {}
-    host && host.remove(); host = null; hud = null; scorchHost && scorchHost.remove(); scorchHost = null;
+    host && host.remove(); host = null; hud = null; scorchHost && scorchHost.remove(); scorchHost = null; lowHost && lowHost.remove(); lowHost = null; lowStage = null;
     for (let i = restore.length - 1; i >= 0; i--) { try { restore[i](); } catch (e) {} }
     // put style attributes back exactly as they were
     touched.forEach((orig, el) => { if (orig === null) { el.getAttribute('style'); /* forces Chrome to sync the lazily-serialized attribute */ if (!el.style.cssText.trim()) el.removeAttribute('style'); } else if (!el.style.cssText.trim() && orig.trim()) el.setAttribute('style', orig); });

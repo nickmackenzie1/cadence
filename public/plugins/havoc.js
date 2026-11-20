@@ -47,7 +47,7 @@
         if (d.type === 'rain' || d.type === 'stop') {
           window.CadenceFX.want('havoc', d.type === 'rain' && d.on ? { rain: 7 } : null);
           // the pictures' pixels go with the mess when Havoc stops
-          if (d.type === 'stop') window.CadenceFX.world().then(w => { if (w && w.M.PIXEL != null) { w.clear(w.M.PIXEL); w.clear(w.M.DRIP); } }, () => {});
+          if (d.type === 'stop') window.CadenceFX.world().then(w => { if (w && w.M.PIXEL != null) { w.clear(w.M.PIXEL); w.clear(w.M.DRIP); } if (w && w.unstamp) w.unstamp(); }, () => {});
           return;
         }
         window.CadenceFX.world().then(w => {
@@ -66,7 +66,7 @@
             catch (e) { px = new Uint8ClampedArray(cw * ch * 4); for (let i = 0; i < px.length; i += 4) { const v = 120 + ((i * 7919) % 50); px[i] = v; px[i + 1] = v; px[i + 2] = v + 8; px[i + 3] = 255; } }
             w.pixels(d.left, d.top, cw, ch, px, d.x, d.y, d.power || 2.4);
           }
-          else if (d.type === 'hole') { let n = 0; const iv = setInterval(() => { w.clearAt(d.x, d.y, 30 + n * 6); if (++n > 60) clearInterval(iv); }, 110); }
+          else if (d.type === 'hole') { if (w.sink) w.sink(d.x, d.y, 280, 7); else { let n = 0; const iv = setInterval(() => { w.clearAt(d.x, d.y, 30 + n * 6); if (++n > 60) clearInterval(iv); }, 110); } }
         });
       };
       addEventListener('havoc:fx', window.__havocFx);

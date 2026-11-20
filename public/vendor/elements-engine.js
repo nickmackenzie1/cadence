@@ -828,6 +828,11 @@
       // picture already scaled to one value per cell (cellsW × cellsH); the blast at bx, by with power (cells per frame)
       pixels(left, top, cellsW, cellsH, rgba, bx, by, power = 2.2) { if (!ready) return; const [x0, y0] = cell(left, top), [cx, cy] = cell(bx, by); q(['pixels', x0, y0, cellsW, cellsH, cx, cy, power, rgba]); },
       get cellSize() { return CELL; },
+      // Havoc's words as page pixels (Cadence, 2026-11-19): rgba and bgIdx are one value per cell for the cellsW × cellsH
+      // area at page left/top; bgCols is [r, g, b, …] for the bgIdx values. unstamp(rect) lets go of a thrown word
+      // (no rect: everything Havoc stamped)
+      stamp(left, top, cellsW, cellsH, rgba, bgIdx, bgCols) { if (!ready) return; const [x0, y0] = cell(left, top); q(['stamp', x0, y0, cellsW, cellsH, rgba, bgIdx, bgCols]); },
+      unstamp(rc) { if (!ready) return; if (!rc) return q(['unstamp', -1]); q(['unstamp', Math.floor(rc.left / CELL), Math.floor(rc.top / CELL), Math.ceil(rc.right / CELL), Math.ceil(rc.bottom / CELL)]); },
       // what's at these page points: a Uint8Array of materials, one per point (Cadence, 2026-11-19, for Havoc's words)
       probe(xy) { return new Promise(res => { if (!port || !ready) return res(null); const id = ++countId, pts = new Int32Array(xy.length); for (let k = 0; k < xy.length; k++) pts[k] = Math.floor(xy[k] / CELL); countWaiters.set(id, res); port.post({ t: 'probe', id, pts }, [pts.buffer]); }); },
       firework(x, y) { const [cx, cy] = cell(x, y); q(['launch', cx, cy]); },
@@ -835,6 +840,8 @@
       clear(m) { q(['clear', m === undefined ? -1 : m]); },
       // more ground from outside the page, in px: [[x0, x1, y], …] (e.g. the outline of you, from the webcam); [] to remove
       ledgesExtra(list) { wake(); extraLedges = []; for (const [a, b, y] of list || []) { const yy = Math.round(y / CELL); if (yy > 1 && yy < H) extraLedges.push(Math.max(0, Math.floor(a / CELL)), Math.min(W, Math.ceil(b / CELL)), yy); } extraDirty = true; },
+      // Cadence: a black hole that pulls everything loose in, for about `secs` seconds
+      sink(x, y, r = 280, secs = 7) { if (!ready) return; const [cx, cy] = cell(x, y); q(['sink', cx, cy, Math.ceil(r / CELL), Math.round(secs * 60)]); },
       clearAt(x, y, r) { const [cx, cy] = cell(x, y); q(['clearAt', cx, cy, Math.ceil(r / CELL)]); },
       // how many cells of a material are inside a screen rect (async: the engine has the grid)
       count(rc, m) { return new Promise(res => { if (!port) return res(0); const id = ++countId; countWaiters.set(id, res); port.post({ t: 'count', id, m, rect: [Math.floor(rc.left / CELL), Math.floor(rc.top / CELL), Math.ceil(rc.right / CELL), Math.ceil(rc.bottom / CELL)] }); }); },

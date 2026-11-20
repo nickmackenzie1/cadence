@@ -137,8 +137,21 @@ test('physics and Elements together: a picture bursts into Elements pixels, and 
   await expect.poll(() => page.evaluate(() => !!(window.__havoc && window.__havoc.active)), { timeout: 10000 }).toBe(true);
   expect(await page.evaluate(() => window.__havoc.stats.images)).toBe(1);
   await expect.poll(() => page.evaluate(() => !!window.__fx), { timeout: 10000 }).toBe(true);
-  // words start whole
-  expect(await page.evaluate(() => document.getElementById('havoc-host').shadowRoot.querySelectorAll('.l.w').length)).toBeGreaterThan(10);
+  // words start whole, and the ones sitting still are page pixels in Elements too (so fire eats them pixel by pixel),
+  // living in the layer just under the Elements canvas
+  const words = () => page.evaluate(() => ['havoc-host', 'havoc-page'].reduce((n, id) => n + (document.getElementById(id)?.shadowRoot.querySelectorAll('.l.w').length || 0), 0));
+  expect(await words()).toBeGreaterThan(10);
+  const hb = await page.locator('#view h1').boundingBox();
+  const pageCells = () => page.evaluate(async ([x, y, w, h]) => { const W = await window.CadenceFX.world(); const pts = []; for (let yy = y; yy < y + h; yy += 3) for (let xx = x; xx < x + w; xx += 3) pts.push(xx, yy); const m = await W.probe(pts); return m.filter(v => v === W.M.PAGE).length; }, [hb.x, hb.y, hb.width, hb.height]);
+  await expect.poll(pageCells, { timeout: 5000 }).toBeGreaterThan(100);
+  await expect.poll(() => page.evaluate(() => document.getElementById('havoc-page')?.shadowRoot.querySelectorAll('.l.w').length || 0)).toBeGreaterThan(3);
+  // a black hole pulls loose Elements matter in
+  const sand = () => page.evaluate(async () => { const w = await window.CadenceFX.world(); return w.count({ left: 700, top: 500, right: 1000, bottom: 800 }, w.M.SAND); });
+  await page.evaluate(async () => { const w = await window.CadenceFX.world(); for (let i = 0; i < 6; i++) w.spawn(780 + i * 25, 560, w.M.SAND, 4, 1); });
+  await expect.poll(sand).toBeGreaterThan(40);
+  const before = await sand();
+  await page.evaluate(async () => { const w = await window.CadenceFX.world(); w.sink(850, 650, 250, 4); });
+  await expect.poll(sand, { timeout: 6000 }).toBeLessThan(before / 2);
   const box = await page.locator('#pxtest').boundingBox();
   await page.evaluate(([x, y]) => window.__havoc.blast(x, y), [box.x + 100, box.y + 60]);
   // the picture is gone from the physics, and its pixels are Elements matter now

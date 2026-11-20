@@ -461,3 +461,18 @@ checking the code.
     text), at most six every 100 ms and one per piece every 120 ms.
   - Glow and smoke particles are pre-made sprites per colour; glows draw with 'lighter', so overlapping sparks
     brighten.
+
+### Havoc: the page turns into pixels again, black holes eat everything (2026-11-19)
+- User: "The one thing lost is the old 'the page turns into pixels' look… need to keep this, this is what is amazing".
+  - Once the Elements layer is ready, Havoc draws every still word's ink at cell size and registers the whole word
+    box as untouched PAGE (`stamp` in elements-core), each cell knowing the colour behind its word.
+  - Untouched cells are see-through. Page words live in `#havoc-page`, a layer at z 59 just under the Elements
+    canvas (z 60), so the real word shows; burnt or eaten cells paint the background over it, pixel by pixel.
+  - Fire, acid, lava and lightning on a still word pin it in place (it burns as pixels, no ash crumble). Blast,
+    grab, black hole and the rest throw it: its cells are removed (`unstamp`) and it flies as a physics word in the
+    top layer. A resize re-registers the still words. Esc clears all of it.
+- User: "black holes should suck up fire and stuff just everything".
+  - `w.sink(x, y, r, secs)` in Elements: every loose cell (fire, smoke, sand, water, ash, pixels, burnt page) and
+    every flying spark spirals in and is gone at the middle. Untouched page and the hidden ledges stay. It replaces
+    the old growing erase circle.
+- Idea (user): "if the water gets deep enough little ecosystems should pop up, fish, veg, etc".

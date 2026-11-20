@@ -130,10 +130,41 @@ function ENGINE(env) {
   // ---------- one simulation step ----------
   const KEEP = new Uint8Array(32);
   KEEP[FIRE] = KEEP[EMBER] = KEEP[STEAM] = KEEP[SMOKE] = KEEP[FUME] = KEEP[BOLT] = KEEP[LAVA] = KEEP[BULB] = KEEP[PLANT] = KEEP[ACID] = 1;
+  // Cadence (2026-11-19, user: "black holes should suck up fire and stuff just everything"): Havoc's black holes pull
+  // every loose cell (fire, smoke, sand, water, ash, a picture's pixels, burnt page) and every flying spark round and
+  // into the middle, where it's gone. Untouched page and the hidden ledges stay.
+  let sinks = [];
+  function sinkStep() {
+    for (const h of sinks) {
+      h.t++; h.r = Math.min(h.max, h.r + h.grow);
+      const r = h.r | 0, x0 = Math.max(0, h.x - r), x1 = Math.min(W - 1, h.x + r), y0 = Math.max(0, h.y - r), y1 = Math.min(H - 1, h.y + r), r2 = r * r;
+      for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
+        const dx = h.x - x, dy = h.y - y, d2 = dx * dx + dy * dy; if (d2 > r2) continue;
+        const i = y * W + x, g = grid[i];
+        if (g === E || g === SURF || g === WIRE || g === BULB || stamp[i] === tick || (g === PAGE && pristine[i])) continue;
+        const d = Math.sqrt(d2);
+        if (d < 2.5) { setI(i, E); h.ate++; continue; }
+        if (R() > 0.3 + 8 / d) continue;   // the pull gets stronger nearer the middle
+        const sp = d < 12 ? 1 : d < 40 ? 2 : 3, ux = dx / d, uy = dy / d;
+        const tx = Math.round(x + (ux - uy * 0.85) * sp), ty = Math.round(y + (uy + ux * 0.85) * sp);
+        if (tx < 0 || tx >= W || ty < 0 || ty >= H) continue;
+        const j = ty * W + tx;
+        if (grid[j] === E) swap(i, j);
+        else if (R() < 0.08) { setI(i, E); h.ate++; }   // packed in tight: some just vanish on the way
+      }
+      for (const p of parts) {
+        const dx = h.x - p.x, dy = h.y - p.y, d = Math.hypot(dx, dy) || 1; if (d > h.r) continue;
+        const f = Math.min(1.2, 9 / d); p.vx = p.vx * 0.92 + (dx / d - dy / d * 0.9) * f; p.vy = p.vy * 0.92 + (dy / d + dx / d * 0.9) * f;
+        if (d < 3) { p.life = 0; p.kind = 0; }   // gone: no landing, no firework burst
+      }
+    }
+    if (sinks.length) sinks = sinks.filter(h => h.t < h.life);
+  }
   function step() {
     tick = (tick % 255) + 1;
     const ltr = tick & 1;
     fireCount = 0;
+    if (sinks.length) sinkStep();
     for (let y = H - 1; y >= 0; y--) {
       const rowC = (y >> CS) * CW;
       for (let kc = 0; kc < CW; kc++) {
@@ -909,6 +940,35 @@ function ENGINE(env) {
       }
       case 'explode': explode(ev[1], ev[2], ev[3]); break;
       case 'pixels': pixels(ev[1], ev[2], ev[3], ev[4], ev[5], ev[6], ev[7], ev[8]); break;
+      // Cadence (2026-11-19): Havoc's words as the page itself, like the Elements mode reads it: ['stamp', x0, y0, w, h,
+      // rgba, bgIdx, bgCols]. Ink cells become untouched PAGE (see-through: the real word shows), each knowing the colour
+      // behind it, so what burns or melts away is painted over with that colour, pixel by pixel.
+      case 'stamp': {
+        const [, x0, y0, w, h, px, bgIdx, cols] = ev, base = boxCol.length;
+        for (let k = 0; k + 2 < cols.length; k += 3) boxCol.push([cols[k], cols[k + 1], cols[k + 2]]);
+        if (boxGone.length < boxCol.length + 1) { const g = new Uint8Array(boxCol.length + 64); g.set(boxGone); boxGone = g; }
+        for (let yy = 0; yy < h; yy++) for (let xx = 0; xx < w; xx++) {
+          const k = yy * w + xx, bi = bgIdx[k]; if (bi === 255) continue; // 255: not part of a word box
+          const x = x0 + xx, y = y0 + yy; if (x < 0 || x >= W || y < 0 || y >= H) continue;
+          const i = y * W + x; if (grid[i] !== E && grid[i] !== SURF) continue;
+          // the whole word box is page, so a burn eats clean through (soft letter edges included); blank cells carry the background colour
+          const ink = px[k * 4 + 3] >= 40, bc = boxCol[base + bi];
+          grid[i] = PAGE; life[i] = 0; pristine[i] = 1; owner[i] = 0; colR[i] = ink ? px[k * 4] : bc[0]; colG[i] = ink ? px[k * 4 + 1] : bc[1]; colB[i] = ink ? px[k * 4 + 2] : bc[2];
+          layer[i] = 2; boxOf[i] = base + bgIdx[k];
+        }
+        break;
+      }
+      // a word left the page (thrown): its untouched cells go; ['unstamp', x0, y0, x1, y1] (all of them: -1)
+      case 'unstamp': {
+        const all = ev[1] < 0, x0 = all ? 0 : Math.max(0, ev[1]), y0 = all ? 0 : Math.max(0, ev[2]), x1 = all ? W : Math.min(W, ev[3]), y1 = all ? H : Math.min(H, ev[4]);
+        for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) { const i = y * W + x;
+          // everything: every stamped cell and every erased spot; one word: only its untouched cells
+          const go = all ? layer[i] !== 0 : grid[i] === PAGE && pristine[i] === 1;
+          if (!go) continue;
+          if (grid[i] === PAGE) grid[i] = E;
+          layer[i] = 0; boxOf[i] = 0; pristine[i] = 0; wakeAt(i); }
+        break;
+      }
       // the page's ledges moved: [x0, x1, y, x0, x1, y, …]; what rested on a ledge that's gone falls
       case 'surf': {
         for (let i = 0; i < N; i++) if (grid[i] === SURF) { grid[i] = E; wakeAt(i); }
@@ -918,6 +978,8 @@ function ENGINE(env) {
       // a glass jar, open at the top: [x0, y0, x1, y1]
       case 'jar': { const [, x0, y0, x1, y1] = ev; for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) { if (x < 0 || x >= W || y < 0 || y >= H) continue; if (x <= x0 + 1 || x >= x1 - 1 || y >= y1 - 1) { const i = y * W + x; grid[i] = GLASS; life[i] = 0; shade[i] = (R() * 16) | 0; owner[i] = 0; pristine[i] = 0; wakeAt(i); } } break; }
       case 'clear': { const m = ev[1]; for (let i = 0; i < N; i++) { const g = grid[i]; if (g !== SURF && g !== WIRE && g !== BULB && (m < 0 || g === m)) { grid[i] = E; wakeAt(i); } } parts = []; break; }
+      // Cadence: a black hole at a cell, ['sink', x, y, maxR, steps]
+      case 'sink': sinks.push({ x: ev[1], y: ev[2], r: 2, max: ev[3], grow: ev[3] / 100, t: 0, life: ev[4], ate: 0 }); break;
       case 'clearAt': { const [, cx, cy, r] = ev; for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) { if (dx * dx + dy * dy > r * r) continue; const x = cx + dx, y = cy + dy; if (x < 0 || x >= W || y < 0 || y >= H) continue; const i = y * W + x, g = grid[i]; if (g !== SURF && g !== WIRE && g !== BULB && g !== E) { grid[i] = E; wakeAt(i); } } break; }
     }
   }
