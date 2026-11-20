@@ -475,4 +475,12 @@ checking the code.
   - `w.sink(x, y, r, secs)` in Elements: every loose cell (fire, smoke, sand, water, ash, pixels, burnt page) and
     every flying spark spirals in and is gone at the middle. Untouched page and the hidden ledges stay. It replaces
     the old growing erase circle.
-- Idea (user): "if the water gets deep enough little ecosystems should pop up, fish, veg, etc".
+- User: "if the water gets deep enough little ecosystems should pop up, fish, veg, etc" (built the same day).
+  - In the Elements worker (`ecoStep`/`fishStep`), so it works anywhere the Elements layer runs, Havoc included.
+  - A pool counts as deep at 14+ cells (about 40px) of water over a solid floor. Every 45 steps a few random water
+    cells are checked: deep pools get KELP (material 26) that grows up a cell at a time while there's water above
+    it (a slow shimmer runs up the stalks), and pools that have kelp get fish (at most 4 close together, 30 in all).
+  - Fish are three cells (light head, body, darker tail) in five calm colours. They swim side to side, turn at
+    walls, drift up and down, and now and then let out a bubble. Out of water they flop, then are gone after about
+    3 seconds; fire, lava, acid and lightning next to them end them in a little puff; black holes pull them in.
+  - `w.fish()` counts them. Test: the last one in `tests/havoc-fight.spec.mjs`.

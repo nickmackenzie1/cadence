@@ -15,7 +15,7 @@
   if (window.ElementsWorld) return;
   const R = Math.random;
   const M = { E: 0, SAND: 1, WATER: 2, ICE: 3, FIRE: 4, WOOD: 5, STEAM: 6, STONE: 7, OIL: 8, LAVA: 9, EMBER: 10, ASH: 11, SMOKE: 12, SNOW: 13,
-    PAGE: 14, GLASS: 15, WIRE: 16, BULB: 17, PLANT: 18, ACID: 19, FUME: 20, POWDER: 21, BOLT: 22, SURF: 23, PIXEL: 24, DRIP: 25, FIREWORK: 30, LIGHTNING: 31 };
+    PAGE: 14, GLASS: 15, WIRE: 16, BULB: 17, PLANT: 18, ACID: 19, FUME: 20, POWDER: 21, BOLT: 22, SURF: 23, PIXEL: 24, DRIP: 25, KELP: 26, FIREWORK: 30, LIGHTNING: 31 };
   const { E, SAND, WATER, ICE, FIRE, WOOD, STEAM, STONE, OIL, LAVA, SNOW, PLANT, ACID, POWDER, FIREWORK, LIGHTNING } = M;
   const here = (document.currentScript && document.currentScript.src) || new URL('vendor/elements-engine.js', location.href).href;
   const CORE = here.replace(/elements-engine\.js(\?.*)?$/, 'elements-core.js$1');
@@ -844,6 +844,8 @@
       sink(x, y, r = 280, secs = 7) { if (!ready) return; const [cx, cy] = cell(x, y); q(['sink', cx, cy, Math.ceil(r / CELL), Math.round(secs * 60)]); },
       clearAt(x, y, r) { const [cx, cy] = cell(x, y); q(['clearAt', cx, cy, Math.ceil(r / CELL)]); },
       // how many cells of a material are inside a screen rect (async: the engine has the grid)
+      // Cadence: how many fish are swimming (the deep-pool ecosystems)
+      fish() { return new Promise(res => { if (!port) return res(0); const id = ++countId; countWaiters.set(id, res); port.post({ t: 'fish', id }); }); },
       count(rc, m) { return new Promise(res => { if (!port) return res(0); const id = ++countId; countWaiters.set(id, res); port.post({ t: 'count', id, m, rect: [Math.floor(rc.left / CELL), Math.floor(rc.top / CELL), Math.ceil(rc.right / CELL), Math.ceil(rc.bottom / CELL)] }); }); },
       // counts of every material (async): { [material]: cells }
       counts() { return api.stats_().then(s => (s && s.counts) || {}); },

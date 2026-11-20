@@ -5,7 +5,8 @@ function ENGINE(env) {
   'use strict';
   const E=0, SAND=1, WATER=2, ICE=3, FIRE=4, WOOD=5, STEAM=6, STONE=7, OIL=8, LAVA=9, EMBER=10, ASH=11, SMOKE=12, SNOW=13,
         PAGE=14, GLASS=15, WIRE=16, BULB=17, PLANT=18, ACID=19, FUME=20, POWDER=21, BOLT=22, SURF=23,   // SURF: Cadence, invisible ledge
-        PIXEL=24, DRIP=25;   // Cadence (2026-11-19): a picture's own pixels, as grains that pour (PIXEL) and, melted, a coloured liquid (DRIP)
+        PIXEL=24, DRIP=25,   // Cadence (2026-11-19): a picture's own pixels, as grains that pour (PIXEL) and, melted, a coloured liquid (DRIP)
+        KELP=26;   // Cadence (2026-11-19): weed that grows up from the floor of a deep pool   // Cadence (2026-11-19): a picture's own pixels, as grains that pour (PIXEL) and, melted, a coloured liquid (DRIP)
   const FIREWORK=30, LIGHTNING=31;
   const fluid = new Uint8Array(32), gas = new Uint8Array(32), dens = new Uint8Array(32);
   fluid[WATER]=fluid[OIL]=fluid[LAVA]=fluid[ACID]=1; gas[STEAM]=gas[FIRE]=gas[SMOKE]=gas[FUME]=1;
@@ -134,6 +135,72 @@ function ENGINE(env) {
   // every loose cell (fire, smoke, sand, water, ash, a picture's pixels, burnt page) and every flying spark round and
   // into the middle, where it's gone. Untouched page and the hidden ledges stay.
   let sinks = [];
+  // Cadence (2026-11-19, user: "if the water gets deep enough little ecosystems should pop up, fish, veg, etc"):
+  // a pool that stays deep (about 14 cells of water over a solid floor) grows kelp up from its floor, then fish turn
+  // up and swim in it. Drain the pool and the fish flop and are gone; fire, lava and acid get them; black holes too.
+  let fish = [], kelp = [], ecoT = 0;
+  const FISH_COLS = [[240, 140, 50], [250, 200, 70], [170, 200, 225], [235, 105, 95], [120, 190, 175]];
+  const isW = (x, y) => x >= 0 && x < W && y >= 0 && y < H && grid[y * W + x] === WATER;
+  function poolAt(x, y) {   // water depth through (x, y), and the floor cell, or null if it isn't a deep pool
+    let top = y, bot = y;
+    while (top > 0 && grid[(top - 1) * W + x] === WATER && y - top < 60) top--;
+    while (bot + 1 < H && grid[(bot + 1) * W + x] === WATER && bot - y < 60) bot++;
+    if (bot - top + 1 < 14 || bot + 1 >= H) return null;
+    const f = grid[(bot + 1) * W + x]; if (f === E || f === FIRE || f === LAVA || f === ACID) return null;
+    return { top, bot };
+  }
+  function ecoStep() {
+    if (++ecoT % 45) return;
+    // kelp grows a cell at a time while there's water above its tip
+    for (const k of kelp) {
+      if (grid[k.y * W + k.x] !== KELP) { k.dead = true; continue; }
+      if (k.h >= k.max || R() > 0.5) continue;
+      const ty = k.y - k.h - 1; if (ty < 0) continue;
+      const tx = k.x + (R() < 0.25 ? (R() < 0.5 ? -1 : 1) : 0), j = ty * W + tx;
+      if (isW(tx, ty) && isW(tx, ty - 1)) { setI(j, KELP); shade[j] = (R() * 256) | 0; k.h++; k.x2 = tx; }
+    }
+    if (kelp.length) kelp = kelp.filter(k => !k.dead);
+    if (fish.length >= 30 && kelp.length >= 60) return;
+    for (let n = 0; n < 300; n++) {
+      const i = (R() * N) | 0; if (grid[i] !== WATER) continue;
+      const x = i % W, y = (i / W) | 0, pool = poolAt(x, y); if (!pool) continue;
+      const near = kelp.filter(k => Math.abs(k.x - x) < 40 && k.y > pool.top && k.y <= pool.bot + 1).length;
+      if (near < 6 && kelp.length < 60 && R() < 0.6) {
+        const fy = pool.bot; if (!isW(x, fy - 1)) break;
+        setI(fy * W + x, KELP); shade[fy * W + x] = (R() * 256) | 0;
+        kelp.push({ x, y: fy, h: 0, max: Math.max(3, ((pool.bot - pool.top) * (0.3 + R() * 0.45)) | 0) });
+      } else if (near && fish.length < 30 && fish.filter(f => Math.abs(f.x - x) < 50 && Math.abs(f.y - y) < 30).length < 4 && R() < 0.5) {
+        const fy = pool.top + 2 + ((R() * (pool.bot - pool.top - 3)) | 0);
+        if (isW(x, fy) && isW(x - 2, fy) && isW(x + 2, fy)) fish.push({ x: x + 0.5, y: fy + 0.5, dir: R() < 0.5 ? -1 : 1, sp: 0.12 + R() * 0.15, col: FISH_COLS[(R() * FISH_COLS.length) | 0], flop: 0, born: tick });
+      }
+      break;
+    }
+  }
+  function fishStep() {
+    if (!fish.length) return;
+    const out = [];
+    for (const f of fish) {
+      const x = f.x | 0, y = f.y | 0;
+      if (x < 0 || x >= W || y < 0 || y >= H) continue;
+      // fire, lava or acid next to it: gone in a little puff
+      let hurt = false;
+      for (const [dx, dy] of N8) { const xx = x + dx, yy = y + dy; if (xx < 0 || xx >= W || yy < 0 || yy >= H) continue; const t = grid[yy * W + xx]; if (t === FIRE || t === LAVA || t === ACID || t === BOLT) { hurt = true; break; } }
+      if (hurt) { for (let k = 0; k < 4; k++) spark(f.x, f.y, (R() - 0.5) * 1.5, -R() * 1.5, [200, 200, 210], rr(8, 16)); continue; }
+      if (grid[y * W + x] !== WATER) {   // out of water: flop down, then gone
+        f.flop++; if (f.flop > 180) continue;
+        if (y + 1 < H && grid[(y + 1) * W + x] === E) f.y += 0.6; else if (R() < 0.08) f.dir = -f.dir;
+        out.push(f); continue;
+      }
+      f.flop = 0;
+      const nx = f.x + f.dir * f.sp;
+      if (!isW((nx + f.dir) | 0, y) || R() < 0.003) f.dir = -f.dir; else f.x = nx;
+      if (R() < 0.02) { const ny = y + (R() < 0.5 ? -1 : 1); if (isW(x, ny) && isW(x, ny - 1)) f.y = ny + 0.5; }
+      if (R() < 0.004) spark(f.x + f.dir, f.y - 1, 0, -0.35, [190, 225, 255], rr(20, 40));   // a little bubble
+      for (const h of sinks) { const dx = h.x - f.x, dy = h.y - f.y, d = Math.hypot(dx, dy) || 1; if (d < h.r) { f.x += dx / d * 1.2 - dy / d; f.y += dy / d * 1.2 + dx / d; if (d < 3) f.gone = true; } }
+      if (!f.gone) out.push(f);
+    }
+    fish = out;
+  }
   function sinkStep() {
     for (const h of sinks) {
       h.t++; h.r = Math.min(h.max, h.r + h.grow);
@@ -165,6 +232,7 @@ function ENGINE(env) {
     const ltr = tick & 1;
     fireCount = 0;
     if (sinks.length) sinkStep();
+    ecoStep(); fishStep();
     for (let y = H - 1; y >= 0; y--) {
       const rowC = (y >> CS) * CW;
       for (let kc = 0; kc < CW; kc++) {
@@ -321,7 +389,7 @@ function ENGINE(env) {
               const j = randN(x, y);
               if (j >= 0) {
                 const t = grid[j];
-                const eats = t === PAGE || t === WOOD || t === PLANT || t === SNOW || t === ICE || t === ASH || t === POWDER || t === PIXEL || t === DRIP || (t === SAND && R() < 0.3) || (t === STONE && R() < 0.12);
+                const eats = t === PAGE || t === WOOD || t === PLANT || t === KELP || t === SNOW || t === ICE || t === ASH || t === POWDER || t === PIXEL || t === DRIP || (t === SAND && R() < 0.3) || (t === STONE && R() < 0.12);
                 if (eats && R() < 0.3) { setI(j, R() < 0.5 ? FUME : E, rr(40, 90)); if (R() < 0.3) { set(x, y, FUME, rr(40, 90)); break; } }
                 else if (t === WATER && R() < 0.004) { set(x, y, WATER); break; }
               }
@@ -977,7 +1045,7 @@ function ENGINE(env) {
       }
       // a glass jar, open at the top: [x0, y0, x1, y1]
       case 'jar': { const [, x0, y0, x1, y1] = ev; for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) { if (x < 0 || x >= W || y < 0 || y >= H) continue; if (x <= x0 + 1 || x >= x1 - 1 || y >= y1 - 1) { const i = y * W + x; grid[i] = GLASS; life[i] = 0; shade[i] = (R() * 16) | 0; owner[i] = 0; pristine[i] = 0; wakeAt(i); } } break; }
-      case 'clear': { const m = ev[1]; for (let i = 0; i < N; i++) { const g = grid[i]; if (g !== SURF && g !== WIRE && g !== BULB && (m < 0 || g === m)) { grid[i] = E; wakeAt(i); } } parts = []; break; }
+      case 'clear': { const m = ev[1]; if (m < 0 || m === WATER) fish = []; if (m < 0) kelp = []; for (let i = 0; i < N; i++) { const g = grid[i]; if (g !== SURF && g !== WIRE && g !== BULB && (m < 0 || g === m)) { grid[i] = E; wakeAt(i); } } parts = []; break; }
       // Cadence: a black hole at a cell, ['sink', x, y, maxR, steps]
       case 'sink': sinks.push({ x: ev[1], y: ev[2], r: 2, max: ev[3], grow: ev[3] / 100, t: 0, life: ev[4], ate: 0 }); break;
       case 'clearAt': { const [, cx, cy, r] = ev; for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) { if (dx * dx + dy * dy > r * r) continue; const x = cx + dx, y = cy + dy; if (x < 0 || x >= W || y < 0 || y >= H) continue; const i = y * W + x, g = grid[i]; if (g !== SURF && g !== WIRE && g !== BULB && g !== E) { grid[i] = E; wakeAt(i); } } break; }
@@ -1141,6 +1209,10 @@ function ENGINE(env) {
                 }
                 depth++; liq = 0; break;
               }
+              case KELP: {   // Cadence: olive-green, a slow shimmer moving up the stalk like it's swaying
+                const s = shade[i] & 15, sw = Math.sin((fc * 0.05) + y * 0.35 + x * 0.6) * 12;
+                r = 46 + s + sw * 0.4; g = 112 + s * 2 + sw; b = 62 + s; depth++; liq = 0; break;
+              }
               case PLANT: {
                 const s = shade[i];
                 if (s >= 250) { r = 205; g = 22; b = 32; if (y > 0 && grid[i - W] !== PLANT) { r = 255; g = 95; b = 95; } }
@@ -1185,6 +1257,15 @@ function ENGINE(env) {
           if (x < 0 || x >= W || y < 0 || y >= H) continue;
           const i = y * W + x; buf[i] = col; lbuf[i] = 0; markDrawn(x, y);
         }
+      }
+    }
+    // Cadence: fish, three cells: a light head, the body, a darker tail
+    for (const f of fish) {
+      const x = f.x | 0, y = f.y | 0; if (y < 0 || y >= H) continue;
+      for (let k = 0; k < 3; k++) {
+        const xx = x - f.dir * k; if (xx < 0 || xx >= W) continue;
+        const m = k === 0 ? 1.12 : k === 1 ? 1 : 0.68, i = y * W + xx;
+        buf[i] = rgb(Math.min(255, f.col[0] * m), Math.min(255, f.col[1] * m), Math.min(255, f.col[2] * m)); lbuf[i] = 0; markDrawn(xx, y);
       }
     }
     // sparks and rockets
@@ -1365,6 +1446,7 @@ function ENGINE(env) {
           if (msg.key === 'snowing' || msg.key === 'sharp') { awake && awake.fill(1); }
           if (grid && (msg.key === 'lights' || msg.key === 'palette' || msg.key === 'compact')) { removeLights(); buildLights(); awake.fill(1); }
           break;
+        case 'fish': env.post({ t: 'count', id: msg.id, n: fish.length }); break;
         case 'count': { let n = 0; const [x0, y0, x1, y1] = msg.rect; for (let y = Math.max(0, y0); y < Math.min(H, y1); y++) for (let x = Math.max(0, x0); x < Math.min(W, x1); x++) if (grid[y * W + x] === msg.m) n++; env.post({ t: 'count', id: msg.id, n }); break; }
         // Cadence (2026-11-19): what's at each of these cells ([x, y, x, y, …]): Havoc's words float, burn and dissolve by it
         case 'probe': { const pts = msg.pts, out = new Uint8Array(pts.length >> 1); for (let k = 0, n = 0; k + 1 < pts.length; k += 2, n++) { const x = pts[k], y = pts[k + 1]; out[n] = x >= 0 && x < W && y >= 0 && y < H ? grid[y * W + x] : 0; } env.post({ t: 'probe', id: msg.id, m: out }, [out.buffer]); break; }

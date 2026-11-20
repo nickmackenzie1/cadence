@@ -198,3 +198,27 @@ test('the finish rewinds, a resize keeps the mess, and touch works: tap, long-pr
   expect(await page.evaluate(() => document.querySelector('#view h1').textContent)).toBe(h1);
   expect(errs).toEqual([]);
 });
+
+test('a deep pool grows kelp and gets fish; drain it and the fish are gone', async ({ page }) => {
+  test.setTimeout(90e3);
+  const errs = []; page.on('pageerror', e => errs.push(String(e)));
+  await page.setViewportSize({ width: 1400, height: 900 });
+  await page.goto(B + '/?demo=1#today');
+  await expect(page.locator('#view .task').first()).toBeVisible({ timeout: 15000 });
+  await page.locator('body').press('Shift+H');
+  await expect.poll(() => page.evaluate(() => !!(window.__havoc && window.__havoc.active)), { timeout: 10000 }).toBe(true);
+  await expect.poll(() => page.evaluate(() => !!window.__fx), { timeout: 10000 }).toBe(true);
+  await page.evaluate(async () => { const w = await window.CadenceFX.world();
+    for (let x = 560; x <= 1000; x += 6) w.spawn(x, 760, w.M.STONE, 3, 1);
+    for (let y = 520; y <= 760; y += 6) { w.spawn(560, y, w.M.STONE, 3, 1); w.spawn(1000, y, w.M.STONE, 3, 1); }
+    await new Promise(r => setTimeout(r, 300));
+    for (let k = 0; k < 40; k++) { for (let x = 590; x < 980; x += 18) w.spawn(x, 560, w.M.WATER, 5, 1); await new Promise(r => setTimeout(r, 120)); } });
+  const kelp = () => page.evaluate(async () => { const w = await window.CadenceFX.world(); return w.count({ left: 0, top: 0, right: innerWidth, bottom: innerHeight }, w.M.KELP); });
+  const fish = () => page.evaluate(async () => (await window.CadenceFX.world()).fish());
+  await expect.poll(kelp, { timeout: 30000 }).toBeGreaterThan(10);
+  await expect.poll(fish, { timeout: 40000 }).toBeGreaterThan(0);
+  await page.evaluate(async () => { const w = await window.CadenceFX.world(); w.clear(w.M.WATER); });
+  await expect.poll(fish, { timeout: 5000 }).toBe(0);
+  await page.keyboard.press('Escape');
+  expect(errs).toEqual([]);
+});
