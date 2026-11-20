@@ -429,3 +429,21 @@ checking the code.
   innermost ones in reach. Measured headless: Collapse ~23 → ~35–50 fps, the settled pile ~56–60.
   User's next asks: images burst into pixels (Elements matter that pours, burns, dissolves, drips), letters and
   Elements react to each other, cards as shelves, weight by size.
+- **Done (2026-11-19, physics 12–15):**
+  - (14) Weight by size: `feelOf(fontSize, weight)` gives each word/letter its density (∝ size^0.9, bold ×1.15), air
+    drag (small print 0.04, headings 0.004) and bounce.
+  - (13) Cards as shelves: every card (a boxy element ≥ 80×40, up to 90) gets a 6 px static ledge on its top
+    (`makeShelves`). A blast within 0.3 R of a card loosens it (`loosen`): the real card element tumbles (its
+    transform follows a physics body), its words and pictures come free, and cards inside it ride along. Collapse
+    loosens all of them bottom-up. The Island and toasts never count as cards.
+  - (15) Pictures burst into pixels (user: "shards will look weird"): a blast within 0.45 R of a picture sends its
+    pixels to the Elements layer (`havoc:fx` type 'pixels'; havoc.js scales the picture to one colour per cell; a
+    picture from another site can't be read, so it bursts grey). New Elements materials in elements-core.js:
+    PIXEL (24, a coloured grain that pours like sand, chars and catches like paper, acid eats it, lava melts it) and
+    DRIP (25, the melted colour, runs like a liquid and sets back into PIXEL as it cools); flying pixels are sparks of
+    kind 5 that land as PIXEL. Cleared when Havoc or the fight stops. Without Elements (reduce motion) pictures fly whole.
+  - (12) Words and Elements both ways: elements-core answers `probe` ([x, y, …] in cells → materials); the engine
+    exposes `world.probe(pagePoints)`. Havoc asks every 6 frames for each word: water → it floats (a little more than
+    its weight upwards, and drag), a still word in water is lifted loose; fire/ember/lava → it darkens and glows
+    (sepia + brightness + an orange glow), passes fire to its neighbours, and at 1.4 turns to ash (+ smoke); lava
+    also shoves it; acid → it blurs, shifts colour and fades into fumes.

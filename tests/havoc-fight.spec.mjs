@@ -123,3 +123,30 @@ test('the new bosses: the big baby is calmed with milk, zombies climb out of the
   await expect(page.locator('canvas.hf-canvas')).toHaveCount(0);
   expect(errs).toEqual([]);
 });
+
+test('physics and Elements together: a picture bursts into Elements pixels, and Havoc can ask Elements what is under a word', async ({ page }) => {
+  test.setTimeout(60e3);
+  const errs = []; page.on('pageerror', e => errs.push(String(e)));
+  await page.setViewportSize({ width: 1200, height: 800 });
+  await page.goto(B + '/?demo=1#today');
+  await expect(page.locator('#view .task').first()).toBeVisible({ timeout: 15000 });
+  await page.evaluate(() => { const c = document.createElement('canvas'); c.width = 200; c.height = 120; const g = c.getContext('2d'); g.fillStyle = '#e8590c'; g.fillRect(0, 0, 200, 120);
+    const im = document.createElement('img'); im.id = 'pxtest'; im.src = c.toDataURL(); im.style.cssText = 'display:block;width:200px;height:120px'; document.querySelector('#view h1').after(im); });
+  await page.waitForTimeout(300);
+  await page.locator('body').press('Shift+H');
+  await expect.poll(() => page.evaluate(() => !!(window.__havoc && window.__havoc.active)), { timeout: 10000 }).toBe(true);
+  expect(await page.evaluate(() => window.__havoc.stats.images)).toBe(1);
+  await expect.poll(() => page.evaluate(() => !!window.__fx), { timeout: 10000 }).toBe(true);
+  // words start whole
+  expect(await page.evaluate(() => document.getElementById('havoc-host').shadowRoot.querySelectorAll('.l.w').length)).toBeGreaterThan(10);
+  const box = await page.locator('#pxtest').boundingBox();
+  await page.evaluate(([x, y]) => window.__havoc.blast(x, y), [box.x + 100, box.y + 60]);
+  // the picture is gone from the physics, and its pixels are Elements matter now
+  await expect.poll(() => page.evaluate(() => document.getElementById('havoc-host').shadowRoot.querySelectorAll('canvas.img').length)).toBe(0);
+  await expect.poll(() => page.evaluate(async () => { const w = await window.CadenceFX.world(); return w.count({ left: 0, top: 0, right: innerWidth, bottom: innerHeight }, w.M.PIXEL); }), { timeout: 8000 }).toBeGreaterThan(50);
+  // the probe: water where we put it
+  const got = await page.evaluate(async () => { const w = await window.CadenceFX.world(); w.spawn(300, 300, w.M.STONE, 3, 1); await new Promise(r => setTimeout(r, 400)); const m = await w.probe([300, 300, 5, 5]); return [m[0] === w.M.STONE, m[1]]; });
+  expect(got[0]).toBe(true);
+  await page.keyboard.press('Escape');
+  expect(errs).toEqual([]);
+});

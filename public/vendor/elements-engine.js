@@ -15,7 +15,7 @@
   if (window.ElementsWorld) return;
   const R = Math.random;
   const M = { E: 0, SAND: 1, WATER: 2, ICE: 3, FIRE: 4, WOOD: 5, STEAM: 6, STONE: 7, OIL: 8, LAVA: 9, EMBER: 10, ASH: 11, SMOKE: 12, SNOW: 13,
-    PAGE: 14, GLASS: 15, WIRE: 16, BULB: 17, PLANT: 18, ACID: 19, FUME: 20, POWDER: 21, BOLT: 22, SURF: 23, FIREWORK: 30, LIGHTNING: 31 };
+    PAGE: 14, GLASS: 15, WIRE: 16, BULB: 17, PLANT: 18, ACID: 19, FUME: 20, POWDER: 21, BOLT: 22, SURF: 23, PIXEL: 24, DRIP: 25, FIREWORK: 30, LIGHTNING: 31 };
   const { E, SAND, WATER, ICE, FIRE, WOOD, STEAM, STONE, OIL, LAVA, SNOW, PLANT, ACID, POWDER, FIREWORK, LIGHTNING } = M;
   const here = (document.currentScript && document.currentScript.src) || new URL('vendor/elements-engine.js', location.href).href;
   const CORE = here.replace(/elements-engine\.js(\?.*)?$/, 'elements-core.js$1');
@@ -489,6 +489,7 @@
         Sound.fire(msg.fire);
       } else if (msg.t === 'stats') { const w = statsWaiters.shift(); if (w) w(msg.data); }
       else if (msg.t === 'count') { const w = countWaiters.get(msg.id); if (w) { countWaiters.delete(msg.id); w(msg.n); } }
+      else if (msg.t === 'probe') { const w = countWaiters.get(msg.id); if (w) { countWaiters.delete(msg.id); w(msg.m); } }
       else if (msg.t === 'error') console.error('Elements engine:', msg.message);
     }
 
@@ -823,6 +824,12 @@
       },
       strike(x, y) { const [cx, cy] = cell(x, y); q(['strike', cx, cy]); },
       explode(x, y, r = 5) { const [cx, cy] = cell(x, y); q(['explode', cx, cy, r]); },
+      // Cadence (2026-11-19): a picture bursts into its own pixels. left, top, width, height in page pixels; rgba is the
+      // picture already scaled to one value per cell (cellsW × cellsH); the blast at bx, by with power (cells per frame)
+      pixels(left, top, cellsW, cellsH, rgba, bx, by, power = 2.2) { if (!ready) return; const [x0, y0] = cell(left, top), [cx, cy] = cell(bx, by); q(['pixels', x0, y0, cellsW, cellsH, cx, cy, power, rgba]); },
+      get cellSize() { return CELL; },
+      // what's at these page points: a Uint8Array of materials, one per point (Cadence, 2026-11-19, for Havoc's words)
+      probe(xy) { return new Promise(res => { if (!port || !ready) return res(null); const id = ++countId, pts = new Int32Array(xy.length); for (let k = 0; k < xy.length; k++) pts[k] = Math.floor(xy[k] / CELL); countWaiters.set(id, res); port.post({ t: 'probe', id, pts }, [pts.buffer]); }); },
       firework(x, y) { const [cx, cy] = cell(x, y); q(['launch', cx, cy]); },
       jar(rc) { q(['jar', Math.floor(rc.left / CELL), Math.floor(rc.top / CELL), Math.floor(rc.right / CELL) - 1, Math.floor(rc.bottom / CELL) - 1]); },
       clear(m) { q(['clear', m === undefined ? -1 : m]); },

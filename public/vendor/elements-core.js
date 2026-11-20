@@ -4,11 +4,13 @@
 function ENGINE(env) {
   'use strict';
   const E=0, SAND=1, WATER=2, ICE=3, FIRE=4, WOOD=5, STEAM=6, STONE=7, OIL=8, LAVA=9, EMBER=10, ASH=11, SMOKE=12, SNOW=13,
-        PAGE=14, GLASS=15, WIRE=16, BULB=17, PLANT=18, ACID=19, FUME=20, POWDER=21, BOLT=22, SURF=23;   // SURF: Cadence, invisible ledge
+        PAGE=14, GLASS=15, WIRE=16, BULB=17, PLANT=18, ACID=19, FUME=20, POWDER=21, BOLT=22, SURF=23,   // SURF: Cadence, invisible ledge
+        PIXEL=24, DRIP=25;   // Cadence (2026-11-19): a picture's own pixels, as grains that pour (PIXEL) and, melted, a coloured liquid (DRIP)
   const FIREWORK=30, LIGHTNING=31;
   const fluid = new Uint8Array(32), gas = new Uint8Array(32), dens = new Uint8Array(32);
   fluid[WATER]=fluid[OIL]=fluid[LAVA]=fluid[ACID]=1; gas[STEAM]=gas[FIRE]=gas[SMOKE]=gas[FUME]=1;
   dens[OIL]=1; dens[WATER]=2; dens[ACID]=2; dens[LAVA]=3; dens[SAND]=4; dens[ASH]=4; dens[POWDER]=4; dens[SNOW]=1;
+  fluid[DRIP]=1; dens[PIXEL]=4; dens[DRIP]=3;
   const R = Math.random, rr = (a, b) => a + ((R() * (b - a)) | 0);
   const N8 = [[-1,-1],[0,-1],[1,-1],[-1,0],[1,0],[-1,1],[0,1],[1,1]];
   const UP5 = [[-1,-1],[0,-1],[1,-1],[-1,0],[1,0]];
@@ -77,6 +79,7 @@ function ENGINE(env) {
 
   function heat(j, t, k) {
     if (t === POWDER) { explode(j % W, (j / W) | 0, 4); return; }
+    if (t === PIXEL) { if (k >= 3 && R() < 0.5) { grid[j] = DRIP; life[j] = rr(90, 220); wakeAt(j); return; } if (R() < 0.01 * k) setI(j, EMBER, rr(30, 90)); else char(j, 5 * k); return; }
     if (t === PLANT) { if (R() < 0.08 * k) setI(j, EMBER, rr(25, 60)); return; }
     const c = life[j] / 255;
     if (t === PAGE) { if (R() < (0.012 + c * 0.14) * k) setI(j, EMBER, rr(40, 110)); else char(j, 4 * k); }
@@ -223,7 +226,7 @@ function ENGINE(env) {
                 const nx = x + N8[n][0], ny = y + N8[n][1];
                 if (nx < 0 || nx >= W || ny < 0 || ny >= H) continue;
                 const j = ny * W + nx, t = grid[j];
-                if (t === WOOD || t === PAGE || t === PLANT || t === POWDER) heat(j, t, 1);
+                if (t === WOOD || t === PAGE || t === PLANT || t === POWDER || t === PIXEL) heat(j, t, 1);
                 else if (t === OIL && R() < 0.25) set(nx, ny, FIRE, rr(30, 60));
                 else if (t === ICE && R() < 0.05) set(nx, ny, WATER);
                 else if (t === SAND) melt(j, 12);
@@ -248,7 +251,7 @@ function ENGINE(env) {
               for (let k2 = 0; k2 < 2; k2++) {
                 const j = randN(x, y); if (j < 0) continue;
                 const t = grid[j];
-                if (t === WOOD || t === PAGE || t === PLANT || t === POWDER) heat(j, t, 2);
+                if (t === WOOD || t === PAGE || t === PLANT || t === POWDER || t === PIXEL) heat(j, t, 2);
                 else if (t === OIL && R() < 0.4) setI(j, FIRE, rr(30, 60));
                 else if (t === SAND) melt(j, 10);
                 else if ((t === ICE && R() < 0.1) || (t === SNOW && R() < 0.4)) setI(j, WATER);
@@ -287,7 +290,7 @@ function ENGINE(env) {
               const j = randN(x, y);
               if (j >= 0) {
                 const t = grid[j];
-                const eats = t === PAGE || t === WOOD || t === PLANT || t === SNOW || t === ICE || t === ASH || t === POWDER || (t === SAND && R() < 0.3) || (t === STONE && R() < 0.12);
+                const eats = t === PAGE || t === WOOD || t === PLANT || t === SNOW || t === ICE || t === ASH || t === POWDER || t === PIXEL || t === DRIP || (t === SAND && R() < 0.3) || (t === STONE && R() < 0.12);
                 if (eats && R() < 0.3) { setI(j, R() < 0.5 ? FUME : E, rr(40, 90)); if (R() < 0.3) { set(x, y, FUME, rr(40, 90)); break; } }
                 else if (t === WATER && R() < 0.004) { set(x, y, WATER); break; }
               }
@@ -295,6 +298,9 @@ function ENGINE(env) {
             }
             case FUME: { if (life[i] <= 1) { grid[i] = E; break; } life[i]--; if (R() < 0.7) gasMove(i, x, y, m, 0.6); break; }
             case POWDER: { if (tAt(x, y) > 220 && R() < 0.3) { explode(x, y, 4); break; } powder(i, x, y, m); break; }
+            // Cadence: a picture's pixels pour like sand; very hot ones melt into colour that runs, and set again as it cools
+            case PIXEL: { if (tAt(x, y) > 420 && R() < 0.2) { grid[i] = DRIP; life[i] = rr(90, 220); wakeAt(i); break; } powder(i, x, y, m); break; }
+            case DRIP: { if (life[i] > 0) life[i]--; if (life[i] === 0 && R() < 0.05) { grid[i] = PIXEL; wakeAt(i); break; } liquid(i, x, y, m, 2); break; }
             case BOLT: { heatTo(x, y, 3000, 0.3); if (life[i] <= 1) grid[i] = E; else life[i]--; break; }
             case LAVA: {
               heatTo(x, y, 1100, 0.03);
@@ -306,7 +312,7 @@ function ENGINE(env) {
                 else if (t === SAND) melt(j, 25);
                 else if (t === SNOW) setI(j, R() < 0.5 ? STEAM : WATER, rr(100, 200));
                 else if (t === ICE && R() < 0.2) { setI(j, WATER); if (R() < 0.05) { set(x, y, STONE); cooled = true; break; } }
-                else if (t === WOOD || t === PAGE || t === PLANT || t === POWDER) heat(j, t, 3);
+                else if (t === WOOD || t === PAGE || t === PLANT || t === POWDER || t === PIXEL) heat(j, t, 3);
                 else if (t === OIL && R() < 0.5) setI(j, FIRE, rr(30, 60));
               }
               if (cooled) break;
@@ -355,7 +361,7 @@ function ENGINE(env) {
         else if (m === STONE && d < r * 0.6 && R() < 0.3) set(x, y, SAND);
       }
       const g2 = grid[i];
-      if (g2 === SAND || g2 === ASH || g2 === SNOW || g2 === WATER || g2 === ACID || g2 === OIL || g2 === POWDER) {
+      if (g2 === SAND || g2 === ASH || g2 === SNOW || g2 === WATER || g2 === ACID || g2 === OIL || g2 === POWDER || g2 === PIXEL || g2 === DRIP) {
         const k = (r + 4 - d) / (d || 1), tx = Math.round(x + dx * k), ty = Math.round(y + dy * k - 1);
         if (tx >= 0 && tx < W && ty >= 0 && ty < H && grid[ty * W + tx] === E) swap(i, ty * W + tx);
       }
@@ -364,7 +370,7 @@ function ENGINE(env) {
     for (let n = 0; n < 10; n++) spark(cx, cy, (R() - 0.5) * 4, -R() * 3.5, [255, 170 + R() * 60, 60], rr(15, 35));
   }
   const FW_COLS = [[255, 70, 60], [80, 255, 120], [90, 150, 255], [255, 210, 70], [255, 110, 230], [240, 245, 255]];
-  function spark(x, y, vx, vy, col, lf, kind = 0) { if (parts.length < 2500) { const p = { x, y, vx, vy, col, life: lf, max: lf, kind }; parts.push(p); return p; } return null; }
+  function spark(x, y, vx, vy, col, lf, kind = 0) { if (parts.length < (kind === 5 ? 6000 : 2500)) { const p = { x, y, vx, vy, col, life: lf, max: lf, kind }; parts.push(p); return p; } return null; }
   function launch(x, y) {
     const p = spark(x, y, (R() - 0.5) * 0.6, -3.2 - R() * 1.2, FW_COLS[(R() * FW_COLS.length) | 0], rr(28, 50), 1);
     if (p) { p.c2 = FW_COLS[(R() * FW_COLS.length) | 0]; events.push(['launch']); }
@@ -384,12 +390,16 @@ function ENGINE(env) {
       const p = parts[n];
       p.life--;
       if (p.kind === 1) { spark(p.x, p.y + 1, (R() - 0.5) * 0.4, 0.3 + R() * 0.5, [255, 190, 90], rr(6, 14)); p.vx += wind * 0.01; }
+      else if (p.kind === 5) { p.vy += 0.09; p.vx *= 0.99; }
       else { p.vy += p.kind === 2 ? 0.03 : 0.05; p.vx *= 0.985; p.vy *= 0.985; p.vx += wind * 0.004; }
       const nx = p.x + p.vx, ny = p.y + p.vy, x = nx | 0, y = ny | 0;
-      if (nx < 0 || x >= W || ny < 0 || y >= H) continue;
+      if (nx < 0 || x >= W || y >= H) continue;
+      if (p.kind === 5 && ny < 0) { p.x = nx; p.y = ny; out.push(p); continue; }   // flung above the top: still coming down
+      if (ny < 0) continue;
       const i = y * W + x, m = grid[i];
       if (m !== E && !gas[m]) {
         if (p.kind === 1) { burst(p); continue; }
+        if (p.kind === 5) { landPixel(p); continue; }
         if (m === SNOW && R() < 0.5) set(x, y, WATER);
         else if (m === WATER && R() < 0.2) set(x, y, STEAM, rr(60, 120));
         else if (m === PAGE || m === WOOD) { char(i, p.kind === 2 ? 4 : 12); pristine[i] = 0; wakeAt(i); if (R() < (p.kind === 2 ? 0.003 : 0.006)) set(x, y, EMBER, rr(30, 70)); }
@@ -398,10 +408,31 @@ function ENGINE(env) {
         continue;
       }
       p.x = nx; p.y = ny;
-      if (p.life <= 0) { if (p.kind === 1) burst(p); continue; }
+      if (p.life <= 0) { if (p.kind === 1) burst(p); else if (p.kind === 5) landPixel(p); continue; }
       out.push(p);
     }
     parts = out;
+  }
+  // Cadence: a pixel in flight comes to rest as a grain of its own colour where it was (or just above, if that's taken)
+  function landPixel(p) {
+    for (let k = 0; k < 4; k++) {
+      const x = p.x | 0, y = (p.y | 0) - k; if (x < 0 || x >= W || y < 0 || y >= H) return;
+      const i = y * W + x; if (grid[i] !== E) continue;
+      set(x, y, PIXEL); colR[i] = p.col[0]; colG[i] = p.col[1]; colB[i] = p.col[2]; return;
+    }
+  }
+  // Cadence: a picture bursts into its pixels. ['pixels', x0, y0, w, h, cx, cy, power, rgba] in cells: the ones near the
+  // blast fly, the rest crumble where they are and pour
+  function pixels(x0, y0, w, h, cx, cy, power, px) {
+    const reach = Math.max(w, h) * 0.75 + 6;
+    for (let yy = 0; yy < h; yy++) for (let xx = 0; xx < w; xx++) {
+      const k = (yy * w + xx) * 4; if (px[k + 3] < 120) continue;
+      const x = x0 + xx, y = y0 + yy; if (x < 0 || x >= W || y < 0 || y >= H) continue;
+      const col = [px[k], px[k + 1], px[k + 2]], dx = x - cx, dy = y - cy, d = Math.hypot(dx, dy) || 1, f = Math.max(0, 1 - d / reach);
+      if (f > 0.15 && R() < 0.35 + f * 0.6) { const v = power * (0.4 + f) * (0.6 + R() * 0.8); spark(x + 0.5, y + 0.5, dx / d * v + (R() - 0.5) * 0.8, dy / d * v - R() * 1.6 * power * f, col, 900, 5); continue; }
+      const i = y * W + x; if (grid[i] !== E && grid[i] !== SURF) continue;
+      set(x, y, PIXEL); colR[i] = col[0]; colG[i] = col[1]; colB[i] = col[2];
+    }
   }
   function strike(tx, ty) {
     const top = view.top;
@@ -490,7 +521,7 @@ function ENGINE(env) {
 
   // ---------- light that casts shadows ----------
   const OPQ = new Float32Array(32);
-  OPQ[PAGE] = OPQ[STONE] = OPQ[WOOD] = OPQ[SAND] = OPQ[POWDER] = 1; OPQ[ASH] = 0.9; OPQ[SNOW] = 0.85; OPQ[PLANT] = 0.75; OPQ[OIL] = 0.6;
+  OPQ[PAGE] = OPQ[STONE] = OPQ[WOOD] = OPQ[SAND] = OPQ[POWDER] = OPQ[PIXEL] = OPQ[DRIP] = 1; OPQ[ASH] = 0.9; OPQ[SNOW] = 0.85; OPQ[PLANT] = 0.75; OPQ[OIL] = 0.6;
   OPQ[WIRE] = 0.5; OPQ[SMOKE] = 0.4; OPQ[ICE] = 0.35; OPQ[WATER] = OPQ[ACID] = 0.3; OPQ[GLASS] = OPQ[STEAM] = OPQ[FUME] = 0.12;
   const EMS = new Float32Array(32 * 3);
   const em = (m, r, g, b) => { EMS[m * 3] = r; EMS[m * 3 + 1] = g; EMS[m * 3 + 2] = b; };
@@ -877,6 +908,7 @@ function ENGINE(env) {
         break;
       }
       case 'explode': explode(ev[1], ev[2], ev[3]); break;
+      case 'pixels': pixels(ev[1], ev[2], ev[3], ev[4], ev[5], ev[6], ev[7], ev[8]); break;
       // the page's ledges moved: [x0, x1, y, x0, x1, y, …]; what rested on a ledge that's gone falls
       case 'surf': {
         for (let i = 0; i < N; i++) if (grid[i] === SURF) { grid[i] = E; wakeAt(i); }
@@ -1024,6 +1056,8 @@ function ENGINE(env) {
                 const a = 1 - Math.min(depth, 30) / 30 * 0.28; r *= a; g *= a; b *= a;
                 depth++; liq = 0; break;
               }
+              case PIXEL: { r = colR[i]; g = colG[i]; b = colB[i]; const sh = ((shade[i] & 15) - 7) * 1.5; r += sh; g += sh; b += sh; scorch(r, g, b, life[i]); r = SR; g = SG; b = SB; depth++; liq = 0; break; }
+              case DRIP: { const gl = (shade[i] & 31) > 27 ? 40 : 10; r = Math.min(255, colR[i] * 1.08 + gl); g = Math.min(255, colG[i] * 1.08 + gl); b = Math.min(255, colB[i] * 1.08 + gl); depth++; break; }
               case WOOD: case PAGE: {
                 if (m === WOOD) {
                   const grain = Math.sin(x * 1.15 + Math.sin(y * 0.12 + x * 0.3) * 2.2) * 14 + ((shade[i] & 15) - 8);
@@ -1094,6 +1128,7 @@ function ENGINE(env) {
     // sparks and rockets
     for (const p of parts) {
       const x = p.x | 0, y = p.y | 0; if (x < 0 || x >= W || y < 0 || y >= H) continue;
+      if (p.kind === 5) { const i = y * W + x; buf[i] = rgb(p.col[0], p.col[1], p.col[2]); lbuf[i] = 0; markDrawn(x, y); continue; }   // a pixel in flight: its own colour, no glow
       const i = y * W + x, f = Math.max(0.15, p.life / p.max), tw = p.kind === 2 && R() < 0.15 ? 0.3 : 1;
       const c = rgb(p.col[0] * f * tw + 40 * f, p.col[1] * f * tw + 40 * f, p.col[2] * f * tw + 40 * f);
       buf[i] = c; lbuf[i] = LB(c); markDrawn(x, y);
@@ -1269,6 +1304,8 @@ function ENGINE(env) {
           if (grid && (msg.key === 'lights' || msg.key === 'palette' || msg.key === 'compact')) { removeLights(); buildLights(); awake.fill(1); }
           break;
         case 'count': { let n = 0; const [x0, y0, x1, y1] = msg.rect; for (let y = Math.max(0, y0); y < Math.min(H, y1); y++) for (let x = Math.max(0, x0); x < Math.min(W, x1); x++) if (grid[y * W + x] === msg.m) n++; env.post({ t: 'count', id: msg.id, n }); break; }
+        // Cadence (2026-11-19): what's at each of these cells ([x, y, x, y, …]): Havoc's words float, burn and dissolve by it
+        case 'probe': { const pts = msg.pts, out = new Uint8Array(pts.length >> 1); for (let k = 0, n = 0; k + 1 < pts.length; k += 2, n++) { const x = pts[k], y = pts[k + 1]; out[n] = x >= 0 && x < W && y >= 0 && y < H ? grid[y * W + x] : 0; } env.post({ t: 'probe', id: msg.id, m: out }, [out.buffer]); break; }
         case 'frame': frame(msg); break;
         case 'save': { const ab = encodeSave(); env.post({ t: 'saved', gen, data: ab }, [ab]); break; }
         case 'stats': env.post({ t: 'stats', id: msg.id, data: stats() }); break;

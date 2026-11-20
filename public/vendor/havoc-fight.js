@@ -862,7 +862,7 @@
     const fx = S.fx; S = null;
     // the page back: physics puts every word where it was; the Elements layer drops what the fight left
     try { window.__havoc && window.__havoc.active && window.__havoc.stop(); } catch {}
-    if (fx) { try { const M = fx.M; for (const m of [M.FIRE, M.LAVA, M.ACID, M.ICE, M.SMOKE, M.EMBER, M.ASH, M.SAND, M.FUME, M.STEAM, M.STONE, M.WATER]) if (m != null) fx.clear(m); } catch {} }
+    if (fx) { try { const M = fx.M; for (const m of [M.FIRE, M.LAVA, M.ACID, M.ICE, M.SMOKE, M.EMBER, M.ASH, M.SAND, M.FUME, M.STEAM, M.STONE, M.WATER, M.PIXEL, M.DRIP]) if (m != null) fx.clear(m); } catch {} }
     dispatchEvent(new CustomEvent('havoc-fight', { detail: { on: false } }));
   }
   window.HavocFight = {

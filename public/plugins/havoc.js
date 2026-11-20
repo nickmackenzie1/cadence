@@ -44,7 +44,12 @@
       window.__havocFx && removeEventListener('havoc:fx', window.__havocFx);
       window.__havocFx = e => {
         const d = e.detail || {}; if (!window.CadenceFX) return;
-        if (d.type === 'rain' || d.type === 'stop') { window.CadenceFX.want('havoc', d.type === 'rain' && d.on ? { rain: 7 } : null); return; }
+        if (d.type === 'rain' || d.type === 'stop') {
+          window.CadenceFX.want('havoc', d.type === 'rain' && d.on ? { rain: 7 } : null);
+          // the pictures' pixels go with the mess when Havoc stops
+          if (d.type === 'stop') window.CadenceFX.world().then(w => { if (w && w.M.PIXEL != null) { w.clear(w.M.PIXEL); w.clear(w.M.DRIP); } }, () => {});
+          return;
+        }
         window.CadenceFX.world().then(w => {
           if (!w) return;
           if (d.type === 'blast') { w.explode(d.x, d.y, 7); w.spawn(d.x, d.y, w.M.FIRE, 5, 0.5, 15, 40); w.spawn(d.x, d.y + 10, w.M.SAND, 6, 0.4); }
@@ -52,6 +57,15 @@
           // Fire and Acid tools: the flames sit on a splash of oil so they keep burning; acid eats what it lands on
           else if (d.type === 'fire') { w.spawn(d.x, d.y + 4, w.M.OIL, 4, 0.5); w.spawn(d.x, d.y, w.M.FIRE, 6, 0.65, 30, 80); }
           else if (d.type === 'acid') w.spawn(d.x, d.y, w.M.ACID, 4, 0.7);
+          // a picture bursts into its pixels (2026-11-19): one colour per cell, read from Havoc's copy of the picture.
+          // A picture from another site can't be read (the browser won't allow it): it bursts in its average-looking grey
+          else if (d.type === 'pixels') {
+            const c = w.cellSize || 3, cw = Math.max(1, Math.round(d.w / c)), ch = Math.max(1, Math.round(d.h / c));
+            let px;
+            try { const t = document.createElement('canvas'); t.width = cw; t.height = ch; const g = t.getContext('2d', { willReadFrequently: true }); g.drawImage(d.canvas, 0, 0, cw, ch); px = g.getImageData(0, 0, cw, ch).data; }
+            catch (e) { px = new Uint8ClampedArray(cw * ch * 4); for (let i = 0; i < px.length; i += 4) { const v = 120 + ((i * 7919) % 50); px[i] = v; px[i + 1] = v; px[i + 2] = v + 8; px[i + 3] = 255; } }
+            w.pixels(d.left, d.top, cw, ch, px, d.x, d.y, d.power || 2.4);
+          }
           else if (d.type === 'hole') { let n = 0; const iv = setInterval(() => { w.clearAt(d.x, d.y, 30 + n * 6); if (++n > 60) clearInterval(iv); }, 110); }
         });
       };

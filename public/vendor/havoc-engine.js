@@ -130,7 +130,7 @@
         if (c.visibility === 'hidden' || +c.opacity === 0) { styleCache.set(p, false); continue; }
         let color = c.webkitTextFillColor && c.webkitTextFillColor !== c.color && !/rgba\(0, 0, 0, 0\)/.test(c.webkitTextFillColor) ? c.webkitTextFillColor : c.color;
         if (/rgba\(\d+, \d+, \d+, 0\)|transparent/.test(color)) color = '#222';
-        cs = { font: `${c.fontStyle} ${c.fontWeight} ${c.fontSize} ${c.fontFamily}`, color, shadow: c.textShadow !== 'none' ? c.textShadow : '', transform: c.textTransform, ls: c.letterSpacing && c.letterSpacing !== 'normal' ? c.letterSpacing : '' };
+        cs = { font: `${c.fontStyle} ${c.fontWeight} ${c.fontSize} ${c.fontFamily}`, color, shadow: c.textShadow !== 'none' ? c.textShadow : '', transform: c.textTransform, ls: c.letterSpacing && c.letterSpacing !== 'normal' ? c.letterSpacing : '', feel: feelOf(parseFloat(c.fontSize) || 14, parseInt(c.fontWeight, 10) || 400) };
         styleCache.set(p, cs);
       }
       if (!cs) continue;
@@ -181,6 +181,11 @@
   // Words (2026-11-19): the letters of a word travel as one piece of real text (one element, one body) until something
   // hits it hard enough, then it breaks into its letters right where it is. Five times fewer pieces for the browser
   // and the physics, and the page's own kerning while it's whole.
+  // weight by size (2026-11-19): headings are dense and cut through the air, small print is light and drifts
+  function feelOf(px, wt) {
+    const k = clamp(px / 15, 0.6, 3.2), bold = wt >= 600 ? 1.15 : 1;
+    return { density: 0.0016 * Math.pow(k, 0.9) * bold, frictionAir: clamp(0.022 / Math.pow(k, 1.3), 0.004, 0.04), restitution: clamp(0.34 - 0.06 * k, 0.12, 0.32) };
+  }
   const BREAK = 15;   // a knock faster than this (px per step) breaks a word; so does slamming into something at 1.5×
   const shown = (g, first) => { const t = g.cs.transform; return t === 'uppercase' ? g.ch.toUpperCase() : t === 'lowercase' ? g.ch.toLowerCase() : t === 'capitalize' && first ? g.ch.toUpperCase() : g.ch; };
   function groupWords(glyphs) {
@@ -200,7 +205,7 @@
     el.className = 'l w'; el.textContent = gs.map((g, i) => shown(g, i === 0)).join('');
     el.style.cssText = `width:${w}px;height:${h}px;line-height:${h}px;font:${cs.font};color:${cs.color};${cs.shadow ? 'text-shadow:' + cs.shadow + ';' : ''}${cs.ls ? 'letter-spacing:' + cs.ls + ';' : ''}text-align:left;transform:translate(${x0}px,${y0}px)`;
     stage.appendChild(el);
-    const body = Bodies.rectangle(x0 + w / 2, y0 + h / 2, Math.max(2, w), Math.max(2, h * 0.82), { friction: 0.4, frictionAir: 0.012, restitution: 0.26, density: 0.0016, slop: 0.02, label: 'W' });
+    const body = Bodies.rectangle(x0 + w / 2, y0 + h / 2, Math.max(2, w), Math.max(2, h * 0.82), { friction: 0.4, slop: 0.02, label: 'W', ...cs.feel });
     Body.setStatic(body, true);
     // where each letter sits inside the word, from its centre
     const parts = gs.map((g, i) => ({ g, ch: shown(g, i === 0), dx: g.x + g.w / 2 - (x0 + w / 2), dy: g.y + g.h / 2 - (y0 + h / 2) }));
@@ -231,7 +236,7 @@
     if (g.cs.transform && g.cs.transform !== 'none') el.style.textTransform = 'none';
     stage.appendChild(el);
     const body = Bodies.rectangle(g.x + g.w / 2, g.y + g.h / 2, Math.max(2, g.w), Math.max(2, g.h * 0.82), {
-      friction: 0.4, frictionAir: 0.012, restitution: 0.28, density: 0.0016, slop: 0.02, label: 'L', angle
+      friction: 0.4, slop: 0.02, label: 'L', angle, ...(g.cs.feel || {})
     });
     if (frozen) Body.setStatic(body, true);   // freeze; created-static bodies can't be properly unfrozen in Matter
     const o = { kind: 'L', el, body, w: g.w, h: g.h, alive: true, color: g.cs.color };
@@ -367,17 +372,35 @@
       else if (Math.hypot(o.body.position.x - x, o.body.position.y - y) < r) out.push(o);
     }
     for (const o of images) if (o.alive && !o.melt) { const b = o.body.bounds; const cx = clamp(x, b.min.x, b.max.x), cy = clamp(y, b.min.y, b.max.y); if (Math.hypot(cx - x, cy - y) < r) out.push(o); }
+    for (const o of loose) if (o.alive) { const b = o.body.bounds; if (Math.hypot(clamp(x, b.min.x, b.max.x) - x, clamp(y, b.min.y, b.max.y) - y) < r) out.push(o); }
     return out;
   }
   // Cadence listens for these and plays them out in its Elements matter layer too (fire, lava, real rain, swallowed sand)
   const tellFx = (type, x, y, extra) => { try { dispatchEvent(new CustomEvent('havoc:fx', { detail: { type, x, y, ...extra } })); } catch (e) {} };
+  // pictures near a blast burst into their own pixels (2026-11-19), which become Elements matter: they fly, pour into
+  // heaps, burn, get eaten by acid and run as coloured liquid when lava reaches them. Without the Elements layer
+  // (reduce motion) a picture still flies off whole.
+  const canPixels = () => !!window.CadenceFX && !matchMedia('(prefers-reduced-motion: reduce)').matches;
+  function burstImage(o, x, y, power = 2.4) {
+    const b = o.body, left = b.position.x - o.w / 2, top = b.position.y - o.h / 2;
+    tellFx('pixels', x, y, { canvas: o.base, left, top, w: o.w, h: o.h, power });
+    kill(o);
+  }
   function blast(x, y) {
     tellFx('blast', x, y);
     const R = 170;
+    if (canPixels()) for (const o of images) {
+      if (!o.alive || o.melt || !o.ready) continue; const bb = o.body.bounds;
+      if (Math.hypot(clamp(x, bb.min.x, bb.max.x) - x, clamp(y, bb.min.y, bb.max.y) - y) < R * 0.45) burstImage(o, x, y);
+    }
     for (const o of bodiesNear(x, y, R)) {
       const p = o.body.position, dx = p.x - x, dy = p.y - y, d = Math.max(8, Math.hypot(dx, dy)), k = (1 - Math.min(1, d / R)) ** 0.7;
       const pow = o.kind === 'I' ? 14 : 26;
       release(o, dx / d * pow * k + rand(-2, 2), dy / d * pow * k - rand(3, 9) * k, rand(-0.5, 0.5));
+    }
+    for (const c of cards) {
+      if (c.loose) continue; const q = c.q, d = Math.hypot(clamp(x, q.l, q.r) - x, clamp(y, q.t, q.b) - y);
+      if (d < R * 0.3 && (q.r - q.l) * (q.b - q.t) < W * Hh * 0.2) { const cx = (q.l + q.r) / 2, cy = (q.t + q.b) / 2, dd = Math.max(10, Math.hypot(cx - x, cy - y)); loosen(c, (cx - x) / dd * 9, (cy - y) / dd * 9 - 6, rand(-0.06, 0.06)); }
     }
     shake = Math.max(shake, 18);
     rings.push({ x, y, r: 10, max: 260, life: 1, color: '255,170,90', w: 10 });
@@ -448,7 +471,7 @@
     dentBoxes = [];
     const all = document.body ? document.body.querySelectorAll('*') : [];
     for (const el of all) {
-      if (el === host || el === scorchHost || el.closest('#havoc-host, #havoc-scorch')) continue;
+      if (el === host || el === scorchHost || el.closest('#havoc-host, #havoc-scorch, #island, .isl, .hf-ui, #toast, .toast')) continue;
       const r = el.getBoundingClientRect(); if (!inView(r) || r.width < 36 || r.height < 18 || r.width > W * 0.7 || r.height > Hh * 0.6) continue;
       const cs = getComputedStyle(el), boxy = (cs.backgroundColor && !/rgba\(0, 0, 0, 0\)|transparent/.test(cs.backgroundColor)) || parseFloat(cs.borderTopWidth) > 0 || cs.boxShadow !== 'none';
       if (!boxy || cs.position === 'fixed' || cs.visibility === 'hidden') continue;
@@ -462,6 +485,7 @@
     const inner = hitB.filter(q => !hitB.some(z => z !== q && z.l >= q.l && z.r <= q.r && z.t >= q.t && z.b <= q.b));
     for (const q of inner) {
       const el = q.el, r = { left: q.l, top: q.t, width: q.r - q.l, height: q.b - q.t };
+      if (el.__loose) continue;
       {
         const cx = r.left + r.width / 2, cy = r.top + r.height / 2, dd = Math.max(20, Math.hypot(cx - x, cy - y)), k = Math.max(0, 1 - dd / (R * 1.8)); if (k <= 0.05) continue;
         const st = el.__hv || (el.__hv = { r: 0, x: 0, y: 0, init: false });
@@ -472,6 +496,38 @@
       }
     }
   }
+  // Cards as shelves (2026-11-19): the top of every card is a ledge the letters land and pile on. A blast close to a
+  // card knocks the card itself loose: the real card tumbles (its own background, border and icons), its words come free,
+  // and the cards inside it go with it. Collapse brings them all down.
+  let cards = [];
+  function makeShelves() {
+    cards = [];
+    const list = boxes().filter(q => q.r - q.l >= 80 && q.b - q.t >= 40).sort((a, b) => (a.b - a.t) * (a.r - a.l) - (b.b - b.t) * (b.r - b.l)).slice(0, 90);
+    for (const q of list) {
+      const shelf = Bodies.rectangle((q.l + q.r) / 2, q.t + 3, q.r - q.l, 6, { isStatic: true, label: 'shelf', friction: 0.7, restitution: 0.05 });
+      cards.push({ q, shelf, loose: false });
+    }
+    Composite.add(engine.world, cards.map(c => c.shelf));
+  }
+  const inside = (q, z) => z !== q && z.l >= q.l - 1 && z.r <= q.r + 1 && z.t >= q.t - 1 && z.b <= q.b + 1;
+  function loosen(c, vx = 0, vy = 0, spin = 0) {
+    if (c.loose) return; c.loose = true;
+    const q = c.q, el = q.el, w = q.r - q.l, h = q.b - q.t, cx = q.l + w / 2, cy = q.t + h / 2;
+    Composite.remove(engine.world, c.shelf);
+    for (const d of cards) if (!d.loose && inside(q, d.q)) { d.loose = true; d.rides = true; Composite.remove(engine.world, d.shelf); }
+    el.__loose = true; restore.push(() => { delete el.__loose; });
+    hideEl(el, 'transition', 'none'); hideEl(el, 'transform-origin', '50% 50%'); hideEl(el, 'transform', 'none'); hideEl(el, 'position', getComputedStyle(el).position === 'static' ? 'relative' : getComputedStyle(el).position); hideEl(el, 'z-index', '4');
+    const body = Bodies.rectangle(cx, cy, w, h, { friction: 0.5, frictionAir: 0.012, restitution: 0.12, density: 0.0008, label: 'C', chamfer: { radius: Math.min(10, w / 6, h / 6) } });
+    Composite.add(engine.world, body);
+    const o = { kind: 'C', el, body, w, h, cx0: cx, cy0: cy, alive: true };
+    bodyMap.set(body.id, o); loose.push(o);
+    Body.setVelocity(body, { x: vx, y: vy }); Body.setAngularVelocity(body, spin);
+    // what was written on it comes free, flying with it
+    for (const l of letters) if (l.alive && l.body && l.body.isStatic) { const p = l.body.position; if (p.x > q.l && p.x < q.r && p.y > q.t && p.y < q.b) release(l, vx * 0.8 + rand(-1, 1), vy * 0.8 + rand(-1.5, 0.5), rand(-0.1, 0.1)); }
+    for (const im of images) if (im.alive && im.body && im.body.isStatic) { const p = im.body.position; if (p.x > q.l && p.x < q.r && p.y > q.t && p.y < q.b) release(im, vx * 0.8, vy * 0.8, rand(-0.05, 0.05)); }
+  }
+  let loose = [];
+
   // fire: the flames are Elements (on a splash of oil so they keep burning); the words nearby come loose and float up
   function ignite(x, y) {
     tellFx('fire', x, y);
@@ -504,6 +560,7 @@
       const y = o.body.position.y;
       setTimeout(() => { if (H.active) release(o, rand(-1.5, 1.5), rand(-2, 1), rand(-0.08, 0.08)); }, (Hh - y) * 1.6 + rand(0, 260));
     }
+    for (const c of cards) if (!c.loose) setTimeout(() => { if (H.active) loosen(c, rand(-1, 1), rand(-1, 0.5), rand(-0.03, 0.03)); }, (Hh - c.q.b) * 1.6 + rand(100, 400));
     for (let i = 0; i < 40; i++) particles.push({ x: rand(0, W), y: Hh + 10, vx: rand(-1, 1), vy: rand(-3, -1), life: rand(1.5, 3), size: rand(20, 50), color: '120,110,100', g: -0.01, smoke: true });
   }
   function toggleZeroG() {
@@ -511,6 +568,47 @@
     if (zeroG) for (const o of [...letters, ...images]) if (o.alive && o.body && !o.melt && !o.drip) release(o, rand(-1.2, 1.2), rand(-2.2, -0.3), rand(-0.03, 0.03));
     tone(zeroG ? 300 : 900, zeroG ? 900 : 300, 0.5, { gain: 0.15, type: 'triangle' });
     syncHud();
+  }
+  // Words and Elements, both ways (2026-11-19): ten times a second Havoc asks the Elements layer what's under each word.
+  // In water a word floats (and a still one is lifted loose); in fire or lava it darkens and glows, passes the fire on to
+  // what's next to it, and ends up as ash; acid eats it away into fumes; flowing lava shoves it about.
+  let fxw = null, probing = false, probeN = 0, wet = [];
+  function senses() {
+    if (!fxw || probing || !fxw.probe) return;
+    const list = letters.filter(o => o.alive && o.body && !o.drip), xy = new Array(list.length * 2);
+    for (let k = 0; k < list.length; k++) { const p = list[k].body.position; xy[k * 2] = p.x; xy[k * 2 + 1] = p.y + list[k].h * 0.2; }
+    if (!list.length) return;
+    probing = true;
+    fxw.probe(xy).then(m => {
+      probing = false; if (!m || !H.active) return;
+      const M_ = fxw.M; wet = [];
+      for (let k = 0; k < list.length; k++) {
+        const o = list[k]; if (!o.alive || !o.body) continue;
+        const t = m[k], b = o.body, p = b.position;
+        if (t === M_.WATER) {
+          if (b.isStatic) release(o, rand(-0.4, 0.4), rand(-1.5, -0.4), rand(-0.05, 0.05));
+          wet.push(o);
+        } else if (t === M_.FIRE || t === M_.EMBER || t === M_.LAVA) {
+          o.burn = (o.burn || 0) + (t === M_.LAVA ? 0.35 : 0.14);
+          if (t === M_.LAVA) { if (b.isStatic) release(o, 0, -2, 0); Body.applyForce(b, p, { x: rand(-1, 1) * 0.0004 * b.mass, y: -0.0012 * b.mass }); }
+          else if (b.isStatic && Math.random() < 0.25) release(o, rand(-0.6, 0.6), rand(-3, -1), rand(-0.1, 0.1));
+        } else if (t === M_.ACID) o.acid = (o.acid || 0) + 0.2;
+        if (o.burn) {
+          const v = Math.min(1, o.burn);
+          o.el.style.filter = `sepia(${v}) brightness(${(1 - 0.75 * v).toFixed(2)})`;
+          o.el.style.textShadow = v < 0.95 ? `0 0 ${2 + 5 * v}px rgba(255,${130 - 60 * v | 0},40,${0.4 + 0.5 * v})` : '';
+          // the fire passes along the line of text
+          if (Math.random() < 0.35) fxw.spawn(p.x + rand(-o.w / 2, o.w / 2), p.y - o.h * 0.3, M_.FIRE, 1, 0.8, 10, 30);
+          o.burn += 0.05;
+          if (o.burn >= 1.4) { for (let x = -o.w / 2; x <= o.w / 2; x += 6) fxw.spawn(p.x + x, p.y, M_.ASH, 1, 0.8); fxw.spawn(p.x, p.y - 6, M_.SMOKE, 2, 0.4, 20, 50); kill(o); continue; }
+        }
+        if (o.acid) {
+          o.el.style.opacity = String(Math.max(0, 1 - o.acid)); o.el.style.filter = `blur(${(o.acid * 1.5).toFixed(1)}px) hue-rotate(${o.acid * 60 | 0}deg)`;
+          if (o.acid >= 1) { fxw.spawn(p.x, p.y, M_.FUME, 2, 0.5, 30, 70); kill(o); continue; }
+          if (t !== M_.ACID) o.acid = Math.max(0, o.acid - 0.02);
+        }
+      }
+    }, () => { probing = false; });
   }
   function kill(o) {
     if (!o.alive) return; o.alive = false;
@@ -569,7 +667,12 @@
     // slow device goes briefly slow-motion instead of falling further behind), and the leftover carried to the next
     // frame. What's drawn is blended between the last two steps, so 120 Hz screens still move smoothly.
     acc = Math.min(acc + dt * 1000, STEP * 3);
-    while (acc >= STEP) { Engine.update(engine, STEP); acc -= STEP; }
+    while (acc >= STEP) {
+      // what's in water floats: a bit more than its weight upwards, and the water slows it
+      for (const o of wet) { if (!o.alive || !o.body || o.body.isStatic) continue; const b = o.body; Body.applyForce(b, b.position, { x: 0, y: -b.mass * engine.gravity.scale * (zeroG ? 0 : 1.35) }); Body.setVelocity(b, { x: b.velocity.x * 0.96, y: b.velocity.y * 0.94 }); }
+      Engine.update(engine, STEP); acc -= STEP;
+    }
+    if (++probeN % 6 === 0) senses();
     const blend = acc / STEP;
     // words that slammed into something during those steps break up now
     while (breakQ.length) { const [o, v] = breakQ.pop(); if (o.alive) shatter(o, v.x * 0.3, v.y * 0.3, 0); }
@@ -604,6 +707,11 @@
       if (!o.melt && !b.isStatic && !b.isSleeping) o.el.style.transform = `translate(${b.position.x - o.w / 2}px,${b.position.y - o.h / 2}px) rotate(${b.angle}rad)`;
       if (o.ready && (o.dirty || o.melt || o.ripples.length || o.beads.length && o.beads.some(bd => bd.wait > 0 || bd.r > 3.2))) renderImage(o, dt);
       if (!o.melt && (b.position.y > Hh + 900)) kill(o);
+    }
+    for (const o of loose) {
+      if (!o.alive) continue; const b = o.body; if (b.isSleeping) continue;
+      const pp = b.positionPrev, x = pp.x + (b.position.x - pp.x) * blend, y = pp.y + (b.position.y - pp.y) * blend, a = b.anglePrev + (b.angle - b.anglePrev) * blend;
+      o.el.style.setProperty('transform', `translate(${(x - o.cx0).toFixed(1)}px,${(y - o.cy0).toFixed(1)}px) rotate(${a.toFixed(3)}rad)`, 'important');
     }
     drawFx(dt);
     // screen shake
@@ -845,6 +953,9 @@
     for (const gs of groupWords(glyphs)) bodies.push(makeWord(gs.length === 1 ? [{ ...gs[0], ch: shown(gs[0], true) }] : gs));
     parents.forEach(hideText);
     Composite.add(engine.world, bodies);
+    loose = []; makeShelves();
+    fxw = null; wet = []; probing = false;
+    if (canPixels()) window.CadenceFX.world().then(w => { if (H.active) fxw = w; }, () => {});
 
     mouse = Mouse.create(hit);
     mouse.pixelRatio = 1;
@@ -871,7 +982,7 @@
     sfx.arm();
     (document.fullscreenElement || document.documentElement).appendChild(host);
     lastT = 0; raf = requestAnimationFrame(frame);
-    H.stats = { letters: letters.length, images: images.length };
+    H.stats = { letters: letters.length, images: images.length, shelves: cards.length };
   }
   let resizeT;
   function onResize() { clearTimeout(resizeT); resizeT = setTimeout(() => { if (H.active) { const b = bare; stop(); start({ bare: b }); } }, 300); }
@@ -884,7 +995,7 @@
     for (let i = restore.length - 1; i >= 0; i--) { try { restore[i](); } catch (e) {} }
     // put style attributes back exactly as they were
     touched.forEach((orig, el) => { if (orig === null) { el.getAttribute('style'); /* forces Chrome to sync the lazily-serialized attribute */ if (!el.style.cssText.trim()) el.removeAttribute('style'); } else if (!el.style.cssText.trim() && orig.trim()) el.setAttribute('style', orig); });
-    restore = []; touched = new Map(); letters = []; images = []; bodyMap.clear();
+    restore = []; touched = new Map(); letters = []; images = []; bodyMap.clear(); cards = []; loose = []; dentBoxes = null;
   }
   H.start = start; H.stop = stop;
   H.blast = (x, y) => { if (H.active) blast(x, y); };
