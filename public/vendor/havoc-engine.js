@@ -93,7 +93,16 @@
     quake() { noise(2.6, { freq: 160, sweep: 50, gain: 1, attack: 0.3 }); tone(42, 24, 2.6, { gain: 0.8, type: 'sawtooth' }); },
     arm()   { tone(220, 880, 0.18, { gain: 0.12, type: 'square' }); setTimeout(() => tone(660, 1320, 0.12, { gain: 0.1, type: 'square' }), 90); },
     click() { tone(1400, 900, 0.04, { gain: 0.05, type: 'square' }); },
+    // a word landing (2026-11-19): a short, soft tap, louder for a harder hit, lower for bigger text
+    tick(v, size) { noise(0.03 + Math.min(0.04, v * 0.002), { freq: clamp(3200 - size * 55, 700, 3000), q: 2.5, type: 'bandpass', gain: clamp(0.006 * v, 0.008, 0.14), attack: 0.002 }); },
   };
+  let tickN = 0, tickT = 0;
+  function landed(o, v) {
+    const now = performance.now();
+    if (now - tickT > 100) { tickT = now; tickN = 0; }
+    if (tickN >= 6 || (o.lastTick && now - o.lastTick < 120)) return;   // a few at a time, so a pile settling is a patter, not a roar
+    tickN++; o.lastTick = now; sfx.tick(v, o.h || 14);
+  }
 
   /* ------------------------------------------------------------------ harvesting the page */
   const SKIP = new Set(['SCRIPT', 'STYLE', 'NOSCRIPT', 'TEXTAREA', 'INPUT', 'SELECT', 'OPTION', 'IFRAME', 'TEMPLATE', 'svg', 'SVG', 'CODE_']);
@@ -209,7 +218,7 @@
     Body.setStatic(body, true);
     // where each letter sits inside the word, from its centre
     const parts = gs.map((g, i) => ({ g, ch: shown(g, i === 0), dx: g.x + g.w / 2 - (x0 + w / 2), dy: g.y + g.h / 2 - (y0 + h / 2) }));
-    const o = { kind: 'W', el, body, w, h, alive: true, color: cs.color, parts };
+    const o = { kind: 'W', el, body, w, h, alive: true, color: cs.color, parts, home: [x0, y0] };
     bodyMap.set(body.id, o); letters.push(o);
     return body;
   }
@@ -220,7 +229,7 @@
     kill(o);
     for (const p of o.parts) {
       const x = b.position.x + p.dx * ca - p.dy * sa, y = b.position.y + p.dx * sa + p.dy * ca;
-      const l = makeLetter({ ...p.g, ch: p.ch, x: x - p.g.w / 2, y: y - p.g.h / 2 }, false, a);
+      const l = makeLetter({ ...p.g, ch: p.ch, x: x - p.g.w / 2, y: y - p.g.h / 2, home: [p.g.x, p.g.y] }, false, a);
       Composite.add(engine.world, l.body);
       const out_ = Math.sign(p.dx || rand(-1, 1));
       Body.setVelocity(l.body, { x: bv.x + vx + out_ * rand(0.5, 2.5), y: bv.y + vy + rand(-2, 1) }); Body.setAngularVelocity(l.body, spin + rand(-0.3, 0.3));
@@ -239,7 +248,7 @@
       friction: 0.4, slop: 0.02, label: 'L', angle, ...(g.cs.feel || {})
     });
     if (frozen) Body.setStatic(body, true);   // freeze; created-static bodies can't be properly unfrozen in Matter
-    const o = { kind: 'L', el, body, w: g.w, h: g.h, alive: true, color: g.cs.color };
+    const o = { kind: 'L', el, body, w: g.w, h: g.h, alive: true, color: g.cs.color, home: g.home || [g.x, g.y] };
     bodyMap.set(body.id, o); letters.push(o);
     return frozen ? body : o;
   }
@@ -255,7 +264,7 @@
     cv.width = Math.max(1, Math.round(w * scale)); cv.height = Math.max(1, Math.round(h * scale));
     cv.style.cssText = `width:${w}px;height:${h}px;transform:translate(${r.left}px,${r.top}px);${info.radius && info.radius !== '0px' ? 'border-radius:' + info.radius + ';' : ''}`;
     const base = document.createElement('canvas'); base.width = cv.width; base.height = cv.height;
-    const o = { kind: 'I', el: cv, ctx: cv.getContext('2d'), base, w, h, sx: cv.width / w, body: null, alive: true, melt: null, ripples: [], beads: [], dirty: true, ready: false, t: 0 };
+    const o = { kind: 'I', el: cv, ctx: cv.getContext('2d'), base, w, h, sx: cv.width / w, body: null, alive: true, melt: null, ripples: [], beads: [], dirty: true, ready: false, t: 0, home: [r.left, r.top] };
     const paint = src => {
       try {
         const sw = src.naturalWidth || src.videoWidth || src.width, sh = src.naturalHeight || src.videoHeight || src.height;
@@ -619,6 +628,7 @@
   /* ------------------------------------------------------------------ frame loop */
   let flash = 0, flashPos = { x: 0, y: 0 }, rainAcc = 0, acc = 0;
   const STEP = 1000 / 60;
+  let calmMotion = false;   // "reduce motion": no screen shake or flash
   function frame(now) {
     raf = requestAnimationFrame(frame);
     const dt = Math.min(0.05, (now - (lastT || now)) / 1000); lastT = now;
@@ -715,6 +725,7 @@
     }
     drawFx(dt);
     // screen shake
+    if (calmMotion) shake = 0;
     if (shake > 0.3) { stage.style.transform = `translate(${rand(-shake, shake)}px,${rand(-shake, shake)}px)`; shake *= 0.88; }
     else if (shake) { shake = 0; stage.style.transform = ''; }
   }
@@ -729,6 +740,17 @@
     for (let i = 0; i < n; i++) particles.push({ x, y, vx: rand(-2.2, 2.2), vy: rand(-3.5, -0.5), life: rand(0.25, 0.5), size: rand(1, 2.2), color: '170,220,255', g: 0.35 });
   }
 
+  // made once, stamped many times (2026-11-19): a soft glow dot per colour and a smoke puff per colour, instead of a
+  // blur or a gradient for every particle every frame. Glows add up where they overlap
+  const spriteCache = new Map();
+  function sprite(kind, color) {
+    const k = kind + color; let cv = spriteCache.get(k); if (cv) return cv;
+    cv = document.createElement('canvas'); const S = kind === 'glow' ? 32 : 64; cv.width = cv.height = S; const g = cv.getContext('2d'), c = S / 2;
+    const gr = g.createRadialGradient(c, c, 0, c, c, c);
+    if (kind === 'glow') { gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(0.22, `rgba(${color},1)`); gr.addColorStop(0.5, `rgba(${color},.35)`); gr.addColorStop(1, `rgba(${color},0)`); }
+    else { gr.addColorStop(0, `rgba(${color},1)`); gr.addColorStop(1, `rgba(${color},0)`); }
+    g.fillStyle = gr; g.fillRect(0, 0, S, S); spriteCache.set(k, cv); return cv;
+  }
   function drawFx(dt) {
     const c = fxc; c.setTransform(DPR, 0, 0, DPR, 0, 0); c.clearRect(0, 0, W, Hh);
     // rain streaks
@@ -755,15 +777,15 @@
     for (const r of rings) { r.r += (r.max - r.r) * 0.16; r.life -= dt * 2.2; c.strokeStyle = `rgba(${r.color},${Math.max(0, r.life)})`; c.lineWidth = r.w * Math.max(0, r.life); c.beginPath(); c.arc(r.x, r.y, r.r, 0, Math.PI * 2); c.stroke(); }
     rings = rings.filter(r => r.life > 0);
     // flash
+    if (calmMotion) flash = 0;
     if (flash > 0) { const g = c.createRadialGradient(flashPos.x, flashPos.y, 0, flashPos.x, flashPos.y, 260); g.addColorStop(0, `rgba(255,240,200,${flash})`); g.addColorStop(1, 'rgba(255,200,120,0)'); c.fillStyle = g; c.fillRect(0, 0, W, Hh); flash -= dt * 5; }
     // particles
     for (const p of particles) {
       p.vx *= 0.985; p.vy = p.vy * 0.985 + p.g; p.x += p.vx; p.y += p.vy; p.life -= dt;
       const a = Math.max(0, Math.min(1, p.life));
-      if (p.smoke) { const s = p.size * (2 - a); const g = c.createRadialGradient(p.x, p.y, 0, p.x, p.y, s); g.addColorStop(0, `rgba(${p.color},${0.35 * a})`); g.addColorStop(1, `rgba(${p.color},0)`); c.fillStyle = g; c.beginPath(); c.arc(p.x, p.y, s, 0, Math.PI * 2); c.fill(); continue; }
-      if (p.glow) { c.shadowColor = `rgba(${p.color},1)`; c.shadowBlur = 8; }
+      if (p.smoke) { const s = p.size * (2 - a); c.globalAlpha = 0.35 * a; c.drawImage(sprite('smoke', p.color), p.x - s, p.y - s, s * 2, s * 2); c.globalAlpha = 1; continue; }
+      if (p.glow) { const s = p.size * 3.2; c.globalCompositeOperation = 'lighter'; c.globalAlpha = a; c.drawImage(sprite('glow', p.color), p.x - s, p.y - s, s * 2, s * 2); c.globalAlpha = 1; c.globalCompositeOperation = 'source-over'; continue; }
       c.fillStyle = `rgba(${p.color},${a})`; c.beginPath(); c.arc(p.x, p.y, p.size, 0, Math.PI * 2); c.fill();
-      c.shadowBlur = 0;
     }
     particles = particles.filter(p => p.life > 0);
     if (particles.length > 900) particles.splice(0, particles.length - 900);
@@ -781,9 +803,49 @@
   }
 
   /* ------------------------------------------------------------------ input */
+  // touch (2026-11-19): a tap does the tool; holding a finger still for a moment grabs what's under it (and you can drag
+  // and fling it); two fingers sweep everything near them along. Painting tools (fire, lava, acid) paint as you drag.
+  const touches = new Map(); let lp = null, swipe = null;
+  function touchDown(e) {
+    touches.set(e.pointerId, { x: e.clientX, y: e.clientY, x0: e.clientX, y0: e.clientY, t: performance.now() });
+    pointer.x = e.clientX; pointer.y = e.clientY; pointer.inside = true;
+    if (touches.size === 2) { clearTimeout(lp && lp.timer); lp = null; const [a, b] = [...touches.values()]; swipe = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }; return; }
+    if (touches.size > 2) return;
+    if (tool === 'melt' || tool === 'fire' || tool === 'acid') { pointer.down = true; act(e.clientX, e.clientY); return; }
+    lp = { id: e.pointerId, x: e.clientX, y: e.clientY, grabbed: false, timer: setTimeout(() => {
+      if (!lp) return; lp.grabbed = true;
+      for (const b of Query.point(Composite.allBodies(engine.world), { x: lp.x, y: lp.y })) { const o = bodyMap.get(b.id); if (o && o.alive && b.isStatic) release(o); }
+      mcon.collisionFilter.mask = 0xFFFFFFFF; sfx.click(); try { navigator.vibrate && navigator.vibrate(12); } catch (_) {}
+    }, 320) };
+  }
+  function touchMove(e) {
+    const t = touches.get(e.pointerId); if (!t) return;
+    t.x = e.clientX; t.y = e.clientY; pointer.x = e.clientX; pointer.y = e.clientY;
+    if (touches.size === 2 && swipe) {
+      const [a, b] = [...touches.values()], mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2, dx = mx - swipe.x, dy = my - swipe.y;
+      for (const o of bodiesNear(mx, my, 140)) release(o, clamp(dx * 0.9, -30, 30) + (o.body.isStatic ? 0 : o.body.velocity.x * 0.3), clamp(dy * 0.9, -30, 30) + (o.body.isStatic ? 0 : o.body.velocity.y * 0.3), rand(-0.2, 0.2));
+      swipe = { x: mx, y: my }; return;
+    }
+    if (lp && !lp.grabbed && Math.hypot(t.x - t.x0, t.y - t.y0) > 12) { clearTimeout(lp.timer); lp = null; }
+    if (pointer.down) onMove(e);
+  }
+  function touchUp(e) {
+    const t = touches.get(e.pointerId); touches.delete(e.pointerId);
+    if (touches.size < 2) swipe = null;
+    if (lp && lp.id === e.pointerId) {
+      clearTimeout(lp.timer);
+      if (!lp.grabbed && t && performance.now() - t.t < 450) act(t.x, t.y);   // a tap
+      if (lp.grabbed) mcon.collisionFilter.mask = tool === 'grab' ? 0xFFFFFFFF : 0;
+      lp = null;
+    }
+    if (!touches.size) { pointer.down = false; pointer.inside = false; }
+  }
   function onDown(e) {
+    if (e.pointerType === 'touch') return touchDown(e);
     if (e.button !== 0) return;
-    pointer.down = true; const x = e.clientX, y = e.clientY;
+    pointer.down = true; act(e.clientX, e.clientY);
+  }
+  function act(x, y) {
     if (tool === 'grab') {
       // pull a static piece loose so the mouse constraint can grab it
       const hits = Query.point(Composite.allBodies(engine.world), { x, y });
@@ -802,7 +864,7 @@
     if (tool === 'acid' && pointer.down && Math.random() < 0.25) melt(pointer.x, pointer.y, 'acid'); }
   function onKey(e) {
     if (!H.active || bare) return;
-    if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); stop(); return; }
+    if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); rewind(); return; }
     const t = TOOLS.find(t => t.key === e.key); if (t) { e.preventDefault(); e.stopPropagation(); pick(t.id); }
     if (e.key.toLowerCase() === 'm' && !e.metaKey && !e.ctrlKey) { muted = !muted; syncHud(); }
   }
@@ -838,7 +900,9 @@
   .l.drip::after{content:"";position:absolute;left:38%;width:24%;bottom:100%;height:var(--trail,0px);background:linear-gradient(to top,currentColor,transparent);border-radius:0 0 50% 50%;opacity:.55}
   .img{position:absolute;left:0;top:0;will-change:transform;transform-origin:50% 50%}
   canvas.fx,canvas.scorch{position:fixed;inset:0;width:100vw;height:100vh;pointer-events:none}
-  .hit{position:fixed;inset:0;cursor:none;pointer-events:auto;background:transparent}
+  .hit{position:fixed;inset:0;cursor:none;pointer-events:auto;background:transparent;touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+  @media (max-width:760px){.hud{max-width:calc(100vw - 12px);overflow-x:auto;justify-content:flex-start;bottom:calc(10px + env(safe-area-inset-bottom));scrollbar-width:none}.hud::-webkit-scrollbar{display:none}
+    .brand,.modes,.sep{display:none}.tip{display:none}button{flex:none;width:44px;height:44px}}
   .hud{position:fixed;left:50%;bottom:22px;transform:translateX(-50%) translateY(0);display:flex;align-items:center;gap:4px;padding:7px;border-radius:20px;
        background:linear-gradient(180deg,rgba(28,28,36,.82),rgba(12,12,18,.9));backdrop-filter:blur(18px) saturate(1.4);-webkit-backdrop-filter:blur(18px) saturate(1.4);
        border:1px solid rgba(255,255,255,.1);box-shadow:0 0 0 1px rgba(0,0,0,.4),0 18px 50px rgba(0,0,0,.45),inset 0 1px 0 rgba(255,255,255,.08);
@@ -877,8 +941,8 @@
       if (b.dataset.mode) { if (b.dataset.mode === 'elements') { stop(); dispatchEvent(new CustomEvent('havoc:mode', { detail: 'elements' })); } return; }
       const id = b.dataset.id;
       if (id === 'sound') { muted = !muted; if (!muted) sfx.click(); syncHud(); }
-      else if (id === 'reset') { stop(); setTimeout(start, 60); }
-      else if (id === 'close') stop();
+      else if (id === 'reset') rewind(() => setTimeout(start, 60));
+      else if (id === 'close') rewind();
       else if (id === 'fight') { stop(); dispatchEvent(new CustomEvent('havoc:fight')); }   // havoc-fight.js takes it from here
       else pick(id);
     });
@@ -907,6 +971,7 @@
     if (H.active) return;
     bare = !!opts.bare;
     H.active = true; W = innerWidth; Hh = innerHeight; DPR = Math.min(2, devicePixelRatio || 1);
+    calmMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
     letters = []; images = []; bodyMap = new Map(); restore = []; particles = []; rings = []; holes = []; drops = []; shake = 0; raining = false; zeroG = false; tool = 'blast';
     host = document.createElement('div'); host.id = 'havoc-host';
     host.style.cssText = 'position:fixed!important;inset:0!important;z-index:2147483647!important;pointer-events:none!important;display:block!important;margin:0!important;padding:0!important;border:0!important;background:none!important;transform:none!important;filter:none!important';
@@ -932,9 +997,10 @@
     // a word that slams into something (the floor, a wall, another piece) hard enough breaks into its letters
     Events.on(engine, 'collisionStart', e => {
       for (const pr of e.pairs) for (const [a, b] of [[pr.bodyA, pr.bodyB], [pr.bodyB, pr.bodyA]]) {
-        const o = bodyMap.get(a.id); if (!o || o.kind !== 'W' || !o.alive || o.queued) continue;
+        const o = bodyMap.get(a.id); if (!o || !o.alive || (o.kind !== 'W' && o.kind !== 'L')) continue;
         const rv = Math.hypot(a.velocity.x - (b.velocity ? b.velocity.x : 0), a.velocity.y - (b.velocity ? b.velocity.y : 0));
-        if (rv > BREAK * 1.5) { o.queued = true; breakQ.push([o, { x: a.velocity.x, y: a.velocity.y }]); }
+        if (rv > 2.2 && !muted) landed(o, rv);
+        if (o.kind === 'W' && !o.queued && rv > BREAK * 1.5) { o.queued = true; breakQ.push([o, { x: a.velocity.x, y: a.velocity.y }]); }
       }
     });
     const T = 200;
@@ -966,9 +1032,10 @@
     try { hit.removeEventListener('wheel', mouse.mousewheel); hit.removeEventListener('mousewheel', mouse.mousewheel); hit.removeEventListener('DOMMouseScroll', mouse.mousewheel); } catch (e) {}
 
     hit.addEventListener('pointerdown', onDown);
-    hit.addEventListener('pointermove', onMove);
-    hit.addEventListener('pointerup', () => { pointer.down = false; });
-    hit.addEventListener('pointerleave', () => { pointer.inside = false; pointer.down = false; });
+    hit.addEventListener('pointermove', e => e.pointerType === 'touch' ? touchMove(e) : onMove(e));
+    hit.addEventListener('pointerup', e => { if (e.pointerType === 'touch') touchUp(e); else pointer.down = false; });
+    hit.addEventListener('pointercancel', e => { if (e.pointerType === 'touch') touchUp(e); });
+    hit.addEventListener('pointerleave', e => { if (e.pointerType !== 'touch') { pointer.inside = false; pointer.down = false; } });
     hit.addEventListener('contextmenu', e => e.preventDefault());
     addEventListener('keydown', onKey, true);
     addEventListener('resize', onResize);
@@ -984,11 +1051,51 @@
     lastT = 0; raf = requestAnimationFrame(frame);
     H.stats = { letters: letters.length, images: images.length, shelves: cards.length };
   }
+  // ---- the finish (2026-11-19): every piece still on screen flies back to its place, the scorch fades, then the real page
+  // comes back underneath exactly where they landed. Reduce motion: straight back, as before.
+  function rewind(then) {
+    if (!H.active || H.rewinding) return;
+    if (matchMedia('(prefers-reduced-motion: reduce)').matches) { stop(); if (then) then(); return; }
+    H.rewinding = true; cancelAnimationFrame(raf); raining = false; holes = []; drops = [];
+    if (hud) hud.style.display = 'none'; if (tipEl) tipEl.remove(); hit.style.pointerEvents = 'none';
+    tellFx('stop', 0, 0);
+    let longest = 0;
+    const fly = (el, tf, i) => {
+      const delay = Math.min(260, i * 0.35) + rand(0, 120), dur = rand(620, 900); longest = Math.max(longest, delay + dur);
+      el.style.transition = `transform ${dur | 0}ms cubic-bezier(.55,-0.12,.2,1.15) ${delay | 0}ms, opacity 280ms ${delay | 0}ms, filter 400ms ${delay | 0}ms`;
+      el.style.transform = tf; el.style.opacity = '1'; el.style.filter = ''; el.style.textShadow = '';
+    };
+    let i = 0;
+    for (const o of letters) if (o.alive && o.el.isConnected && o.home) { o.el.classList.remove('drip'); o.el.style.setProperty('--trail', '0px'); fly(o.el, `translate(${o.home[0]}px,${o.home[1]}px) rotate(0rad)`, i++); }
+    for (const o of images) if (o.alive && o.el.isConnected && o.home) fly(o.el, `translate(${o.home[0]}px,${o.home[1]}px) rotate(0rad)`, i++);
+    for (const o of loose) if (o.alive) { o.el.style.setProperty('transition', `transform ${700 + rand(0, 200) | 0}ms cubic-bezier(.55,-0.12,.2,1.15)`, 'important'); o.el.style.setProperty('transform', 'translate(0px,0px) rotate(0rad)', 'important'); longest = Math.max(longest, 900); }
+    if (scorchHost) { scorchHost.style.setProperty('transition', 'opacity .7s', 'important'); scorchHost.style.setProperty('opacity', '0', 'important'); }
+    if (hl) { hl.style.transition = 'opacity .7s'; hl.style.opacity = '0'; }
+    if (fx) { fx.style.transition = 'opacity .3s'; fx.style.opacity = '0'; }
+    setTimeout(() => { H.rewinding = false; stop(); if (then) then(); }, longest + 60);
+  }
+  H.rewind = then => rewind(then);
   let resizeT;
-  function onResize() { clearTimeout(resizeT); resizeT = setTimeout(() => { if (H.active) { const b = bare; stop(); start({ bare: b }); } }, 300); }
+  // the window changed size (or the phone turned): keep the mess, move the floor and walls, keep the scorch marks
+  function onResize() {
+    clearTimeout(resizeT);
+    resizeT = setTimeout(() => {
+      if (!H.active || H.rewinding) return;
+      const nw = innerWidth, nh = innerHeight; if (nw === W && nh === Hh) return;
+      const keep = cv => { const t = document.createElement('canvas'); t.width = cv.width; t.height = cv.height; t.getContext('2d').drawImage(cv, 0, 0); return t; };
+      const s0 = keep(scorch), h0 = keep(hl);
+      W = nw; Hh = nh;
+      for (const cv of [scorch, hl, fx]) sizeCanvas(cv);
+      sc.setTransform(1, 0, 0, 1, 0, 0); sc.drawImage(s0, 0, 0); sc.setTransform(DPR, 0, 0, DPR, 0, 0);
+      hlc.setTransform(1, 0, 0, 1, 0, 0); hlc.drawImage(h0, 0, 0); hlc.setTransform(DPR, 0, 0, DPR, 0, 0);
+      const T = 200;
+      Body.setPosition(walls[0], { x: W / 2, y: Hh + T / 2 }); Body.setPosition(walls[1], { x: -T / 2, y: Hh / 2 - 1000 }); Body.setPosition(walls[2], { x: W + T / 2, y: Hh / 2 - 1000 });
+      for (const o of [...letters, ...images, ...loose]) if (o.alive && o.body && !o.body.isStatic) Sleeping.set(o.body, false);
+    }, 200);
+  }
   function stop() {
     if (!H.active) return;
-    H.active = false; cancelAnimationFrame(raf); raining = false; tellFx('stop', 0, 0);
+    H.active = false; H.rewinding = false; cancelAnimationFrame(raf); raining = false; tellFx('stop', 0, 0);
     removeEventListener('keydown', onKey, true); removeEventListener('resize', onResize);
     try { Engine.clear(engine); } catch (e) {}
     host && host.remove(); host = null; hud = null; scorchHost && scorchHost.remove(); scorchHost = null;

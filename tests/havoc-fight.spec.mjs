@@ -79,7 +79,7 @@ test('one Havoc: Fire and Acid tools, the letters float, the Wizard button start
   await page.keyboard.press('5');
   await page.mouse.click(box.x + 80, box.y + box.height / 2);
   await expect.poll(() => fx.join(' ')).toContain('fire');
-  expect(fx).toContain('acid');
+  await expect.poll(() => fx.join(' ')).toContain('acid');
   // the Wizard button: Havoc steps aside and the fight starts
   await page.evaluate(() => document.getElementById('havoc-host').shadowRoot.querySelector('button[data-id=fight]').click());
   await expect(page.locator('canvas.hf-canvas')).toBeVisible({ timeout: 10000 });
@@ -148,5 +148,40 @@ test('physics and Elements together: a picture bursts into Elements pixels, and 
   const got = await page.evaluate(async () => { const w = await window.CadenceFX.world(); w.spawn(300, 300, w.M.STONE, 3, 1); await new Promise(r => setTimeout(r, 400)); const m = await w.probe([300, 300, 5, 5]); return [m[0] === w.M.STONE, m[1]]; });
   expect(got[0]).toBe(true);
   await page.keyboard.press('Escape');
+  expect(errs).toEqual([]);
+});
+
+test('the finish rewinds, a resize keeps the mess, and touch works: tap, long-press to grab, two fingers to throw', async ({ page }) => {
+  test.setTimeout(60e3);
+  const errs = []; page.on('pageerror', e => errs.push(String(e)));
+  await page.setViewportSize({ width: 1200, height: 800 });
+  await page.goto(B + '/?demo=1#today');
+  await expect(page.locator('#view .task').first()).toBeVisible({ timeout: 15000 });
+  const h1 = await page.evaluate(() => document.querySelector('#view h1').textContent);
+  await page.locator('body').press('Shift+H');
+  await expect.poll(() => page.evaluate(() => !!(window.__havoc && window.__havoc.active)), { timeout: 10000 }).toBe(true);
+  const loose = () => page.evaluate(() => [...document.getElementById('havoc-host').shadowRoot.querySelectorAll('.l')].filter(e => !/translate\(/.test(e.style.transform) || e.classList.contains('mv')).length);
+  const touch = (type, id, x, y) => page.evaluate(([type, id, x, y]) => document.getElementById('havoc-host').shadowRoot.querySelector('.hit').dispatchEvent(new PointerEvent(type, { pointerType: 'touch', pointerId: id, clientX: x, clientY: y, bubbles: true, isPrimary: id === 1 })), [type, id, x, y]);
+  const box = await page.locator('#view h1').boundingBox(), cx = box.x + 60, cy = box.y + box.height / 2;
+  // long-press: what's under the finger comes loose to be dragged
+  await touch('pointerdown', 1, cx, cy); await page.waitForTimeout(450);
+  expect(await page.evaluate(() => window.__havoc.stats && true)).toBe(true);
+  await touch('pointermove', 1, cx + 80, cy + 60); await touch('pointerup', 1, cx + 80, cy + 60);
+  // two fingers sweep the words near them along
+  const t = await page.locator('#view .task .t-title').first().boundingBox();
+  await touch('pointerdown', 1, t.x + 20, t.y + 8); await touch('pointerdown', 2, t.x + 80, t.y + 8);
+  for (let k = 1; k <= 5; k++) { await touch('pointermove', 1, t.x + 20 + k * 30, t.y + 8 - k * 20); await touch('pointermove', 2, t.x + 80 + k * 30, t.y + 8 - k * 20); }
+  await touch('pointerup', 1, t.x + 170, t.y - 92); await touch('pointerup', 2, t.x + 230, t.y - 92);
+  await page.waitForTimeout(500);
+  expect(await loose()).toBeGreaterThan(0);
+  // a resize: still going, the mess kept
+  await page.evaluate(() => { window.__hvRun = window.__havoc.stats; });   // a restart would make a new one
+  await page.setViewportSize({ width: 1000, height: 760 }); await page.waitForTimeout(600);
+  expect(await page.evaluate(() => window.__havoc.active && window.__havoc.stats === window.__hvRun)).toBe(true);
+  // Esc: the pieces fly home first, then the page is back
+  await page.keyboard.press('Escape');
+  expect(await page.evaluate(() => window.__havoc.rewinding)).toBe(true);
+  await expect.poll(() => page.evaluate(() => window.__havoc.active), { timeout: 5000 }).toBe(false);
+  expect(await page.evaluate(() => document.querySelector('#view h1').textContent)).toBe(h1);
   expect(errs).toEqual([]);
 });

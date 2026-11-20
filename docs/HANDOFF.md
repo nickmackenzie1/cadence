@@ -447,3 +447,17 @@ checking the code.
     its weight upwards, and drag), a still word in water is lifted loose; fire/ember/lava → it darkens and glows
     (sepia + brightness + an orange glow), passes fire to its neighbours, and at 1.4 turns to ash (+ smoke); lava
     also shoves it; acid → it blurs, shifts colour and fades into fumes.
+- **Done (2026-11-19, Havoc finish and touch):**
+  - Rewind: Esc, the close button, Reset and the end of a Wizard fight call `__havoc.rewind()`: every piece still on
+    screen flies back to its `home` (stored on words, letters, letters broken out of words, pictures) with a little
+    overshoot, loose cards slide back, the scorch fades; then `stop()` puts the real page back underneath. Pieces that
+    were burnt, dissolved or eaten just reappear. Reduce motion: straight back.
+  - Touch: a tap does the tool; a finger held still for 0.32 s grabs what's under it (Matter's mouse constraint, a
+    tiny buzz where supported); two fingers sweep what's near them along; fire/lava/acid paint as you drag. The
+    toolbar scrolls sideways on a phone (no brand or mode switch there), with 44 px buttons and the safe area.
+  - Resize (or turning the phone) keeps the mess: walls and floor move, the scorch canvases are copied over.
+  - Reduce motion: no screen shake or flash.
+  - Soft ticks: words and letters tap when they land (bandpass noise, louder for a harder hit, lower for bigger
+    text), at most six every 100 ms and one per piece every 120 ms.
+  - Glow and smoke particles are pre-made sprites per colour; glows draw with 'lighter', so overlapping sparks
+    brighten.
