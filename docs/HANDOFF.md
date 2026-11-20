@@ -484,3 +484,22 @@ checking the code.
     walls, drift up and down, and now and then let out a bubble. Out of water they flop, then are gone after about
     3 seconds; fire, lava, acid and lightning next to them end them in a little puff; black holes pull them in.
   - `w.fish()` counts them. Test: the last one in `tests/havoc-fight.spec.mjs`.
+
+### One Havoc with a Materials drawer, and more life in the pools (2026-11-20)
+- User picked "one Havoc": the Physics / Elements switch is gone from the toolbar. Shift+H always opens Havoc; an old
+  saved 'elements' choice is ignored and removed. The full-screen Elements sandbox (snow storm, heat view, lights and
+  so on) is still in the command palette as "Elements sandbox".
+  - New tool 0, Materials, opens a drawer above the toolbar: Water, Sand, Snow, Ice, Oil, Holly, Wood, Stone,
+    Gunpowder, Steam, Firework, Lightning and Eraser. They paint straight into the Elements layer (`w.paint`, only into
+    empty cells, so they pile on words rather than replacing them; the Eraser does clear page, words included).
+    Firework and Lightning are clicks. The drawer only opens once the Elements layer is there.
+- User picked "more life in the pools" (on top of 2026-11-19's kelp and fish):
+  - Fish nibble the weed now and then (it grows back).
+  - Lily pads (material 27, PAD) float on the surface of pools with weed; some have a pink flower. They drop when the
+    water goes and bob up when covered.
+  - A frog (up to 3) turns up on a pad, sits, and hops between pads and solid edges. It startles at splashes. In the
+    water it paddles up for a while, then is gone. Fire, acid, lava and lightning get it; so do black holes.
+  - A word landing in water at speed (`w.splash`) sends nearby fish racing up and leaping out, steering back over the
+    water mid-air.
+  - A pool that has had weed for about 45 seconds starts growing a second, coppery weed: shorter and bushier.
+  - `w.life()` gives { fish, frogs, pads, jumping }. Test: the pool test in `tests/havoc-fight.spec.mjs`.

@@ -114,18 +114,27 @@ test('accessibility: every visible icon-only button has a name', async ({ page }
   }
 });
 
-test('havoc: switch between Physics and Elements from the toolbar, Esc puts the page back', async ({ page }) => {
+test('havoc: one Havoc with a Materials drawer; the Elements sandbox is in the palette; Esc puts the page back', async ({ page }) => {
   const errs = await open(page);
-  await page.evaluate(() => localStorage.setItem('cadence.havoc', 'elements'));
+  await page.evaluate(() => localStorage.setItem('cadence.havoc', 'elements'));   // an old saved choice is ignored now
   await page.locator('body').click({ position: { x: 5, y: 5 } });
   await page.keyboard.press('Shift+H');
-  await page.waitForFunction(() => window.__elements && window.__elements.active && window.__elements.stats, null, { timeout: 15000 });
-  expect(await page.evaluate(() => window.__elements.stats.pieces)).toBeGreaterThan(20);   // the screen was read into pieces
-  await page.evaluate(() => document.querySelector('#elements-host').shadowRoot.querySelector('[data-mode=physics]').click());
-  await page.waitForFunction(() => window.__havoc && window.__havoc.active && !window.__elements.active, null, { timeout: 15000 });
-  expect(await page.evaluate(() => localStorage.getItem('cadence.havoc'))).toBe('physics');
-  await page.evaluate(() => document.querySelector('#havoc-host').shadowRoot.querySelector('[data-mode=elements]').click());
-  await page.waitForFunction(() => window.__elements.active && !window.__havoc.active, null, { timeout: 15000 });
+  await page.waitForFunction(() => window.__havoc && window.__havoc.active, null, { timeout: 15000 });
+  const root = () => page.locator('#havoc-host');
+  expect(await page.evaluate(() => document.querySelector('#havoc-host').shadowRoot.querySelectorAll('[data-mode]').length)).toBe(0);
+  expect(await page.evaluate(() => localStorage.getItem('cadence.havoc'))).toBe(null);
+  // Materials: 0 opens the drawer (once the Elements layer is there), pick Sand, paint, and sand is in the world
+  await expect.poll(() => page.evaluate(async () => !!(await window.CadenceFX.world())), { timeout: 10000 }).toBe(true);
+  await page.keyboard.press('0');
+  await expect(root().locator('.drawer.open')).toBeVisible();
+  await root().locator('.drawer [data-mat=SAND]').click();
+  await page.mouse.move(500, 300); await page.mouse.down(); await page.mouse.move(700, 300, { steps: 10 }); await page.mouse.up();
+  await expect.poll(() => page.evaluate(async () => { const w = await window.CadenceFX.world(); return w.count({ left: 0, top: 0, right: innerWidth, bottom: innerHeight }, w.M.SAND); })).toBeGreaterThan(20);
+  await page.keyboard.press('Escape');
+  await page.waitForFunction(() => !window.__havoc.active, null, { timeout: 15000 });
+  // the old full-screen Elements sandbox, from the palette
+  await page.keyboard.press('Control+k'); await page.locator('#pal-in').fill('Elements sandbox'); await page.keyboard.press('Enter');
+  await page.waitForFunction(() => window.__elements && window.__elements.active, null, { timeout: 15000 });
   await page.keyboard.press('Escape');
   await expect.poll(() => page.evaluate(() => !!document.querySelector('#elements-host') || window.__elements.active)).toBe(false);
   expect(await page.evaluate(() => document.documentElement.style.overflow)).toBe('');
@@ -171,8 +180,7 @@ test('havoc elements: a picture from another site is still read in (through the 
   const port = other.address().port;
   try {
     const errs = await open(page);
-    await page.evaluate(() => localStorage.setItem('cadence.havoc', 'elements'));
-    const base = async () => { await page.keyboard.press('Shift+H'); await page.waitForFunction(() => window.__elements && window.__elements.active && window.__elements.stats, null, { timeout: 15000 }); const n = await page.evaluate(() => window.__elements.stats.foreign); await page.keyboard.press('Escape'); await expect.poll(() => page.evaluate(() => window.__elements.active)).toBe(false); return n; };
+    const base = async () => { await page.keyboard.press('Control+k'); await page.locator('#pal-in').fill('Elements sandbox'); await page.keyboard.press('Enter'); await page.waitForFunction(() => window.__elements && window.__elements.active && window.__elements.stats, null, { timeout: 15000 }); const n = await page.evaluate(() => window.__elements.stats.foreign); await page.keyboard.press('Escape'); await expect.poll(() => page.evaluate(() => window.__elements.active)).toBe(false); return n; };
     await page.locator('body').click({ position: { x: 5, y: 5 } });
     const before = await base();
     await page.evaluate(src => new Promise(res => { const i = new Image(); i.onload = res; i.src = src; i.style.cssText = 'position:fixed;left:400px;top:300px;width:160px;height:160px;z-index:5'; i.id = 'xo'; document.body.appendChild(i); }), `http://127.0.0.1:${port}/a.png`);

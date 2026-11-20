@@ -22,7 +22,34 @@
     { id: 'hole',   key: '7', name: 'Black hole', hint: 'Click to open a singularity',         color: '#b28cff' },
     { id: 'zerog',  key: '8', name: 'Zero-G',     hint: 'Toggle gravity',                      color: '#ffe066' },
     { id: 'quake',  key: '9', name: 'Collapse',   hint: 'Bring the whole page down',           color: '#ff3b3b' },
+    { id: 'mat',    key: '0', name: 'Materials',  hint: 'Pick a material from the drawer and paint with it', color: '#d6b670' },
   ];
+  // The Materials drawer (2026-11-20, user picked "one Havoc"): the old Elements mode's extras, painted straight into
+  // the Elements layer. Firework and Lightning are clicks; the rest paint as you drag.
+  const MATS = [
+    { id: 'WATER', name: 'Water', hint: 'Finds the lowest point; deep pools fill with life', color: '#4c8df6' },
+    { id: 'SAND', name: 'Sand', hint: 'Piles up; heat turns it to glass', color: '#d6b670' },
+    { id: 'SNOW', name: 'Snow', hint: 'Drifts and piles up', color: '#dfe8f7' },
+    { id: 'ICE', name: 'Ice', hint: 'Melts in heat, freezes water', color: '#a8d6f0' },
+    { id: 'OIL', name: 'Oil', hint: 'Floats on water, catches fire easily', color: '#a07a4a' },
+    { id: 'PLANT', name: 'Holly', hint: 'Drinks water, climbs, grows berries', color: '#2f9e55' },
+    { id: 'WOOD', name: 'Wood', hint: 'Chars, then burns as embers', color: '#9a6a40' },
+    { id: 'STONE', name: 'Stone', hint: 'Walls and floors: build a pool', color: '#8c8f98' },
+    { id: 'POWDER', name: 'Gunpowder', hint: 'Explodes when it gets hot', color: '#8a8580' },
+    { id: 'STEAM', name: 'Steam', hint: 'Rises, then rains back down', color: '#c9ced8' },
+    { id: 'FIREWORK', name: 'Firework', hint: 'Click to launch', color: '#ff5ad2' },
+    { id: 'LIGHTNING', name: 'Lightning', hint: 'Click to strike', color: '#cfd9ff' },
+    { id: 'E', name: 'Eraser', hint: 'Clears anything, page included', color: '#ffffff' },
+  ];
+  let mat = 'WATER', matLast = null, drawer = null;
+  function paintMat(x, y, first) {
+    if (!fxw) return;
+    if (mat === 'FIREWORK') { if (first) fxw.firework(x, y); return; }
+    if (mat === 'LIGHTNING') { if (first) fxw.strike(x, y); return; }
+    const m = fxw.M[mat]; if (m == null) return;
+    // painting over a still word that then moves would leave a hole in the wrong place: it's page, so it just takes the paint
+    const from = matLast || [x, y]; fxw.paint(from[0], from[1], x, y, m, mat === 'E' ? 8 : 5); matLast = [x, y];
+  }
   const ICONS = {
     grab:  '<path d="M8 13V5.5a1.5 1.5 0 0 1 3 0V11m0-1.5V4a1.5 1.5 0 0 1 3 0v6m0-4.5a1.5 1.5 0 0 1 3 0V12m0-3.5a1.5 1.5 0 0 1 3 0V15a6 6 0 0 1-6 6h-1.5a6 6 0 0 1-4.9-2.5L5 15.5a1.6 1.6 0 0 1 2.6-1.9L8 14"/>',
     blast: '<path d="M12 2l1.8 5.2L19 5l-2.2 5.2L22 12l-5.2 1.8L19 19l-5.2-2.2L12 22l-1.8-5.2L5 19l2.2-5.2L2 12l5.2-1.8L5 5l5.2 2.2z"/>',
@@ -34,6 +61,7 @@
     hole:  '<circle cx="12" cy="12" r="3.2"/><path d="M12 3a9 9 0 0 1 9 9M21 12a9 9 0 0 1-9 9M12 21a9 9 0 0 1-9-9M3 12a9 9 0 0 1 9-9" opacity=".55"/><path d="M12 6.5a5.5 5.5 0 0 1 5.5 5.5M6.5 12A5.5 5.5 0 0 0 12 17.5"/>',
     zerog: '<circle cx="12" cy="12" r="4"/><ellipse cx="12" cy="12" rx="10" ry="3.6" transform="rotate(-20 12 12)"/>',
     quake: '<path d="M3 21h18M5 21V9l4-3 4 3v12M13 21V12l3-2 3 2v9"/><path d="M8 11l1.5 2-1 2 1 2M16 14l-1 1.5 1 1.5"/>',
+    mat:   '<path d="M12 2 2 7l10 5 10-5-10-5z"/><path d="m2 17 10 5 10-5M2 12l10 5 10-5"/>',
     sound: '<path d="M4 9h4l5-4v14l-5-4H4z"/><path d="M16.5 8.5a5 5 0 0 1 0 7M19 6a8.5 8.5 0 0 1 0 12"/>',
     mute:  '<path d="M4 9h4l5-4v14l-5-4H4z"/><path d="M17 9l5 6M22 9l-5 6"/>',
     reset: '<path d="M4 12a8 8 0 1 0 2.4-5.7L4 8.7"/><path d="M4 4v4.7h4.7"/>',
@@ -596,6 +624,9 @@
         const o = list[k]; if (!o.alive || !o.body) continue;
         const t = m[k], b = o.body, p = b.position;
         if (o.stamped) { if (t === M_.FIRE || t === M_.EMBER || t === M_.LAVA || t === M_.ACID) o.pinned = true; continue; }
+        const was = o.inWater; o.inWater = t === M_.WATER;
+        // a word landing in a pool makes the fish jump (2026-11-20)
+        if (o.inWater && !was && !b.isStatic && fxw.splash && Math.hypot(b.velocity.x, b.velocity.y) > 2) fxw.splash(p.x, p.y);
         if (t === M_.WATER) {
           if (b.isStatic) release(o, rand(-0.4, 0.4), rand(-1.5, -0.4), rand(-0.05, 0.05));
           wet.push(o);
@@ -867,7 +898,7 @@
     pointer.x = e.clientX; pointer.y = e.clientY; pointer.inside = true;
     if (touches.size === 2) { clearTimeout(lp && lp.timer); lp = null; const [a, b] = [...touches.values()]; swipe = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }; return; }
     if (touches.size > 2) return;
-    if (tool === 'melt' || tool === 'fire' || tool === 'acid') { pointer.down = true; act(e.clientX, e.clientY); return; }
+    if (tool === 'melt' || tool === 'fire' || tool === 'acid' || tool === 'mat') { pointer.down = true; act(e.clientX, e.clientY); return; }
     lp = { id: e.pointerId, x: e.clientX, y: e.clientY, grabbed: false, timer: setTimeout(() => {
       if (!lp) return; lp.grabbed = true;
       for (const b of Query.point(Composite.allBodies(engine.world), { x: lp.x, y: lp.y })) { const o = bodyMap.get(b.id); if (o && o.alive && b.isStatic) release(o); }
@@ -914,10 +945,12 @@
     else if (tool === 'rain') setRain(!raining);
     else if (tool === 'quake') collapse();
     else if (tool === 'zerog') toggleZeroG();
+    else if (tool === 'mat') { matLast = null; paintMat(x, y, true); }
   }
   function onMove(e) { pointer.x = e.clientX; pointer.y = e.clientY; pointer.inside = true; if (tool === 'melt' && pointer.down && Math.random() < 0.25) melt(pointer.x, pointer.y);
     if (tool === 'fire' && pointer.down && Math.random() < 0.35) ignite(pointer.x, pointer.y);
-    if (tool === 'acid' && pointer.down && Math.random() < 0.25) melt(pointer.x, pointer.y, 'acid'); }
+    if (tool === 'acid' && pointer.down && Math.random() < 0.25) melt(pointer.x, pointer.y, 'acid');
+    if (tool === 'mat' && pointer.down) paintMat(pointer.x, pointer.y, false); }
   function onKey(e) {
     if (!H.active || bare) return;
     if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); rewind(); return; }
@@ -958,7 +991,7 @@
   canvas.fx,canvas.scorch{position:fixed;inset:0;width:100vw;height:100vh;pointer-events:none}
   .hit{position:fixed;inset:0;cursor:none;pointer-events:auto;background:transparent;touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
   @media (max-width:760px){.hud{max-width:calc(100vw - 12px);overflow-x:auto;justify-content:flex-start;bottom:calc(10px + env(safe-area-inset-bottom));scrollbar-width:none}.hud::-webkit-scrollbar{display:none}
-    .brand,.modes,.sep{display:none}.tip{display:none}button{flex:none;width:44px;height:44px}}
+    .brand,.sep{display:none}.drawer{bottom:76px}.tip{display:none}button{flex:none;width:44px;height:44px}}
   .hud{position:fixed;left:50%;bottom:22px;transform:translateX(-50%) translateY(0);display:flex;align-items:center;gap:4px;padding:7px;border-radius:20px;
        background:linear-gradient(180deg,rgba(28,28,36,.82),rgba(12,12,18,.9));backdrop-filter:blur(18px) saturate(1.4);-webkit-backdrop-filter:blur(18px) saturate(1.4);
        border:1px solid rgba(255,255,255,.1);box-shadow:0 0 0 1px rgba(0,0,0,.4),0 18px 50px rgba(0,0,0,.45),inset 0 1px 0 rgba(255,255,255,.08);
@@ -967,9 +1000,14 @@
   .brand{display:flex;align-items:center;gap:7px;padding:0 10px 0 8px;font-weight:800;letter-spacing:.14em;font-size:11px;color:#fff}
   .brand i{width:9px;height:9px;border-radius:50%;background:#ff3b3b;box-shadow:0 0 10px #ff3b3b,0 0 2px #fff inset;animation:pulse 1.4s infinite}
   @keyframes pulse{50%{opacity:.45}}
-  .modes{display:flex;padding:3px;gap:2px;border-radius:12px;background:rgba(255,255,255,.06)}
-  .modes button.mode{width:auto;height:30px;padding:0 10px;border-radius:9px;font:600 11.5px ui-sans-serif,system-ui,sans-serif;color:#bdbacb}
-  .modes button.mode.on{background:rgba(255,255,255,.14);color:#fff;box-shadow:none}
+  .drawer{position:fixed;left:50%;bottom:82px;transform:translateX(-50%) translateY(10px);display:flex;flex-wrap:wrap;justify-content:center;gap:4px;max-width:min(720px,94vw);padding:6px;border-radius:16px;
+       background:linear-gradient(180deg,rgba(28,28,36,.82),rgba(12,12,18,.9));backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);border:1px solid rgba(255,255,255,.1);
+       box-shadow:0 12px 36px rgba(0,0,0,.4);pointer-events:none;opacity:0;transition:opacity .18s,transform .18s}
+  .drawer.open{opacity:1;transform:translateX(-50%) translateY(0);pointer-events:auto}
+  .drawer button{width:auto;height:30px;padding:0 10px 0 8px;display:flex;align-items:center;gap:7px;border-radius:10px;font:600 11.5px ui-sans-serif,system-ui,sans-serif;color:#d8d5e4}
+  .drawer button i{width:10px;height:10px;border-radius:50%;background:var(--c);box-shadow:0 0 0 1px rgba(255,255,255,.25) inset}
+  .drawer button.on{background:rgba(255,255,255,.14);color:#fff}
+  .drawer.open ~ .tip{bottom:136px}
   .sep{width:1px;height:26px;background:rgba(255,255,255,.1);margin:0 4px}
   button{all:unset;position:relative;width:40px;height:40px;border-radius:13px;display:grid;place-items:center;cursor:pointer;color:#bdbacb;transition:background .15s,color .15s,transform .1s}
   button:hover{background:rgba(255,255,255,.07);color:#fff}
@@ -989,12 +1027,11 @@
   function buildHud() {
     hud = document.createElement('div'); hud.className = 'hud';
     const btn = (id, title, color, key) => `<button data-id="${id}" style="--c:${color || '#fff'}" aria-label="${title}">${'<svg viewBox="0 0 24 24">' + ICONS[id] + '</svg>'}${key ? `<span class="k">${key}</span>` : ''}</button>`;
-    hud.innerHTML = `<div class="brand"><i></i>HAVOC</div><div class="modes" role="group" aria-label="Mode"><button class="mode on" data-mode="physics" aria-pressed="true">Physics</button><button class="mode" data-mode="elements" aria-pressed="false">Elements</button></div><div class="sep"></div>` + TOOLS.map(t => btn(t.id, t.name, t.color, t.key)).join('') + `<div class="sep"></div>` + btn('fight', 'Wizard vs bosses', '#b197fc') + btn('sound', 'Sound', '#fff') + btn('reset', 'Restore page', '#fff') + btn('close', 'Exit (Esc)', '#fff');
+    hud.innerHTML = `<div class="brand"><i></i>HAVOC</div>` + TOOLS.map(t => btn(t.id, t.name, t.color, t.key)).join('') + `<div class="sep"></div>` + btn('fight', 'Wizard vs bosses', '#b197fc') + btn('sound', 'Sound', '#fff') + btn('reset', 'Restore page', '#fff') + btn('close', 'Exit (Esc)', '#fff');
     tipEl = document.createElement('div'); tipEl.className = 'tip';
     hud.addEventListener('click', e => {
       const b = e.target.closest('button'); if (!b) return; e.stopPropagation();
-      // switch to the Elements engine (Cadence listens for this and loads it)
-      if (b.dataset.mode) { if (b.dataset.mode === 'elements') { stop(); dispatchEvent(new CustomEvent('havoc:mode', { detail: 'elements' })); } return; }
+      if (b.dataset.mat) { mat = b.dataset.mat; pick('mat'); syncHud(); return; }
       const id = b.dataset.id;
       if (id === 'sound') { muted = !muted; if (!muted) sfx.click(); syncHud(); }
       else if (id === 'reset') rewind(() => setTimeout(start, 60));
@@ -1003,13 +1040,19 @@
       else pick(id);
     });
     hud.addEventListener('pointerover', e => {
-      const b = e.target.closest('button'); if (!b || b.dataset.mode) return;
+      const b = e.target.closest('button'); if (!b) return;
+      if (b.dataset.mat) { const m = MATS.find(x => x.id === b.dataset.mat); tipEl.style.setProperty('--c', m.color); tipEl.innerHTML = `<b>${m.name}</b> · ${m.hint}`; tipEl.classList.add('show'); return; }
       const t = TOOLS.find(x => x.id === b.dataset.id);
       const label = t ? `<b>${t.name}</b> · ${t.hint}` : b.dataset.id === 'sound' ? (muted ? 'Sound off · M' : 'Sound on · M') : b.dataset.id === 'reset' ? 'Rebuild the page and start over' : b.dataset.id === 'fight' ? '<b>Wizard vs bosses</b> · a pixel wizard fights four bosses on this page' : 'Exit and restore · Esc';
       tipEl.style.setProperty('--c', t ? t.color : '#fff'); tipEl.innerHTML = label; tipEl.classList.add('show');
     });
     hud.addEventListener('pointerout', () => tipEl.classList.remove('show'));
-    root.appendChild(hud); root.appendChild(tipEl);
+    // the drawer of materials, shown while Materials is the tool
+    drawer = document.createElement('div'); drawer.className = 'drawer'; drawer.setAttribute('role', 'group'); drawer.setAttribute('aria-label', 'Materials');
+    drawer.innerHTML = MATS.map(m => `<button data-mat="${m.id}" style="--c:${m.color}" aria-label="${m.name}"><i></i>${m.name}</button>`).join('');
+    drawer.addEventListener('click', e => { const b = e.target.closest('button[data-mat]'); if (!b) return; e.stopPropagation(); mat = b.dataset.mat; pick('mat'); syncHud(); });
+    drawer.addEventListener('pointerdown', e => e.stopPropagation());
+    root.appendChild(hud); root.appendChild(drawer); root.appendChild(tipEl);
     syncHud();
   }
   function syncHud() {
@@ -1018,7 +1061,9 @@
       const id = b.dataset.id;
       b.classList.toggle('on', id === tool && id !== 'rain' || (id === 'rain' && raining) || (id === 'zerog' && zeroG));
       if (id === 'sound') b.innerHTML = `<svg viewBox="0 0 24 24">${muted ? ICONS.mute : ICONS.sound}</svg>`;
+      if (id === 'mat') { const m = MATS.find(x => x.id === mat); b.style.setProperty('--c', m.color); }
     });
+    if (drawer) { drawer.classList.toggle('open', tool === 'mat' && !!fxw); drawer.querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.mat === mat)); }
   }
 
   /* ------------------------------------------------------------------ lifecycle */
@@ -1077,7 +1122,7 @@
     Composite.add(engine.world, bodies);
     loose = []; makeShelves();
     fxw = null; wet = []; probing = false;
-    if (canPixels()) window.CadenceFX.world().then(w => { if (!H.active) return; fxw = w; setTimeout(stampAll, 60); }, () => {});
+    if (canPixels()) window.CadenceFX.world().then(w => { if (!H.active) return; fxw = w; setTimeout(stampAll, 60); syncHud(); }, () => {});
 
     mouse = Mouse.create(hit);
     mouse.pixelRatio = 1;

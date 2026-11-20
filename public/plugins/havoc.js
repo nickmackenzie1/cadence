@@ -1,14 +1,13 @@
-/* Havoc — wreck the Cadence page itself. Two engines, switched from the toolbar:
-     Physics  — vendor/havoc-engine.js (Matter.js): the words float, fly and explode; its fire, lava, acid, rain and
-                blasts are played out as real Elements matter (one Havoc: user, 2026-11-18)
-     Elements — vendor/elements-engine.js (falling sand): the page becomes matter you can burn, flood, freeze and bury
-   Shift+H (or the command palette) opens the one you used last. Esc restores everything. */
+/* Havoc — wreck the Cadence page itself. One Havoc (2026-11-20): vendor/havoc-engine.js (Matter.js) makes the words
+   float, fly and explode, and plays fire, lava, acid, rain, blasts and the Materials drawer out as real Elements
+   matter (vendor/elements-engine.js); still words are page pixels in that layer, so they burn away pixel by pixel.
+   Shift+H opens it, Esc restores everything. The old full-screen Elements sandbox is still in the command palette. */
 (() => {
   const MODE_KEY = 'cadence.havoc';   // 'physics' | 'elements', follows you between devices
   const load = src => new Promise((res, rej) => { const s = document.createElement('script'); s.src = src; s.onload = res; s.onerror = () => rej(new Error('Could not load ' + src)); document.head.appendChild(s); });
   const v = () => '?v=' + Date.now().toString(36).slice(0, -3);
-  const mode = () => { try { return localStorage.getItem(MODE_KEY) === 'elements' ? 'elements' : 'physics'; } catch { return 'physics'; } };
-  const remember = m => { try { localStorage.setItem(MODE_KEY, m); } catch {} };
+  // Shift+H is always the one Havoc now; an old saved 'elements' choice is ignored (and tidied away)
+  const mode = () => { try { if (localStorage.getItem(MODE_KEY)) localStorage.removeItem(MODE_KEY); } catch {} return 'physics'; };
   const running = () => (window.__havoc && window.__havoc.active) || (window.__elements && window.__elements.active);
   let loadingPhysics = null, loadingElements = null;
 
@@ -35,10 +34,10 @@
 
   Cadence.registerPlugin({
     id: 'havoc', name: 'Havoc', version: '1.1.0', icon: '<path d="M12 2.5l2 5.5 5.5-1.5-3.8 4.5 4.8 3.5-5.8.8.8 5.7-3.5-3.8-3.5 3.8.8-5.7-5.8-.8 4.8-3.5L4.5 6.5 10 8z"/>', color: '#f76b15', category: 'Fun', tagline: 'Wreck the page with physics, or turn it into sand, fire and water',
-    description: 'Blow off steam: blast, melt or black-hole the THING page, or switch to Elements and burn, flood, freeze and bury it. Shift+H to unleash, Esc to restore.',
+    description: 'Blow off steam: blast, burn, melt, flood or black-hole the THING page, and paint it with sand, snow, oil and more from the Materials drawer. Shift+H to unleash, Esc to restore.',
     setup(api) {
       api.commands.add({ title: 'Havoc: wreck this page', icon: 'bomb', hint: '⇧H', run: api => unleash(api) });
-      api.commands.add({ title: 'Elements: turn this page into sand, fire and water', icon: 'flame', run: api => { remember('elements'); unleash(api, 'elements'); } });
+      api.commands.add({ title: 'Elements sandbox: turn this page into sand, fire and water', icon: 'flame', run: api => unleash(api, 'elements') });
       // Physics mode plays out in real matter too: a blast leaves fire and scatters sand, melt pours lava, rain is real
       // water that puddles on the cards, and a black hole swallows the matter around it
       window.__havocFx && removeEventListener('havoc:fx', window.__havocFx);
@@ -72,7 +71,7 @@
       addEventListener('havoc:fx', window.__havocFx);
       // either toolbar's Physics / Elements switch: the engine has already stopped, start the other one
       window.__havocMode && removeEventListener('havoc:mode', window.__havocMode);
-      window.__havocMode = e => { const m = e.detail === 'elements' ? 'elements' : 'physics'; remember(m); setTimeout(() => open(api, m), 60); };
+      window.__havocMode = e => { const m = e.detail === 'elements' ? 'elements' : 'physics'; setTimeout(() => open(api, m), 60); };
       addEventListener('havoc:mode', window.__havocMode);
       window.__havocKey && removeEventListener('keydown', window.__havocKey);
       window.__havocKey = e => {
