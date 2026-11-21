@@ -682,6 +682,23 @@ svg.lu{width:1.1em;height:1.1em;display:inline-block;vertical-align:-.17em;fill:
 .td-b.task{background:var(--accent);color:var(--on-accent,var(--on-accent-auto,#fff))}
 .td-b.past{opacity:.55}.td-b.done{opacity:.45}.td-b.done b{text-decoration:line-through}
 .td-b:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+/* a short block: the small client line goes first so the title gets the room; on hover or focus it grows to its full
+   title, leftward near the right edge (2026-11-20: half-hour blocks read as a letter or two) */
+.td-b b{flex:0 1 auto;min-width:0}.td-b span{flex:0 999 auto;min-width:0}
+.td-b[style*="width:1."],.td-b[style*="width:2."],.td-b[style*="width:3."],.td-b[style*="width:4."]{padding:0 5px}
+.td-b:hover,.td-b:focus-visible{min-width:max-content;max-width:360px;z-index:5;opacity:1;box-shadow:0 6px 18px rgba(0,0,0,.18)}
+.td-b.meet:hover,.td-b.meet:focus-visible{box-shadow:inset 3px 0 0 var(--bc,var(--muted)),0 6px 18px rgba(0,0,0,.18)}
+.td-b.rt:hover,.td-b.rt:focus-visible{left:auto!important;right:var(--r)}
+.td-next{display:none}
+@media (hover:none),(max-width:700px){
+  .td-next{display:flex;flex-direction:column;gap:2px;margin-top:8px}
+  .td-nx{display:flex;align-items:baseline;gap:8px;padding:6px 8px;border:0;background:none;border-radius:var(--r-s);text-align:left;font:500 13px Inter,system-ui;color:var(--text);cursor:pointer;min-height:36px}
+  .td-nx i{font:500 11.5px var(--mono);font-style:normal;color:var(--muted);min-width:58px}
+  .td-nx b{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .td-nx span{color:var(--muted);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .td-nx.meet b{box-shadow:inset 3px 0 0 var(--bc,var(--muted));padding-left:8px}
+  .td-nx:hover{background:var(--hover)}
+}
 .td-now{position:absolute;top:0;bottom:0;width:2px;margin-left:-1px;background:var(--accent);pointer-events:none}
 .td-now i{position:absolute;top:-9px;left:50%;transform:translateX(-50%);font:500 10px var(--mono);font-style:normal;background:var(--accent);color:var(--on-accent,var(--on-accent-auto,#fff));padding:1px 5px;border-radius:4px}
 .group-h.earlier{color:var(--muted)}

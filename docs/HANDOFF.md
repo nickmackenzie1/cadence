@@ -554,3 +554,13 @@ checking the code.
 - Havoc ideas offered (not built yet): wet sand and mud that grows grass; pools that ice over with Snowfall; fireflies
   and birds; moss on wet words; dominoes along a line; a volcano; tilt the iPhone to pour; a fan and a magnet;
   replay of the last minute; muffled sound under water.
+
+### Today's schedule: short blocks are readable (2026-11-20)
+- User picked "schedule blocks you can't read": a half-hour block is about 25px wide, so it showed a letter or two.
+  - On hover or keyboard focus a block grows to its full title (min-width: max-content, up to 360px) and lifts above
+    the others. Blocks whose right edge is past 60% of the timeline open leftward (`.rt`, `--r`), so they never run
+    off the end.
+  - In a narrow block the small client line gives up its room first (flex-shrink 999), so the title gets what's left.
+  - Phones (or any screen without hover) get a "Next up" list under the timeline: the next three things today, in
+    full, with their time ("Now" if under way). Tapping a task opens it, like the block does.
+  - Test: `tests/schedule-blocks.spec.mjs`.

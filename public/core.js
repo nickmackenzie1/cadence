@@ -3386,11 +3386,17 @@
         const y = top + (e.kind === 'meet' ? k : nMeet + k) * rowH,
           l = Math.max(0, pct(e.start)),
           w = Math.max(1.6, Math.min(100, pct(e.end)) - l);
-        return `<button class="td-b ${e.kind} ${e.end < now ? 'past' : ''} ${e.done ? 'done' : ''}" ${e.attrs || ''} style="left:${l}%;width:${w}%;top:${y}px;${e.color ? '--bc:' + e.color : ''}" title="${esc(fmtTime(pad(new Date(e.start).getHours()) + ':' + pad(new Date(e.start).getMinutes())) + ' · ' + e.title + (e.sub ? ' · ' + e.sub : ''))}"><b>${esc(e.title)}</b>${e.sub ? `<span>${esc(e.sub)}</span>` : ''}</button>`;
+        // short blocks grow to their full title on hover or focus (2026-11-20); near the right edge they open leftward
+        const rt = l + w > 60 ? ` rt" data-r="1` : '';
+        return `<button class="td-b ${e.kind} ${e.end < now ? 'past' : ''} ${e.done ? 'done' : ''}${rt}" ${e.attrs || ''} style="left:${l}%;width:${w}%;top:${y}px;--r:${Math.max(0, 100 - l - w)}%;${e.color ? '--bc:' + e.color : ''}" title="${esc(fmtTime(pad(new Date(e.start).getHours()) + ':' + pad(new Date(e.start).getMinutes())) + ' · ' + e.title + (e.sub ? ' · ' + e.sub : ''))}"><b>${esc(e.title)}</b>${e.sub ? `<span>${esc(e.sub)}</span>` : ''}</button>`;
       })
       .join('');
+    // on a phone there's no hover: the next few things are also listed under the timeline, readable in full
+    const hm = t => fmtTime(pad(new Date(t).getHours()) + ':' + pad(new Date(t).getMinutes()));
+    const next = items.filter(e => e.end >= now && !e.done).sort((a, b) => a.start - b.start).slice(0, 3);
+    const nextList = next.length ? `<div class="td-next" aria-label="Next up">${next.map(e => `<button class="td-nx ${e.kind}" ${e.attrs || ''} style="${e.color ? '--bc:' + e.color : ''}"><i>${esc(e.start <= now ? 'Now' : hm(e.start))}</i><b>${esc(e.title)}</b>${e.sub ? `<span>${esc(e.sub)}</span>` : ''}</button>`).join('')}</div>` : '';
     return `<section class="td-sched" aria-label="Schedule"><div class="td-sh"><h2>Schedule</h2>${heads}</div>
-    <div class="td-tl" style="height:${height}px;--cols:${span}"><div class="td-hrs">${hours}</div>${showNow ? `<div class="td-past" style="width:${nowP}%"></div>` : ''}${blocks}${showNow ? `<div class="td-now" style="left:${nowP}%"><i>${fmtTime(pad(new Date().getHours()) + ':' + pad(new Date().getMinutes())).replace(/ [AP]M$/, '')}</i></div>` : ''}</div></section>`;
+    <div class="td-tl" style="height:${height}px;--cols:${span}"><div class="td-hrs">${hours}</div>${showNow ? `<div class="td-past" style="width:${nowP}%"></div>` : ''}${blocks}${showNow ? `<div class="td-now" style="left:${nowP}%"><i>${fmtTime(pad(new Date().getHours()) + ':' + pad(new Date().getMinutes())).replace(/ [AP]M$/, '')}</i></div>` : ''}</div>${nextList}</section>`;
   }
   function emptyState(icon, title, sub) {
     return `<div class="empty"><div class="big">${icon}</div><b>${title}</b>${sub || ''}</div>`;
@@ -5551,7 +5557,7 @@
     const a = e.target.closest('[data-act]');
     const taskEl = e.target.closest('.task');
     const gl = e.target.closest('.gl');
-    const tb = e.target.closest('.td-b[data-task]');
+    const tb = e.target.closest('.td-b[data-task], .td-nx[data-task]');
     if (tb) {
       openTask(tb.dataset.task);
       return;
