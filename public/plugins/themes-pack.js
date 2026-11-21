@@ -3,7 +3,7 @@
 (() => {
   const R = t => window.CadenceThemes.register(t);
   const V = 'vendor/themes/';
-  const flat = ':skin .btn.primary{color:var(--on-accent,#fff)}';
+  const flat = ':skin .btn.primary{color:var(--on-accent,var(--on-accent-auto,#fff))}';
 
   /* ============================ USEFUL ============================ */
   R({ id: 'paper', name: 'Paper', category: 'Useful', tagline: 'Warm paper, ink and a serif. Easy on the eyes.',

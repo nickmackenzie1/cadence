@@ -503,3 +503,18 @@ checking the code.
     water mid-air.
   - A pool that has had weed for about 45 seconds starts growing a second, coppery weed: shorter and bushier.
   - `w.life()` gives { fish, frogs, pads, jumping }. Test: the pool test in `tests/havoc-fight.spec.mjs`.
+
+### Dark mode pass (2026-11-20, item 10 of the app review)
+- Swept every page (core and every plugin view) in dark mode with a contrast check on all visible text.
+- Fixes:
+  - Dark `--faint` is #77746e (was #5c5a56, 2.7:1 on the page; now about 4:1). It's the colour of group counts,
+    hints, dates and the like.
+  - Text on the accent colour now picks itself: core.js `onAccent()` measures the accent in use and sets
+    `--on-accent-auto` to white or #15152b, whichever reads better. Dark mode's light violet gets dark text (it was
+    white at 2.9:1). Rules with an accent background use `var(--on-accent, var(--on-accent-auto, #fff))`, so a theme
+    that sets `--on-accent` still wins. It re-checks whenever <html>'s style or class, or a stylesheet in <head>, changes.
+  - Invoice radar avatars had grey letters (`.ir-row span` reached into the avatar); plain links in a page are the
+    accent colour instead of the browser's blue; next-month days in the calendar, "null" in the database viewer and
+    empty job counts are less faded.
+- Left as they are: finished tasks dimmed in the schedule, theme previews (they show other themes' colours), and
+  white letters on bright client colours (same as light mode).

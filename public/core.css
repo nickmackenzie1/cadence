@@ -12,7 +12,7 @@
   --r:10px;--r-s:calc(var(--r) * .6);--r-m:calc(var(--r) * .8);--r-l:calc(var(--r) * 1.2);--r-xl:calc(var(--r) * 1.6);--mono:'JetBrains Mono',ui-monospace,monospace;
 }
 [data-theme=dark]{
-  --bg:#141416;--panel:#1b1b1e;--side:#17171a;--text:#ecebe8;--muted:#8f8c86;--faint:#5c5a56;--line:#29292d;
+  --bg:#141416;--panel:#1b1b1e;--side:#17171a;--text:#ecebe8;--muted:#8f8c86;--faint:#77746e;--line:#29292d;
   --hover:rgba(255,255,255,.04);--accent:#8d8df7;--accent-soft:#25254a;--danger:#ef7a62;--danger-soft:#3a201b;
   --ok:#4cc38a;--warn:#e0a24a;--warn-soft:#33281a;--client:#e5a24a;--client-soft:#33281a;--shadow:0 1px 2px rgba(0,0,0,.3),0 10px 30px rgba(0,0,0,.45);
 }
@@ -161,7 +161,7 @@ input,textarea,select{font:inherit;color:inherit}
 .head .actions{margin-left:auto;display:flex;gap:8px}
 .btn{display:inline-flex;align-items:center;gap:6px;padding:7px 12px;border-radius:var(--r-m);border:1px solid var(--line);background:var(--panel);font-weight:500;font-size:13px;white-space:nowrap}
 .btn:hover{border-color:var(--faint)}
-.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--on-accent,var(--on-accent-auto,#fff))}
 .btn.primary:hover{filter:brightness(1.07)}
 .btn.ghost{border-color:transparent;background:none}
 .btn.ghost:hover{background:var(--hover)}
@@ -332,7 +332,7 @@ textarea.inp{min-height:110px;resize:vertical;line-height:1.5}
 .toast{background:var(--text);color:var(--bg);padding:10px 14px;border-radius:var(--r);box-shadow:var(--shadow);display:flex;align-items:center;gap:12px;font-size:13px;animation:pop .2s ease;max-width:520px}
 .toast button{color:var(--bg);opacity:.75;font-weight:600;font-size:13px}
 .toast button:hover{opacity:1}
-.toast.rem{background:var(--accent);color:#fff}.toast.rem button{color:#fff}
+.toast.rem{background:var(--accent);color:var(--on-accent,var(--on-accent-auto,#fff))}.toast.rem button{color:inherit}
 .ftoast{position:fixed;z-index:60;display:flex;align-items:center;gap:10px;padding:7px 12px;border-radius:999px;background:var(--text);color:var(--bg);font-size:13px;font-weight:500;box-shadow:0 8px 24px rgba(0,0,0,.18);pointer-events:auto;white-space:nowrap;max-width:min(440px,90vw);animation:fpop .38s cubic-bezier(.2,1.5,.4,1)}
 .ftoast span{overflow:hidden;text-overflow:ellipsis}
 .ftoast button{color:var(--bg);opacity:.7;font-weight:700;font-size:12px}.ftoast button:hover{opacity:1}
@@ -425,7 +425,7 @@ html.demo #sync i{background:#f5a524!important;box-shadow:0 0 0 3px rgba(245,165
 .pb-tabs button{padding:9px 12px;font-weight:600;font-size:13px;color:var(--muted);border-bottom:2px solid transparent;margin-bottom:-1px;display:flex;gap:7px;align-items:center;transition:color .15s,border-color .15s}
 .pb-tabs button span{font-size:11px;font-weight:600;padding:1px 7px;border-radius:999px;background:var(--hover);color:var(--muted)}
 .pb-tabs button.on{color:var(--text);border-color:var(--accent)}
-.pb-tabs button.on span{background:var(--accent);color:var(--on-accent,#fff)}
+.pb-tabs button.on span{background:var(--accent);color:var(--on-accent,var(--on-accent-auto,#fff))}
 .pb-tabs button:hover{color:var(--text)}
 .pb-tabs .pb-dev{margin-left:auto;font-weight:500;font-size:13px;color:var(--accent);border:0}
 .pb-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px}
@@ -585,7 +585,7 @@ html.amb-on .c-hero .bg.img{opacity:.24;filter:saturate(1.1)}
 .ntile .n.hot{background:var(--danger);color:#fff}
 .ntile:hover{background:var(--hover);color:var(--text)}
 .ntile.on{background:color-mix(in srgb,var(--sel,var(--accent)) 13%,transparent);color:var(--sel,var(--accent))}
-.ntile.on .n:not(.hot){background:var(--sel,var(--accent));color:var(--on-accent,#fff)}
+.ntile.on .n:not(.hot){background:var(--sel,var(--accent));color:var(--on-accent,var(--on-accent-auto,#fff))}
 .nav a.all-cl{color:var(--muted)}.nav a.all-cl .n{color:var(--faint)}
 
 /* Lucide icons (replacing emoji) */
@@ -679,11 +679,11 @@ svg.lu{width:1.1em;height:1.1em;display:inline-block;vertical-align:-.17em;fill:
 .td-b{position:absolute;height:24px;border:0;border-radius:var(--r-s);padding:0 8px;display:flex;align-items:center;gap:6px;overflow:hidden;white-space:nowrap;text-align:left;font:500 12px Inter,system-ui;cursor:pointer;min-width:0}
 .td-b b{font-weight:600;overflow:hidden;text-overflow:ellipsis}.td-b span{opacity:.7;overflow:hidden;text-overflow:ellipsis}
 .td-b.meet{background:color-mix(in srgb,var(--bc,var(--muted)) 15%,var(--panel));color:var(--text);box-shadow:inset 3px 0 0 var(--bc,var(--muted))}
-.td-b.task{background:var(--accent);color:var(--on-accent,#fff)}
+.td-b.task{background:var(--accent);color:var(--on-accent,var(--on-accent-auto,#fff))}
 .td-b.past{opacity:.55}.td-b.done{opacity:.45}.td-b.done b{text-decoration:line-through}
 .td-b:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .td-now{position:absolute;top:0;bottom:0;width:2px;margin-left:-1px;background:var(--accent);pointer-events:none}
-.td-now i{position:absolute;top:-9px;left:50%;transform:translateX(-50%);font:500 10px var(--mono);font-style:normal;background:var(--accent);color:var(--on-accent,#fff);padding:1px 5px;border-radius:4px}
+.td-now i{position:absolute;top:-9px;left:50%;transform:translateX(-50%);font:500 10px var(--mono);font-style:normal;background:var(--accent);color:var(--on-accent,var(--on-accent-auto,#fff));padding:1px 5px;border-radius:4px}
 .group-h.earlier{color:var(--muted)}
 .t-moves{display:flex;gap:6px;margin-left:auto;align-self:center;flex:none}
 .t-moves button{border:1px solid var(--line);background:var(--panel);color:var(--text);border-radius:var(--r-m);padding:5px 11px;font:500 12px Inter,system-ui;cursor:pointer;min-height:30px}
@@ -696,7 +696,7 @@ svg.lu{width:1.1em;height:1.1em;display:inline-block;vertical-align:-.17em;fill:
 .td-done{width:100%}.td-done summary{cursor:pointer;color:var(--muted);min-height:28px;display:flex;align-items:center}
 /* calm: unfinished work is never red */
 .chip.over{color:var(--muted)}
-.ntile .n.hot{background:var(--sel,var(--accent));color:var(--on-accent,#fff)}
+.ntile .n.hot{background:var(--sel,var(--accent));color:var(--on-accent,var(--on-accent-auto,#fff))}
 .chip.due.over{color:var(--muted)!important}
 .nav a .n.hot{color:var(--text);font-weight:600}
 @media (max-width:640px){.td-hrs span:nth-child(even){color:transparent}}
@@ -738,7 +738,7 @@ svg.lu{width:1.1em;height:1.1em;display:inline-block;vertical-align:-.17em;fill:
 
 /* buttons that are links look like buttons */
 a.btn{color:var(--text);text-decoration:none}
-a.btn.primary{color:#fff}
+a.btn.primary{color:var(--on-accent,var(--on-accent-auto,#fff))}
 /* Music pages (Radar, Radio, KEXP history, Want to hear, Shows, Said the Gramophone, Artists): one width, one heading
    style, one chip, one link colour, so the pages read as one place and switching tabs moves nothing (design pass,
    2026-11-16). Cards on the Radar page keep their own smaller headings. */
@@ -819,3 +819,5 @@ input[type=checkbox],input[type=radio],input[type=range],progress{accent-color:v
 .skel-row { display: flex; gap: 12px; } .skel-row > .skel { flex: 1; }
 @keyframes skel { from { opacity: .35; } to { opacity: .7; } }
 @media (prefers-reduced-motion: reduce) { .skel { animation: none; } }
+/* a plain link in a page (no class of its own) is the accent colour, not the browser's blue (dark mode pass, 2026-11-20) */
+:where(#view) a:not([class]){color:var(--accent)}

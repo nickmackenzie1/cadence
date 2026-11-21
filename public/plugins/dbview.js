@@ -32,7 +32,7 @@
       .dbv td{padding:6px 10px;border-bottom:1px solid color-mix(in srgb,var(--line) 60%,transparent);white-space:nowrap;max-width:280px;overflow:hidden;text-overflow:ellipsis}
       .dbv tr:hover td{background:var(--hover)}
       .dbv tr.on td{background:color-mix(in srgb,var(--accent) 10%,transparent)}
-      .dbv td.n{color:#0090ff}.dbv td.b{color:#d6409f}.dbv td.nl{color:var(--muted);opacity:.6}.dbv td.o{color:var(--muted)}
+      .dbv td.n{color:#0090ff}.dbv td.b{color:#d6409f}.dbv td.nl{color:var(--muted);opacity:.8}.dbv td.o{color:var(--muted)}
       .dbv td a{color:var(--accent);cursor:pointer;text-decoration:none}
       .dbv-insp{border:1px solid var(--line);border-radius:var(--r-l);background:#151513;color:#e9e6dd;overflow:auto;max-height:68vh;position:relative}
       .dbv-insp .ih{position:sticky;top:0;display:flex;gap:6px;align-items:center;padding:8px 10px;background:#1d1d1a;border-bottom:1px solid #2c2b27;font:12px var(--mono);color:#a7a397}

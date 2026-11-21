@@ -149,7 +149,7 @@
         .jb-top{display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap}
         .jb-sum{display:flex;gap:8px;flex-wrap:wrap}
         .jb-pill{display:flex;gap:6px;align-items:baseline;padding:6px 12px;border-radius:999px;background:var(--hover);font-size:13px;color:var(--muted)}
-        .jb-pill b{font-size:16px;color:var(--text)}.jb-pill.zero{opacity:.6}
+        .jb-pill b{font-size:16px;color:var(--text)}.jb-pill.zero{opacity:.75}
         .jb-all{display:flex;gap:6px;flex-wrap:wrap}.jb-all svg{width:15px;height:15px}
         .jb-intro{margin:10px 0 4px;font-size:13px}
         .jb-ck{border:1px solid var(--line);border-radius:var(--r);background:var(--panel);padding:12px 14px;margin-bottom:24px}.jb-ck-top{display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap}.jb-ck-top p{margin:0;flex:1;min-width:220px;font-size:13px}

@@ -120,11 +120,11 @@
         .cv-month{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));grid-auto-rows:minmax(108px,auto);border:1px solid var(--line);border-radius:var(--r-l);overflow:hidden;background:var(--panel,var(--bg))}
         .cv-month .cv-day{border-right:1px solid var(--line);border-bottom:1px solid var(--line);padding:4px 5px 6px;display:flex;flex-direction:column;gap:3px;min-width:0;cursor:pointer}
         .cv-month .cv-day:nth-child(7n){border-right:0}.cv-month .cv-day:nth-last-child(-n+7){border-bottom:0}
-        .cv-day.out{background:color-mix(in srgb,var(--text) 2.5%,transparent)}.cv-day.out .cv-dn{opacity:.45}
+        .cv-day.out{background:color-mix(in srgb,var(--text) 2.5%,transparent)}.cv-day.out .cv-dn{opacity:.7}
         .cv-day.we{background:color-mix(in srgb,var(--text) 1.5%,transparent)}
         .cv-day.over,.cv-slot.over{background:color-mix(in srgb,var(--accent) 12%,transparent)!important;outline:2px dashed var(--accent);outline-offset:-2px}
         .cv-dn{font-size:12px;font-weight:600;color:var(--muted);padding:2px 3px}
-        .cv-day.today .cv-dn{color:#fff;background:var(--accent);border-radius:999px;align-self:flex-start;padding:2px 7px}
+        .cv-day.today .cv-dn{color:var(--on-accent,var(--on-accent-auto,#fff));background:var(--accent);border-radius:999px;align-self:flex-start;padding:2px 7px}
         .cv-it,.cv-ev{font-size:12px;line-height:1.3;padding:3px 6px;border-radius:var(--r-s);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer;min-width:0}
         .cv-it{background:color-mix(in srgb,var(--c) 14%,var(--panel,var(--bg)));border-left:3px solid var(--c);color:var(--text)}
         .cv-it:hover{filter:brightness(.97)}.cv-it.sel{outline:2px solid var(--accent)}

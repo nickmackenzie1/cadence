@@ -32,7 +32,7 @@
       .dp-grid button.past{color:var(--faint)}
       .dp-grid button.t{color:var(--accent);font-weight:700}
       .dp-grid button.t:after{content:"";position:absolute;left:50%;bottom:4px;width:3px;height:3px;margin-left:-1.5px;border-radius:50%;background:var(--accent)}
-      .dp-grid button.sel{background:var(--accent);color:#fff;font-weight:600}
+      .dp-grid button.sel{background:var(--accent);color:var(--on-accent,var(--on-accent-auto,#fff));font-weight:600}
       .dp-grid button.busy:before{content:"";position:absolute;top:4px;right:5px;width:4px;height:4px;border-radius:50%;background:var(--client);opacity:.7}
       .dp-ft{display:flex;justify-content:space-between;align-items:center;margin-top:8px;color:var(--faint);font-size:11px}
       .dp-ft button{color:var(--muted);font-size:12px;font-weight:500;padding:4px 6px;border-radius:var(--r-s)}

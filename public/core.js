@@ -2871,8 +2871,25 @@
   };
   window.addEventListener('hashchange', () => render());
 
+  // Text on the accent colour (buttons, today's date, schedule blocks) picks white or near-black, whichever reads
+  // better on the accent in use: dark mode's light violet needs dark text (dark mode pass, 2026-11-20). A theme that
+  // sets --on-accent itself still wins.
+  let accProbe = null, accSeen = '';
+  function onAccent() {
+    const h = document.documentElement, a = getComputedStyle(h).getPropertyValue('--accent').trim();
+    if (a === accSeen) return; accSeen = a;
+    if (!accProbe) { accProbe = document.createElement('i'); accProbe.style.cssText = 'position:absolute;width:0;height:0;overflow:hidden;color:var(--accent)'; document.body.appendChild(accProbe); }
+    const m = getComputedStyle(accProbe).color.match(/[\d.]+/g); if (!m) return;
+    const lin = v => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; };
+    const L = 0.2126 * lin(+m[0]) + 0.7152 * lin(+m[1]) + 0.0722 * lin(+m[2]);
+    h.style.setProperty('--on-accent-auto', 1.05 / (L + 0.05) >= (L + 0.05) / 0.0585 ? '#fff' : '#15152b');
+  }
+  // themes change the accent without a full render: follow the <html> attributes and any theme stylesheet
+  new MutationObserver(() => requestAnimationFrame(onAccent)).observe(document.documentElement, { attributes: true, attributeFilter: ['style', 'class', 'data-theme'] });
+  new MutationObserver(() => requestAnimationFrame(onAccent)).observe(document.head, { childList: true, subtree: true, characterData: true });
   function render() {
     document.documentElement.dataset.theme = S.settings.theme;
+    onAccent(); requestAnimationFrame(onAccent);   // again once a theme's styles have landed
     document.documentElement.dataset.motion = reducedMotion() ? 'reduce' : 'full';
     renderSide();
     renderView();
