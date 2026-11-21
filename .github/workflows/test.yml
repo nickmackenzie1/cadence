@@ -12,11 +12,15 @@ concurrency:
   group: test-main
   cancel-in-progress: false
 jobs:
+  # the Playwright run is split three ways and runs in parallel (2026-11-20: about 10 minutes became about 4)
   test:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: true
+      matrix:
+        shard: [1, 2, 3]
     steps:
       - uses: actions/checkout@v4
-        with: { fetch-depth: 0 }
       - uses: actions/setup-node@v4
         with: { node-version: 22, cache: npm }
       - run: npm ci
@@ -32,17 +36,26 @@ jobs:
         run: npx playwright install --with-deps chromium
       - if: steps.pw-cache.outputs.cache-hit == 'true'
         run: npx playwright install-deps chromium
-      # plugins using the API wrong, or names defined nowhere (scripts/typecheck.mjs): seconds, so it goes first
-      - run: npm run typecheck
-      - run: npm test
+      # plugins using the API wrong, or names defined nowhere (scripts/typecheck.mjs): seconds, so the first shard does it first
+      - if: matrix.shard == 1
+        run: npm run typecheck
+      - run: npx playwright test --shard=${{ matrix.shard }}/3
       # a picture of every theme plus report.json (tests/themes-health.spec.mjs), to look through after a look change
       - if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: themes
+          name: themes-${{ matrix.shard }}
           path: test-results/themes/
           retention-days: 14
           if-no-files-found: ignore
+
+  # only when every shard is green
+  release:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
       # only green builds reach the NAS: deploy.sh follows the `stable` branch when it exists.
       # Never move stable backwards: only promote if this commit is newer than (descends from) what's there now.
       - name: Promote to stable

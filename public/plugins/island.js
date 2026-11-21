@@ -138,6 +138,12 @@
     G.queue.push(n);
     if (!G.cur) next();
     else if (!G.cur.sticky && G.cur.progress == null && !G.cur.spin) { clearTimeout(G.t); G.t = setTimeout(dismiss, G.cur.style === 'celebrate' ? 2200 : 1200); }
+    else if (!kept(n)) {
+      // a notice that stays up (Friday's weekly review, a spinner) steps aside for a plain message and comes back
+      // after it; before 2026-11-20 messages waited behind it and never showed
+      const back = G.cur; G.queue = G.queue.filter(x => x !== n && x !== back); G.queue.unshift(n, back);
+      clearTimeout(G.t); G.cur = null; next();
+    }
     return handle(n);
   }
   function handle(n) {
@@ -184,7 +190,9 @@
   }
   function sink() { G.pill.classList.remove('up', 'ping', 'cel'); }
   function next() {
-    const n = G.queue.shift(); if (!n) { G.cur = null; sink(); idle(); return; }
+    // notices that stay up (sticky, spinners) wait until nothing else is waiting, so they never hold a message back
+    const k = G.queue.findIndex(q => !q.sticky && !q.spin && q.progress == null);
+    const n = k > 0 ? G.queue.splice(k, 1)[0] : G.queue.shift(); if (!n) { G.cur = null; sink(); idle(); return; }
     G.cur = n; render(n);
     clearTimeout(G.t);
     if (!n.sticky && n.progress == null && !n.spin) G.t = setTimeout(dismiss, n.ms || (n.style === 'celebrate' ? 5200 : (n.actions || []).length ? 6000 : n.sub ? 4600 : 3600));

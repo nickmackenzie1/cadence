@@ -518,3 +518,12 @@ checking the code.
     empty job counts are less faded.
 - Left as they are: finished tasks dimmed in the schedule, theme previews (they show other themes' colours), and
   white letters on bright client colours (same as light mode).
+
+### Island messages no longer wait behind notices that stay up; CI split in three (2026-11-20)
+- Found through a failing test on a Friday: while the Island showed a notice that stays up (Friday's "Weekly review",
+  a spinner like "Connecting…"), every other message queued behind it and never appeared. Now a plain message steps
+  in front and the notice comes back after it, and notices that stay up only show when nothing else is waiting.
+  Test: `tests/island-sticky.spec.mjs`.
+- CI (item 7 of the app review): the Playwright run is split into three shards that run in parallel; the first also
+  runs the typecheck. Promoting to `stable` and the release are a separate job that waits for all three. Theme
+  pictures upload per shard (`themes-1/2/3`).
