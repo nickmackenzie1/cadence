@@ -226,3 +226,24 @@ test('a deep pool grows kelp, lily pads and fish that leap at a splash; drain it
   await page.keyboard.press('Escape');
   expect(errs).toEqual([]);
 });
+
+test('water finds its level: two sides of a pool joined under a wall even out', async ({ page }) => {
+  test.setTimeout(90e3);
+  const errs = []; page.on('pageerror', e => errs.push(String(e)));
+  await page.setViewportSize({ width: 1400, height: 900 });
+  await page.goto(B + '/?demo=1#today');
+  await expect(page.locator('#view .task').first()).toBeVisible({ timeout: 15000 });
+  await page.locator('body').press('Shift+H');
+  await expect.poll(() => page.evaluate(() => !!(window.__havoc && window.__havoc.active)), { timeout: 10000 }).toBe(true);
+  await expect.poll(() => page.evaluate(async () => !!(await window.CadenceFX.world())), { timeout: 10000 }).toBe(true);
+  // a U-tube in the empty strip at the right, all the water poured into the left side
+  await page.evaluate(async () => { const w = await window.CadenceFX.world();
+    for (let x = 1220; x <= 1390; x += 4) w.paint(x, 740, x, 740, w.M.STONE, 2);
+    w.paint(1220, 420, 1220, 740, w.M.STONE, 2); w.paint(1390, 420, 1390, 740, w.M.STONE, 2); w.paint(1305, 420, 1305, 700, w.M.STONE, 2);
+    await new Promise(r => setTimeout(r, 300));
+    for (let k = 0; k < 50; k++) { w.spawn(1260, 460, w.M.WATER, 5, 1); await new Promise(r => setTimeout(r, 80)); } });
+  const gap = () => page.evaluate(async () => { const w = await window.CadenceFX.world(); const top = async x => { const pts = []; for (let y = 420; y < 740; y += 3) pts.push(x, y); const m = await w.probe(pts); const k = Array.from(m).indexOf(w.M.WATER); return k < 0 ? 740 : 420 + k * 3; }; return Math.abs((await top(1262)) - (await top(1348))); });
+  await expect.poll(gap, { timeout: 45000, intervals: [1000] }).toBeLessThan(13);
+  await page.keyboard.press('Escape');
+  expect(errs).toEqual([]);
+});

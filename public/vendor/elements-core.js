@@ -304,12 +304,49 @@ function ENGINE(env) {
       }
     }
     if (sinks.length) sinks = sinks.filter(h => h.t < h.life);
-  }  function step() {
+  }  // Water finds its level (2026-11-20, user picked "water that slopes"): cells only spread along their own surface,
+  // so a pool split by a word or a shelf but joined underneath stayed slanted. A few times a step, a cell on top of
+  // some water looks through the water it's joined to (a small flood search) for the lowest open surface; if that's
+  // at least two cells lower, the cell moves there. Over a few seconds both sides even out, and nothing is added or lost.
+  let lvSeen = null, lvGen = 0, lvQ = null, lvMoves = 0, lvSteps = 0, lvMiss = 0;
+  function levelStep() {
+    lvSteps++;
+    // calm water (searches keep finding nothing): look only every 8th step until something moves again
+    if (lvMiss > 6 && (lvSteps & 7)) return;
+    if (!lvSeen || lvSeen.length !== N) { lvSeen = new Uint32Array(N); lvQ = new Int32Array(2048); lvGen = 0; }
+    for (let tries = 0, found = 0; tries < 300 && found < 2; tries++) {
+      // a random cell; if it's water, climb to the top of that water (under a lily pad counts: the pad settles a little)
+      const r0 = (R() * N) | 0; if (grid[r0] !== WATER) continue;
+      const x0 = r0 % W; let y0 = (r0 / W) | 0;
+      while (y0 > 1 && grid[(y0 - 1) * W + x0] === WATER) y0--;
+      const up = grid[(y0 - 1) * W + x0]; if (y0 < 1 || (up !== E && up !== PAD)) continue;
+      found++;
+      // flood through the water joined to this cell (up to 2048 cells) and find the lowest open surface
+      if (++lvGen === 0xffffffff) { lvSeen.fill(0); lvGen = 1; }
+      const src = y0 * W + x0; let qh = 0, qt = 0, best = -1, bestY = y0 + 1;
+      lvQ[qt++] = src; lvSeen[src] = lvGen;
+      while (qh < qt) {
+        const i = lvQ[qh++], y = (i / W) | 0, x = i - y * W;
+        if (y > bestY && grid[i - W] === E) { best = i; bestY = y; }
+        if (qt > 2044) continue;
+        if (x > 0 && grid[i - 1] === WATER && lvSeen[i - 1] !== lvGen) { lvSeen[i - 1] = lvGen; lvQ[qt++] = i - 1; }
+        if (x < W - 1 && grid[i + 1] === WATER && lvSeen[i + 1] !== lvGen) { lvSeen[i + 1] = lvGen; lvQ[qt++] = i + 1; }
+        if (y < H - 1 && grid[i + W] === WATER && lvSeen[i + W] !== lvGen) { lvSeen[i + W] = lvGen; lvQ[qt++] = i + W; }
+        if (y > 1 && grid[i - W] === WATER && lvSeen[i - W] !== lvGen) { lvSeen[i - W] = lvGen; lvQ[qt++] = i - W; }
+      }
+      if (best < 0) { lvMiss++; continue; }
+      lvMiss = 0;
+      const a = best - W;
+      grid[a] = WATER; life[a] = life[src]; shade[a] = shade[src]; pristine[a] = 0; wakeAt(a);
+      grid[src] = E; life[src] = 0; wakeAt(src); lvMoves++;
+    }
+  }
+  function step() {
     tick = (tick % 255) + 1;
     const ltr = tick & 1;
     fireCount = 0;
     if (sinks.length) sinkStep();
-    ecoStep(); fishStep(); frogStep();
+    ecoStep(); fishStep(); frogStep(); levelStep();
     for (let y = H - 1; y >= 0; y--) {
       const rowC = (y >> CS) * CW;
       for (let kc = 0; kc < CW; kc++) {
@@ -1547,7 +1584,7 @@ function ENGINE(env) {
           if (msg.key === 'snowing' || msg.key === 'sharp') { awake && awake.fill(1); }
           if (grid && (msg.key === 'lights' || msg.key === 'palette' || msg.key === 'compact')) { removeLights(); buildLights(); awake.fill(1); }
           break;
-        case 'life': { let pads = 0; for (let i = 0; i < N; i++) if (grid[i] === PAD) pads++; env.post({ t: 'count', id: msg.id, n: { fish: fish.length, frogs: frogs.length, pads, jumping: fish.filter(f => f.jump || f.dash).length } }); break; }
+        case 'life': { let pads = 0; for (let i = 0; i < N; i++) if (grid[i] === PAD) pads++; env.post({ t: 'count', id: msg.id, n: { fish: fish.length, frogs: frogs.length, pads, jumping: fish.filter(f => f.jump || f.dash).length, levelled: lvMoves, steps: lvSteps } }); break; }
         case 'fish': env.post({ t: 'count', id: msg.id, n: fish.length }); break;
         case 'count': { let n = 0; const [x0, y0, x1, y1] = msg.rect; for (let y = Math.max(0, y0); y < Math.min(H, y1); y++) for (let x = Math.max(0, x0); x < Math.min(W, x1); x++) if (grid[y * W + x] === msg.m) n++; env.post({ t: 'count', id: msg.id, n }); break; }
         // Cadence (2026-11-19): what's at each of these cells ([x, y, x, y, …]): Havoc's words float, burn and dissolve by it

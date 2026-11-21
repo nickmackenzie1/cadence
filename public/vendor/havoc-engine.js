@@ -42,6 +42,11 @@
     { id: 'E', name: 'Eraser', hint: 'Clears anything, page included', color: '#ffffff' },
   ];
   let mat = 'WATER', matLast = null, drawer = null;
+  // the Weather row (2026-11-20, from the old Elements sandbox): snowfall, a lightning storm, wind and string lights,
+  // asked of the page's ambient layer through Cadence (havoc.js); Esc turns them all off with the rest
+  const wx = { snow: false, storm: false, wind: 0, lights: false };
+  const WINDS = [['Calm', 0.3], ['Breeze', 1.1], ['Gale', 2.2]];
+  function sendWeather() { tellFx('weather', 0, 0, { o: { snow: wx.snow, storm: wx.storm, wind: WINDS[wx.wind][1], lights: wx.lights ? 'twinkle' : null } }); }
   function paintMat(x, y, first) {
     if (!fxw) return;
     if (mat === 'FIREWORK') { if (first) fxw.firework(x, y); return; }
@@ -1008,6 +1013,9 @@
   .drawer button i{width:10px;height:10px;border-radius:50%;background:var(--c);box-shadow:0 0 0 1px rgba(255,255,255,.25) inset}
   .drawer button.on{background:rgba(255,255,255,.14);color:#fff}
   .drawer.open ~ .tip{bottom:136px}
+  .drawer .wx{flex-basis:100%;display:flex;flex-wrap:wrap;justify-content:center;align-items:center;gap:4px;margin-top:2px;padding-top:6px;border-top:1px solid rgba(255,255,255,.08)}
+  .drawer .wx span{font:700 10px ui-sans-serif,system-ui,sans-serif;letter-spacing:.12em;text-transform:uppercase;color:#8f8ca0;margin-right:4px}
+  .drawer.open ~ .tip{bottom:176px}
   .sep{width:1px;height:26px;background:rgba(255,255,255,.1);margin:0 4px}
   button{all:unset;position:relative;width:40px;height:40px;border-radius:13px;display:grid;place-items:center;cursor:pointer;color:#bdbacb;transition:background .15s,color .15s,transform .1s}
   button:hover{background:rgba(255,255,255,.07);color:#fff}
@@ -1049,8 +1057,14 @@
     hud.addEventListener('pointerout', () => tipEl.classList.remove('show'));
     // the drawer of materials, shown while Materials is the tool
     drawer = document.createElement('div'); drawer.className = 'drawer'; drawer.setAttribute('role', 'group'); drawer.setAttribute('aria-label', 'Materials');
-    drawer.innerHTML = MATS.map(m => `<button data-mat="${m.id}" style="--c:${m.color}" aria-label="${m.name}"><i></i>${m.name}</button>`).join('');
-    drawer.addEventListener('click', e => { const b = e.target.closest('button[data-mat]'); if (!b) return; e.stopPropagation(); mat = b.dataset.mat; pick('mat'); syncHud(); });
+    drawer.innerHTML = MATS.map(m => `<button data-mat="${m.id}" style="--c:${m.color}" aria-label="${m.name}"><i></i>${m.name}</button>`).join('')
+      + `<div class="wx" role="group" aria-label="Weather"><span>Weather</span>`
+      + [['snow', 'Snowfall', '#dfe8f7'], ['storm', 'Storm', '#cfd9ff'], ['wind', 'Wind', '#9fd3c7'], ['lights', 'String lights', '#ffd166']].map(([k, l, c]) => `<button data-wx="${k}" style="--c:${c}" aria-label="${l}"><i></i>${l}</button>`).join('') + '</div>';
+    drawer.addEventListener('click', e => {
+      const w = e.target.closest('button[data-wx]');
+      if (w) { e.stopPropagation(); const k = w.dataset.wx; if (k === 'wind') wx.wind = (wx.wind + 1) % WINDS.length; else wx[k] = !wx[k]; sendWeather(); syncHud(); return; }
+      const b = e.target.closest('button[data-mat]'); if (!b) return; e.stopPropagation(); mat = b.dataset.mat; pick('mat'); syncHud();
+    });
     drawer.addEventListener('pointerdown', e => e.stopPropagation());
     root.appendChild(hud); root.appendChild(drawer); root.appendChild(tipEl);
     syncHud();
@@ -1063,7 +1077,11 @@
       if (id === 'sound') b.innerHTML = `<svg viewBox="0 0 24 24">${muted ? ICONS.mute : ICONS.sound}</svg>`;
       if (id === 'mat') { const m = MATS.find(x => x.id === mat); b.style.setProperty('--c', m.color); }
     });
-    if (drawer) { drawer.classList.toggle('open', tool === 'mat' && !!fxw); drawer.querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.mat === mat)); }
+    if (drawer) {
+      drawer.classList.toggle('open', tool === 'mat' && !!fxw);
+      drawer.querySelectorAll('button[data-mat]').forEach(b => b.classList.toggle('on', b.dataset.mat === mat));
+      drawer.querySelectorAll('button[data-wx]').forEach(b => { const k = b.dataset.wx; b.classList.toggle('on', k === 'wind' ? wx.wind > 0 : wx[k]); if (k === 'wind') b.lastChild.textContent = 'Wind: ' + WINDS[wx.wind][0]; });
+    }
   }
 
   /* ------------------------------------------------------------------ lifecycle */
@@ -1198,7 +1216,7 @@
   }
   function stop() {
     if (!H.active) return;
-    H.active = false; H.rewinding = false; cancelAnimationFrame(raf); raining = false; tellFx('stop', 0, 0);
+    H.active = false; H.rewinding = false; cancelAnimationFrame(raf); raining = false; wx.snow = wx.storm = wx.lights = false; wx.wind = 0; tellFx('stop', 0, 0);
     removeEventListener('keydown', onKey, true); removeEventListener('resize', onResize);
     try { Engine.clear(engine); } catch (e) {}
     host && host.remove(); host = null; hud = null; scorchHost && scorchHost.remove(); scorchHost = null; lowHost && lowHost.remove(); lowHost = null; lowStage = null;

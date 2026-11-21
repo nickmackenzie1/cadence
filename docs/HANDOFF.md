@@ -533,3 +533,24 @@ checking the code.
   pictures upload per shard (`themes-1/2/3`).
 - Reminders due now, or within the next 15-second check, fire on time (`remindSoon` in core.js) instead of up to
   15 seconds late. Found when the Island fix made the notifications test reach its reminder sooner.
+
+### Idea (user, 2026-11-20): the Island comes out of the sidebar
+- "the island should come from the sidebar and have it organically come out for notifications but keep the island
+  idea". Sketch: at rest a slim pill in the sidebar under the THING header (time, sync, live activity); a notice
+  swells it and flows out past the sidebar edge into the page, then it draws back in. Phone keeps the top Island;
+  a collapsed sidebar puts it on the rail. Same queue, notices, live activities and notification centre.
+
+### Havoc: water finds its level; the Elements sandbox folded into Havoc (2026-11-20)
+- User picked "water that slopes": cells only spread along their own surface, so a pool split by a word or shelf but
+  joined underneath stayed slanted. `levelStep()` in elements-core: a few random water cells per step climb to the
+  top of their water, flood-search the joined water (up to 2048 cells) for the lowest open surface, and move there
+  if it's 2+ cells lower. Lily pads don't block it. Calm water (searches finding nothing) is only searched every 8th
+  step, so it costs nothing measurable. Test: the U-tube in `tests/havoc-fight.spec.mjs`.
+- User picked "tidy up the old Elements mode": the full-screen sandbox (which read the whole page into matter) and its
+  toolbar are gone from elements-engine.js (863 → ~560 lines); it is only the ambient layer now. The palette entry
+  is gone. Its extras worth keeping are the Weather row in Havoc's Materials drawer: Snowfall, Storm, Wind (Calm /
+  Breeze / Gale) and String lights, sent as `havoc:fx` 'weather' and asked of the layer with `CadenceFX.want('havoc')`
+  together with rain. Esc turns them off. Heat view and the pixel-sharpness switch were dropped.
+- Havoc ideas offered (not built yet): wet sand and mud that grows grass; pools that ice over with Snowfall; fireflies
+  and birds; moss on wet words; dominoes along a line; a volcano; tilt the iPhone to pour; a fan and a magnet;
+  replay of the last minute; muffled sound under water.

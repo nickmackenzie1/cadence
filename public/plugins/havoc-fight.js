@@ -6,7 +6,6 @@
     try {
       if (!window.HavocFight) { loading = loading || new Promise((res, rej) => { const s = document.createElement('script'); s.src = 'vendor/havoc-fight.js?v=' + Date.now().toString(36).slice(0, -3); s.onload = res; s.onerror = () => rej(new Error('Could not load vendor/havoc-fight.js')); document.head.appendChild(s); }); await loading; }
       if (window.__havoc && window.__havoc.active) window.__havoc.stop();
-      if (window.__elements && window.__elements.active) window.__elements.stop();
       window.HavocFight.active ? window.HavocFight.stop() : window.HavocFight.start();
     } catch (e) { loading = null; api.ui.toast("The wizard couldn't come out: " + e.message); }
   };

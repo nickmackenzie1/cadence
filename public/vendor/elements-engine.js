@@ -186,13 +186,15 @@
   };
 
   function createWorld(cfg = {}) {
-    const AMBIENT = cfg.kind === 'ambient';
+    // one world now: the page's ambient layer (snow, rain, Havoc's matter). The full-screen sandbox that read the whole
+    // page into matter was folded into Havoc on 2026-11-20 (its extras are Havoc's Materials and Weather drawer).
+    const AMBIENT = true;
     const DPR = Math.min(2, devicePixelRatio || 1);
     const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
     let CELL = cfg.cell || (innerWidth < 700 ? 3 : 2);
     let W = 0, H = 0, HW = 0, HH = 0, gen = 0, ready = false, busy = false, bufs = null, pending = false, lastFrame = null, lastSent = 0;
     let solidCopy = new Uint8Array(0), comp = null, inputQ = [], lightsBottom = 0, sleeping = false, idleFrames = 0, engineWind = 0.3, port = null;
-    let host = null, root = null, cv = null, airCv = null, ax = null, raf = 0, flakes = [], down = false, px = 0, py = 0, holdN = 0;
+    let host = null, root = null, cv = null, airCv = null, ax = null, raf = 0, flakes = [];
     const S = { tool: FIRE, brush: 6, glow: 1, snowing: false, storm: false, heatView: false, sharp: true, paused: false, snowEverywhere: !AMBIENT ? false : true,
       lightMode: 0, windBase: 0.3, lights: !AMBIENT, palette: 'classic', compact: AMBIENT, rain: 0, floor: !AMBIENT, sound: false };
     const api = { active: false, stats: null, toggle() { api.active ? stop() : start(); } };
@@ -237,34 +239,9 @@
       return [+m[0], +m[1], +m[2], m[3] === undefined ? 1 : +m[3]];
     }
     // the part of an element you can actually see: inside the window and inside every scrolling/clipping ancestor
-    const clipCache = new Map();
-    function clipOf(el) {
-      if (!el || el === document.documentElement) return { l: 0, t: 0, r: innerWidth, b: innerHeight };
-      if (clipCache.has(el)) return clipCache.get(el);
-      let c = clipOf(el.parentElement);
-      const cs = getComputedStyle(el);
-      if (cs.overflow !== 'visible' || cs.overflowX !== 'visible' || cs.overflowY !== 'visible') {
-        const r = el.getBoundingClientRect();
-        c = { l: Math.max(c.l, r.left), t: Math.max(c.t, r.top), r: Math.min(c.r, r.right), b: Math.min(c.b, r.bottom) };
-      }
-      clipCache.set(el, c);
-      return c;
-    }
-    const seen = el => { for (let e = el; e && e !== document.body; e = e.parentElement) { const cs = getComputedStyle(e); if (cs.visibility === 'hidden' || +cs.opacity < 0.05 || cs.display === 'none') return false; } return true; };
-    const cellBox = (r, clip) => ({
-      x0: Math.max(0, Math.round(Math.max(r.left, clip.l) / CELL)), y0: Math.max(0, Math.round(Math.max(r.top, clip.t) / CELL)),
-      x1: Math.min(W, Math.round(Math.min(r.right, clip.r) / CELL)), y1: Math.min(H, Math.round(Math.min(r.bottom, clip.b) / CELL)),
-      rx0: Math.round(r.left / CELL), ry0: Math.round(r.top / CELL), rx1: Math.round(r.right / CELL), ry1: Math.round(r.bottom / CELL)
-    });
-    function inRound(x, y, b, rad) {
-      if (rad <= 0) return true;
-      const cx = x < b.rx0 + rad ? b.rx0 + rad : x >= b.rx1 - rad ? b.rx1 - rad - 1 : x;
-      const cy = y < b.ry0 + rad ? b.ry0 + rad : y >= b.ry1 - rad ? b.ry1 - rad - 1 : y;
-      return (x - cx) ** 2 + (y - cy) ** 2 <= rad * rad;
-    }
     const ours = el => el && el.closest && el.closest('#elements-host, #elements-ambient, #havoc-host');
 
-    let run = 0, pictures = 0, foreign = 0;   // last read: images/icons turned into material, and how many came from other sites   // bumped on every start and stop, so callbacks from a closed run do nothing
+    let run = 0;   // bumped on every start and stop, so callbacks from a closed run do nothing
 
     async function rasterize(my) {
       W = Math.ceil(innerWidth / CELL); H = Math.ceil(innerHeight / CELL); const N = W * H;
@@ -276,135 +253,6 @@
       let found = null; for (let e = document.elementFromPoint(innerWidth * 0.6, innerHeight * 0.5); e && !found; e = e.parentElement) found = pick(e);
       const bodyBg = (found || pick(document.body) || pick(document.documentElement) || [255, 255, 255]).slice(0, 3);
       const L = { W, H, N, grid, colR, colG, colB, owner, layer, boxOf, els, boxCol, bodyBg };
-      if (AMBIENT) return L;
-      const newEl = (thresh, isBox) => { els.push({ thresh, children: [], isBox }); boxCol.push([0, 0, 0]); return els.length; };
-      // a cell's colour, see-through colours blended over what's already there
-      const put = (i, id, r, g, b, a = 1) => {
-        if (a < 1) { const u = grid[i] ? [colR[i], colG[i], colB[i]] : bodyBg; r = u[0] + (r - u[0]) * a; g = u[1] + (g - u[1]) * a; b = u[2] + (b - u[2]) * a; }
-        grid[i] = M.PAGE; owner[i] = id; colR[i] = r; colG[i] = g; colB[i] = b;
-      };
-      const over = i => { layer[i] = layer[i] === 1 || layer[i] === 2 ? 2 : 3; };   // content sitting on a panel, or on the page
-      const idOf = new Map(), area = innerWidth * innerHeight;
-      const boxAbove = el => { for (let e = el && el.parentElement; e; e = e.parentElement) if (idOf.has(e)) return idOf.get(e); return 0; };
-
-      // 1. panels: a visible background or border, smaller than most of the screen (the big ones are the backdrop)
-      for (const el of document.body.querySelectorAll('*')) {
-        if (ours(el) || /^(SCRIPT|STYLE|SVG|PATH|IMG|CANVAS|BR|HTML|BODY)$/i.test(el.tagName)) continue;
-        const r = el.getBoundingClientRect();
-        if (r.width < 2 || r.height < 2 || r.bottom < 0 || r.top > innerHeight || r.right < 0 || r.left > innerWidth) continue;
-        if (r.width * r.height > area * 0.55) continue;
-        const cs = getComputedStyle(el), bgc = parseColor(cs.backgroundColor);
-        const sides = ['Top', 'Right', 'Bottom', 'Left'].map(s => ({ w: Math.max(0, Math.round(parseFloat(cs['border' + s + 'Width']) / CELL)) * (cs['border' + s + 'Style'] === 'none' ? 0 : 1), c: parseColor(cs['border' + s + 'Color']) }));
-        if (bgc[3] < 0.02 && !sides.some(s => s.w && s.c[3] > 0.08)) continue;
-        if (!seen(el)) continue;
-        const b = cellBox(r, clipOf(el.parentElement)); if (b.x1 <= b.x0 || b.y1 <= b.y0) continue;
-        const id = newEl(0.2, true); idOf.set(el, id);
-        const rad = Math.round(parseFloat(cs.borderTopLeftRadius) / CELL) || 0;
-        const mid = (((b.y0 + b.y1) >> 1) * W + ((b.x0 + b.x1) >> 1)), u = grid[mid] ? [colR[mid], colG[mid], colB[mid]] : bodyBg;
-        boxCol[id] = bgc[3] >= 0.02 ? [u[0] + (bgc[0] - u[0]) * bgc[3], u[1] + (bgc[1] - u[1]) * bgc[3], u[2] + (bgc[2] - u[2]) * bgc[3]] : u.slice();
-        for (let y = b.y0; y < b.y1; y++) for (let x = b.x0; x < b.x1; x++) {
-          if (!inRound(x, y, b, rad)) continue;
-          let c = null;
-          if (y < b.ry0 + sides[0].w) c = sides[0].c; else if (y >= b.ry1 - sides[2].w) c = sides[2].c;
-          else if (x < b.rx0 + sides[3].w) c = sides[3].c; else if (x >= b.rx1 - sides[1].w) c = sides[1].c;
-          const i = y * W + x;
-          if (c && c[3] > 0.08) put(i, id, c[0], c[1], c[2], c[3]); else if (bgc[3] >= 0.02) put(i, id, bgc[0], bgc[1], bgc[2], bgc[3]); else continue;
-          layer[i] = 1; boxOf[i] = id;
-        }
-      }
-      // 2. pictures: <img>, <canvas> and the small SVG icons, sampled at cell size
-      const sample = (src, el, r) => {
-        if (my !== run) return;
-        const b = cellBox(r, clipOf(el.parentElement)); if (b.x1 <= b.x0 || b.y1 <= b.y0) return;
-        const w = b.rx1 - b.rx0, h = b.ry1 - b.ry0; if (w <= 0 || h <= 0) return;
-        const oc = document.createElement('canvas'); oc.width = w; oc.height = h;
-        let d; try { const ox = oc.getContext('2d', { willReadFrequently: true }); ox.drawImage(src, 0, 0, w, h); d = ox.getImageData(0, 0, w, h).data; } catch (e) { return 'tainted'; }   // another site's picture
-        pictures++; const id = newEl(0.18, false), par = boxAbove(el); if (par) els[par - 1].children.push(id);
-        const rad = Math.round((parseFloat(getComputedStyle(el).borderTopLeftRadius) || 0) / CELL);
-        for (let y = b.y0; y < b.y1; y++) for (let x = b.x0; x < b.x1; x++) {
-          if (!inRound(x, y, b, rad)) continue;
-          const k = ((y - b.ry0) * w + (x - b.rx0)) * 4, a = d[k + 3] / 255;
-          if (a > 0.25) { const i = y * W + x; over(i); put(i, id, d[k], d[k + 1], d[k + 2], a); }
-        }
-      };
-      const pics = []; pictures = 0; foreign = 0;
-      for (const el of document.body.querySelectorAll('img, canvas, svg')) {
-        if (ours(el) || (el.tagName === 'svg' && el.ownerSVGElement)) continue;
-        const r = el.getBoundingClientRect();
-        if (r.width < 3 || r.height < 3 || r.bottom < 0 || r.top > innerHeight || r.right < 0 || r.left > innerWidth || !seen(el)) continue;
-        if (el.tagName === 'IMG') {
-          if (!(el.complete && el.naturalWidth) || sample(el, el, r) !== 'tainted') continue;
-          // a picture from another site can't be read directly: fetch it again through Cadence's image proxy on the NAS
-          // (same origin), and if that fails too, give it a plain fill so it still burns instead of vanishing
-          const im = new Image(), url = el.currentSrc || el.src;
-          pics.push(new Promise(res => {
-            const flat = () => { pictures++; foreign++; const id = newEl(0.18, false), par = boxAbove(el); if (par) els[par - 1].children.push(id); const b = cellBox(r, clipOf(el.parentElement));
-              for (let y = b.y0; y < b.y1; y++) for (let x = b.x0; x < b.x1; x++) { const i = y * W + x, t = ((x * 7 + y * 13) % 9) / 9; over(i); put(i, id, 96 + 24 * t, 92 + 22 * t, 104 + 20 * t, 1); } };
-            const done = ok => { clearTimeout(tm); if (!ok || sample(im, el, r) === 'tainted') flat(); else foreign++; res(); };
-            const tm = setTimeout(() => { im.onload = im.onerror = null; flat(); res(); }, 2500);
-            im.onload = () => done(true); im.onerror = () => done(false);
-            if (/^https?:/i.test(url)) im.src = 'api/img?url=' + encodeURIComponent(url); else done(false);
-          }));
-          continue;
-        }
-        else if (el.tagName === 'CANVAS') sample(el, el, r);
-        else if (r.width <= 96 && r.height <= 96 && pics.length < 400) {
-          // icons are painted by the stylesheet: carry the computed paint onto a copy of every shape before rasterizing it
-          const cs = getComputedStyle(el), copy = el.cloneNode(true);
-          copy.setAttribute('xmlns', 'http://www.w3.org/2000/svg'); copy.setAttribute('width', r.width); copy.setAttribute('height', r.height);
-          const paint = s => `color:${s.color};fill:${s.fill};stroke:${s.stroke};stroke-width:${s.strokeWidth};stroke-linecap:${s.strokeLinecap};stroke-linejoin:${s.strokeLinejoin};stroke-dasharray:${s.strokeDasharray};stroke-dashoffset:${s.strokeDashoffset};opacity:${s.opacity};fill-opacity:${s.fillOpacity};stroke-opacity:${s.strokeOpacity}`;
-          copy.setAttribute('style', paint(cs));
-          const src = el.querySelectorAll('*'), dst = copy.querySelectorAll('*');
-          for (let k = 0; k < src.length && k < 200; k++) dst[k].setAttribute('style', paint(getComputedStyle(src[k])));
-          const im = new Image();
-          pics.push(new Promise(res => { im.onload = () => { sample(im, el, r); res(); }; im.onerror = res; setTimeout(res, 400); }));
-          im.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(new XMLSerializer().serializeToString(copy).replace(/currentColor/g, cs.color));
-        }
-      }
-      await Promise.all(pics);
-      if (my !== run) return null;
-      // 3. words: each visible word in its own font; every cell its ink touches belongs to the word
-      const tc = document.createElement('canvas'), tx = tc.getContext('2d', { willReadFrequently: true }), range = document.createRange();
-      const drawWord = (text, r, el, cs) => {
-        const clip = clipOf(el);
-        if (r.right < clip.l || r.left > clip.r || r.bottom < clip.t || r.top > clip.b) return;
-        const col = parseColor(cs.color); if (col[3] < 0.05) return;
-        if (cs.textTransform === 'uppercase') text = text.toUpperCase(); else if (cs.textTransform === 'lowercase') text = text.toLowerCase();
-        const x0 = Math.floor(r.left / CELL), y0 = Math.floor(r.top / CELL), cw = Math.ceil(r.width / CELL) + 3, ch = Math.ceil(r.height / CELL) + 2;
-        tc.width = cw * CELL; tc.height = ch * CELL;
-        tx.font = `${cs.fontStyle} ${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`; tx.fillStyle = '#000';
-        if ('letterSpacing' in tx) tx.letterSpacing = cs.letterSpacing === 'normal' ? '0px' : cs.letterSpacing;
-        const asc = tx.measureText(text).fontBoundingBoxAscent || r.height * 0.8;
-        tx.fillText(text, r.left - x0 * CELL, r.top - y0 * CELL + asc);
-        const d = tx.getImageData(0, 0, tc.width, tc.height).data;
-        const id = newEl(0.12, false), par = boxAbove(el); if (par) els[par - 1].children.push(id);
-        const cx0 = Math.max(0, Math.floor(clip.l / CELL)), cx1 = Math.min(W, Math.ceil(clip.r / CELL)), cy0 = Math.max(0, Math.floor(clip.t / CELL)), cy1 = Math.min(H, Math.ceil(clip.b / CELL));
-        for (let cy = 0; cy < ch; cy++) for (let cx = 0; cx < cw; cx++) {
-          const gx = x0 + cx, gy = y0 + cy; if (gx < cx0 || gx >= cx1 || gy < cy0 || gy >= cy1) continue;
-          let a = 0;
-          for (let sy = 0; sy < CELL; sy++) for (let sx = 0; sx < CELL; sx++) a += d[((cy * CELL + sy) * tc.width + cx * CELL + sx) * 4 + 3];
-          if (a / (CELL * CELL) > 12) { const i = gy * W + gx; over(i); put(i, id, col[0], col[1], col[2], col[3]); }
-        }
-      };
-      const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, { acceptNode: n => !n.nodeValue.trim() || ours(n.parentElement) || /^(SCRIPT|STYLE|NOSCRIPT|TEXTAREA|OPTION)$/.test(n.parentElement.tagName) ? 2 : 1 });
-      const styleOf = new Map(); let words = 0;
-      while (walker.nextNode() && words < 4000) {
-        const n = walker.currentNode, el = n.parentElement, pr = el.getBoundingClientRect();
-        if (pr.bottom < 0 || pr.top > innerHeight || pr.width === 0) continue;
-        if (!styleOf.has(el)) styleOf.set(el, seen(el) ? getComputedStyle(el) : null);
-        const cs = styleOf.get(el); if (!cs) continue;
-        const re = /\S+/g; let mt;
-        while ((mt = re.exec(n.nodeValue))) { range.setStart(n, mt.index); range.setEnd(n, mt.index + mt[0].length); const r = range.getBoundingClientRect(); if (!r.width || r.bottom < 0 || r.top > innerHeight) continue; drawWord(mt[0], r, el, cs); words++; }
-      }
-      for (const el of document.body.querySelectorAll('input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=hidden]), textarea')) {
-        if (ours(el) || !seen(el)) continue;
-        const text = el.value || el.placeholder; if (!text) continue;
-        const r = el.getBoundingClientRect(), cs = getComputedStyle(el); if (r.bottom < 0 || r.top > innerHeight || !r.width) continue;
-        tx.font = `${cs.fontStyle} ${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`;
-        const lh = parseFloat(cs.fontSize) * 1.3, left = r.left + parseFloat(cs.paddingLeft), top = r.top + (el.tagName === 'TEXTAREA' ? parseFloat(cs.paddingTop) : (r.height - lh) / 2), w = tx.measureText(text).width;
-        drawWord(text.slice(0, 200), { left, top, right: Math.min(r.right, left + w), bottom: top + lh, width: w, height: lh }, el, { color: el.value ? cs.color : 'rgba(138,135,127,1)', fontStyle: cs.fontStyle, fontWeight: cs.fontWeight, fontSize: cs.fontSize, fontFamily: cs.fontFamily, letterSpacing: cs.letterSpacing, textTransform: 'none' });
-      }
-      clipCache.clear();
       return L;
     }
     // ambient: the page is invisible ground, like Havoc's: the top of every line of text and of everything solid-looking
@@ -473,7 +321,7 @@
       for (const [k, v] of Object.entries({ snowing: S.snowing, storm: S.storm, heatView: S.heatView, sharp: S.sharp, paused: S.paused, snowEverywhere: S.snowEverywhere, lightMode: S.lightMode, windBase: S.windBase, reduced, lights: S.lights, palette: S.palette, compact: S.compact, rain: S.rain, floor: S.floor })) port.post({ t: 'opt', key: k, value: v });
       port.post(msg, [L.grid.buffer, L.colR.buffer, L.colG.buffer, L.colB.buffer, L.owner.buffer, L.layer.buffer, L.boxOf.buffer]);
       allocBufs(); sizeCanvas(); busy = false; ready = true; lastFrame = null;
-      api.stats = { pieces: L.els.length, pictures, foreign, cells: W * H, worker: port.worker, compositor: comp.kind };
+      api.stats = { cells: W * H, worker: port.worker, compositor: comp.kind };
       if (AMBIENT) { ledgesDirty = true; ledges(); watchLedges(true); }
     }
 
@@ -569,11 +417,6 @@
       // nothing happening: ask the engine for a frame only now and then
       const idle = AMBIENT && lastFrame && lastFrame.quiet && !flakes.length && !S.snowing && !S.rain && !inputQ.length;
       if (!busy && bufs && now - lastSent > (idle ? 250 : 14)) {
-        if (down && S.tool !== -1 && !AMBIENT) {
-          if (S.tool === FIREWORK) { if (holdN++ % 10 === 0) q(['launch', px, py]); }
-          else if (S.tool === LIGHTNING) { if (holdN++ % 25 === 0) q(['strike', px, py]); }
-          else q(['paint', px, py, px, py, S.tool, S.brush]);
-        }
         const input = inputQ; inputQ = [];
         busy = true; lastSent = now;
         port.post({ t: 'frame', gen, view: { top: 0, viewH: H }, input, bufs }, [bufs.buf, bufs.lbuf, bufs.ov, bufs.heat, bufs.solid]);
@@ -596,148 +439,16 @@
       }
     }
 
-    /* ---------------- Havoc's toolbar ---------------- */
-    const T_ = (id, key, name, hint, color, icon) => ({ id, key, name, hint, color, icon });
-    const TOOLS = [
-      T_(FIRE, '1', 'Fire', 'Burns the page, boils water, melts snow', '#ff7a1f', '<path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.07-2.14-.22-4.05 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.15.43-2.29 1-3a2.5 2.5 0 0 0 2.5 2.5z"/>'),
-      T_(LIGHTNING, '2', 'Lightning', 'Click to strike: chars, boils, fuses sand to glass', '#cfd9ff', '<path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/>'),
-      T_(FIREWORK, '3', 'Firework', 'Click to launch; hold for a show', '#ff5ad2', '<path d="M4.9 19.1 9 15M12 2v4M12 18v4M2 12h4M18 12h4M4.9 4.9 7.8 7.8M16.2 16.2l2.9 2.9M19.1 4.9l-2.9 2.9"/><circle cx="12" cy="12" r="2"/>'),
-      T_(SNOW, '4', 'Snow', 'Drifts down and piles up', '#dfe8f7', '<path d="M2 12h20M12 2v20M20 16l-4-4 4-4M4 8l4 4-4 4M16 4l-4 4-4-4M8 20l4-4 4 4"/>'),
-      T_(WATER, '5', 'Water', 'Finds the lowest point; puts fires out', '#4c8df6', '<path d="M12 22a7 7 0 0 0 7-7c0-2-1-3.9-3-5.5s-3.5-4-4-6.5c-.5 2.5-2 4.9-4 6.5C6 11.1 5 13 5 15a7 7 0 0 0 7 7z"/>'),
-      T_(LAVA, '6', 'Lava', 'Glows, lights things, turns to stone in water', '#ef5a12', '<path d="m8 3 4 8 5-5 5 15H2L8 3z"/>'),
-      T_(ICE, '7', 'Ice', 'Melts in heat, freezes water it touches', '#a8d6f0', '<rect x="4" y="4" width="16" height="16" rx="2"/><path d="M8 8h3M8 8v3"/>'),
-      T_(SAND, '8', 'Sand', 'Piles up; heat it into glass', '#d6b670', '<path d="M5 22h14M5 2h14M17 22v-4.17a2 2 0 0 0-.59-1.42L12 12l-4.41 4.41A2 2 0 0 0 7 17.83V22M7 2v4.17a2 2 0 0 0 .59 1.42L12 12l4.41-4.41A2 2 0 0 0 17 6.17V2"/>'),
-      T_(PLANT, '9', 'Holly', 'Drinks water and snow, climbs, grows berries', '#2f9e55', '<path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z"/><path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"/>'),
-      T_(ACID, '0', 'Acid', 'Eats through the page, gives off fumes', '#7be040', '<path d="M10 2v7.31M14 9.3V1.99M8.5 2h7M14 9.3a6.5 6.5 0 1 1-4 0M5.52 16h12.96"/>'),
-      T_(POWDER, '-', 'Gunpowder', 'Explodes when it gets hot', '#8a8580', '<circle cx="11" cy="13" r="8"/><path d="m16.5 7.5 3-3M19 2l1 1"/>'),
-      T_(OIL, '', 'Oil', 'Floats on water, catches fire easily', '#a07a4a', '<path d="M3 22h12M4 9h10M14 22V4a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v18M14 13h2a2 2 0 0 1 2 2v2a2 2 0 0 0 4 0V9.83a2 2 0 0 0-.59-1.42L18 5"/>'),
-      T_(WOOD, '', 'Wood', 'Chars, then burns as embers', '#9a6a40', '<path d="m17 14 3 3.3a1 1 0 0 1-.7 1.7H4.7a1 1 0 0 1-.7-1.7L7 14h-.3a1 1 0 0 1-.7-1.7L9 9h-.2A1 1 0 0 1 8 7.3L12 3l4 4.3a1 1 0 0 1-.8 1.7H15l3 3.3a1 1 0 0 1-.7 1.7H17ZM12 22v-3"/>'),
-      T_(STEAM, '', 'Steam', 'Rises, then comes back down as rain', '#c9ced8', '<path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/>'),
-      T_(STONE, '', 'Stone', 'Walls and floors', '#8c8f98', '<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M12 9v6M16 15v6M16 3v6M3 15h18M3 9h18M8 15v6M8 3v6"/>'),
-      T_(E, '=', 'Eraser', 'Clears anything', '#ffffff', '<path d="m7 21-4.3-4.3c-1-1-1-2.5 0-3.4l9.6-9.6c1-1 2.5-1 3.4 0l5.6 5.6c1 1 1 2.5 0 3.4L13 21M22 21H7M5 11l9 9"/>'),
-    ];
-
-    const ICONS = {
-      ignite: '<path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/>',
-      storm: '<path d="M6 16.33A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.2M13 11l-4 6h6l-4 6"/>',
-      heat: '<path d="M14 4v10.54a4 4 0 1 1-4 0V4a2 2 0 0 1 4 0Z"/>',
-      settle: '<path d="M2 21h20M5 21V17M19 21v-3M12 21v-6M8 9l4-4 4 4M12 5v8"/>',
-      snowfall: '<path d="M4 14.9A7 7 0 1 1 15.7 8h1.8a4.5 4.5 0 0 1 2.5 8.2M8 15h.01M8 19h.01M12 17h.01M12 21h.01M16 15h.01M16 19h.01"/>',
-      pause: '<rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/>',
-      play: '<path d="M6 3l14 9-14 9z"/>',
-      lights: '<path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5M9 18h6M10 22h4"/>',
-      look: '<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18M15 3v18"/>',
-      reset: '<path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/>',
-      close: '<path d="M18 6 6 18M6 6l12 12"/>',
-    };
-
-    ICONS.sound = '<path d="M4 9h4l5-4v14l-5-4H4z"/><path d="M16.5 8.5a5 5 0 0 1 0 7M19 6a8.5 8.5 0 0 1 0 12"/>';
-    ICONS.mute = '<path d="M4 9h4l5-4v14l-5-4H4z"/><path d="m22 9-6 6M16 9l6 6"/>';
     const CSS = `
     :host{all:initial}
     *{box-sizing:border-box}
     canvas.sim{position:fixed;inset:0;cursor:crosshair;touch-action:none;pointer-events:auto}
-    .hud{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);width:max-content;display:flex;align-items:center;gap:3px;padding:7px;border-radius:20px;max-width:calc(100vw - 20px);flex-wrap:wrap;justify-content:center;
-         background:linear-gradient(180deg,rgba(28,28,36,.82),rgba(12,12,18,.9));backdrop-filter:blur(18px) saturate(1.4);-webkit-backdrop-filter:blur(18px) saturate(1.4);
-         border:1px solid rgba(255,255,255,.1);box-shadow:0 0 0 1px rgba(0,0,0,.4),0 18px 50px rgba(0,0,0,.45),inset 0 1px 0 rgba(255,255,255,.08);
-         font:500 12px/1 ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;color:#e9e7f2;pointer-events:auto;animation:rise .5s cubic-bezier(.2,1.2,.3,1)}
-    @keyframes rise{from{transform:translateX(-50%) translateY(40px);opacity:0}}
-    .brand{display:flex;align-items:center;gap:7px;padding:0 8px;font-weight:800;letter-spacing:.14em;font-size:11px;color:#fff}
-    .brand i{width:9px;height:9px;border-radius:50%;background:#ff7a1f;box-shadow:0 0 10px #ff7a1f,0 0 2px #fff inset}
-    .sep{width:1px;height:26px;background:rgba(255,255,255,.1);margin:0 3px}
-    .modes{display:flex;padding:3px;gap:2px;border-radius:12px;background:rgba(255,255,255,.06)}
-    .modes button{width:auto;height:30px;padding:0 10px;border-radius:9px;font:600 11.5px ui-sans-serif,system-ui,sans-serif;color:#bdbacb}
-    .modes button.on{background:rgba(255,255,255,.14);color:#fff;box-shadow:none}
-    button{all:unset;position:relative;width:38px;height:38px;border-radius:12px;display:grid;place-items:center;cursor:pointer;color:#bdbacb;transition:background .15s,color .15s,transform .1s}
-    button:hover{background:rgba(255,255,255,.07);color:#fff}
-    button:focus-visible{outline:2px solid #fff;outline-offset:1px}
-    button:active{transform:scale(.92)}
-    button svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
-    button.on{color:var(--c);background:color-mix(in srgb,var(--c) 16%,transparent);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--c) 45%,transparent),0 0 18px color-mix(in srgb,var(--c) 30%,transparent)}
-    button .k{position:absolute;right:4px;bottom:3px;font-size:8.5px;opacity:.45;font-weight:700}
-    .size{display:flex;align-items:center;gap:6px;padding:0 6px;color:#bdbacb;font-size:11px}
-    .size input{width:70px;accent-color:#ff7a1f}
-    .tip{position:fixed;bottom:84px;left:50%;transform:translateX(-50%);padding:8px 12px;border-radius:10px;background:rgba(12,12,18,.92);border:1px solid rgba(255,255,255,.1);color:#fff;font:500 12px/1.3 ui-sans-serif,system-ui,sans-serif;white-space:nowrap;pointer-events:none;opacity:0;transition:opacity .15s;box-shadow:0 10px 30px rgba(0,0,0,.4)}
-    .tip b{color:var(--c)}
-    .tip.show{opacity:1}
     .busy{position:fixed;left:50%;top:44%;transform:translate(-50%,-50%);font:800 13px ui-sans-serif,system-ui,sans-serif;letter-spacing:.2em;color:#fff;text-shadow:0 0 18px rgba(255,120,40,.9);pointer-events:none}
     `;
-
-    let hud = null, tipEl = null;
-    const LIGHT_MODES = ['Twinkle', 'Chase', 'Steady', 'Off'];
-    const btn = (id, title, color, key, icon) => `<button data-id="${id}" style="--c:${color || '#fff'}" aria-label="${title}">${'<svg viewBox="0 0 24 24" aria-hidden="true">' + icon + '</svg>'}${key ? `<span class="k">${key}</span>` : ''}</button>`;
-    const hints = () => ({ ignite: '<b>Ignite</b> · set a few things alight', snowfall: '<b>Snowfall</b> · let it snow', storm: '<b>Storm</b> · rain and lightning', heat: '<b>Heat view</b> · see temperature',
-      settle: S.snowEverywhere ? '<b>Snow</b> · settles everywhere (click: only on the lights)' : '<b>Snow</b> · settles only on the lights (click: everywhere)',
-      lights: '<b>Lights</b> · ' + LIGHT_MODES[S.lightMode] + ' (click to change)', look: S.sharp ? '<b>Look</b> · switch to all pixels' : '<b>Look</b> · switch to sharp',
-      sound: S.sound ? 'Sound on' : 'Sound off', pause: S.paused ? 'Play · Space' : 'Pause · Space', reset: 'Rebuild the page and start over', close: 'Exit and restore · Esc' });
-    function act(id) {
-      if (id[0] === 't') S.tool = +id.slice(1);
-      else if (id === 'ignite') q(['ignite']);
-      else if (id === 'snowfall') setOpt('snowing', !S.snowing);
-      else if (id === 'storm') setOpt('storm', !S.storm);
-      else if (id === 'heat') setOpt('heatView', !S.heatView);
-      else if (id === 'settle') setOpt('snowEverywhere', !S.snowEverywhere);
-      else if (id === 'lights') setOpt('lightMode', (S.lightMode + 1) % 4);
-      else if (id === 'look') setOpt('sharp', !S.sharp);
-      else if (id === 'sound') { if (Sound.on) { Sound.disable(); S.sound = false; } else S.sound = Sound.enable(); }
-      else if (id === 'pause') setOpt('paused', !S.paused);
-      else if (id === 'reset') { stop(); setTimeout(start, 60); return; }
-      else if (id === 'close') { stop(); return; }
-      syncHud();
-    }
-    function buildHud() {
-      hud = document.createElement('div'); hud.className = 'hud'; hud.setAttribute('role', 'toolbar'); hud.setAttribute('aria-label', 'Elements');
-      hud.innerHTML = `<div class="brand"><i></i>ELEMENTS</div>`
-        + `<div class="modes" role="group" aria-label="Mode"><button data-mode="physics" aria-pressed="false">Physics</button><button data-mode="elements" class="on" aria-pressed="true">Elements</button></div><div class="sep"></div>`
-        + TOOLS.map(t => btn('t' + t.id, t.name, t.color, t.key, t.icon)).join('')
-        + `<div class="sep"></div><label class="size">Size <input type="range" min="1" max="16" value="${S.brush}" aria-label="Brush size"></label><label class="size">Wind <input class="wind" type="range" min="-20" max="20" value="${Math.round(S.windBase * 10)}" aria-label="Wind"></label>`
-        + btn('ignite', 'Ignite', '#ff7a1f', 'I', ICONS.ignite) + btn('snowfall', 'Snowfall', '#dfe8f7', 'S', ICONS.snowfall) + btn('storm', 'Storm', '#9fb4ff', 'T', ICONS.storm) + btn('settle', 'Where snow settles', '#dfe8f7', '', ICONS.settle) + btn('lights', 'Lights', '#ffb020', 'L', ICONS.lights) + btn('heat', 'Heat view', '#ff6b3d', 'V', ICONS.heat) + btn('look', 'Look: sharp or pixel', '#fff', 'P', ICONS.look)
-        + btn('sound', 'Sound', '#fff', '', ICONS.mute) + btn('pause', 'Pause', '#fff', '', ICONS.pause) + btn('reset', 'Rebuild the page', '#fff', '', ICONS.reset) + btn('close', 'Exit (Esc)', '#fff', '', ICONS.close);
-      tipEl = document.createElement('div'); tipEl.className = 'tip';
-      hud.addEventListener('click', e => {
-        const b = e.target.closest('button'); if (!b) return; e.stopPropagation();
-        if (b.dataset.mode) { if (b.dataset.mode === 'physics') { stop(); dispatchEvent(new CustomEvent('havoc:mode', { detail: 'physics' })); } return; }
-        act(b.dataset.id);
-      });
-      hud.querySelector('.size input').addEventListener('input', e => { S.brush = +e.target.value; });
-      hud.querySelector('input.wind').addEventListener('input', e => setOpt('windBase', +e.target.value / 10));
-      hud.addEventListener('pointerover', e => {
-        const b = e.target.closest('button'); if (!b || b.dataset.mode) return;
-        const t = TOOLS.find(x => 't' + x.id === b.dataset.id);
-        tipEl.style.setProperty('--c', t ? t.color : '#fff'); tipEl.innerHTML = t ? `<b>${t.name}</b> · ${t.hint}` : hints()[b.dataset.id]; tipEl.classList.add('show');
-      });
-      hud.addEventListener('pointerout', () => tipEl.classList.remove('show'));
-      root.append(hud, tipEl);
-      syncHud();
-    }
-    function syncHud() {
-      if (!hud) return;
-      hud.querySelectorAll('button[data-id]').forEach(b => {
-        const id = b.dataset.id;
-        b.classList.toggle('on', id === 't' + S.tool || (id === 'snowfall' && S.snowing) || (id === 'pause' && S.paused) || (id === 'lights' && S.lightMode !== 3) || (id === 'look' && !S.sharp) || (id === 'storm' && S.storm) || (id === 'heat' && S.heatView) || (id === 'settle' && !S.snowEverywhere) || (id === 'sound' && S.sound));
-        if (id === 'pause') { b.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true">${S.paused ? ICONS.play : ICONS.pause}</svg>`; b.setAttribute('aria-label', S.paused ? 'Play' : 'Pause'); }
-        if (id === 'sound') b.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true">${S.sound ? ICONS.sound : ICONS.mute}</svg>`;
-      });
-    }
-    function onKey(e) {
-      if (!api.active || e.metaKey || e.ctrlKey || e.altKey) return;
-      e.stopPropagation();   // the app underneath shouldn't react while the page is matter
-      if (e.key === 'Escape' || (e.key === 'H' && e.shiftKey)) { e.preventDefault(); stop(); return; }
-      const t = TOOLS.find(t => t.key && t.key === e.key);
-      if (t) { S.tool = t.id; e.preventDefault(); syncHud(); return; }
-      const k = e.key.toLowerCase(), map = { i: 'ignite', s: 'snowfall', l: 'lights', p: 'look', t: 'storm', v: 'heat' };
-      if (map[k]) { act(map[k]); return; }
-      if (e.key === ' ') { e.preventDefault(); act('pause'); }
-      else if (e.key === '[') S.brush = Math.max(1, S.brush - 1);
-      else if (e.key === ']') S.brush = Math.min(16, S.brush + 1);
-    }
-    const toGrid = e => [Math.floor(e.clientX / CELL), Math.floor(e.clientY / CELL)];
-
     /* ---------------- start / stop ---------------- */
-    let locked = [], resizeT = 0;
+    let resizeT = 0;
     const onResize = () => { clearTimeout(resizeT); resizeT = setTimeout(async () => {
       if (!api.active) return;
-      if (!AMBIENT) { stop(); start(); return; }
       // ambient: keep the loose snow, water and sand where it was (proportionally), rebuild everything else
       CELL = cfg.cell || CELL; sizeAir();
       const L = await rasterize(run); sendInit(L, lay); dispatchEvent(new CustomEvent('elements:ready', { detail: { world: api } }));
@@ -754,7 +465,6 @@
       const busyEl = document.createElement('div'); busyEl.className = 'busy'; busyEl.textContent = AMBIENT ? '' : 'MATERIALISING';
       root.append(cv, airCv, busyEl);
       (document.fullscreenElement || document.documentElement).appendChild(host);
-      if (!AMBIENT) addEventListener('keydown', onKey, true);   // Esc works even while the page is still being read
       sizeAir();
       if (!port) await startEngine();
       if (my !== run || !api.active) return;
@@ -768,27 +478,16 @@
       sendInit(L, null);
       addEventListener('pointermove', onMouse, { passive: true });
       addEventListener('resize', onResize);
-      if (!AMBIENT) {
-        cv.addEventListener('pointerdown', e => { down = true; holdN = 1; cv.setPointerCapture(e.pointerId); [px, py] = toGrid(e); if (S.tool === FIREWORK) q(['launch', px, py]); else if (S.tool === LIGHTNING) q(['strike', px, py]); else q(['paint', px, py, px, py, S.tool, S.brush]); });
-        cv.addEventListener('pointermove', e => { if (!down) return; const [x, y] = toGrid(e); if (S.tool !== FIREWORK && S.tool !== LIGHTNING) q(['paint', px, py, x, y, S.tool, S.brush]); px = x; py = y; });
-        const up = () => { down = false; }; cv.addEventListener('pointerup', up); cv.addEventListener('pointercancel', up);
-        cv.addEventListener('contextmenu', e => e.preventDefault());
-        // hold the page still underneath while it's matter
-        locked = [document.documentElement, document.body].map(el => [el, el.style.overflow]);
-        locked.forEach(([el]) => { el.style.overflow = 'hidden'; });
-        buildHud();
-      }
       lastT = performance.now(); raf = requestAnimationFrame(loop);
       if (AMBIENT) dispatchEvent(new CustomEvent('elements:ready', { detail: { world: api } }));
     }
     function stop() {
       if (!api.active) return;
-      api.active = false; run++; cancelAnimationFrame(raf); down = false; ready = false;
-      removeEventListener('keydown', onKey, true); removeEventListener('resize', onResize); removeEventListener('pointermove', onMouse);
-      locked.forEach(([el, v]) => { el.style.overflow = v; if (!el.getAttribute('style')) el.removeAttribute('style'); }); locked = [];
+      api.active = false; run++; cancelAnimationFrame(raf); ready = false;
+      removeEventListener('resize', onResize); removeEventListener('pointermove', onMouse);
       Sound.disable(); S.sound = false;
       watchLedges(false);
-      host && host.remove(); host = null; hud = null; cv = null; comp = null; flakes = [];
+      host && host.remove(); host = null; cv = null; comp = null; flakes = [];
       if (port) { port.kill(); port = null; }   // a fresh engine next time
     }
     api.start = start; api.stop = stop;
