@@ -531,3 +531,5 @@ checking the code.
 - CI (item 7 of the app review): the Playwright run is split into three shards that run in parallel; the first also
   runs the typecheck. Promoting to `stable` and the release are a separate job that waits for all three. Theme
   pictures upload per shard (`themes-1/2/3`).
+- Reminders due now, or within the next 15-second check, fire on time (`remindSoon` in core.js) instead of up to
+  15 seconds late. Found when the Island fix made the notifications test reach its reminder sooner.

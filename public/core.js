@@ -1725,7 +1725,14 @@
     S.tasks.push(t);
     save();
     emit('task:add', clone(t));
+    remindSoon(t);
     return t;
+  }
+  // a reminder due now or within the next check (every 15 s) fires on time instead of up to 15 s late (2026-11-20)
+  function remindSoon(t) {
+    if (!t || t.done || t.reminded || !t.remindAt) return;
+    const wait = t.remindAt - Date.now();
+    if (wait < 15000) setTimeout(() => checkReminders(), Math.max(0, wait) + 20);
   }
   function updateTask(id, patch) {
     const t = S.tasks.find(x => x.id === id);
@@ -1735,6 +1742,7 @@
     if (['dueDate', 'dueTime', 'remindMode', 'remindAt'].some(k => k in patch)) {
       t.remindAt = computeRemind(t);
       t.reminded = false;
+      remindSoon(t);
     }
     save();
     emit('task:update', clone(t));
