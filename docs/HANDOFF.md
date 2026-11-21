@@ -524,6 +524,10 @@ checking the code.
   a spinner like "Connecting…"), every other message queued behind it and never appeared. Now a plain message steps
   in front and the notice comes back after it, and notices that stay up only show when nothing else is waiting.
   Test: `tests/island-sticky.spec.mjs`.
+- The same digging found why "Connecting… THING v…" could sit on the Island forever: the startup notice
+  (status.js `islandBoot`) updated and dismissed "whatever's on the Island" instead of itself, so if another notice
+  was up it dismissed that one and left Connecting… stuck. It uses its own handle now.
+- CI shards don't cancel each other (fail-fast off), so one run shows every failure.
 - CI (item 7 of the app review): the Playwright run is split into three shards that run in parallel; the first also
   runs the typecheck. Promoting to `stable` and the release are a separate job that waits for all three. Theme
   pictures upload per shard (`themes-1/2/3`).

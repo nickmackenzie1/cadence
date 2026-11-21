@@ -19,12 +19,13 @@ test('a message shows even while a notice that stays up is on the Island, which 
   const errs = []; page.on('pageerror', e => errs.push(String(e)));
   await page.goto(B + '/#today'); await expect(page.locator('#sync')).toBeVisible({ timeout: 10000 });
   await expect.poll(() => page.evaluate(() => !!window.CadenceIsland)).toBe(true);
-  await page.evaluate(() => window.CadenceIsland.show({ title: 'Weekly review', sticky: true, key: 'test-sticky' }));
-  await expect(page.getByText('Weekly review').first()).toBeVisible();
+  // the Island may be busy with something of its own first (a spinner while it connects): the notice waits its turn
+  await page.evaluate(() => window.CadenceIsland.show({ title: 'A pinned note', sticky: true, key: 'test-sticky' }));
+  await expect(page.getByText('A pinned note').first()).toBeVisible({ timeout: 15000 });
   await page.evaluate(() => window.CadenceIsland.toast('A plain message'));
   await expect(page.getByText('A plain message').first()).toBeVisible();
   // and the notice returns once the message has gone
-  await expect(page.getByText('Weekly review').first()).toBeVisible({ timeout: 8000 });
   await expect(page.getByText('A plain message')).toHaveCount(0, { timeout: 8000 });
+  await expect(page.getByText('A pinned note').first()).toBeVisible();
   expect(errs).toEqual([]);
 });

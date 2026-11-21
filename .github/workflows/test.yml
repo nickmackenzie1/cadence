@@ -16,7 +16,7 @@ jobs:
   test:
     runs-on: ubuntu-latest
     strategy:
-      fail-fast: true
+      fail-fast: false   # every part finishes, so one run shows all the failures
       matrix:
         shard: [1, 2, 3]
     steps:

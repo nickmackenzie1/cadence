@@ -196,17 +196,19 @@
       async function islandBoot() {
         const I = window.CadenceIsland, sleep = ms => new Promise(r => setTimeout(r, ms));
         const n = { spin: true, title: 'Connecting…', sub: 'THING v' + api.system().version, sticky: true };
-        const t0 = Date.now(); I.show(n);
+        // the notice's own handle: updating or dismissing "whatever's on the Island" could hit another notice and leave
+        // this one stuck on Connecting… (fixed 2026-11-20)
+        const t0 = Date.now(), hn = I.show(n);
         const h = await new Promise(r => { G.onConnect = r; setTimeout(() => r(null), 2500); });
         await sleep(Math.max(0, 1500 - (Date.now() - t0)));           // every step stays readable
         const sys = api.system();
         n.title = sys.demo ? 'Demo mode' : sys.mode === 'nas' ? 'Connected to NAS' : sys.mode === 'claude' ? 'Claude storage' : 'Local mode';
-        n.sub = sys.demo ? 'fake data · nothing is saved' : sys.mode === 'nas' ? `${sys.latency ?? '—'} ms · loading workspace…` : 'loading workspace…'; I.update(n);
+        n.sub = sys.demo ? 'fake data · nothing is saved' : sys.mode === 'nas' ? `${sys.latency ?? '—'} ms · loading workspace…` : 'loading workspace…'; hn.update({ title: n.title, sub: n.sub });
         await sleep(1600);
         const s2 = api.system();
-        n.title = 'Workspace loaded'; n.sub = `${s2.counts.open} open tasks · ${s2.counts.clients} clients`; I.update(n);
+        hn.update({ title: 'Workspace loaded', sub: `${s2.counts.open} open tasks · ${s2.counts.clients} clients` });
         await sleep(1500);
-        I.dismiss();
+        hn.dismiss();
         I.show({ check: true, ms: 4200, title: 'Ready', sub: [s2.ai ? 'AI on' : 'AI off', `${s2.plugins} plugins`, h ? `${h.logos} logos cached` : ''].filter(Boolean).join(' · '), onClick: () => openPanel() });
         paint(true);
       }
