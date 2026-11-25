@@ -42,7 +42,10 @@
     supported: () => typeof DeviceOrientationEvent !== 'undefined' && matchMedia('(hover: none) and (pointer: coarse)').matches,
     wanted() { try { return localStorage.getItem(TILT_KEY) === '1'; } catch { return false; } },
     async set(on) {
-      if (on && typeof DeviceOrientationEvent.requestPermission === 'function') {
+      if (on && !window.isSecureContext) {   // iPhones only give motion to pages on a secure (https) address
+        try { window.CadenceIsland && window.CadenceIsland.toast('Tilt needs THING\'s secure address: open it with https:// (once its certificate is installed on this phone)'); } catch {}
+        on = false;
+      } else if (on && typeof DeviceOrientationEvent.requestPermission === 'function') {
         try { if (await DeviceOrientationEvent.requestPermission() !== 'granted') on = false; } catch { on = false; }
         if (!on) try { window.CadenceIsland && window.CadenceIsland.toast('Tilt needs motion access. If you said no, close and reopen the page to be asked again'); } catch {}
       }
@@ -52,6 +55,7 @@
     },
     onOrient(e) {
       const ang = (screen.orientation && screen.orientation.angle) || window.orientation || 0;
+      Tilt.got = true;
       const g = ang === 90 ? e.beta : (ang === -90 || ang === 270) ? -e.beta : ang === 180 ? -e.gamma : e.gamma;
       if (g == null) return;
       let v = Math.max(-1, Math.min(1, g / 40)); if (Math.abs(v) < 0.08) v = 0;
@@ -59,7 +63,12 @@
       const now = performance.now();
       if (Math.abs(v - Tilt.v) > 0.03 || now - Tilt.last > 250) { Tilt.v = v; Tilt.last = now; Tilt.subs.forEach(f => f(v)); }
     },
-    attach() { if (!Tilt.live && Tilt.supported()) { Tilt.live = true; addEventListener('deviceorientation', Tilt.onOrient); } },
+    attach() {
+      if (!Tilt.live && Tilt.supported()) {
+        Tilt.live = true; Tilt.got = false; addEventListener('deviceorientation', Tilt.onOrient);
+        clearTimeout(Tilt.chk); Tilt.chk = setTimeout(() => { if (Tilt.live && !Tilt.got) try { window.CadenceIsland && window.CadenceIsland.toast('Tilt is on but the phone isn\'t sending motion. Check Settings → Safari → Motion & Orientation Access'); } catch {} }, 2500);
+      }
+    },
     detach() { if (Tilt.live) { Tilt.live = false; removeEventListener('deviceorientation', Tilt.onOrient); } Tilt.v = 0; Tilt.subs.forEach(f => f(0)); },
     listen(fn) { Tilt.subs.add(fn); if (Tilt.wanted()) Tilt.attach(); return () => { Tilt.subs.delete(fn); fn(0); if (!Tilt.subs.size) Tilt.detach(); }; },
   };

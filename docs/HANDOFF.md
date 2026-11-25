@@ -649,3 +649,8 @@ checking the code.
   sine waves over place, height and time). In `gasMove`, smoke, steam and fumes are carried left or right by it
   (up to 60% of the time where it's strongest), so plumes bend, spread and curl, and the curls drift. Subtle on a
   light page, clearer in dark mode.
+- Tilt fix (same day, user: "Tilt in havok doesn't work"): settled matter ignored it. Changing tilt now wakes every
+  chunk in the Elements worker (`opt` 'tilt' → `awake.fill(1)`) and every sleeping Physics body. If the page isn't
+  a secure context (iPhones only give motion to https pages) Tilt says so instead of asking; if no motion readings
+  arrive within 2.5 s it points to Settings → Safari → Motion & Orientation Access. The user's phone showed
+  mackenziebox.local as "not secure", so the https address (with the NAS certificate installed) may be needed.

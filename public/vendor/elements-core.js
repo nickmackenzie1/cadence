@@ -1664,7 +1664,7 @@ function ENGINE(env) {
         case 'init': init(msg); break;
         case 'opt':
           opts[msg.key] = msg.value;
-          if (msg.key === 'snowing' || msg.key === 'sharp') { awake && awake.fill(1); }
+          if (msg.key === 'snowing' || msg.key === 'sharp' || msg.key === 'tilt') { awake && awake.fill(1); }   // tilting wakes settled sand and still water
           if (grid && (msg.key === 'lights' || msg.key === 'palette' || msg.key === 'compact')) { removeLights(); buildLights(); awake.fill(1); }
           break;
         case 'life': { let pads = 0; for (let i = 0; i < N; i++) if (grid[i] === PAD) pads++; env.post({ t: 'count', id: msg.id, n: { fish: fish.length, frogs: frogs.length, pads, jumping: fish.filter(f => f.jump || f.dash).length, drops: parts.reduce((n, p) => n + (p.kind === 6 ? 1 : 0), 0), levelled: lvMoves, steps: lvSteps } }); break; }

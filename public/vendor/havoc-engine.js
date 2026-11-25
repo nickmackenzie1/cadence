@@ -1222,7 +1222,8 @@
 
     engine = Engine.create({ enableSleeping: true, positionIterations: 6, velocityIterations: 4 });
     engine.gravity.y = 1; engine.gravity.x = 0; acc = 0; breakQ.length = 0; dentBoxes = null;
-    if (window.CadenceTilt) { unTilt && unTilt(); unTilt = window.CadenceTilt.listen(v => { if (engine) engine.gravity.x = v * 0.9; if (fxw && fxw.tilt) fxw.tilt(v); }); }
+    // tilt: gravity leans, settled words are woken so they slide, and the matter layer leans too
+    if (window.CadenceTilt) { unTilt && unTilt(); unTilt = window.CadenceTilt.listen(v => { if (engine) { const was = engine.gravity.x; engine.gravity.x = v * 0.9; if (Math.abs(was - engine.gravity.x) > 0.04) for (const b of Composite.allBodies(engine.world)) if (!b.isStatic && b.isSleeping) Sleeping.set(b, false); } if (fxw && fxw.tilt) fxw.tilt(v); }); }
     // a word that slams into something (the floor, a wall, another piece) hard enough breaks into its letters
     Events.on(engine, 'collisionStart', e => {
       for (const pr of e.pairs) for (const [a, b] of [[pr.bodyA, pr.bodyB], [pr.bodyB, pr.bodyA]]) {
