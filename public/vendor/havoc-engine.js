@@ -1152,6 +1152,7 @@
   function start(opts = {}) {
     if (H.active) return;
     bare = !!opts.bare;
+    document.documentElement.classList.add('havoc-open');   // full screen: Cadence hides its tab bar (2026-11-24)
     H.active = true; W = innerWidth; Hh = innerHeight; DPR = Math.min(2, devicePixelRatio || 1);
     calmMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
     letters = []; images = []; bodyMap = new Map(); restore = []; particles = []; rings = []; holes = []; drops = []; shake = 0; raining = false; bombs = []; vents = []; fanAt = null; bombHeld = false; zeroG = false; tool = 'blast';
@@ -1279,7 +1280,7 @@
   }
   function stop() {
     if (!H.active) return;
-    H.active = false; H.rewinding = false; cancelAnimationFrame(raf); raining = false; tellFx('stop', 0, 0);
+    H.active = false; H.rewinding = false; cancelAnimationFrame(raf); raining = false; tellFx('stop', 0, 0); document.documentElement.classList.remove('havoc-open');
     removeEventListener('keydown', onKey, true); removeEventListener('resize', onResize);
     try { Engine.clear(engine); } catch (e) {}
     host && host.remove(); host = null; hud = null; scorchHost && scorchHost.remove(); scorchHost = null; lowHost && lowHost.remove(); lowHost = null; lowStage = null;

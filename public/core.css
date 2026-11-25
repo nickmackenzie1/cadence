@@ -838,3 +838,5 @@ input[type=checkbox],input[type=radio],input[type=range],progress{accent-color:v
 @media (prefers-reduced-motion: reduce) { .skel { animation: none; } }
 /* a plain link in a page (no class of its own) is the accent colour, not the browser's blue (dark mode pass, 2026-11-20) */
 :where(#view) a:not([class]){color:var(--accent)}
+/* Havoc full screen on phones: the tab bar steps aside while it's open (2026-11-24) */
+html.havoc-open #tabbar{display:none!important}

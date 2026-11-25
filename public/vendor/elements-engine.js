@@ -193,8 +193,9 @@
     let W = 0, H = 0, HW = 0, HH = 0, gen = 0, ready = false, busy = false, bufs = null, pending = false, lastFrame = null, lastSent = 0;
     let solidCopy = new Uint8Array(0), comp = null, inputQ = [], lightsBottom = 0, sleeping = false, idleFrames = 0, engineWind = 0.3, port = null;
     let host = null, root = null, cv = null, airCv = null, ax = null, raf = 0, flakes = [], down = false, px = 0, py = 0, holdN = 0;
-    const S = { tool: FIRE, brush: 6, glow: 1, snowing: false, storm: false, heatView: false, sharp: true, paused: false, snowEverywhere: !AMBIENT ? false : true,
-      lightMode: 0, windBase: 0.3, lights: !AMBIENT, palette: 'classic', compact: AMBIENT, rain: 0, floor: !AMBIENT, sound: false };
+    const S = { tool: FIRE, brush: 6, glow: 1, snowing: false, storm: false, heatView: false, sharp: true, paused: false, snowEverywhere: true,   // no lights in Havoc to settle on (2026-11-24)
+      lightMode: 0, windBase: 0.3, lights: false,   // no string lights in Havoc (user, 2026-11-24); the ambient layer hangs them only when asked
+      palette: 'classic', compact: AMBIENT, rain: 0, floor: !AMBIENT, sound: false };
     const api = { active: false, stats: null, toggle() { api.active ? stop() : start(); } };
     const statsWaiters = [], countWaiters = new Map(); let countId = 0;
 
@@ -618,6 +619,7 @@
     ];
 
     const ICONS = {
+      more: '<path d="m6 15 6-6 6 6"/>',
       ignite: '<path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/>',
       storm: '<path d="M6 16.33A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.2M13 11l-4 6h6l-4 6"/>',
       heat: '<path d="M14 4v10.54a4 4 0 1 1-4 0V4a2 2 0 0 1 4 0Z"/>',
@@ -660,18 +662,45 @@
     .tip{position:fixed;bottom:84px;left:50%;transform:translateX(-50%);padding:8px 12px;border-radius:10px;background:rgba(12,12,18,.92);border:1px solid rgba(255,255,255,.1);color:#fff;font:500 12px/1.3 ui-sans-serif,system-ui,sans-serif;white-space:nowrap;pointer-events:none;opacity:0;transition:opacity .15s;box-shadow:0 10px 30px rgba(0,0,0,.4)}
     .tip b{color:var(--c)}
     .tip.show{opacity:1}
+    .nm{display:none}
+    .full{display:contents}
+    @keyframes riseP{from{transform:translateY(40px);opacity:0}}
+    .hud.phone{left:8px;right:8px;bottom:calc(8px + env(safe-area-inset-bottom));transform:none;width:auto;max-width:none;flex-direction:column;flex-wrap:nowrap;align-items:stretch;gap:0;padding:6px 8px 8px;border-radius:22px;animation:riseP .45s cubic-bezier(.2,1.2,.3,1)}
+    .hud.phone .grab{width:38px;height:4px;border-radius:2px;background:rgba(255,255,255,.28);align-self:center;margin:0 0 6px}
+    .hud.phone .mini{display:flex;align-items:center;gap:4px}
+    .hud.phone .mini .gap{flex:1}
+    .hud.phone .full{display:none}
+    .hud.phone.open .full{display:flex;flex-wrap:wrap;align-items:center;justify-content:flex-start;gap:4px;max-height:58vh;overflow:auto;margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,.08)}
+    .hud.phone.open .mini [data-id=more] svg{transform:rotate(180deg)}
+    .hud.phone button{width:56px;height:52px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;border-radius:13px}
+    .hud.phone button svg{width:21px;height:21px}
+    .hud.phone .k{display:none}
+    .hud.phone .nm{display:block;font:600 9.5px/1 ui-sans-serif,system-ui,-apple-system,sans-serif;max-width:54px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;letter-spacing:0}
+    .hud.phone .brand,.hud.phone .sep{display:none}
+    .hud.phone .modes{width:100%;margin-bottom:4px}
+    .hud.phone .modes button{flex:1;width:auto;height:36px;flex-direction:row}
+    .hud.phone .size{flex:1 1 100%;height:40px;padding:0 10px;font-size:12px}.hud.phone .size input{margin-left:6px}
+    .hud.phone .size input{flex:1;width:auto}
+    .hud.phone ~ .tip{display:none}
     .busy{position:fixed;left:50%;top:44%;transform:translate(-50%,-50%);font:800 13px ui-sans-serif,system-ui,sans-serif;letter-spacing:.2em;color:#fff;text-shadow:0 0 18px rgba(255,120,40,.9);pointer-events:none}
     `;
 
     let hud = null, tipEl = null;
     const LIGHT_MODES = ['Twinkle', 'Chase', 'Steady', 'Off'];
-    const btn = (id, title, color, key, icon) => `<button data-id="${id}" style="--c:${color || '#fff'}" aria-label="${title}">${'<svg viewBox="0 0 24 24" aria-hidden="true">' + icon + '</svg>'}${key ? `<span class="k">${key}</span>` : ''}</button>`;
+    // Phones (2026-11-24, user: "how can we make this more mobile friendly"): the toolbar tucks away to a slim bar with
+    // the current material, the last three used, More and close; swipe up (or More) for everything, each button named
+    // instead of a key hint; picking a material tucks it away again. Computers are unchanged.
+    const PHONE = matchMedia('(hover: none) and (pointer: coarse)').matches;
+    const SHORT = { ignite: 'Ignite', snowfall: 'Snowfall', storm: 'Storm', settle: 'Snow on', lights: 'Lights', heat: 'Heat', look: 'Look', sound: 'Sound', pause: 'Pause', reset: 'Rebuild', close: 'Exit', more: 'More' };
+    const btn = (id, title, color, key, icon) => `<button data-id="${id}" style="--c:${color || '#fff'}" aria-label="${title}">${'<svg viewBox="0 0 24 24" aria-hidden="true">' + icon + '</svg>'}${key ? `<span class="k">${key}</span>` : ''}<span class="nm">${SHORT[id] || title}</span></button>`;
+    let recent = [];
     const hints = () => ({ ignite: '<b>Ignite</b> · set a few things alight', snowfall: '<b>Snowfall</b> · let it snow', storm: '<b>Storm</b> · rain and lightning', heat: '<b>Heat view</b> · see temperature',
       settle: S.snowEverywhere ? '<b>Snow</b> · settles everywhere (click: only on the lights)' : '<b>Snow</b> · settles only on the lights (click: everywhere)',
       lights: '<b>Lights</b> · ' + LIGHT_MODES[S.lightMode] + ' (click to change)', look: S.sharp ? '<b>Look</b> · switch to all pixels' : '<b>Look</b> · switch to sharp',
       sound: S.sound ? 'Sound on' : 'Sound off', pause: S.paused ? 'Play · Space' : 'Pause · Space', reset: 'Rebuild the page and start over', close: 'Exit and restore · Esc' });
     function act(id) {
-      if (id[0] === 't') S.tool = +id.slice(1);
+      if (id === 'more') { hud.classList.toggle('open'); return; }
+      if (id[0] === 't') { S.tool = +id.slice(1); recent = [S.tool, ...recent.filter(t => t !== S.tool)].slice(0, 4); if (PHONE) hud.classList.remove('open'); }
       else if (id === 'ignite') q(['ignite']);
       else if (id === 'snowfall') setOpt('snowing', !S.snowing);
       else if (id === 'storm') setOpt('storm', !S.storm);
@@ -687,12 +716,18 @@
     }
     function buildHud() {
       hud = document.createElement('div'); hud.className = 'hud'; hud.setAttribute('role', 'toolbar'); hud.setAttribute('aria-label', 'Elements');
-      hud.innerHTML = `<div class="brand"><i></i>ELEMENTS</div>`
+      if (PHONE) hud.classList.add('phone');
+      hud.innerHTML = (PHONE ? `<div class="grab" aria-hidden="true"></div><div class="mini"></div>` : '') + `<div class="full"><div class="brand"><i></i>ELEMENTS</div>`
         + `<div class="modes" role="group" aria-label="Mode"><button data-mode="physics" aria-pressed="false">Physics</button><button data-mode="elements" class="on" aria-pressed="true">Elements</button></div><div class="sep"></div>`
         + TOOLS.map(t => btn('t' + t.id, t.name, t.color, t.key, t.icon)).join('')
         + `<div class="sep"></div><label class="size">Size <input type="range" min="1" max="16" value="${S.brush}" aria-label="Brush size"></label><label class="size">Wind <input class="wind" type="range" min="-20" max="20" value="${Math.round(S.windBase * 10)}" aria-label="Wind"></label>`
-        + btn('ignite', 'Ignite', '#ff7a1f', 'I', ICONS.ignite) + btn('snowfall', 'Snowfall', '#dfe8f7', 'S', ICONS.snowfall) + btn('storm', 'Storm', '#9fb4ff', 'T', ICONS.storm) + btn('settle', 'Where snow settles', '#dfe8f7', '', ICONS.settle) + btn('lights', 'Lights', '#ffb020', 'L', ICONS.lights) + btn('heat', 'Heat view', '#ff6b3d', 'V', ICONS.heat) + btn('look', 'Look: sharp or pixel', '#fff', 'P', ICONS.look)
-        + btn('sound', 'Sound', '#fff', '', ICONS.mute) + btn('pause', 'Pause', '#fff', '', ICONS.pause) + btn('reset', 'Rebuild the page', '#fff', '', ICONS.reset) + btn('close', 'Exit (Esc)', '#fff', '', ICONS.close);
+        + btn('ignite', 'Ignite', '#ff7a1f', 'I', ICONS.ignite) + btn('snowfall', 'Snowfall', '#dfe8f7', 'S', ICONS.snowfall) + btn('storm', 'Storm', '#9fb4ff', 'T', ICONS.storm) + btn('heat', 'Heat view', '#ff6b3d', 'V', ICONS.heat) + btn('look', 'Look: sharp or pixel', '#fff', 'P', ICONS.look)
+        + btn('sound', 'Sound', '#fff', '', ICONS.mute) + btn('pause', 'Pause', '#fff', '', ICONS.pause) + btn('reset', 'Rebuild the page', '#fff', '', ICONS.reset) + (PHONE ? '' : btn('close', 'Exit (Esc)', '#fff', '', ICONS.close)) + '</div>';
+      if (PHONE) {   // swipe the bar up to open it, down to tuck it away
+        let y0 = null;
+        hud.addEventListener('pointerdown', e => { y0 = e.clientY; });
+        hud.addEventListener('pointerup', e => { if (y0 == null) return; const dy = e.clientY - y0; y0 = null; if (dy < -24) hud.classList.add('open'); else if (dy > 24) hud.classList.remove('open'); });
+      }
       tipEl = document.createElement('div'); tipEl.className = 'tip';
       hud.addEventListener('click', e => {
         const b = e.target.closest('button'); if (!b) return; e.stopPropagation();
@@ -702,7 +737,7 @@
       hud.querySelector('.size input').addEventListener('input', e => { S.brush = +e.target.value; });
       hud.querySelector('input.wind').addEventListener('input', e => setOpt('windBase', +e.target.value / 10));
       hud.addEventListener('pointerover', e => {
-        const b = e.target.closest('button'); if (!b || b.dataset.mode) return;
+        const b = e.target.closest('button'); if (!b || b.dataset.mode || PHONE) return;
         const t = TOOLS.find(x => 't' + x.id === b.dataset.id);
         tipEl.style.setProperty('--c', t ? t.color : '#fff'); tipEl.innerHTML = t ? `<b>${t.name}</b> · ${t.hint}` : hints()[b.dataset.id]; tipEl.classList.add('show');
       });
@@ -712,11 +747,18 @@
     }
     function syncHud() {
       if (!hud) return;
+      if (PHONE) {
+        const mini = hud.querySelector('.mini'), tt = id => TOOLS.find(t => t.id === id);
+        if (!recent.includes(S.tool)) recent = [S.tool, ...recent].slice(0, 4);
+        const cur = tt(S.tool), rec = recent.filter(id => id !== S.tool && tt(id)).slice(0, 3);
+        mini.innerHTML = (cur ? btn('t' + cur.id, cur.name, cur.color, '', cur.icon) : '') + rec.map(id => { const t = tt(id); return btn('t' + t.id, t.name, t.color, '', t.icon); }).join('')
+          + '<span class="gap"></span>' + btn('more', 'All tools', '#fff', '', ICONS.more) + btn('pause', 'Pause', '#fff', '', ICONS.pause) + btn('close', 'Exit', '#fff', '', ICONS.close);
+      }
       hud.querySelectorAll('button[data-id]').forEach(b => {
         const id = b.dataset.id;
         b.classList.toggle('on', id === 't' + S.tool || (id === 'snowfall' && S.snowing) || (id === 'pause' && S.paused) || (id === 'lights' && S.lightMode !== 3) || (id === 'look' && !S.sharp) || (id === 'storm' && S.storm) || (id === 'heat' && S.heatView) || (id === 'settle' && !S.snowEverywhere) || (id === 'sound' && S.sound));
-        if (id === 'pause') { b.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true">${S.paused ? ICONS.play : ICONS.pause}</svg>`; b.setAttribute('aria-label', S.paused ? 'Play' : 'Pause'); }
-        if (id === 'sound') b.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true">${S.sound ? ICONS.sound : ICONS.mute}</svg>`;
+        if (id === 'pause') { b.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true">${S.paused ? ICONS.play : ICONS.pause}</svg><span class="nm">${S.paused ? 'Play' : 'Pause'}</span>`; b.setAttribute('aria-label', S.paused ? 'Play' : 'Pause'); }
+        if (id === 'sound') b.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true">${S.sound ? ICONS.sound : ICONS.mute}</svg><span class="nm">Sound</span>`;
       });
     }
     function onKey(e) {
@@ -725,7 +767,7 @@
       if (e.key === 'Escape' || (e.key === 'H' && e.shiftKey)) { e.preventDefault(); stop(); return; }
       const t = TOOLS.find(t => t.key && t.key === e.key);
       if (t) { S.tool = t.id; e.preventDefault(); syncHud(); return; }
-      const k = e.key.toLowerCase(), map = { i: 'ignite', s: 'snowfall', l: 'lights', p: 'look', t: 'storm', v: 'heat' };
+      const k = e.key.toLowerCase(), map = { i: 'ignite', s: 'snowfall', p: 'look', t: 'storm', v: 'heat' };
       if (map[k]) { act(map[k]); return; }
       if (e.key === ' ') { e.preventDefault(); act('pause'); }
       else if (e.key === '[') S.brush = Math.max(1, S.brush - 1);
@@ -745,6 +787,7 @@
     async function start() {
       if (api.active) return;
       api.active = true; api.stats = null; const my = ++run;
+      if (!AMBIENT) document.documentElement.classList.add('havoc-open');   // full screen: Cadence hides its tab bar
       host = document.createElement('div'); host.id = AMBIENT ? 'elements-ambient' : 'elements-host';
       host.style.cssText = `position:fixed!important;inset:0!important;z-index:${AMBIENT ? (cfg.z || 60) : 2147483647}!important;pointer-events:none!important;display:block!important;margin:0!important;padding:0!important;border:0!important;background:none!important;transform:none!important;filter:none!important`;
       root = host.attachShadow({ mode: 'open' });
@@ -784,6 +827,7 @@
     function stop() {
       if (!api.active) return;
       api.active = false; run++; cancelAnimationFrame(raf); down = false; ready = false;
+      if (!AMBIENT) document.documentElement.classList.remove('havoc-open');
       removeEventListener('keydown', onKey, true); removeEventListener('resize', onResize); removeEventListener('pointermove', onMouse);
       locked.forEach(([el, v]) => { el.style.overflow = v; if (!el.getAttribute('style')) el.removeAttribute('style'); }); locked = [];
       Sound.disable(); S.sound = false;

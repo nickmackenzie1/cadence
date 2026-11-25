@@ -604,3 +604,13 @@ checking the code.
 - GitHub warned that Node 20 actions are deprecated: checkout, setup-node, cache and upload-artifact are now v5 (Node 24).
 - Flaky tests (watch list, full storage, Wizard fight, new bosses, Follow, inline editor, keys): user doesn't want them
   chased ("seems like a lot of work"); CI's retries cover them.
+
+### Havoc on phones; no Christmas lights in Havoc (2026-11-24)
+- User: "how can we make this more mobile friendly, it's so fun to play with on phone" → picked a tuck-away toolbar,
+  names instead of key hints, and full screen, "only for mobile".
+  - Elements mode on a touch screen without hover (`(hover: none) and (pointer: coarse)`): the toolbar is a slim bar
+    with the current material, the last three used, More, Pause and Exit. Swipe up (or More) opens everything, each
+    button named, sliders full width; picking a material tucks it away again. Computers are unchanged.
+  - Full screen: `html.havoc-open` hides Cadence's tab bar while either mode is open.
+- User: "Remove the Christmas lights from havok": Havoc's Elements mode no longer hangs string lights; its Lights and
+  "where snow settles" buttons (and the L key) are gone, and snow settles everywhere. Lights outside Havoc are untouched.
