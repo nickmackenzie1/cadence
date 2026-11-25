@@ -18,17 +18,11 @@ test.beforeAll(async () => {
 });
 test.afterAll(() => { server && server.kill(); rmSync(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 }); });
 
-test('the readers used by the checks find a song in each station page format', async () => {
-  const R = require('../server/services/radio.js');
-  expect(R.parseSpinitron('<span class="artist">A</span><span class="song">B</span>', null)).toMatchObject({ artist: 'A', song: 'B' });
-  expect(R.parseWfuv('<tr><td>11/19, 1:35am</td><td>Song</td><td>Band</td></tr>', null)).toMatchObject({ artist: 'Band', song: 'Song' });
-});
-
 test('Background work: Check outside services lists every service, and keys that aren’t set say so', async ({ page }) => {
   test.setTimeout(60000);
   const d = await (await fetch(B + '/api/checks', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })).json();
   const ids = d.results.map(r => r.id);
-  for (const id of ['radiobrowser', 'kexp', 'wxyc', 'ksua', 'wfuv', 'listenbrainz', 'lrclib', 'tmdb', 'nhl']) expect(ids).toContain(id);
+  for (const id of ['tmdb', 'gamesdb', 'tastedive', 'nhl', 'openmeteo']) expect(ids).toContain(id);
   for (const r of d.results) expect(['ok', 'nokey', 'unreadable', 'down']).toContain(r.state);
   expect(d.results.find(r => r.id === 'tmdb')).toMatchObject({ state: 'nokey' });
   expect(d.results.find(r => r.id === 'tastedive').note).toMatch(/TASTEDIVE_API_KEY/);

@@ -31,7 +31,7 @@ test.beforeAll(async () => {
   });
   await new Promise(r => fake.listen(0, '127.0.0.1', r)); F = `http://127.0.0.1:${fake.address().port}`;
   dir = mkdtempSync(join(tmpdir(), 'cadence-conn-')); const PORT = await freePort(); B = `http://localhost:${PORT}`;
-  server = spawn(process.execPath, ['--disable-warning=ExperimentalWarning', 'server.js'], { env: { ...process.env, PORT: String(PORT), DATA_DIR: dir, COMMONS_API: F, LASTFM_API_KEY: 'from-env-1234', TMDB_API_KEY: '', DISCOGS_TOKEN: '' }, stdio: 'ignore' });
+  server = spawn(process.execPath, ['--disable-warning=ExperimentalWarning', 'server.js'], { env: { ...process.env, PORT: String(PORT), DATA_DIR: dir, COMMONS_API: F, TMDB_API_KEY: 'from-env-1234', THEGAMESDB_API_KEY: '' }, stdio: 'ignore' });
   for (let i = 0; i < 150; i++) { try { if ((await fetch(B + '/api/health')).ok) break; } catch {} await new Promise(r => setTimeout(r, 100)); }
 });
 test.afterAll(() => { server && server.kill(); fake && fake.close(); rmSync(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 }); });
@@ -39,26 +39,23 @@ test.afterAll(() => { server && server.kill(); fake && fake.close(); rmSync(dir,
 test('keys: saved on the NAS, never sent back, .env still counts, removing brings .env back', async () => {
   const list = async () => (await (await fetch(B + '/api/keys')).json());
   let l = await list();
-  expect(l.find(k => k.id === 'LASTFM_API_KEY')).toMatchObject({ set: true, from: 'env', tail: '1234' });
-  expect(l.find(k => k.id === 'DISCOGS_TOKEN')).toMatchObject({ set: false, from: null });
+  expect(l.find(k => k.id === 'TMDB_API_KEY')).toMatchObject({ set: true, from: 'env', tail: '1234' });
+  expect(l.find(k => k.id === 'THEGAMESDB_API_KEY')).toMatchObject({ set: false, from: null });
   const put = (id, value) => fetch(B + '/api/keys', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, value }) });
   expect((await put('NOT_A_KEY', 'x')).status).toBe(400);
-  expect((await put('DISCOGS_TOKEN', 'has a space')).status).toBe(400);
-  l = await (await put('DISCOGS_TOKEN', '  "dgTokenSecret9876"  ')).json();
-  expect(l.find(k => k.id === 'DISCOGS_TOKEN')).toMatchObject({ set: true, from: 'page', tail: '9876' });
+  expect((await put('THEGAMESDB_API_KEY', 'has a space')).status).toBe(400);
+  l = await (await put('THEGAMESDB_API_KEY', '  "dgTokenSecret9876"  ')).json();
+  expect(l.find(k => k.id === 'THEGAMESDB_API_KEY')).toMatchObject({ set: true, from: 'page', tail: '9876' });
   expect(JSON.stringify(l)).not.toContain('dgTokenSecret');   // only the last four
   const f = join(dir, 'keys.json');
-  expect(JSON.parse(readFileSync(f, 'utf8')).DISCOGS_TOKEN).toBe('dgTokenSecret9876');
+  expect(JSON.parse(readFileSync(f, 'utf8')).THEGAMESDB_API_KEY).toBe('dgTokenSecret9876');
   expect(statSync(f).mode & 0o777).toBe(0o600);
-  // the music side (its own process) picks it up: Discogs is no longer "off"
-  await expect.poll(async () => (await (await fetch(B + '/api/radar/discogs')).json()).off === undefined, { timeout: 8000 }).toBe(true);
   // a pasted key wins over .env; removing it brings the .env one back
-  await put('LASTFM_API_KEY', 'pastedLastfm5555');
-  expect((await list()).find(k => k.id === 'LASTFM_API_KEY')).toMatchObject({ from: 'page', tail: '5555' });
-  await put('LASTFM_API_KEY', '');
-  expect((await list()).find(k => k.id === 'LASTFM_API_KEY')).toMatchObject({ from: 'env', tail: '1234' });
-  await put('DISCOGS_TOKEN', '');
-  await expect.poll(async () => (await (await fetch(B + '/api/radar/discogs')).json()).off, { timeout: 8000 }).toBe(true);
+  await put('TMDB_API_KEY', 'pastedTmdb5555');
+  expect((await list()).find(k => k.id === 'TMDB_API_KEY')).toMatchObject({ from: 'page', tail: '5555' });
+  await put('TMDB_API_KEY', '');
+  expect((await list()).find(k => k.id === 'TMDB_API_KEY')).toMatchObject({ from: 'env', tail: '1234' });
+  await put('THEGAMESDB_API_KEY', '');
 });
 
 test('Settings → Connections in the app', async ({ page }) => {
@@ -66,14 +63,14 @@ test('Settings → Connections in the app', async ({ page }) => {
   await page.goto(B + '/'); await expect(page.locator('#sync')).toBeVisible({ timeout: 10000 });
   await page.evaluate(() => document.querySelector('[data-act=settings]').click());
   await page.locator('.modal [data-settings-tab=connections], .modal button', { hasText: 'Connections' }).first().click();
-  const row = page.locator('.conn[data-k=TMDB_API_KEY]');
+  const row = page.locator('.conn[data-k=THEGAMESDB_API_KEY]');
   await expect(row).toContainText('Not connected');
   await row.locator('input').fill('tmdbKeyAbcd4321'); await row.locator('[data-conn=save]').click();
-  await expect(page.locator('.conn[data-k=TMDB_API_KEY]')).toContainText('Connected · ends in 4321');
-  await expect(page.locator('.conn[data-k=TMDB_API_KEY] input')).toHaveValue('');
-  await expect(page.locator('.conn[data-k=LASTFM_API_KEY]')).toContainText('from .env');
-  await page.locator('.conn[data-k=TMDB_API_KEY] [data-conn=remove]').click();
-  await expect(page.locator('.conn[data-k=TMDB_API_KEY]')).toContainText('Not connected');
+  await expect(page.locator('.conn[data-k=THEGAMESDB_API_KEY]')).toContainText('Connected · ends in 4321');
+  await expect(page.locator('.conn[data-k=THEGAMESDB_API_KEY] input')).toHaveValue('');
+  await expect(page.locator('.conn[data-k=TMDB_API_KEY]')).toContainText('from .env');
+  await page.locator('.conn[data-k=THEGAMESDB_API_KEY] [data-conn=remove]').click();
+  await expect(page.locator('.conn[data-k=THEGAMESDB_API_KEY]')).toContainText('Not connected');
   expect(errs).toEqual([]);
 });
 

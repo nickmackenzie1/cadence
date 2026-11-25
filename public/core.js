@@ -3668,7 +3668,7 @@
         const mtabs = pv.group === 'music' && APP.tasks ? Reg.views.filter(x => x.group === 'music' && !x.hidden).sort((a, b) => (a.order ?? 50) - (b.order ?? 50)) : [];
         if (mtabs.includes(pv) && S.settings.musicTab !== pv.id) { S.settings.musicTab = pv.id; persistLocal(); }
         delete v.dataset.drawn;
-        v.innerHTML = `<div class="head"><div><h1>${pv.group === 'music' && !pv.hidden && APP.tasks ? 'Music' : (pv.site ? logoHtml(pv.site, { size: 28, cls: 'h1-logo' }) : '') + esc(pv.title)}</h1>${pv.subtitle ? `<div class="sub">${esc(pv.subtitle)}</div>` : ''}</div></div>${mtabs.length ? `<nav class="ins-tabs mus-tabs" aria-label="Music">${mtabs.map(x => `<a href="#view-${esc(x.id)}" class="${x === pv ? 'on' : ''}"${x === pv ? ' aria-current="page"' : ''}>${x.site ? logoHtml(x.site, { size: 14 }) : ''}${esc(x.title)}</a>`).join('')}</nav>` : ''}<div id="pv"></div>`;
+        v.innerHTML = `<div class="head"><div><h1>${pv.group === 'music' && !pv.hidden && APP.tasks ? 'Music' : (pv.site ? logoHtml(pv.site, { size: 28, cls: 'h1-logo' }) : '') + esc(pv.title)}</h1>${pv.subtitle ? `<div class="sub">${esc(pv.subtitle)}</div>` : ''}</div></div>${mtabs.length > 1 ? `<nav class="ins-tabs mus-tabs" aria-label="Music">${mtabs.map(x => `<a href="#view-${esc(x.id)}" class="${x === pv ? 'on' : ''}"${x === pv ? ' aria-current="page"' : ''}>${x.site ? logoHtml(x.site, { size: 14 }) : ''}${esc(x.title)}</a>`).join('')}</nav>` : ''}<div id="pv"></div>`;
         try {
           pv.render($('#pv'), makeApi(pv.pid));
         } catch (e) {

@@ -18,7 +18,7 @@ const open = async page => { await page.goto(B + '/'); await expect(page.locator
 test('every new theme is there, Seasons is wearing the season, and each one comes and goes cleanly', async ({ page }) => {
   const errs = []; page.on('pageerror', e => errs.push(String(e)));
   await open(page);
-  const ids = ['record-of-the-day', 'kexp-live', 'movie-night', 'weather-window', 'game-shelf', 'seasons', 'winter', 'spring', 'camping',
+  const ids = ['movie-night', 'weather-window', 'game-shelf', 'seasons', 'winter', 'spring', 'camping',
     'csgo', 'half-life', 'portal', 'borderlands', 'vice-city', 'severance', 'blade-runner', 'dune', 'twin-peaks', 'grand-budapest', 'stranger-things', 'kiki', 'howl', 'interstellar', 'lotr',
     'winamp', 'wii', 'ps2', 'system7', 'bandcamp'];
   const have = await page.evaluate(() => window.CadenceThemes.list().map(t => t.id));
@@ -37,15 +37,8 @@ test('every new theme is there, Seasons is wearing the season, and each one come
 
 test('live themes without their services say how to connect them', async ({ page }) => {
   await open(page);
-  await page.evaluate(() => window.CadenceThemes.apply('record-of-the-day'));
-  await expect(page.locator('.lt-rec')).toContainText('Connect Discogs');
-  await page.locator('.lt-rec [data-lt=keys]').click();
-  await expect(page.locator('#conn-list')).toBeVisible();
-  await page.keyboard.press('Escape');
   await page.evaluate(() => window.CadenceThemes.apply('movie-night'));
   await expect(page.locator('.lt-mv')).toContainText('Add your Letterboxd diary in Feeds');
-  await page.evaluate(() => window.CadenceThemes.apply('kexp-live'));
-  await expect(page.locator('.lt-kx')).toContainText('On the air at KEXP');
 });
 
 test('Game shelf: your own list of games, one a day', async ({ page }) => {

@@ -53,11 +53,9 @@ test('the Problems page lists the background work on the NAS', async ({ page }) 
     for (let i = 0; i < 150; i++) { try { if ((await fetch(B + '/api/health')).ok) break; } catch {} await new Promise(r => setTimeout(r, 100)); }
     const jobs = await (await fetch(B + '/api/jobs')).json();
     expect(jobs.map(j => j.name)).toEqual(expect.arrayContaining(['db-upkeep', 'feeds', 'reminders']));
-    await expect.poll(async () => { const r = await fetch(B + '/api/radar/jobs'); return r.ok ? (await r.json()).map(j => j.name) : []; }, { timeout: 25000 }).toContain('radar-scan');
     await page.goto(B + '/#view-problems');
     await expect(page.locator('.pr-jh')).toHaveText('Background work', { timeout: 15000 });
     await expect(page.locator('.pr-jobs li', { hasText: 'Database upkeep' })).toBeVisible();
-    await expect(page.locator('.pr-jobs li', { hasText: 'Music Radar: scans' })).toContainText('Music side');
     // requests carry X-Cadence-Active only right after you do something, not from an idle open tab
     const seen = [];
     page.on('request', r => { if (r.url().includes('/api/jobs')) seen.push(!!r.headers()['x-cadence-active']); });

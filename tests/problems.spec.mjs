@@ -46,21 +46,3 @@ test('a crash, a browser error and a killed server all land in Problems, and the
   s.p.kill('SIGTERM');
 });
 
-test('the music side runs in its own process: if it dies, tasks keep working, it comes back, and Problems says so', async () => {
-  const { execSync } = await import('node:child_process');
-  const s = await start();
-  await expect.poll(async () => (await fetch(s.B + '/api/radar/status')).status, { timeout: 20000 }).toBe(200);
-  const kids = () => execSync(`ps -o pid= --ppid ${s.p.pid} || true`).toString().trim().split(/\s+/).filter(Boolean).map(Number);
-  const [music] = kids(); expect(music).toBeGreaterThan(0);
-  process.kill(music, 'SIGKILL');                                                     // like running out of memory
-  // the rest of Cadence doesn't notice
-  expect((await fetch(s.B + '/healthz')).status).toBe(200);
-  expect((await fetch(s.B + '/api/state')).status).toBe(200);
-  // it's started again, and Radar answers
-  await expect.poll(async () => { const k = kids(); return k.length && k[0] !== music; }, { timeout: 20000 }).toBe(true);
-  await expect.poll(async () => (await fetch(s.B + '/api/radar/status')).status, { timeout: 20000 }).toBe(200);
-  const p = (await (await fetch(s.B + '/api/problems')).json()).find(x => /music side/.test(x.msg));
-  expect(p.msg).toMatch(/was stopped \(SIGKILL, often running out of memory\); starting it again/);
-  s.p.kill('SIGTERM'); await new Promise(r => s.p.once('exit', r));
-  await expect.poll(() => kids().length).toBe(0);                                     // and it goes when Cadence stops
-});

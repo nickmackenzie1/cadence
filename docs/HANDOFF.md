@@ -729,3 +729,20 @@ app shell, themes, Island, rules). It takes Radar, Downloads, Radio, KEXP, artis
 Podcasts, with their tests; music data is copied across once. It reuses THING's mkcert CA so a phone that trusts one trusts
 both. THING keeps a small "Music" plugin: a link to Crate Digger and what's playing on the Island. THING stays untouched
 until Crate Digger works on the NAS. On screen it is written CRATE DIGGER (capitals, like THING). Waiting on: the user making an empty GitHub repo (crate-digger).
+
+## Music moved to CRATE DIGGER (2026-11-25)
+Music Radar, artist pages, Downloads, Radio, KEXP, Podcasts and the player, lyrics, the visualizer and Cover Flow now live in
+their own app, CRATE DIGGER (repo nickmackenzie1/cratedigger, ports 8585/8545 on the NAS, folder docker/cratedigger). The
+user's music data was copied there once (scripts/import-from-thing.sh in that repo); THING's copy in data/ is no longer used.
+- THING keeps `plugins/music-link.js`: a Music page in the sidebar that opens CRATE DIGGER, a palette command, and what
+  CRATE DIGGER is playing on the Island (it asks CRATE DIGGER's api/now with the CRATE DIGGER sign-in every 20 s while
+  THING is in front; nothing shows on plain http, or when not signed in there).
+- The server's music process, routes and services are gone from THING; so are the music checks, the music keys in
+  Settings → Connections, and the music tests (they moved to CRATE DIGGER).
+- Kept in THING: themes-music.js (it also has Late fall, Teletext, Card catalogue, Limestone City; Now Playing just has
+  nothing to show). The two music live themes (Record of the day, KEXP live) only register in an app with
+  `CADENCE_APP.music` (CRATE DIGGER).
+- Shared with CRATE DIGGER: core.js / core.css and the shell plugins. core.js reads `window.CADENCE_APP` (name, home,
+  tasks, tabs, groups, music); THING leaves it unset. A fix to the shared files belongs in both repos.
+- Sign-in cookies: THING's is `cadence_session`, CRATE DIGGER's `cratedigger_session` (SESSION_COOKIE), because browsers
+  share cookies across ports on the same name.

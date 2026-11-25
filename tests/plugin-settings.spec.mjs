@@ -28,7 +28,7 @@ const gear = async (page, pid) => {
   await expect(page.locator('#modal #lk-ok')).toBeVisible();
 };
 
-test('settings windows: quick date, calendar week start, roulette lock, review day, rewind, podcasts skips, outside and garbage notes', async ({ page }) => {
+test('settings windows: quick date, calendar week start, roulette lock, review day, rewind, outside and garbage notes', async ({ page }) => {
   const errs = await open(page);
   // Quick date: off → no calendar after a task without a date
   await gear(page, 'datepick');
@@ -49,23 +49,16 @@ test('settings windows: quick date, calendar week start, roulette lock, review d
   await gear(page, 'review'); await expect(page.locator('#lk-day')).toHaveValue('off'); await page.keyboard.press('Escape');
   await gear(page, 'rewind'); await page.selectOption('#lk-day', '0'); await page.click('#lk-ok');
   await gear(page, 'rewind'); await expect(page.locator('#lk-day')).toHaveValue('0'); await page.keyboard.press('Escape');
-  // Podcasts: skip lengths
-  await gear(page, 'podcasts'); await page.selectOption('#lk-b', '15'); await page.selectOption('#lk-f', '60'); await page.click('#lk-ok');
-  expect(await page.evaluate(() => [localStorage.getItem('cadence.pc.skipBack') || Object.keys(localStorage).filter(k => /skipBack$/.test(k)).map(k => localStorage.getItem(k))[0]])).toEqual(['15']);
   // Outside: the space station note off
   await gear(page, 'outdoors'); await page.uncheck('#lk-iss'); await page.click('#lk-ok');
   await gear(page, 'outdoors'); await expect(page.locator('#lk-iss')).not.toBeChecked(); await expect(page.locator('#lk-aurora')).toBeChecked(); await page.keyboard.press('Escape');
   expect(errs).toEqual([]);
 });
 
-test('Life: garbage-night reminder off, and Music Radar\'s gear opens its Settings section', async ({ page }) => {
+test('Life: garbage-night reminder off', async ({ page }) => {
   const errs = await open(page);
   await page.click('[data-act="space"][data-s="life"]');
   await gear(page, 'home-bits'); await expect(page.locator('#lk-on')).toBeChecked(); await page.uncheck('#lk-on'); await page.click('#lk-ok');
   await gear(page, 'home-bits'); await expect(page.locator('#lk-on')).not.toBeChecked(); await page.keyboard.press('Escape');
-  await page.click('button[title^="Plugins"]'); await page.click('[data-act=pl-tab][data-t=all]');
-  await page.locator('#pb-grid .pb-card[data-pid="music-radar"] .pb-gear').click();
-  await expect(page).toHaveURL(/#view-radar$/);
-  await expect(page.locator('details[data-more=settings]')).toHaveAttribute('open', '');
   expect(errs).toEqual([]);
 });

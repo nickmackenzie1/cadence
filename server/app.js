@@ -9,7 +9,6 @@ const { NEXT, send } = require('./lib/http');
 const { TLS, sendCA } = require('./lib/tls');
 const bundle = require('./lib/bundle');
 
-const SEPARATE_MUSIC = process.env.MUSIC_PROCESS !== '0';
 const routes = {
   auth: require('./routes/auth'),
   system: require('./routes/system'),
@@ -20,15 +19,11 @@ const routes = {
   integrations: require('./routes/integrations'),
   files: require('./routes/files'),
   calendar: require('./routes/calendar'),
-  // the music side (Radar, Radio, KEXP) runs in its own process unless MUSIC_PROCESS=0 (lib/music-proxy.js)
-  radar: SEPARATE_MUSIC ? require('./lib/music-proxy').route : require('./routes/radar'),
-  podcasts: require('./routes/podcasts'),
-  radio: SEPARATE_MUSIC ? () => NEXT : require('./routes/radio'),
   daily: require('./routes/daily'),
   problems: require('./routes/problems'),
   havoc: require('./routes/havoc'),   // the phone as a Havoc controller (a live relay, nothing stored)
 };
-const API = [routes.havoc, routes.problems, routes.system, routes.sync, routes.lookup, routes.feeds, routes.push, routes.integrations, routes.files, routes.calendar, routes.radar, routes.podcasts, routes.radio, routes.daily];
+const API = [routes.havoc, routes.problems, routes.system, routes.sync, routes.lookup, routes.feeds, routes.push, routes.integrations, routes.files, routes.calendar, routes.daily];
 
 // Every request goes through here, top to bottom:
 //   1. the public CA download (so new devices can trust HTTPS before anything else)

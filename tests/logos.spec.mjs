@@ -27,14 +27,10 @@ test('the logo keeper only fetches public images', async () => {
   }
 });
 
-test('logos on views, widgets, plugins and stations', async ({ page }) => {
+test('logos on views, widgets and plugins', async ({ page }) => {
   const errs = []; page.on('pageerror', e => errs.push(String(e)));
   const asked = [];
   await page.route(/\/api\/(favicon|logo)\?/, r => { asked.push(r.request().url()); r.fulfill({ status: 200, contentType: 'image/png', body: PNG }); });
-  await page.goto(B + '/#view-stg');
-  // a view named after a site: its logo in the music tabs
-  await expect(page.locator('.mus-tabs a[href="#view-stg"] .cx-logo')).toHaveAttribute('src', /api\/favicon\?d=saidthegramophone\.com/);
-  await expect(page.locator('.mus-tabs a[href="#view-kexp-history"] .cx-logo')).toHaveAttribute('src', /d=kexp\.org/);
   // Daily: each section's site
   await page.goto(B + '/#view-daily');
   for (const d of ['wikipedia.org', 'xkcd.com', 'lichess.org', 'news.ycombinator.com']) await expect(page.locator(`.dy-grid h3 .cx-logo[src*="d=${d}"]`)).toHaveCount(1);
@@ -42,10 +38,8 @@ test('logos on views, widgets, plugins and stations', async ({ page }) => {
   const html = await page.evaluate(() => CadenceKit.logo('https://www.kexp.org', { img: 'https://cdn.example.org/kexp.png', size: 40 }));
   expect(html).toContain('api/logo?u=' + encodeURIComponent('https://cdn.example.org/kexp.png'));
   expect(html).toContain('data-fb="api/favicon?d=kexp.org"');
-  await page.goto(B + '/#view-radio');
-  await expect(page.locator('.rd-st .rd-lg .cx-logo').first()).toBeVisible({ timeout: 10000 });
-  // nothing was asked of a station's or site's own server by the browser: every logo came from the NAS
-  expect(asked.length).toBeGreaterThan(4);
+  // nothing was asked of a site's own server by the browser: every logo came from the NAS
+  expect(asked.length).toBeGreaterThan(3);
   expect(asked.every(u => u.startsWith(B))).toBe(true);
   expect(errs).toEqual([]);
 });

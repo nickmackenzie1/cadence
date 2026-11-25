@@ -7,6 +7,8 @@
    Pictures come through the NAS (api/img, api/tmdb, api/gdb, api/commons) so their colours can be read. Nothing here
    draws or copies anyone's artwork: covers, stills and photos are shown as they are, with credit. */
 (() => {
+  // the music themes (Record of the day, KEXP live) need the music side: only in an app that has it (CRATE DIGGER)
+  const MUSIC = !!(window.CADENCE_APP && window.CADENCE_APP.music);
   const T = window.CadenceThemes; if (!T) return;
   const R = t => T.register(t);
   const V = 'vendor/themes/fonts/';
@@ -48,7 +50,7 @@
   const loadSt = () => { try { const d = window.CadenceWorkDoc && window.CadenceWorkDoc(); if (d) return d; return JSON.parse(localStorage.getItem('cadence.v1') || '{}'); } catch (e) { return {}; } };
 
   /* ---------------- Record of the day: one record from your Discogs shelf, a different one each morning ---------------- */
-  R({ id: 'record-of-the-day', name: 'Record of the day', category: 'Live', tagline: 'One record from your Discogs collection each morning: its cover behind everything, its colours on the app, the sleeve in the corner.',
+  if (MUSIC) R({ id: 'record-of-the-day', name: 'Record of the day', category: 'Live', tagline: 'One record from your Discogs collection each morning: its cover behind everything, its colours on the app, the sleeve in the corner.',
     vars: { '--ambient': 'off', '--bg': '#17130f', '--panel': 'rgba(32,27,22,.86)', '--side': 'rgba(16,13,10,.9)', '--text': '#f3ece2', '--muted': '#b9ad9c', '--faint': '#7c7264', '--line': 'rgba(243,236,226,.14)', '--hover': 'rgba(243,236,226,.06)', '--accent': '#e0a458', '--accent-soft': 'rgba(224,164,88,.16)', '--on-accent': '#1a1006', '--r': '12px' },
     preview: { bg: 'radial-gradient(circle at 70% 60%,#111 0 18%,#2a2420 19% 21%,#111 22% 30%,transparent 31%),linear-gradient(135deg,#5b3a2a,#17130f)', panel: '#201b16', side: '#100d0a', text: '#f3ece2', accent: '#e0a458', line: '#3a322a' },
     css: css(`.lt-rec .lt-sleeve{position:relative;width:76px;height:76px;flex:none}.lt-rec .lt-sleeve img{position:relative;z-index:1;width:76px;height:76px;border-radius:4px;object-fit:cover;box-shadow:0 4px 14px rgba(0,0,0,.4)}
@@ -74,7 +76,7 @@
 
   /* ---------------- KEXP live: KEXP's look, who's on air, what's playing, the accent from the cover ---------------- */
   const KX_FONTS = [{ family: 'Oswald', src: V + 'oswald-latin-600-normal.woff2', weight: 600 }, { family: 'IBM Plex Sans', src: V + 'ibm-plex-sans-latin-400-normal.woff2', weight: 400 }, { family: 'IBM Plex Sans', src: V + 'ibm-plex-sans-latin-700-normal.woff2', weight: 700 }];
-  R({ id: 'kexp-live', name: 'KEXP live', category: 'Live', site: 'kexp.org', tagline: "KEXP's orange on near-black. The DJ on air right now in the corner, the song playing, and the accent from its cover.",
+  if (MUSIC) R({ id: 'kexp-live', name: 'KEXP live', category: 'Live', site: 'kexp.org', tagline: "KEXP's orange on near-black. The DJ on air right now in the corner, the song playing, and the accent from its cover.",
     fonts: KX_FONTS, font: '"IBM Plex Sans",system-ui,sans-serif',
     vars: { '--ambient': 'off', '--bg': '#141414', '--panel': '#1d1d1d', '--side': '#0d0d0d', '--text': '#f4f1ea', '--muted': '#aaa59b', '--faint': '#6f6b64', '--line': '#2d2d2d', '--hover': '#252525', '--accent': '#f05a28', '--accent-soft': 'rgba(240,90,40,.16)', '--on-accent': '#140700', '--r': '4px' },
     preview: { bg: '#141414', panel: '#1d1d1d', side: '#0d0d0d', text: '#f4f1ea', accent: '#f05a28', line: '#2d2d2d', r: '4px' },
