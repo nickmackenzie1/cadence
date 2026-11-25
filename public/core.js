@@ -2163,6 +2163,8 @@
     '❤️': 'heart',
     '❤': 'heart',
     '📥': 'inbox',
+    '⬇️': 'download',
+    '⬇': 'download',
     '🍳': 'cooking-pot',
     '🎬': 'film',
     '🎮': 'gamepad-2',

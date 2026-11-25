@@ -12,6 +12,12 @@ services:
       - ./public:/app/public:ro
       # certificate made on the NAS by tls.sh (the CA's private key in .mkcert-ca/ is never mounted)
       - ./certs:/certs:ro
+      # Downloads (Radar): your music folder, where songs are saved (Navidrome, Plex or Jellyfin can watch the same one),
+      # and the finished-downloads folders of slskd and SABnzbd/NZBGet, so THING can move files out of them.
+      # Set the NAS paths in .env, e.g. MUSIC_PATH=/volume1/music; until then they're folders next to THING.
+      - ${MUSIC_PATH:-./music}:/music
+      - ${SLSKD_DOWNLOADS_PATH:-./slskd-downloads}:/slskd
+      - ${USENET_COMPLETE_PATH:-./usenet-complete}:/usenet
     env_file:
       - .env
     environment:

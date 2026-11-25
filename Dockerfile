@@ -1,5 +1,7 @@
 FROM node:22-alpine
-RUN apk add --no-cache su-exec
+# ffmpeg pulls the audio out and writes the tags for Downloads (yt-dlp itself is a standalone program THING keeps
+# up to date in data/bin, so no Python here)
+RUN apk add --no-cache su-exec ffmpeg
 WORKDIR /app
 COPY entrypoint.sh /usr/local/bin/cadence-entrypoint
 RUN chmod 755 /usr/local/bin/cadence-entrypoint

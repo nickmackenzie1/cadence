@@ -14,6 +14,17 @@ module.exports = async function radarRoutes(req, res, { url, p }) {
 
   // (no blanket refresh on every POST: each change refreshes only what it touches, in services/radar.js. Clearing it all on a
   // thumbs or a Not for me made the NAS rebuild the whole page, and on a phone that showed as "Load failed".)
+  // getting music: the queue, what's in the music folder, and playing a file from it (services/getmusic.js)
+  if (p === '/api/radar/get' || p.startsWith('/api/radar/get/')) {
+    const G = require('../services/getmusic');
+    if (p === '/api/radar/get' && req.method === 'GET') return send(res, 200, await G.view());
+    if (p === '/api/radar/get' && req.method === 'POST') { const r = G.add(await body()); return send(res, r.error ? 400 : 200, r); }
+    if (p === '/api/radar/get/job' && req.method === 'POST') { const r = G.control(await body()); return send(res, r ? 200 : 404, r || { error: 'No such download' }); }
+    if (p === '/api/radar/get/owned' && req.method === 'POST') return send(res, 200, await G.owned((await body()).items));
+    if (p === '/api/radar/get/settings' && req.method === 'POST') return send(res, 200, G.settings(await body()));
+    if (p === '/api/radar/get/file' && req.method === 'GET') return G.stream(req, res, url.searchParams.get('p'));
+    return send(res, 404, { error: 'Not found' });
+  }
   if (p === '/api/radar/find' && req.method === 'GET') return send(res, 200, await radar.find(url.searchParams.get('q')));   // artist suggestions as you type
   if (p === '/api/radar/jobs' && req.method === 'GET') return send(res, 200, require('../lib/scheduler').list('music'));
   if (p.startsWith('/api/radar/jobs/')) {

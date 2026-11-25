@@ -156,9 +156,9 @@ test('Music home: one tile, tabs on every music page, and it reopens the tab you
   await page.goto(B + '/');
   await page.click('[data-act="space"][data-s="life"]');
   await page.evaluate(() => { location.hash = 'music'; });
-  await expect(page).toHaveURL(/#view-(radar|radio|kexp-history|kexp-years|want|shows|stg|artists)$/);   // the last music tab (settings sync, so another test may have chosen one)
+  await expect(page).toHaveURL(/#view-(radar|radio|kexp-history|kexp-years|want|downloads|shows|stg|artists)$/);   // the last music tab (settings sync, so another test may have chosen one)
   const tabs = page.locator('.mus-tabs a');
-  await expect(tabs).toHaveText(['Music Radar', 'Friday mix', 'Radio', 'KEXP history', 'KEXP through the years', 'Want to hear', 'Shows', 'Said the Gramophone', 'Artists', 'Your year']);
+  await expect(tabs).toHaveText(['Music Radar', 'Friday mix', 'Radio', 'KEXP history', 'KEXP through the years', 'Want to hear', 'Downloads', 'Shows', 'Said the Gramophone', 'Artists', 'Your year']);
   await expect(page.locator('#view h1')).toHaveText('Music');
   await tabs.filter({ hasText: 'Radio' }).first().click();
   await expect(page).toHaveURL(/#view-radio$/);
@@ -173,7 +173,7 @@ test('Music home: one tile, tabs on every music page, and it reopens the tab you
   await page.locator('.mus-tabs a', { hasText: 'Artists' }).click();
   await page.fill('#ar-q', 'Glass Lantern'); await page.click('#ar-find button');
   await expect(page).toHaveURL(/#view-artist$/);
-  await expect(page.locator('.mus-tabs a')).toHaveCount(10);         // tabs stay on top of an artist page…
+  await expect(page.locator('.mus-tabs a')).toHaveCount(11);         // tabs stay on top of an artist page…
   await expect(page.locator('.mus-tabs a.on')).toHaveCount(0);      // …with none of them chosen
   await page.evaluate(() => { location.hash = 'view-artists'; });
   await expect(page.locator('.ar-chip', { hasText: 'Glass Lantern' })).toHaveCount(1);

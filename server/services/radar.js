@@ -170,6 +170,24 @@ async function notForMe(b) {
 const exLib = () => import(pathToFileURL(path.join(__dirname, 'radar', 'lib', 'extras.mjs')).href);
 const kexpHeavy = () => { try { const K = require('./kexp-log'); return !K.isOn() ? () => null : n => K.heavyFirst(n); } catch (e) { return () => null; } };
 async function releases() { return (await exLib()).releases(); }
+// getting music (services/getmusic.js): picks up after a restart; new singles from artists you follow (only when that's
+// switched on in Downloads), better copies for songs that came from YouTube or SoundCloud, and keeping yt-dlp current
+{
+  const G = require('./getmusic'); G.resume();
+  if (!process.env.CI) {
+    sched.add('get-singles', async () => {
+      if (!G.settingsOn || !G.settingsOn()) return undefined;
+      const { store } = await load(), X = await import(pathToFileURL(path.join(__dirname, 'radar', 'lib', 'extract.mjs')).href);
+      const follows = new Set((store.getKv('follows', []) || []).map(f => f.key));
+      const n = G.newSingles(((await releases()).thisWeek || []).filter(r => follows.has(X.norm(r.artist)) && r.date <= new Date().toISOString().slice(0, 10)));
+      return n ? { note: `Getting ${n} new single${n === 1 ? '' : 's'} from artists you follow` } : undefined;
+    }, { label: 'Downloads: new singles from artists you follow', quiet: true, every: 12 * 3600e3, first: 20 * 60e3, retry: 3600e3 });
+    sched.add('get-better', async () => { const n = G.upgradeSome(); return n ? { note: `Looking for better copies of ${n} songs` } : undefined; },
+      { label: 'Downloads: better copies of songs from YouTube or SoundCloud', quiet: true, every: 24 * 3600e3, first: 40 * 60e3, retry: 3600e3 });
+    sched.add('ytdlp-update', async () => (await G.updateYtdlp()) ? { note: 'yt-dlp brought up to date' } : undefined,
+      { label: 'Downloads: keep yt-dlp up to date', quiet: true, every: 7 * 86400e3, first: 90 * 60e3, retry: 6 * 3600e3 });
+  }
+}
 async function mix({ week, again } = {}) {
   const X = await exLib();
   if (week && week !== X.mixWeek()) return X.pastMix(String(week)) || { error: 'No mix that week' };

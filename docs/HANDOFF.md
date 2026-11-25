@@ -705,3 +705,19 @@ checking the code.
 - **Secure address on phones:** plugins/secure-phone.js. A phone on http gets a calm Island note once a day; "Set up the secure address on this phone" in the palette opens the steps (download ca.crt, install the profile, turn on full trust, open https://host:8443). `/api/health` now has `httpsReady` and `httpsPort`; if the NAS has no certificate yet, the guide says so and points to deploy.log ("tls:" lines).
 - **Watch list "More like this" test:** it now adds its own Severance (a CI retry starts on an empty NAS, so it can't rely on earlier tests). The "watch Dune" test had a comment hiding two checks; they run again.
 - **Radar no longer rebuilds everything after small changes:** the route used to clear the page data on every POST. Now each change clears only what it affects. Background changes (listens, hometowns, similar artists) keep showing the current page and refresh quietly (`soften()`). A rebuild that started before a change is dropped (`dataGen`). "Not for me" on an artist removes it from the picks straight away.
+
+## Idea: pages that calculate (2026-11-24, from SilverBullet 3.0)
+Notes fields work like a small spreadsheet: write `rate = 95` and `hours = 12.5`, then `rate * hours` shows its answer inline and
+updates as you edit. Plain text stays the source; the answers are just shown. Places: task and client notes first, then Invoice
+radar (hours × rate, HST), Vacation and Camping planners (cost split per person), Kitchen (scale a recipe), Household
+(shared bills split), Good Homeowner (room area → paint or flooring). Backlog: ask before starting.
+
+## Downloads (2026-11-24)
+- **What:** a Get button beside Play / Want to hear everywhere (CadencePreview.buttons → CadenceGet.button), and a Downloads tab in Music (plugins/downloads.js). Server: server/services/getmusic.js, routes under /api/radar/get (music process).
+- **Sources:** songs: Soulseek (slskd) → YouTube Music → YouTube → SoundCloud (yt-dlp); records: Usenet (newznab + SABnzbd or NZBGet) → a whole Soulseek folder. Deezer, Tidal and Monochrome are left out on purpose (they get around the protection on paid streams); the user can run Aurral or MusicGrabber beside THING for those.
+- **Files:** MUSIC_DIR=/music in the container, from MUSIC_PATH in .env (default ./music). slskd's downloads (SLSKD_DOWNLOADS_PATH → /slskd) and the Usenet completed folder (USENET_COMPLETE_PATH → /usenet) are mounted so THING can move files out. Songs: Artist/Album-or-Singles/Artist - Title.ext; records: Artist/Album/<files>. Where each file came from and its quality: data/music-get.json.
+- **Playing:** a song in the music folder plays in full (CadenceGet.file in artist.js playOne; the mini player says "From your music").
+- **Background:** better copies (songs under MP3 320 looked for on Soulseek after a week), new singles from followed artists (off by default, a switch on the Downloads page), yt-dlp updated weekly.
+- **yt-dlp:** the official standalone build for Alpine and the processor (no Python in the image), kept in data/bin. ffmpeg is in the image for the audio and tags.
+- **Keys:** SLSKD_URL/API_KEY, NEWZNAB_URL/API_KEY, SABNZBD_URL/API_KEY, NZBGET_URL/USER/PASS in Settings → Connections.
+- Ported from Aurral (MIT, credited in getmusic.js); ideas from MusicGrabber (Unlicense).

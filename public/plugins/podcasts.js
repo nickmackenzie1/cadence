@@ -185,11 +185,11 @@
     const classic = (c, a) => {
       const live = !!c.live, n = live && c.now && !c.now.airbreak ? c.now : null;
       const d = isFinite(a.duration) && a.duration ? a.duration : c.duration || (c.preview ? 30 : 0), t = a.readyState ? a.currentTime : (live ? 0 : c.position || 0);
-      const title = live ? (n ? `${n.artist ? n.artist + ' - ' : ''}${n.song} · ${c.title}` : c.title) : `1. ${c.podcastTitle} - ${c.title}${d ? ` (${mmss(d)})` : ''}${c.preview ? ' preview' : ''}`;
+      const title = live ? (n ? `${n.artist ? n.artist + ' - ' : ''}${n.song} · ${c.title}` : c.title) : `1. ${c.podcastTitle} - ${c.title}${d ? ` (${mmss(d)})` : ''}${c.preview && !c.full ? ' preview' : ''}`;
       if (W.mq.dataset.t !== title) { W.mq.dataset.t = title; W.mq.textContent = title + '  ***  '; W.mq.parentElement.classList.toggle('run', title.length > 30); }
       W.st.innerHTML = api.ui.icon(P.failed ? 'circle-alert' : a.paused ? 'pause' : 'play'); W.st.className = 'wa-st' + (a.paused ? '' : ' on');
       W.time.textContent = live && P.failed ? '--:--' : mmss(t);
-      W.kind.textContent = live ? 'LIVE' : c.preview ? 'PREV' : 'POD'; W.rate.textContent = (a.playbackRate || 1).toFixed(1) + 'x';
+      W.kind.textContent = live ? 'LIVE' : c.full ? 'SONG' : c.preview ? 'PREV' : 'POD'; W.rate.textContent = (a.playbackRate || 1).toFixed(1) + 'x';
       W.visLed.classList.toggle('lit', !!(window.CadenceViz && window.CadenceViz.isOpen));
       const ll = bar.querySelector('.wa-lled'); ll.classList.toggle('lit', P.level); ll.setAttribute('aria-pressed', P.level);
       const cb = bar.querySelector('.wa-cast'); if (cb) cb.hidden = !P.canCast;
@@ -233,7 +233,7 @@
         if (api.ui.currentRoute() === 'view-radio' && bar.dataset.cur !== c.uuid + ':' + a.paused) { bar.dataset.cur = c.uuid + ':' + a.paused; setTimeout(() => api.ui.refresh(), 0); }
       } else if (c.preview) {
         const d = isFinite(a.duration) && a.duration ? a.duration : 30, t = a.currentTime || 0; pct = t / d;
-        put(L, `${art(c.art, 'music')}<div class="pc-m-t"><b>${E(c.title)}</b><span><a class="ar-link" href="#view-artist" data-artist="${E(c.podcastTitle)}">${E(c.podcastTitle)}</a> · 30-second preview</span></div>`);
+        put(L, `${art(c.art, 'music')}<div class="pc-m-t"><b>${E(c.title)}</b><span><a class="ar-link" href="#view-artist" data-artist="${E(c.podcastTitle)}">${E(c.podcastTitle)}</a> · ${c.full ? 'From your music' : '30-second preview'}</span></div>`);
         put(R, `${play(a)}${P.hasNextPreview && P.hasNextPreview() ? ib('nextpv', 'skip-forward', 'Next preview') : ''}<span class="pc-m-time">${fmt(t)} / ${fmt(d)}</span>${extras()}${where()}${c.link ? `<a class="pc-ib" href="${E(c.link)}" target="_blank" rel="noopener" aria-label="Full song on Deezer" title="Full song on Deezer">${api.ui.icon('external-link')}</a>` : ''}`);
       } else {
         const d = isFinite(a.duration) && a.duration ? a.duration : c.duration || 0, t = a.currentTime || c.position || 0; pct = d ? t / d : 0;

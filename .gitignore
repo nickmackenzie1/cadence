@@ -12,3 +12,8 @@ certs/
 .scratch/
 .deploy-bad
 .env.applied
+
+# Downloads folders (docker-compose.yml)
+music/
+slskd-downloads/
+usenet-complete/

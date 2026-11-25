@@ -29,6 +29,12 @@ if [ -z "$why" ]; then
   fi
 fi
 
+# the Downloads folders: new (empty) ones made by Docker belong to root; give those to the app user. A folder that
+# already has your music in it is left as it is; THING says on its Downloads page if it can't write there.
+for M in /music /slskd /usenet; do
+  [ -d "$M" ] && [ -z "$(ls -A "$M" 2>/dev/null)" ] && [ "$(stat -c %u "$M")" = 0 ] && chown "$U:$U" "$M" 2>/dev/null
+done
+
 if [ -n "$why" ]; then
   echo "cadence: staying root — $why" >&2
   export TLS_DIR="$SRC"; exec "$@"

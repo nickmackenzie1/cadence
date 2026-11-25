@@ -18,6 +18,9 @@
   const wantPost = async body => { PV.want = await (await fetch('api/radar/want', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })).json(); PV.wantAt = Date.now(); window.dispatchEvent(new Event('cadence-want')); return PV.want; };
   const playOne = async (artist, title) => {
     const p = P(); if (!p) return;
+    // a song in your music folder plays in full (Downloads)
+    const own = title && window.CadenceGet && window.CadenceGet.file(artist, title);
+    if (own) { p.load({ uuid: 'own:' + key(artist, title), preview: true, full: true, title, podcastTitle: artist, url: own, from: { artist, title } }, true); return true; }
     let v; try { v = await (await fetch(`api/radar/preview?artist=${encodeURIComponent(artist)}&title=${encodeURIComponent(title || '')}`)).json(); } catch (e) { v = null; }
     if (!v || !v.found) { PV.toast(`No preview found for ${artist}${title ? ' – ' + title : ''}`); return false; }
     p.load({ uuid: 'preview:' + key(v.artist, v.title), preview: true, title: v.title, podcastTitle: v.artist, url: v.preview, art: v.cover, link: v.link, from: { artist, title } }, true);
@@ -223,7 +226,7 @@
         return v && v.results ? v.results.filter(x => !no.has(x.name.toLowerCase())).slice(0, 8) : [];
       };
       window.CadencePreview.buttons = (artist, title, type, from) => { if (!artist) return ''; const on = window.CadencePreview.want.has(artist, title);
-        return `<span class="pv-btns"><button class="pv-b" data-pv data-a="${E(artist)}" data-t="${E(title || '')}" aria-label="Play a preview of ${E(title || artist)}" title="Play a 30-second preview">${api.ui.icon('play')}</button><button class="pv-b${on ? ' on' : ''}" data-want data-a="${E(artist)}" data-t="${E(title || '')}" data-type="${E(type || '')}" data-from="${E(from || '')}" aria-label="${on ? 'Remove from' : 'Save to'} Want to hear" title="${on ? 'In Want to hear' : 'Save to Want to hear'}">${api.ui.icon(on ? 'bookmark-check' : 'bookmark-plus')}</button>${type === 'song' && title && window.CadenceLyrics ? window.CadenceLyrics.button(artist, title) : ''}</span>`; };
+        return `<span class="pv-btns"><button class="pv-b" data-pv data-a="${E(artist)}" data-t="${E(title || '')}" aria-label="Play a preview of ${E(title || artist)}" title="Play a 30-second preview">${api.ui.icon('play')}</button><button class="pv-b${on ? ' on' : ''}" data-want data-a="${E(artist)}" data-t="${E(title || '')}" data-type="${E(type || '')}" data-from="${E(from || '')}" aria-label="${on ? 'Remove from' : 'Save to'} Want to hear" title="${on ? 'In Want to hear' : 'Save to Want to hear'}">${api.ui.icon(on ? 'bookmark-check' : 'bookmark-plus')}</button>${window.CadenceGet ? window.CadenceGet.button(artist, title, type) : ''}${type === 'song' && title && window.CadenceLyrics ? window.CadenceLyrics.button(artist, title) : ''}</span>`; };
       DG.changed = () => { clearTimeout(DG._t); DG._t = setTimeout(() => api.ui.refresh(), 60); };
       document.addEventListener('click', async e => { const b = e.target.closest('[data-dg-sync]'); if (!b) return; b.disabled = true; const r = await DG.sync(); api.ui.toast(r.error ? "Couldn't reach Discogs just now" : r.off ? 'Add DISCOGS_TOKEN to .env on the NAS' : `Discogs: ${r.records} records, ${r.wants} wanted`); });
       const onWant = () => { api.ui.refreshWidgets && api.ui.refreshWidgets(); const r = api.ui.currentRoute(); if (r === 'view-radar' || r === 'view-artist' || r === 'view-want' || r === 'view-artists') api.ui.refresh(); };
