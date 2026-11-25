@@ -341,11 +341,40 @@ function ENGINE(env) {
       grid[src] = E; life[src] = 0; wakeAt(src); lvMoves++;
     }
   }
+  // Cadence (2026-11-20): Havoc's fan. A cone of air from (x, y) along (dx, dy): loose matter in it (fire, smoke, snow,
+  // sand, water, ash, pixels, burnt page) is pushed a cell along, more often near the fan; flying sparks speed up.
+  let gusts = [];
+  const STILL = new Uint8Array(32);
+  function gustStep() {
+    STILL[E] = STILL[SURF] = STILL[WIRE] = STILL[BULB] = STILL[STONE] = STILL[WOOD] = STILL[GLASS] = STILL[KELP] = STILL[PLANT] = 1;
+    for (const g of gusts) {
+      g.t++;
+      const L = g.len, x0 = Math.max(0, Math.floor(Math.min(g.x, g.x + g.dx * L) - L * 0.6)), x1 = Math.min(W - 1, Math.ceil(Math.max(g.x, g.x + g.dx * L) + L * 0.6));
+      const y0 = Math.max(0, Math.floor(Math.min(g.y, g.y + g.dy * L) - L * 0.6)), y1 = Math.min(H - 1, Math.ceil(Math.max(g.y, g.y + g.dy * L) + L * 0.6));
+      for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
+        const i = y * W + x, m = grid[i]; if (STILL[m] || stamp[i] === tick || (m === PAGE && pristine[i])) continue;
+        const rx = x - g.x, ry = y - g.y, along = rx * g.dx + ry * g.dy; if (along < 0 || along > L) continue;
+        const side = Math.abs(-rx * g.dy + ry * g.dx); if (side > g.wid * (0.35 + along / L)) continue;
+        const light = gas[m] || m === FIRE || m === SNOW || m === ASH || m === EMBER;
+        if (R() > (light ? 0.9 : 0.35) * (1 - along / L * 0.7)) continue;
+        const tx = Math.round(x + g.dx * (light ? 2 : 1) + (R() - 0.5) * 0.8), ty = Math.round(y + g.dy * (light ? 2 : 1) + (R() - 0.5) * 0.8);
+        if (tx < 0 || tx >= W || ty < 0 || ty >= H) continue;
+        const j = ty * W + tx; if (grid[j] === E) swap(i, j);
+      }
+      for (const p of parts) {
+        const rx = p.x - g.x, ry = p.y - g.y, along = rx * g.dx + ry * g.dy; if (along < 0 || along > L) continue;
+        if (Math.abs(-rx * g.dy + ry * g.dx) > g.wid * (0.35 + along / L)) continue;
+        p.vx += g.dx * 0.35; p.vy += g.dy * 0.35;
+      }
+    }
+    if (gusts.length) gusts = gusts.filter(g => g.t < g.life);
+  }
   function step() {
     tick = (tick % 255) + 1;
     const ltr = tick & 1;
     fireCount = 0;
     if (sinks.length) sinkStep();
+    if (gusts.length) gustStep();
     ecoStep(); fishStep(); frogStep(); levelStep();
     for (let y = H - 1; y >= 0; y--) {
       const rowC = (y >> CS) * CW;
@@ -1167,7 +1196,9 @@ function ENGINE(env) {
       case 'clear': { const m = ev[1]; if (m < 0 || m === WATER) fish = []; if (m < 0) { kelp = []; frogs = []; } for (let i = 0; i < N; i++) { const g = grid[i]; if (g !== SURF && g !== WIRE && g !== BULB && (m < 0 || g === m)) { grid[i] = E; wakeAt(i); } } parts = []; break; }
       // Cadence: a black hole at a cell, ['sink', x, y, maxR, steps]
       case 'splash': splash(ev[1], ev[2]); break;
-      case 'sink': sinks.push({ x: ev[1], y: ev[2], r: 2, max: ev[3], grow: ev[3] / 100, t: 0, life: ev[4], ate: 0 }); break;
+      case 'sink': sinks.push({ x: ev[1], y: ev[2], r: ev[5] ? ev[3] : 2, max: ev[3], grow: ev[5] ? 0 : ev[3] / 100, t: 0, life: ev[4], ate: 0 }); break;   // ev[5]: full size at once (the vacuum)
+      // Cadence: the fan's air, ['gust', x, y, dirX, dirY, length, width, steps]
+      case 'gust': gusts.push({ x: ev[1], y: ev[2], dx: ev[3], dy: ev[4], len: ev[5], wid: ev[6], t: 0, life: ev[7] }); break;
       case 'clearAt': { const [, cx, cy, r] = ev; for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) { if (dx * dx + dy * dy > r * r) continue; const x = cx + dx, y = cy + dy; if (x < 0 || x >= W || y < 0 || y >= H) continue; const i = y * W + x, g = grid[i]; if (g !== SURF && g !== WIRE && g !== BULB && g !== E) { grid[i] = E; wakeAt(i); } } break; }
     }
   }

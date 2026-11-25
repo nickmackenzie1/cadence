@@ -247,3 +247,43 @@ test('water finds its level: two sides of a pool joined under a wall even out', 
   await page.keyboard.press('Escape');
   expect(errs).toEqual([]);
 });
+
+test('bombs go off after their fuse, the vacuum swallows words, the fan blows matter along, the volcano pours lava', async ({ page }) => {
+  test.setTimeout(90e3);
+  const errs = []; page.on('pageerror', e => errs.push(String(e)));
+  await page.setViewportSize({ width: 1400, height: 900 });
+  await page.goto(B + '/?demo=1#today');
+  await expect(page.locator('#view .task').first()).toBeVisible({ timeout: 15000 });
+  await page.locator('body').press('Shift+H');
+  await expect.poll(() => page.evaluate(() => !!(window.__havoc && window.__havoc.active)), { timeout: 10000 }).toBe(true);
+  await expect.poll(() => page.evaluate(async () => !!(await window.CadenceFX.world())), { timeout: 10000 }).toBe(true);
+  const tools = () => page.evaluate(() => window.__havoc.tools());
+  // a bomb: there, then gone with a blast a couple of seconds later
+  await page.evaluate(() => { window.__blasts = 0; addEventListener('havoc:fx', e => { if (e.detail.type === 'blast') window.__blasts++; }); });
+  await page.keyboard.press('b'); await page.mouse.click(700, 200);
+  expect((await tools()).bombs).toBe(1);
+  await page.waitForTimeout(1200);
+  expect(await page.evaluate(() => window.__blasts)).toBe(0);   // not yet: the fuse is still burning
+  await expect.poll(async () => (await tools()).bombs, { timeout: 5000 }).toBe(0);
+  expect(await page.evaluate(() => window.__blasts)).toBeGreaterThan(0);
+  // the vacuum: words disappear into it
+  const before = (await tools()).words;
+  await page.keyboard.press('v'); await page.mouse.move(600, 560); await page.mouse.down();
+  await page.mouse.move(760, 560, { steps: 20 }); await page.waitForTimeout(1500); await page.mouse.up();
+  expect((await tools()).words).toBeLessThan(before);
+  // the fan: a pile of sand moves along the way it's aimed
+  const sandX = () => page.evaluate(async () => { const w = await window.CadenceFX.world(); const l = await w.count({ left: 1180, top: 120, right: 1300, bottom: 420 }, w.M.SAND), r = await w.count({ left: 1300, top: 120, right: 1400, bottom: 420 }, w.M.SAND); return [l, r]; });
+  await page.evaluate(async () => { const w = await window.CadenceFX.world(); w.paint(1200, 300, 1280, 300, w.M.STONE, 2); for (let x = 1210; x < 1270; x += 12) w.spawn(x, 280, w.M.SAND, 4, 1); });
+  await page.waitForTimeout(800);
+  const [l0, r0] = await sandX();
+  await page.keyboard.press('f'); await page.mouse.move(1190, 285); await page.mouse.down(); await page.mouse.move(1300, 285, { steps: 4 }); await page.waitForTimeout(2500); await page.mouse.up();
+  const [l1, r1] = await sandX();
+  expect(r1).toBeGreaterThan(r0); expect(l1).toBeLessThan(l0);
+  // the volcano: lava at the bottom of the page
+  await page.keyboard.press('u'); await page.mouse.click(1350, 700);
+  expect((await tools()).vents).toBe(1);
+  await expect.poll(() => page.evaluate(async () => { const w = await window.CadenceFX.world(); return w.count({ left: 1250, top: 600, right: 1400, bottom: 900 }, w.M.LAVA); }), { timeout: 8000 }).toBeGreaterThan(5);
+  await page.keyboard.press('Escape');
+  expect((await tools()).bombs + (await tools()).vents).toBe(0);
+  expect(errs).toEqual([]);
+});

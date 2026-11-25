@@ -843,7 +843,9 @@
       // more ground from outside the page, in px: [[x0, x1, y], …] (e.g. the outline of you, from the webcam); [] to remove
       ledgesExtra(list) { wake(); extraLedges = []; for (const [a, b, y] of list || []) { const yy = Math.round(y / CELL); if (yy > 1 && yy < H) extraLedges.push(Math.max(0, Math.floor(a / CELL)), Math.min(W, Math.ceil(b / CELL)), yy); } extraDirty = true; },
       // Cadence: a black hole that pulls everything loose in, for about `secs` seconds
-      sink(x, y, r = 280, secs = 7) { if (!ready) return; const [cx, cy] = cell(x, y); q(['sink', cx, cy, Math.ceil(r / CELL), Math.round(secs * 60)]); },
+      sink(x, y, r = 280, secs = 7, now = false) { if (!ready) return; const [cx, cy] = cell(x, y); q(['sink', cx, cy, Math.ceil(r / CELL), Math.round(secs * 60), now ? 1 : 0]); },
+      // Cadence: the fan blowing from (x, y) towards (dx, dy) (a unit direction), len and width in page pixels
+      gust(x, y, dx, dy, len = 260, wid = 70, secs = 0.15) { if (!ready) return; const [cx, cy] = cell(x, y); q(['gust', cx, cy, dx, dy, Math.round(len / CELL), Math.round(wid / CELL), Math.max(1, Math.round(secs * 60))]); },
       clearAt(x, y, r) { const [cx, cy] = cell(x, y); q(['clearAt', cx, cy, Math.ceil(r / CELL)]); },
       // how many cells of a material are inside a screen rect (async: the engine has the grid)
       // Cadence: how many fish are swimming (the deep-pool ecosystems)

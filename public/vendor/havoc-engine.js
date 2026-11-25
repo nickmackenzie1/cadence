@@ -22,6 +22,11 @@
     { id: 'hole',   key: '7', name: 'Black hole', hint: 'Click to open a singularity',         color: '#b28cff' },
     { id: 'zerog',  key: '8', name: 'Zero-G',     hint: 'Toggle gravity',                      color: '#ffe066' },
     { id: 'quake',  key: '9', name: 'Collapse',   hint: 'Bring the whole page down',           color: '#ff3b3b' },
+    // 2026-11-20 (user: bombs that go off a couple of seconds later, a vacuum you drag around, a fan, a volcano)
+    { id: 'bomb',   key: 'b', name: 'Bomb',       hint: 'Click to drop a bomb: it fizzes, flashes faster, then goes off. Click one to pick it up and throw it', color: '#ffb347' },
+    { id: 'vac',    key: 'v', name: 'Vacuum',     hint: 'Hold and drag: sucks up words, fire, water, sand, everything', color: '#9ad1ff' },
+    { id: 'fan',    key: 'f', name: 'Fan',        hint: 'Press where the fan goes, drag to aim, hold to blow', color: '#b8f2e6' },
+    { id: 'volcano', key: 'u', name: 'Volcano',   hint: 'Click: lava wells up from the bottom of the page and erupts', color: '#ff6b3d' },
   ];
   const ICONS = {
     grab:  '<path d="M8 13V5.5a1.5 1.5 0 0 1 3 0V11m0-1.5V4a1.5 1.5 0 0 1 3 0v6m0-4.5a1.5 1.5 0 0 1 3 0V12m0-3.5a1.5 1.5 0 0 1 3 0V15a6 6 0 0 1-6 6h-1.5a6 6 0 0 1-4.9-2.5L5 15.5a1.6 1.6 0 0 1 2.6-1.9L8 14"/>',
@@ -34,6 +39,10 @@
     hole:  '<circle cx="12" cy="12" r="3.2"/><path d="M12 3a9 9 0 0 1 9 9M21 12a9 9 0 0 1-9 9M12 21a9 9 0 0 1-9-9M3 12a9 9 0 0 1 9-9" opacity=".55"/><path d="M12 6.5a5.5 5.5 0 0 1 5.5 5.5M6.5 12A5.5 5.5 0 0 0 12 17.5"/>',
     zerog: '<circle cx="12" cy="12" r="4"/><ellipse cx="12" cy="12" rx="10" ry="3.6" transform="rotate(-20 12 12)"/>',
     quake: '<path d="M3 21h18M5 21V9l4-3 4 3v12M13 21V12l3-2 3 2v9"/><path d="M8 11l1.5 2-1 2 1 2M16 14l-1 1.5 1 1.5"/>',
+    bomb:  '<circle cx="11" cy="14" r="7"/><path d="M15.5 8.5 17 7"/><path d="M17 7c1-1 2.5-1 3.2-2.2M19 3v1.2M21.5 5.5h-1.2"/>',
+    vac:   '<path d="M4 20h6l2-5"/><path d="M12 15 18 4"/><path d="M16.5 3.2 20 5.2"/><path d="M3 20.5c0-1.4 1-2.5 2.5-2.5"/><circle cx="8" cy="20" r="1.2"/>',
+    fan:   '<circle cx="12" cy="12" r="1.6"/><path d="M12 10.4C12 6 14 3.5 16.5 4.5c2 .8 1 4-4.5 5.9"/><path d="M13.4 12.8c3.8 2.2 5 5.2 3 6.8-1.7 1.3-4.2-1-3.5-6.7"/><path d="M10.6 12.8c-3.8 2.2-7 1.7-7.3-.9-.3-2.1 3-2.9 7.3.9"/>',
+    volcano: '<path d="M2 21h20L15 10h-6z"/><path d="M9 10l1.5 2.5L12 10.5l1.5 2L15 10"/><path d="M12 7c-.5-1.5.5-3 2-3.5M10 6.5C9 5 9.5 3 11 2"/>',
     sound: '<path d="M4 9h4l5-4v14l-5-4H4z"/><path d="M16.5 8.5a5 5 0 0 1 0 7M19 6a8.5 8.5 0 0 1 0 12"/>',
     mute:  '<path d="M4 9h4l5-4v14l-5-4H4z"/><path d="M17 9l5 6M22 9l-5 6"/>',
     reset: '<path d="M4 12a8 8 0 1 0 2.4-5.7L4 8.7"/><path d="M4 4v4.7h4.7"/>',
@@ -412,6 +421,7 @@
       if (c.loose) continue; const q = c.q, d = Math.hypot(clamp(x, q.l, q.r) - x, clamp(y, q.t, q.b) - y);
       if (d < R * 0.3 && (q.r - q.l) * (q.b - q.t) < W * Hh * 0.2) { const cx = (q.l + q.r) / 2, cy = (q.t + q.b) / 2, dd = Math.max(10, Math.hypot(cx - x, cy - y)); loosen(c, (cx - x) / dd * 9, (cy - y) / dd * 9 - 6, rand(-0.06, 0.06)); }
     }
+    for (const b of bombs) if (!b.gone && Math.hypot(b.body.position.x - x, b.body.position.y - y) < 150) b.fuse = Math.min(b.fuse, b.t + rand(0.1, 0.22));
     shake = Math.max(shake, 18);
     rings.push({ x, y, r: 10, max: 260, life: 1, color: '255,170,90', w: 10 });
     rings.push({ x, y, r: 4, max: 140, life: 1, color: '255,255,255', w: 3 });
@@ -678,6 +688,113 @@
     if (stage && o.el.parentNode !== stage) stage.appendChild(o.el);
     if (fxw && fxw.unstamp) fxw.unstamp({ left: o.home[0], top: o.home[1], right: o.home[0] + o.w, bottom: o.home[1] + o.h });
   }
+  /* ------------------------------------------------------------------ bombs, vacuum, fan, volcano (2026-11-20) */
+  // Bombs: a round bomb drops where you click, its fuse fizzing; it flashes faster and faster and goes off about 2.6 s
+  // later with a full blast. Click one with the Bomb tool to pick it up and throw it. A blast nearby sets it off early.
+  let bombs = [], vents = [], fanAt = null, bombHeld = false, vacT = 0, fanT = 0;
+  const BOMB_R = 11;
+  function dropBomb(x, y) {
+    const body = Bodies.circle(x, y, BOMB_R, { restitution: 0.35, friction: 0.5, frictionAir: 0.004, density: 0.004 });
+    Composite.add(engine.world, body);
+    bombs.push({ body, t: 0, fuse: 2.6 + rand(-0.15, 0.15) });
+    sfx.click();
+  }
+  function bombAt(x, y) { return bombs.find(b => Math.hypot(b.body.position.x - x, b.body.position.y - y) < BOMB_R + 6); }
+  function bombsStep(dt) {
+    for (const b of bombs) {
+      b.t += dt; const p = b.body.position;
+      // the fuse: a fizz of sparks from its tip
+      const a = b.body.angle - Math.PI / 2 + 0.6, tx = p.x + Math.cos(a) * (BOMB_R + 5), ty = p.y + Math.sin(a) * (BOMB_R + 5);
+      b.tip = [tx, ty];
+      if (Math.random() < 0.7) particles.push({ x: tx, y: ty, vx: rand(-1.2, 1.2), vy: rand(-2, 0.2), life: rand(0.15, 0.35), size: rand(0.8, 1.6), color: Math.random() < 0.5 ? '255,220,140' : '255,160,60', g: 0.05, glow: true });
+      if (b.t >= b.fuse) { b.gone = true; Composite.remove(engine.world, b.body); blast(p.x, p.y); }
+    }
+    if (bombs.some(b => b.gone)) bombs = bombs.filter(b => !b.gone);
+  }
+  function drawBombs(c, now) {
+    for (const b of bombs) {
+      const p = b.body.position, k = Math.min(1, b.t / b.fuse);
+      // flashing: slow at first, faster and faster near the end
+      const rate = 2 + 14 * k * k, lit = Math.sin(b.t * rate * Math.PI * 2) > 0.2 && k > 0.25, swell = 1 + (k > 0.85 ? (k - 0.85) * 0.8 : 0);
+      c.save(); c.translate(p.x, p.y); c.rotate(b.body.angle); c.scale(swell, swell);
+      const g = c.createRadialGradient(-4, -4, 1, 0, 0, BOMB_R);
+      g.addColorStop(0, lit ? '#fff1d6' : '#5d6a86'); g.addColorStop(0.35, lit ? '#ffb070' : '#2f3850'); g.addColorStop(1, lit ? '#d0603a' : '#161b28');
+      c.fillStyle = g; c.beginPath(); c.arc(0, 0, BOMB_R, 0, Math.PI * 2); c.fill();
+      c.fillStyle = '#8b93a7'; c.fillRect(-3.5, -BOMB_R - 3, 7, 4);   // the cap
+      c.strokeStyle = '#c9a36a'; c.lineWidth = 1.6; c.beginPath(); c.moveTo(0, -BOMB_R - 3); c.quadraticCurveTo(3, -BOMB_R - 8, 6, -BOMB_R - 6); c.stroke();
+      c.restore();
+    }
+  }
+  // Vacuum: while held, everything near the nozzle is pulled in: words (gone once they reach it), and every loose bit
+  // of Elements matter.
+  function vacStep(dt) {
+    if (tool !== 'vac' || !pointer.down || !pointer.inside) return;
+    const x = pointer.x, y = pointer.y, R = 150;
+    for (const o of [...letters, ...images]) {
+      if (!o.alive || o.drip || o.melt || !o.body) continue;
+      const p = o.body.position, dx = x - p.x, dy = y - p.y, d = Math.hypot(dx, dy) || 1;
+      if (d > R) continue;
+      if (o.body.isStatic) { if (d > R * 0.55 || o.kind === 'I') continue; release(o, 0, 0, 0); }
+      const f = (o.kind === 'I' ? 0.00025 : 0.00012) * o.body.mass * clamp(200 / (d + 10), 0.5, 8);
+      Body.applyForce(o.body, p, { x: dx / d * f, y: dy / d * f });
+      if (d < (o.kind === 'W' ? 22 : 14) && o.kind !== 'I') { sfx.pop(); spaghettify(o, { x, y }); }
+    }
+    for (const b of bombs) { const p = b.body.position, dx = x - p.x, dy = y - p.y, d = Math.hypot(dx, dy) || 1; if (d < R) Body.applyForce(b.body, p, { x: dx / d * 0.00006 * b.body.mass * 40, y: dy / d * 0.00006 * b.body.mass * 40 }); }
+    vacT += dt;
+    if (vacT > 0.09) { vacT = 0; if (fxw && fxw.sink) fxw.sink(x, y, 90, 0.12, true); }
+    if (Math.random() < 0.8) { const a = rand(0, Math.PI * 2), r0 = rand(40, 110); particles.push({ x: x + Math.cos(a) * r0, y: y + Math.sin(a) * r0, vx: -Math.cos(a) * r0 / 9, vy: -Math.sin(a) * r0 / 9, life: 0.18, size: rand(0.8, 1.4), color: '200,230,255', g: 0 }); }
+  }
+  // Fan: press where it sits, drag to aim; while held it blows a cone of air: words lift off and fly, flames, smoke,
+  // snow, sand and water are pushed along.
+  function fanStep(dt) {
+    if (tool !== 'fan' || !pointer.down || !fanAt) return;
+    let dx = pointer.x - fanAt.x, dy = pointer.y - fanAt.y, d = Math.hypot(dx, dy);
+    if (d < 12) { dx = fanAt.dx; dy = fanAt.dy; } else { dx /= d; dy /= d; fanAt.dx = dx; fanAt.dy = dy; }
+    const L = 320, Wd = 80;
+    for (const o of [...letters, ...images, ...bombs.map(b => ({ body: b.body, alive: true, kind: 'B' }))]) {
+      if (!o.alive || o.drip || o.melt || !o.body) continue;
+      const p = o.body.position, rx = p.x - fanAt.x, ry = p.y - fanAt.y, along = rx * dx + ry * dy; if (along < 0 || along > L) continue;
+      if (Math.abs(-rx * dy + ry * dx) > Wd * (0.35 + along / L)) continue;
+      const k = 1 - along / L * 0.75;
+      if (o.body.isStatic) { if (o.kind === 'I' || along > L * 0.6 || Math.random() > 0.08 * k) continue; release(o, dx * 2, dy * 2 - 1, rand(-0.1, 0.1)); }
+      const f = (o.kind === 'I' ? 0.00012 : 0.0005) * o.body.mass * k;
+      Body.applyForce(o.body, p, { x: dx * f, y: dy * f - (o.kind === 'B' ? 0 : 0.00008 * o.body.mass) });
+    }
+    fanT += dt;
+    if (fanT > 0.08) { fanT = 0; if (fxw && fxw.gust) fxw.gust(fanAt.x, fanAt.y, dx, dy, L, Wd, 0.1); }
+    if (Math.random() < 0.9) { const s = rand(-1, 1) * 18; particles.push({ x: fanAt.x - dy * s, y: fanAt.y + dx * s, vx: dx * rand(9, 14), vy: dy * rand(9, 14), life: 0.32, size: rand(0.6, 1.1), color: '220,245,255', g: 0 }); }
+  }
+  function drawFan(c, now) {
+    if (tool !== 'fan' || !fanAt || !pointer.down) return;
+    const a = Math.atan2(fanAt.dy, fanAt.dx);
+    c.save(); c.translate(fanAt.x, fanAt.y); c.rotate(a);
+    c.fillStyle = 'rgba(40,52,64,.85)'; c.beginPath(); c.roundRect(-16, -18, 10, 36, 4); c.fill();
+    c.rotate(now / 40);
+    c.fillStyle = 'rgba(184,242,230,.85)';
+    for (let i = 0; i < 3; i++) { c.rotate(Math.PI * 2 / 3); c.beginPath(); c.ellipse(-2, 7, 4, 9, 0.4, 0, Math.PI * 2); c.fill(); }
+    c.restore();
+  }
+  // Volcano: a vent at the bottom of the page under where you click. Lava wells up for about 14 s, with eruptions that
+  // throw glowing lava bombs which land as lava; the ground rumbles. Lava meeting water hisses into steam and stone.
+  function openVent(x) {
+    vents.push({ x, t: 0, life: 14, next: 0.6 });
+    shake = Math.max(shake, 10); sfx.quake();
+  }
+  function ventsStep(dt) {
+    for (const v of vents) {
+      v.t += dt; v.next -= dt;
+      if (fxw && Math.random() < 0.5) fxw.spawn(v.x + rand(-10, 10), Hh - 3, fxw.M.LAVA, 3, 0.8);
+      if (Math.random() < 0.3) particles.push({ x: v.x + rand(-14, 14), y: Hh - 6, vx: rand(-0.4, 0.4), vy: rand(-1.5, -0.6), life: rand(1.4, 2.6), size: rand(18, 36), color: '90,80,78', g: -0.01, smoke: true });
+      if (v.next <= 0 && v.t < v.life - 1) {
+        v.next = rand(0.7, 1.6); shake = Math.max(shake, 7);
+        const n = 8 + (Math.random() * 10) | 0;
+        for (let i = 0; i < n; i++) particles.push({ x: v.x + rand(-6, 6), y: Hh - 8, vx: rand(-4, 4), vy: rand(-17, -9), life: rand(1.2, 2.2), size: rand(2.5, 4.5), color: Math.random() < 0.5 ? '255,140,40' : '255,90,30', g: 0.32, glow: true, lava: true });
+        // what's right above the vent gets thrown up
+        for (const o of bodiesNear(v.x, Hh - 60, 120)) { if (o.stamped && o.pinned) continue; release(o, rand(-3, 3), rand(-14, -7), rand(-0.3, 0.3)); }
+      }
+    }
+    if (vents.some(v => v.t >= v.life)) vents = vents.filter(v => v.t < v.life);
+  }
   function kill(o) {
     if (!o.alive) return; o.alive = false;
     if (o.body) Composite.remove(engine.world, o.body);
@@ -706,6 +823,7 @@
       }
     }
     holes = holes.filter(h => h.t < h.life);
+    bombsStep(dt); vacStep(dt); fanStep(dt); ventsStep(dt);
     // rain
     if (raining) {
       rainAcc += dt * 70;
@@ -832,6 +950,7 @@
       c.strokeStyle = `rgba(255,220,180,${0.8 * fade})`; c.lineWidth = 1.5; c.beginPath(); c.arc(h.x, h.y, core + 1.5, 0, Math.PI * 2); c.stroke();
       if (h.r < h.max) { c.strokeStyle = `rgba(178,140,255,${0.25 * (1 - h.r / h.max)})`; c.lineWidth = 1; c.beginPath(); c.arc(h.x, h.y, h.r, 0, Math.PI * 2); c.stroke(); }
     }
+    drawBombs(c, performance.now()); drawFan(c, performance.now());
     // shockwave rings
     for (const r of rings) { r.r += (r.max - r.r) * 0.16; r.life -= dt * 2.2; c.strokeStyle = `rgba(${r.color},${Math.max(0, r.life)})`; c.lineWidth = r.w * Math.max(0, r.life); c.beginPath(); c.arc(r.x, r.y, r.r, 0, Math.PI * 2); c.stroke(); }
     rings = rings.filter(r => r.life > 0);
@@ -841,6 +960,7 @@
     // particles
     for (const p of particles) {
       p.vx *= 0.985; p.vy = p.vy * 0.985 + p.g; p.x += p.vx; p.y += p.vy; p.life -= dt;
+      if (p.lava && (p.life <= 0 || (p.vy > 0 && p.y > Hh - 4))) { p.life = 0; if (fxw) fxw.spawn(p.x, Math.min(Hh - 3, p.y), fxw.M.LAVA, 2, 0.9); continue; }
       const a = Math.max(0, Math.min(1, p.life));
       if (p.smoke) { const s = p.size * (2 - a); c.globalAlpha = 0.35 * a; c.drawImage(sprite('smoke', p.color), p.x - s, p.y - s, s * 2, s * 2); c.globalAlpha = 1; continue; }
       if (p.glow) { const s = p.size * 3.2; c.globalCompositeOperation = 'lighter'; c.globalAlpha = a; c.drawImage(sprite('glow', p.color), p.x - s, p.y - s, s * 2, s * 2); c.globalAlpha = 1; c.globalCompositeOperation = 'source-over'; continue; }
@@ -870,7 +990,7 @@
     pointer.x = e.clientX; pointer.y = e.clientY; pointer.inside = true;
     if (touches.size === 2) { clearTimeout(lp && lp.timer); lp = null; const [a, b] = [...touches.values()]; swipe = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }; return; }
     if (touches.size > 2) return;
-    if (tool === 'melt' || tool === 'fire' || tool === 'acid') { pointer.down = true; act(e.clientX, e.clientY); return; }
+    if (tool === 'melt' || tool === 'fire' || tool === 'acid' || tool === 'vac' || tool === 'fan') { pointer.down = true; act(e.clientX, e.clientY); return; }
     lp = { id: e.pointerId, x: e.clientX, y: e.clientY, grabbed: false, timer: setTimeout(() => {
       if (!lp) return; lp.grabbed = true;
       for (const b of Query.point(Composite.allBodies(engine.world), { x: lp.x, y: lp.y })) { const o = bodyMap.get(b.id); if (o && o.alive && b.isStatic) release(o); }
@@ -917,6 +1037,9 @@
     else if (tool === 'rain') setRain(!raining);
     else if (tool === 'quake') collapse();
     else if (tool === 'zerog') toggleZeroG();
+    else if (tool === 'bomb') { if (bombAt(x, y)) { bombHeld = true; mcon.collisionFilter.mask = 0xFFFFFFFF; } else dropBomb(x, y); }
+    else if (tool === 'fan') fanAt = { x, y, dx: fanAt ? fanAt.dx : 0, dy: fanAt ? fanAt.dy : -1 };
+    else if (tool === 'volcano') openVent(x);
   }
   function onMove(e) { pointer.x = e.clientX; pointer.y = e.clientY; pointer.inside = true; if (tool === 'melt' && pointer.down && Math.random() < 0.25) melt(pointer.x, pointer.y);
     if (tool === 'fire' && pointer.down && Math.random() < 0.35) ignite(pointer.x, pointer.y);
@@ -1031,7 +1154,7 @@
     bare = !!opts.bare;
     H.active = true; W = innerWidth; Hh = innerHeight; DPR = Math.min(2, devicePixelRatio || 1);
     calmMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
-    letters = []; images = []; bodyMap = new Map(); restore = []; particles = []; rings = []; holes = []; drops = []; shake = 0; raining = false; zeroG = false; tool = 'blast';
+    letters = []; images = []; bodyMap = new Map(); restore = []; particles = []; rings = []; holes = []; drops = []; shake = 0; raining = false; bombs = []; vents = []; fanAt = null; bombHeld = false; zeroG = false; tool = 'blast';
     host = document.createElement('div'); host.id = 'havoc-host';
     host.style.cssText = 'position:fixed!important;inset:0!important;z-index:2147483647!important;pointer-events:none!important;display:block!important;margin:0!important;padding:0!important;border:0!important;background:none!important;transform:none!important;filter:none!important';
     root = host.attachShadow({ mode: 'open' });
@@ -1092,7 +1215,7 @@
 
     hit.addEventListener('pointerdown', onDown);
     hit.addEventListener('pointermove', e => e.pointerType === 'touch' ? touchMove(e) : onMove(e));
-    hit.addEventListener('pointerup', e => { if (e.pointerType === 'touch') touchUp(e); else pointer.down = false; });
+    hit.addEventListener('pointerup', e => { if (e.pointerType === 'touch') touchUp(e); else pointer.down = false; if (bombHeld) { bombHeld = false; setTimeout(() => { if (mcon) mcon.collisionFilter.mask = tool === 'grab' ? 0xFFFFFFFF : 0; }, 30); } });
     hit.addEventListener('pointercancel', e => { if (e.pointerType === 'touch') touchUp(e); });
     hit.addEventListener('pointerleave', e => { if (e.pointerType !== 'touch') { pointer.inside = false; pointer.down = false; } });
     hit.addEventListener('contextmenu', e => e.preventDefault());
@@ -1115,7 +1238,7 @@
   function rewind(then) {
     if (!H.active || H.rewinding) return;
     if (matchMedia('(prefers-reduced-motion: reduce)').matches) { stop(); if (then) then(); return; }
-    H.rewinding = true; cancelAnimationFrame(raf); raining = false; holes = []; drops = [];
+    H.rewinding = true; cancelAnimationFrame(raf); raining = false; holes = []; drops = []; bombs = []; vents = []; fanAt = null;
     if (hud) hud.style.display = 'none'; if (tipEl) tipEl.remove(); hit.style.pointerEvents = 'none';
     tellFx('stop', 0, 0);
     let longest = 0;
@@ -1167,6 +1290,7 @@
   }
   H.start = start; H.stop = stop;
   H.blast = (x, y) => { if (H.active) blast(x, y); };
+  H.tools = () => ({ bombs: bombs.length, vents: vents.length, words: letters.filter(o => o.alive).length });   // tests
   H.melt = (x, y) => { if (H.active) melt(x, y); };
   // a smaller knock than a blast: the words nearby fly off, no boom
   H.knock = (x, y, r = 90, pow = 12) => {

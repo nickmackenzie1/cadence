@@ -587,3 +587,15 @@ checking the code.
   2. Your artists on tour: match artists from your listening (Radar, KEXP history) against Triple C shows; flag ones
      playing in Canada, especially nearby.
   3. Triple C as a radio station, with now playing and the last ten songs.
+
+### Havoc (Physics mode): bombs, vacuum, fan, volcano (built 2026-11-20, moved onto the two-mode Havoc 2026-11-24)
+- User: "bombs you can place and they explode a couple seconds later, vacuum you drag around, fan, volcano".
+  - Bomb (B): drops where you click, fuse fizzing; flashes faster and faster and goes off about 2.6 s later as a full
+    blast. Click one with the Bomb tool to pick it up and throw it. A blast within 150px sets other bombs off early.
+  - Vacuum (V): hold and drag. Words near the nozzle are pulled in and swallowed; still words come loose when it's
+    close; Elements matter is sucked in through a small instant sink (`w.sink(x, y, r, secs, true)`).
+  - Fan (F): press where it sits, drag to aim, hold to blow. Words in the cone lift off and fly; loose matter, flames,
+    smoke, snow and sparks are pushed along (`w.gust`, a cone in elements-core `gustStep`).
+  - Volcano (U): a vent at the bottom of the page under the click. Lava wells up for about 14 s with eruptions that
+    throw glowing lava bombs, which land as lava, and toss what's above the vent.
+  - `__havoc.tools()` gives { bombs, vents, words } for tests. Test: the tools test in `tests/havoc-fight.spec.mjs`.
