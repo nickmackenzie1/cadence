@@ -614,3 +614,14 @@ checking the code.
   - Full screen: `html.havoc-open` hides Cadence's tab bar while either mode is open.
 - User: "Remove the Christmas lights from havok": Havoc's Elements mode no longer hangs string lights; its Lights and
   "where snow settles" buttons (and the L key) are gone, and snow settles everywhere. Lights outside Havoc are untouched.
+- Idea (user, 2026-11-24): a Notion theme. Backlog.
+
+### Tilt to pour (a setting), the Physics phone toolbar, the Wizard fight on phones (2026-11-24)
+- Tilt to pour, user: "it needs to be a setting you can turn off and on and not on by default".
+  - `window.CadenceTilt` (plugins/havoc.js): a Tilt button in both modes' toolbars on phones, remembered per device
+    (`cadence.havoc.tilt`, off by default). iOS asks for motion access the first time; if it's turned down a message says so.
+  - Left-right tilt -1 … 1 (follows screen rotation). Elements: `opts.tilt` leans which way sand and water go, sand
+    slides on a steep tilt, water on top climbs toward the low side so the surface leans; levelling pauses while tilted.
+    Physics: gravity leans (`engine.gravity.x`) so loose words slide, and the matter layer leans too (`w.tilt`).
+- Physics mode on phones gets the same tuck-away toolbar as Elements (current tool, last three, More, Exit; named buttons).
+- Wizard fight on phones: the boss bar across the top, "Tap to cast a fireball" and Stop under it, tab bar hidden.

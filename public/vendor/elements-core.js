@@ -96,15 +96,25 @@ function ENGINE(env) {
     if (t === E || ((fluid[t] || gas[t]) && dens[t] < dens[m] && R() < 0.7)) { swap(i, j); return true; }
     return false;
   }
+  // Tilt to pour (2026-11-24, a setting, off by default): opts.tilt (-1 left … 1 right) leans which way grains and
+  // liquids prefer to go, and a steep tilt lets them slide sideways on their own, so the low side fills up.
+  const leanDir = () => { const t = opts.tilt || 0; return R() < 0.5 + t * 0.45 ? 1 : -1; };
   function powder(i, x, y, m) {
     if (fall(i, m, x, y + 1)) return;
-    const d = R() < 0.5 ? -1 : 1;
+    const d = leanDir();
     if (fall(i, m, x + d, y + 1)) return;
-    fall(i, m, x - d, y + 1);
+    if (fall(i, m, x - d, y + 1)) return;
+    const t = opts.tilt || 0; if (Math.abs(t) > 0.35 && R() < Math.abs(t) - 0.3) fall(i, m, x + (t > 0 ? 1 : -1), y);
   }
   function liquid(i, x, y, m, spread) {
     if (fall(i, m, x, y + 1)) return;
-    const d = R() < 0.5 ? -1 : 1;
+    // tilted: water on top climbs toward the low side, so the surface leans and the pool piles up there
+    const tl = opts.tilt || 0;
+    if (Math.abs(tl) > 0.15 && y > 0 && grid[i - W] === E && R() < (Math.abs(tl) - 0.1) * 0.6) {
+      const sx = x + (tl > 0 ? 1 : -1);
+      if (sx >= 0 && sx < W && grid[y * W + sx] !== E && fall(i, m, sx, y - 1)) return;
+    }
+    const d = leanDir();
     if (fall(i, m, x + d, y + 1)) return;
     if (fall(i, m, x - d, y + 1)) return;
     let ci = i, cx = x;
@@ -311,6 +321,7 @@ function ENGINE(env) {
   let lvSeen = null, lvGen = 0, lvQ = null, lvMoves = 0, lvSteps = 0, lvMiss = 0;
   function levelStep() {
     lvSteps++;
+    if (Math.abs(opts.tilt || 0) > 0.1) return;   // tilted on purpose: let it lean
     // calm water (searches keep finding nothing): look only every 8th step until something moves again
     if (lvMiss > 6 && (lvSteps & 7)) return;
     if (!lvSeen || lvSeen.length !== N) { lvSeen = new Uint32Array(N); lvQ = new Int32Array(2048); lvGen = 0; }

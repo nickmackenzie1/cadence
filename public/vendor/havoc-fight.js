@@ -807,7 +807,15 @@
       font:900 16px/1 "Comic Sans MS","Comic Neue","Chalkboard SE",ui-rounded,system-ui,sans-serif;text-transform:uppercase;letter-spacing:.02em;margin-top:-10px}
     .hf-say::after{content:"";position:absolute;left:calc(50% - 8px);bottom:-13px;border:8px solid transparent;border-top:10px solid #111;border-bottom:0}
     .hf-say::before{content:"";position:absolute;left:calc(50% - 5px);bottom:-8px;border:5px solid transparent;border-top:7px solid #fff;border-bottom:0;z-index:1}
-    .hf-say.wiz{background:#f3f0ff}.hf-say.wiz::before{border-top-color:#f3f0ff}`;
+    .hf-say.wiz{background:#f3f0ff}.hf-say.wiz::before{border-top-color:#f3f0ff}
+    /* phones (2026-11-24, user: "kinda messed on phone"): the boss bar across the top, the hint and Stop under it */
+    @media (max-width:700px){
+      .hf-boss{left:10px;right:10px;top:calc(10px + env(safe-area-inset-top));transform:none;min-width:0;padding:6px 8px 7px;font-size:12px}
+      .hf-top{left:10px;right:10px;top:calc(62px + env(safe-area-inset-top));justify-content:space-between}
+      .hf-tip{font-size:10px;padding:5px 7px}
+      .hf-stop{padding:6px 14px}
+      .hf-banner{font-size:17px;white-space:nowrap}
+    }`;
   function size() {
     if (!S) return; const k = S.dpr = Math.min(2, devicePixelRatio || 1);
     S.PX = innerWidth < 700 ? 2 : 3; S.lw = Math.ceil(innerWidth / S.PX); S.lh = Math.ceil(innerHeight / S.PX);
@@ -828,12 +836,13 @@
       const cv = document.createElement('canvas'); cv.className = 'hf-canvas';
       cv.style.cssText = 'position:fixed;inset:0;width:100vw;height:100vh;z-index:2147483647;cursor:crosshair;touch-action:none;image-rendering:pixelated';
       const ui = document.createElement('div'); ui.className = 'hf-ui';
-      ui.innerHTML = `<style>${CSS}.isl,#island{visibility:hidden!important}</style><div class="hf-top"><span class="hf-tip">Click to aim · 1-6 spells · arrows move · Esc stops</span><button class="hf-stop">Stop</button></div>
+      ui.innerHTML = `<style>${CSS}.isl,#island{visibility:hidden!important}</style><div class="hf-top"><span class="hf-tip">${matchMedia('(hover: none) and (pointer: coarse)').matches ? 'Tap to cast a fireball' : 'Click to aim · 1-6 spells · arrows move · Esc stops'}</span><button class="hf-stop">Stop</button></div>
         <div class="hf-boss"><span class="hf-name"></span><div class="hf-bar"><i></i></div></div><div class="hf-banner"></div>`;
       const ac = document.createElement('canvas'), fxc = document.createElement('canvas');
       S = { cv, ui, ac, fxc, cx: cv.getContext('2d'), ax: ac.getContext('2d', { willReadFrequently: true }), fxx: fxc.getContext('2d'), shots: [], parts: [], jelly: [], bones: [], claws: [], beams: [], bubbles: [], rings: [], zs: [],
         round: 1, beaten: 0, hits: 0, shake: 0, fx, hud: ui.querySelector('.hf-boss'), hudName: ui.querySelector('.hf-name'), hudBar: ui.querySelector('.hf-bar i'), bannerEl: ui.querySelector('.hf-banner') };
       (document.fullscreenElement || document.documentElement).append(cv, ui); size();
+      document.documentElement.classList.add('havoc-open');   // full screen: Cadence's tab bar steps aside
       S.wiz = newWizard(); S.boss = newBoss('dragon'); banner('Round 1: Dragon');
       S.onDown = e => { if (!S) return; e.preventDefault(); const w = S.wiz; if (w.hurt > 0.3 || w.held || w.flying) return; if (S.lastClick && performance.now() - S.lastClick < 200) return; S.lastClick = performance.now(); cast('fireball', e.clientX, e.clientY); w.cd = Math.max(w.cd, 0.6); };
       S.onKey = e => {
@@ -858,7 +867,7 @@
     if (!S) return;
     cancelAnimationFrame(S.raf);
     removeEventListener('keydown', S.onKey, true); removeEventListener('keyup', S.onUp, true); removeEventListener('resize', S.onSize);
-    S.cv.remove(); S.ui.remove();
+    S.cv.remove(); S.ui.remove(); document.documentElement.classList.remove('havoc-open');
     const fx = S.fx; S = null;
     // the page back: physics puts every word where it was; the Elements layer drops what the fight left
     try { const h = window.__havoc; if (h && h.active) (h.rewind || h.stop)(); } catch {}   // the words fly home

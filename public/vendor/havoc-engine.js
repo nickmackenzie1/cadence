@@ -43,6 +43,8 @@
     vac:   '<path d="M4 20h6l2-5"/><path d="M12 15 18 4"/><path d="M16.5 3.2 20 5.2"/><path d="M3 20.5c0-1.4 1-2.5 2.5-2.5"/><circle cx="8" cy="20" r="1.2"/>',
     fan:   '<circle cx="12" cy="12" r="1.6"/><path d="M12 10.4C12 6 14 3.5 16.5 4.5c2 .8 1 4-4.5 5.9"/><path d="M13.4 12.8c3.8 2.2 5 5.2 3 6.8-1.7 1.3-4.2-1-3.5-6.7"/><path d="M10.6 12.8c-3.8 2.2-7 1.7-7.3-.9-.3-2.1 3-2.9 7.3.9"/>',
     volcano: '<path d="M2 21h20L15 10h-6z"/><path d="M9 10l1.5 2.5L12 10.5l1.5 2L15 10"/><path d="M12 7c-.5-1.5.5-3 2-3.5M10 6.5C9 5 9.5 3 11 2"/>',
+    more:  '<path d="m6 15 6-6 6 6"/>',
+    tilt:  '<rect x="7" y="3" width="10" height="18" rx="2" transform="rotate(-18 12 12)"/><path d="M3 20c2 1 5 1.5 8 1.5"/>',
     sound: '<path d="M4 9h4l5-4v14l-5-4H4z"/><path d="M16.5 8.5a5 5 0 0 1 0 7M19 6a8.5 8.5 0 0 1 0 12"/>',
     mute:  '<path d="M4 9h4l5-4v14l-5-4H4z"/><path d="M17 9l5 6M22 9l-5 6"/>',
     reset: '<path d="M4 12a8 8 0 1 0 2.4-5.7L4 8.7"/><path d="M4 4v4.7h4.7"/>',
@@ -1068,8 +1070,15 @@
     else if (id === 'quake') { collapse(); return; }
     else tool = id;
     mcon.collisionFilter.mask = tool === 'grab' ? 0xFFFFFFFF : 0;
+    if (TOOLS.some(t => t.id === id)) recent = [id, ...recent.filter(t => t !== id)].slice(0, 4);
+    if (PHONE && hud) hud.classList.remove('open');
     sfx.click(); syncHud();
   }
+  // Phones (2026-11-24, same as Elements mode): a slim bar with the current tool, the last three used, More and Exit;
+  // swipe up (or More) for everything, each button named; picking a tool tucks it away. Computers are unchanged.
+  const PHONE = matchMedia('(hover: none) and (pointer: coarse)').matches;
+  let recent = [], unTilt = null;
+  const NAMES = { sound: 'Sound', reset: 'Rebuild', close: 'Exit', fight: 'Wizard', more: 'More', tilt: 'Tilt' };
 
   /* ------------------------------------------------------------------ HUD */
   const CSS = `
@@ -1107,18 +1116,47 @@
   .tip{position:fixed;bottom:84px;left:50%;transform:translateX(-50%);padding:8px 12px;border-radius:10px;background:rgba(12,12,18,.92);border:1px solid rgba(255,255,255,.1);color:#fff;font:500 12px/1.3 ui-sans-serif,system-ui,sans-serif;white-space:nowrap;pointer-events:none;opacity:0;transition:opacity .15s, transform .15s;box-shadow:0 10px 30px rgba(0,0,0,.4)}
   .tip b{color:var(--c)}
   .tip.show{opacity:1}
+  .nm{display:none}
+  .full{display:contents}
+  @keyframes riseP{from{transform:translateY(40px);opacity:0}}
+  .hud.phone{left:8px;right:8px;bottom:calc(8px + env(safe-area-inset-bottom));transform:none;width:auto;max-width:none;overflow:visible;flex-direction:column;flex-wrap:nowrap;align-items:stretch;justify-content:flex-start;gap:0;padding:6px 8px 8px;border-radius:22px;animation:riseP .45s cubic-bezier(.2,1.2,.3,1)}
+  .hud.phone .grab{width:38px;height:4px;border-radius:2px;background:rgba(255,255,255,.28);align-self:center;margin:0 0 6px}
+  .hud.phone .mini{display:flex;align-items:center;gap:4px}
+  .hud.phone .mini .gap{flex:1}
+  .hud.phone .full{display:none}
+  .hud.phone.open .full{display:flex;flex-wrap:wrap;align-items:center;justify-content:flex-start;gap:4px;max-height:58vh;overflow:auto;margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,.08)}
+  .hud.phone.open .mini [data-id=more] svg{transform:rotate(180deg)}
+  .hud.phone button{width:56px;height:52px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;border-radius:13px}
+  .hud.phone button svg{width:21px;height:21px}
+  .hud.phone .k{display:none}
+  .hud.phone .nm{display:block;font:600 9.5px/1 ui-sans-serif,system-ui,-apple-system,sans-serif;max-width:54px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;letter-spacing:0}
+  .hud.phone .brand,.hud.phone .sep{display:none}
+  .hud.phone .modes{width:100%;margin-bottom:4px}
+  .hud.phone .modes button{flex:1;width:auto;height:36px;flex-direction:row}
+  .hud.phone ~ .tip{display:none}
+  .hud.phone .full [data-id=close]{display:none}
   .intro{position:fixed;left:0;right:0;top:0;height:3px;background:linear-gradient(90deg,transparent,#ff3b3b,#ffb35c,transparent);box-shadow:0 0 30px 6px rgba(255,80,60,.6);pointer-events:none;animation:scan 1s cubic-bezier(.5,0,.2,1) forwards}
   @keyframes scan{to{transform:translateY(100vh);opacity:.2}}
   .stamp{position:fixed;left:50%;top:44%;transform:translate(-50%,-50%) scale(.6);font:900 54px/1 ui-sans-serif,system-ui,sans-serif;letter-spacing:.3em;color:#fff;text-shadow:0 0 30px rgba(255,60,60,.9),0 0 2px #fff;pointer-events:none;opacity:0;animation:stamp 1.2s ease forwards}
   @keyframes stamp{15%{opacity:1;transform:translate(-50%,-50%) scale(1.04)}30%{transform:translate(-50%,-50%) scale(1)}75%{opacity:1}100%{opacity:0;transform:translate(-50%,-50%) scale(1.15);filter:blur(6px)}}
   `;
+  const hbtn = (id, title, color, key) => { const t = TOOLS.find(x => x.id === id); return `<button data-id="${id}" style="--c:${color || '#fff'}" aria-label="${title}">${'<svg viewBox="0 0 24 24">' + ICONS[id] + '</svg>'}${key ? `<span class="k">${key}</span>` : ''}<span class="nm">${t ? t.name : NAMES[id] || title}</span></button>`; };
   function buildHud() {
+    const btn = hbtn;
     hud = document.createElement('div'); hud.className = 'hud';
-    const btn = (id, title, color, key) => `<button data-id="${id}" style="--c:${color || '#fff'}" aria-label="${title}">${'<svg viewBox="0 0 24 24">' + ICONS[id] + '</svg>'}${key ? `<span class="k">${key}</span>` : ''}</button>`;
-    hud.innerHTML = `<div class="brand"><i></i>HAVOC</div><div class="modes" role="group" aria-label="Mode"><button class="mode on" data-mode="physics" aria-pressed="true">Physics</button><button class="mode" data-mode="elements" aria-pressed="false">Elements</button></div><div class="sep"></div>` + TOOLS.map(t => btn(t.id, t.name, t.color, t.key)).join('') + `<div class="sep"></div>` + btn('fight', 'Wizard vs bosses', '#b197fc') + btn('sound', 'Sound', '#fff') + btn('reset', 'Restore page', '#fff') + btn('close', 'Exit (Esc)', '#fff');
+    if (PHONE) hud.classList.add('phone');
+    hud.innerHTML = (PHONE ? `<div class="grab" aria-hidden="true"></div><div class="mini"></div>` : '') + `<div class="full"><div class="brand"><i></i>HAVOC</div><div class="modes" role="group" aria-label="Mode"><button class="mode on" data-mode="physics" aria-pressed="true">Physics</button><button class="mode" data-mode="elements" aria-pressed="false">Elements</button></div><div class="sep"></div>` + TOOLS.map(t => btn(t.id, t.name, t.color, t.key)).join('') + `<div class="sep"></div>` + btn('fight', 'Wizard vs bosses', '#b197fc') + btn('sound', 'Sound', '#fff') + btn('reset', 'Restore page', '#fff') + btn('close', 'Exit (Esc)', '#fff');
+    if (PHONE) {
+      if (window.CadenceTilt && window.CadenceTilt.supported()) hud.querySelector('.full').insertAdjacentHTML('beforeend', hbtn('tilt', 'Tilt to pour', '#9fd3c7'));
+      let y0 = null;
+      hud.addEventListener('pointerdown', e => { y0 = e.clientY; });
+      hud.addEventListener('pointerup', e => { if (y0 == null) return; const dy = e.clientY - y0; y0 = null; if (dy < -24) hud.classList.add('open'); else if (dy > 24) hud.classList.remove('open'); });
+    }
     tipEl = document.createElement('div'); tipEl.className = 'tip';
     hud.addEventListener('click', e => {
       const b = e.target.closest('button'); if (!b) return; e.stopPropagation();
+      if (b.dataset.id === 'more') { hud.classList.toggle('open'); return; }
+      if (b.dataset.id === 'tilt') { window.CadenceTilt.set(!window.CadenceTilt.wanted()).then(syncHud); return; }
       // switch to the Elements engine (Cadence listens for this and loads it)
       if (b.dataset.mode) { if (b.dataset.mode === 'elements') { stop(); dispatchEvent(new CustomEvent('havoc:mode', { detail: 'elements' })); } return; }
       const id = b.dataset.id;
@@ -1129,7 +1167,7 @@
       else pick(id);
     });
     hud.addEventListener('pointerover', e => {
-      const b = e.target.closest('button'); if (!b || b.dataset.mode) return;
+      const b = e.target.closest('button'); if (!b || b.dataset.mode || PHONE) return;
       const t = TOOLS.find(x => x.id === b.dataset.id);
       const label = t ? `<b>${t.name}</b> · ${t.hint}` : b.dataset.id === 'sound' ? (muted ? 'Sound off · M' : 'Sound on · M') : b.dataset.id === 'reset' ? 'Rebuild the page and start over' : b.dataset.id === 'fight' ? '<b>Wizard vs bosses</b> · a pixel wizard fights four bosses on this page' : 'Exit and restore · Esc';
       tipEl.style.setProperty('--c', t ? t.color : '#fff'); tipEl.innerHTML = label; tipEl.classList.add('show');
@@ -1140,10 +1178,17 @@
   }
   function syncHud() {
     if (!hud) return;
+    if (PHONE) {
+      const tt = id => TOOLS.find(t => t.id === id);
+      if (!recent.includes(tool) && tt(tool)) recent = [tool, ...recent].slice(0, 4);
+      const rec = recent.filter(id => id !== tool && tt(id)).slice(0, 3);
+      hud.querySelector('.mini').innerHTML = (tt(tool) ? hbtn(tool, tt(tool).name, tt(tool).color) : '') + rec.map(id => hbtn(id, tt(id).name, tt(id).color)).join('')
+        + '<span class="gap"></span>' + hbtn('more', 'All tools', '#fff') + hbtn('close', 'Exit', '#fff');
+    }
     hud.querySelectorAll('button[data-id]').forEach(b => {
       const id = b.dataset.id;
-      b.classList.toggle('on', id === tool && id !== 'rain' || (id === 'rain' && raining) || (id === 'zerog' && zeroG));
-      if (id === 'sound') b.innerHTML = `<svg viewBox="0 0 24 24">${muted ? ICONS.mute : ICONS.sound}</svg>`;
+      b.classList.toggle('on', id === tool && id !== 'rain' || (id === 'rain' && raining) || (id === 'zerog' && zeroG) || (id === 'tilt' && window.CadenceTilt && window.CadenceTilt.wanted()));
+      if (id === 'sound') b.innerHTML = `<svg viewBox="0 0 24 24">${muted ? ICONS.mute : ICONS.sound}</svg><span class="nm">Sound</span>`;
     });
   }
 
@@ -1176,7 +1221,8 @@
     for (const el of [de, bd]) if (el) hideEl(el, 'overflow', 'hidden');
 
     engine = Engine.create({ enableSleeping: true, positionIterations: 6, velocityIterations: 4 });
-    engine.gravity.y = 1; acc = 0; breakQ.length = 0; dentBoxes = null;
+    engine.gravity.y = 1; engine.gravity.x = 0; acc = 0; breakQ.length = 0; dentBoxes = null;
+    if (window.CadenceTilt) { unTilt && unTilt(); unTilt = window.CadenceTilt.listen(v => { if (engine) engine.gravity.x = v * 0.9; if (fxw && fxw.tilt) fxw.tilt(v); }); }
     // a word that slams into something (the floor, a wall, another piece) hard enough breaks into its letters
     Events.on(engine, 'collisionStart', e => {
       for (const pr of e.pairs) for (const [a, b] of [[pr.bodyA, pr.bodyB], [pr.bodyB, pr.bodyA]]) {
@@ -1280,6 +1326,7 @@
   }
   function stop() {
     if (!H.active) return;
+    if (unTilt) { const u = unTilt; unTilt = null; u(); }
     H.active = false; H.rewinding = false; cancelAnimationFrame(raf); raining = false; tellFx('stop', 0, 0); document.documentElement.classList.remove('havoc-open');
     removeEventListener('keydown', onKey, true); removeEventListener('resize', onResize);
     try { Engine.clear(engine); } catch (e) {}

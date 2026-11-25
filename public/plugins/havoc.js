@@ -33,6 +33,37 @@
     open(api, m || mode());
   }
 
+  // Tilt to pour (2026-11-24, user: "it needs to be a setting you can turn off and on and not on by default"): the
+  // phone's left-right tilt, -1 … 1, for both Havoc modes while one is open. Remembered on this device; iOS asks for
+  // motion access the first time it's turned on.
+  const TILT_KEY = 'cadence.havoc.tilt';
+  const Tilt = window.CadenceTilt = {
+    subs: new Set(), v: 0, live: false, last: 0,
+    supported: () => typeof DeviceOrientationEvent !== 'undefined' && matchMedia('(hover: none) and (pointer: coarse)').matches,
+    wanted() { try { return localStorage.getItem(TILT_KEY) === '1'; } catch { return false; } },
+    async set(on) {
+      if (on && typeof DeviceOrientationEvent.requestPermission === 'function') {
+        try { if (await DeviceOrientationEvent.requestPermission() !== 'granted') on = false; } catch { on = false; }
+        if (!on) try { window.CadenceIsland && window.CadenceIsland.toast('Tilt needs motion access. If you said no, close and reopen the page to be asked again'); } catch {}
+      }
+      try { on ? localStorage.setItem(TILT_KEY, '1') : localStorage.removeItem(TILT_KEY); } catch {}
+      if (on && Tilt.subs.size) Tilt.attach(); else Tilt.detach();
+      return on;
+    },
+    onOrient(e) {
+      const ang = (screen.orientation && screen.orientation.angle) || window.orientation || 0;
+      const g = ang === 90 ? e.beta : (ang === -90 || ang === 270) ? -e.beta : ang === 180 ? -e.gamma : e.gamma;
+      if (g == null) return;
+      let v = Math.max(-1, Math.min(1, g / 40)); if (Math.abs(v) < 0.08) v = 0;
+      v = Tilt.v + (v - Tilt.v) * 0.35;
+      const now = performance.now();
+      if (Math.abs(v - Tilt.v) > 0.03 || now - Tilt.last > 250) { Tilt.v = v; Tilt.last = now; Tilt.subs.forEach(f => f(v)); }
+    },
+    attach() { if (!Tilt.live && Tilt.supported()) { Tilt.live = true; addEventListener('deviceorientation', Tilt.onOrient); } },
+    detach() { if (Tilt.live) { Tilt.live = false; removeEventListener('deviceorientation', Tilt.onOrient); } Tilt.v = 0; Tilt.subs.forEach(f => f(0)); },
+    listen(fn) { Tilt.subs.add(fn); if (Tilt.wanted()) Tilt.attach(); return () => { Tilt.subs.delete(fn); fn(0); if (!Tilt.subs.size) Tilt.detach(); }; },
+  };
+
   Cadence.registerPlugin({
     id: 'havoc', name: 'Havoc', version: '1.1.0', icon: '<path d="M12 2.5l2 5.5 5.5-1.5-3.8 4.5 4.8 3.5-5.8.8.8 5.7-3.5-3.8-3.5 3.8.8-5.7-5.8-.8 4.8-3.5L4.5 6.5 10 8z"/>', color: '#f76b15', category: 'Fun', tagline: 'Wreck the page with physics, or turn it into sand, fire and water',
     description: 'Blow off steam: blast, melt or black-hole the THING page, or switch to Elements and burn, flood, freeze and bury it. Shift+H to unleash, Esc to restore.',

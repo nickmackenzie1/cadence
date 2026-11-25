@@ -287,3 +287,26 @@ test('bombs go off after their fuse, the vacuum swallows words, the fan blows ma
   expect((await tools()).bombs + (await tools()).vents).toBe(0);
   expect(errs).toEqual([]);
 });
+
+test('tilt to pour: off unless turned on; tilting leans sand and water to the low side, level again when flat', async ({ page }) => {
+  test.setTimeout(90e3);
+  const errs = []; page.on('pageerror', e => errs.push(String(e)));
+  await page.setViewportSize({ width: 1400, height: 900 });
+  await page.goto(B + '/?demo=1#today');
+  await expect(page.locator('#view .task').first()).toBeVisible({ timeout: 15000 });
+  expect(await page.evaluate(() => window.CadenceTilt.wanted())).toBe(false);   // off by default
+  await page.locator('body').press('Shift+H');
+  await expect.poll(() => page.evaluate(() => !!(window.__havoc && window.__havoc.active)), { timeout: 10000 }).toBe(true);
+  await expect.poll(() => page.evaluate(async () => !!(await window.CadenceFX.world())), { timeout: 10000 }).toBe(true);
+  const sides = () => page.evaluate(async () => { const w = await window.CadenceFX.world(); const c = (l, r) => w.count({ left: l, top: 420, right: r, bottom: 745 }, w.M.WATER); return [await c(1222, 1305), await c(1305, 1390)]; });
+  await page.evaluate(async () => { const w = await window.CadenceFX.world();
+    for (let x = 1220; x <= 1390; x += 4) w.paint(x, 740, x, 740, w.M.STONE, 2);
+    w.paint(1220, 420, 1220, 740, w.M.STONE, 2); w.paint(1390, 420, 1390, 740, w.M.STONE, 2);
+    await new Promise(r => setTimeout(r, 300));
+    for (let k = 0; k < 25; k++) { w.spawn(1300, 500, w.M.WATER, 5, 1); await new Promise(r => setTimeout(r, 80)); } });
+  await page.waitForTimeout(3000);
+  await page.evaluate(async () => (await window.CadenceFX.world()).tilt(1));
+  await expect.poll(async () => { const [l, r] = await sides(); return r - l; }, { timeout: 15000 }).toBeGreaterThan(60);
+  await page.keyboard.press('Escape');
+  expect(errs).toEqual([]);
+});
