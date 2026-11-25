@@ -25,6 +25,7 @@
   let softGL = null;
   function softwareGL() {
     if (softGL !== null) return softGL;
+    if (window.__forceGL) return (softGL = false);   // tests: use WebGL even on a software renderer
     try { const gl = document.createElement('canvas').getContext('webgl2'); const dbg = gl && gl.getExtension('WEBGL_debug_renderer_info'); const who = dbg ? gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL) : '';
       softGL = /swiftshader|llvmpipe|software|basic render/i.test(who); const lose = gl && gl.getExtension('WEBGL_lose_context'); lose && lose.loseContext(); } catch (e) { softGL = false; }
     return softGL;
@@ -39,7 +40,7 @@
     const fs = `#version 300 es
       precision mediump float;
       in vec2 vUv; out vec4 o;
-      uniform sampler2D uBase, uLight, uOv, uHeat; uniform vec2 uSize; uniform float uGlow, uFlash, uHeatOn;
+      uniform sampler2D uBase, uLight, uOv, uHeat; uniform vec2 uSize; uniform float uGlow, uFlash, uHeatOn, uLit;
       void main(){
         vec4 b = texture(uBase, vUv);
         vec3 col = b.rgb * b.a; float a = b.a;
@@ -50,6 +51,15 @@
         vec3 bl = textureLod(uLight, vUv, 1.0).rgb * 0.55 + textureLod(uLight, vUv, 2.0).rgb * 0.8
                 + textureLod(uLight, vUv, 3.0).rgb * 1.6 + textureLod(uLight, vUv, 4.0).rgb * 0.5;
         col += bl * uGlow;                                      // glow, added on top
+        // light (2026-11-24): fire, lava and embers cast a wide warm light on the page around them (about 200px),
+        // tinting the words and cards it reaches; it flickers with the flames because it's built from them
+        vec3 wide = vec3(0.0); vec2 st = 22.0 / uSize;        // a soft 5x5 blur of a coarse level: no blocky edges
+        for (int i = -2; i <= 2; i++) for (int j = -2; j <= 2; j++) { float w = 1.0 / (1.0 + float(i * i + j * j)); wide += textureLod(uLight, vUv + vec2(float(i), float(j)) * st, 4.0).rgb * w; }
+        wide *= 0.55;
+        float wl = max(wide.r, max(wide.g, wide.b));
+        float la = clamp(sqrt(wl) * 1.3 - 0.04, 0.0, 0.5) * min(1.0, 0.5 + uGlow) * uLit;
+        vec3 lc = mix(wide / max(wl, 0.001), vec3(1.0, 0.72, 0.36), 0.6);
+        col = col * (1.0 - la) + lc * la; a = a + la * (1.0 - a);
         if (uHeatOn > 0.5) { vec4 h = texture(uHeat, vUv); col = col * (1.0 - h.a) + h.rgb * h.a; a = a + h.a * (1.0 - a); }
         col += vec3(0.84, 0.88, 1.0) * uFlash * 0.55; a = max(a, uFlash * 0.55);
         o = vec4(min(col, vec3(1.0)), a);
@@ -62,7 +72,7 @@
     const vb = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, vb); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
     const loc = gl.getAttribLocation(prog, 'p'); gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
     const U = n => gl.getUniformLocation(prog, n);
-    const uni = { base: U('uBase'), light: U('uLight'), ov: U('uOv'), heat: U('uHeat'), size: U('uSize'), glow: U('uGlow'), flash: U('uFlash'), heatOn: U('uHeatOn') };
+    const uni = { base: U('uBase'), light: U('uLight'), ov: U('uOv'), heat: U('uHeat'), size: U('uSize'), glow: U('uGlow'), flash: U('uFlash'), heatOn: U('uHeatOn'), lit: U('uLit') };
     const mkTex = (unit, minF, magF) => { const t = gl.createTexture(); gl.activeTexture(gl.TEXTURE0 + unit); gl.bindTexture(gl.TEXTURE_2D, t);
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, minF); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, magF);
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE); return t; };
@@ -82,7 +92,7 @@
       },
       draw(p) {
         gl.viewport(0, 0, canvas.width, canvas.height);
-        gl.uniform2f(uni.size, W, H); gl.uniform1f(uni.glow, p.glow); gl.uniform1f(uni.flash, p.flash); gl.uniform1f(uni.heatOn, p.heatOn ? 1 : 0);
+        gl.uniform2f(uni.size, W, H); gl.uniform1f(uni.glow, p.glow); gl.uniform1f(uni.flash, p.flash); gl.uniform1f(uni.heatOn, p.heatOn ? 1 : 0); gl.uniform1f(uni.lit, p.lit ? 1 : 0);
         gl.drawArrays(gl.TRIANGLES, 0, 3);
       }
     };
@@ -90,14 +100,14 @@
   function make2D(canvas) {
     const ctx = canvas.getContext('2d');
     const mk = (w, h) => { const c = document.createElement('canvas'); c.width = Math.max(1, w); c.height = Math.max(1, h); return c; };
-    let W, H, HW, HH, base, bx, light, lx, l1, l2, l3, heatC, hx, bImg, lImg, hImg;
+    let W, H, HW, HH, base, bx, light, lx, l1, l2, l3, l4, heatC, hx, bImg, lImg, hImg;
     return {
       kind: '2d',
       resize(w, h, hw, hh) {
         W = w; H = h; HW = hw; HH = hh;
         base = mk(W, H); bx = base.getContext('2d'); bImg = bx.createImageData(W, H);
         light = mk(W, H); lx = light.getContext('2d'); lImg = lx.createImageData(W, H);
-        l1 = mk(W >> 1, H >> 1); l2 = mk(W >> 2, H >> 2); l3 = mk(W >> 3, H >> 3);
+        l1 = mk(W >> 1, H >> 1); l2 = mk(W >> 2, H >> 2); l3 = mk(W >> 3, H >> 3); l4 = mk(Math.max(1, W >> 5), Math.max(1, H >> 5));
         heatC = mk(HW, HH); hx = heatC.getContext('2d'); hImg = hx.createImageData(HW, HH);
       },
       upload(b, heatOn) {
@@ -120,7 +130,14 @@
           ctx.globalAlpha = 0.55 * p.glow; ctx.drawImage(l1, 0, 0, DW, DH);
           ctx.globalAlpha = 0.8 * p.glow; ctx.drawImage(l2, 0, 0, DW, DH);
           ctx.globalAlpha = 1.6 * p.glow > 1 ? 1 : 1.6 * p.glow; ctx.drawImage(l3, 0, 0, DW, DH);
-          ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1;
+          ctx.globalCompositeOperation = 'source-over';
+          if (p.lit) {
+          const c4 = l4.getContext('2d'); c4.globalCompositeOperation = 'source-over'; c4.clearRect(0, 0, l4.width, l4.height); c4.drawImage(l3, 0, 0, l4.width, l4.height);
+          c4.globalCompositeOperation = 'lighter'; for (let k = 0; k < 3; k++) c4.drawImage(l4, 0, 0); c4.globalCompositeOperation = 'source-over';   // spread thin, so brighten it
+          c3.globalCompositeOperation = 'copy'; c3.drawImage(l4, 0, 0, l3.width, l3.height); c3.globalCompositeOperation = 'source-over';   // up in two steps: round, not blocky
+          ctx.globalAlpha = Math.min(0.9, 0.5 + p.glow); ctx.drawImage(l3, 0, 0, DW, DH);   // the wide light on the page
+          }
+          ctx.globalAlpha = 1;
         }
         if (p.heatOn) { ctx.imageSmoothingEnabled = true; ctx.drawImage(heatC, 0, 0, DW, DH); }
         if (p.flash > 0.01) { ctx.fillStyle = `rgba(215,225,255,${p.flash * 0.55})`; ctx.fillRect(0, 0, DW, DH); }
@@ -581,7 +598,7 @@
         bufs = null;
       }
       if (pending && lastFrame) {
-        comp.draw({ glow: S.glow, flash: lastFrame.flash, heatOn: S.heatView });
+        comp.draw({ glow: S.glow, flash: lastFrame.flash, heatOn: S.heatView, lit: !AMBIENT || document.documentElement.classList.contains('havoc-open') });   // cast light only while Havoc is open
         const sk = lastFrame.shake;
         cv.style.transform = sk > 0.3 ? `translate(${((R() - 0.5) * sk).toFixed(1)}px,${((R() - 0.5) * sk).toFixed(1)}px)` : '';
         pending = false;

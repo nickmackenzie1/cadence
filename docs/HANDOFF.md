@@ -625,3 +625,12 @@ checking the code.
     Physics: gravity leans (`engine.gravity.x`) so loose words slide, and the matter layer leans too (`w.tilt`).
 - Physics mode on phones gets the same tuck-away toolbar as Elements (current tool, last three, More, Exit; named buttons).
 - Wizard fight on phones: the boss bar across the top, "Tap to cast a fireball" and Stop under it, tab bar hidden.
+
+### Havoc: fire and lava light up the page (2026-11-24)
+- User picked "light from fire and lava". The compositor (elements-engine.js) adds a wide, soft warm light from
+  everything that glows (fire, lava, embers, lightning): a 5x5 blur of a coarse level of the light texture
+  (WebGL), or a 1/32-size copy brightened and scaled up in two steps (2D fallback). It tints the words and cards
+  about 200px around, golden near fire and orange near lava, and flickers with them.
+- Only while Havoc is open (`lit`: the sandbox always, the ambient layer only with `html.havoc-open`), so the
+  everyday page's snow and lights don't cast haze. Shadows weren't done.
+- Tests: `window.__forceGL = true` before the engine loads makes it use WebGL even on a software renderer.
