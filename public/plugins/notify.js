@@ -54,7 +54,9 @@
         if (panel) return close();
         panel = document.createElement('div'); panel.id = 'nt-panel'; document.body.appendChild(panel);
         const pill = (window.CadenceIsland && window.CadenceIsland.pill()) || btn, r = pill.getBoundingClientRect(), W = Math.min(380, innerWidth - 16);
-        panel.style.width = W + 'px'; panel.style.left = Math.max(8, Math.min(innerWidth - W - 8, r.left + r.width / 2 - W / 2)) + 'px'; panel.style.top = (r.bottom + 8) + 'px';
+        panel.style.width = W + 'px';
+        if (pill.closest && pill.closest('.isl.dock')) { panel.style.left = Math.min(innerWidth - W - 8, r.right + 10) + 'px'; panel.style.top = r.top + 'px'; }   // the Island in the sidebar: open beside it
+        else { panel.style.left = Math.max(8, Math.min(innerWidth - W - 8, r.left + r.width / 2 - W / 2)) + 'px'; panel.style.top = (r.bottom + 8) + 'px'; }
         draw(); if (unread()) setTimeout(() => { if (panel) { api.storage.set('items', list().map(n => ({ ...n, read: true }))); badge(); } }, 1500);
         setTimeout(() => document.addEventListener('pointerdown', outside, true), 0);
       }

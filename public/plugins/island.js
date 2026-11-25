@@ -9,6 +9,16 @@
     st.textContent = `
       .isl{position:fixed;top:calc(10px + env(safe-area-inset-top));left:calc(276px + (100vw - 276px) / 2);transform:translateX(-50%);z-index:80;pointer-events:none}
       @media (max-width:900px){.isl{left:50%}}
+      /* in the sidebar (2026-11-24, user: "the island should come from the sidebar … keep the island idea"; computers
+         only): at rest a pill in a slot under the THING header showing the time; a notice grows it to the right, out of
+         the sidebar, to whatever size the notice needs, then it draws back in. Phones keep the top Island. */
+      .isl-slot{height:30px;margin:0 0 12px}
+      @media (max-width:900px){.isl-slot{display:none}}
+      .isl.dock{transform:none}
+      .isl.dock .isl-pill{transform-origin:left center}
+      .isl.dock .isl-pill.up{transform:translateX(3px) scale(1.01)}
+      .isl.dock .isl-c:not(.stack){padding:0 12px}
+      .isl.dock .isl-t,.isl-measure.dockm .isl-t{max-width:480px}
       /* themed: at rest it is part of the UI (panel colour, hairline border); a notice makes it surface */
       .isl-pill{--isl-fg:var(--text,#1d1c1a);--isl-sub:var(--muted,#8a877f);--isl-line:var(--line,#e7e4dd);--isl-hover:var(--hover,rgba(0,0,0,.04));--glow:var(--accent,#5b5bd6);
         pointer-events:auto;position:relative;color:var(--isl-fg);border-radius:22px;overflow:hidden;
@@ -85,20 +95,39 @@
     G.pill = G.el.firstChild;
     G.queue = []; G.lives = new Map(); G.cur = null; G.sync = 'ok'; G.badge = 0;
   }
+  // the sidebar slot: made under the THING header, and the Island pinned to it while there's a sidebar to sit in
+  const dockQ = matchMedia('(min-width: 901px)');
+  function slot() {
+    let s = document.querySelector('#side-head .isl-slot');
+    if (!s) { const b = document.querySelector('#side-head .brand'); if (!b) return null; s = document.createElement('div'); s.className = 'isl-slot'; b.after(s); }
+    return s;
+  }
+  function place() {
+    const s = dockQ.matches ? slot() : null, r = s && s.getBoundingClientRect();
+    const on = !!(r && r.width > 40);
+    G.el.classList.toggle('dock', on);
+    if (on) { G.el.style.left = r.left + 'px'; G.el.style.top = r.top + 'px'; G.dockW = Math.round(r.width); G.dockL = r.left; }
+    else { G.el.style.left = ''; G.el.style.top = ''; G.dockW = 0; }
+    return on;
+  }
+  G.place = place;
+  if (!G.placed) { G.placed = true; addEventListener('resize', () => { place(); if (!G.cur) idle(); }); dockQ.addEventListener && dockQ.addEventListener('change', () => { place(); if (!G.cur) idle(); }); }
   const esc = window.CadenceKit.esc;
   const checkSvg = '<span class="isl-check"><svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span>';
 
   /* ---- morph engine ---- */
   function measure(html, stack) {
-    const m = document.createElement('div'); m.className = 'isl-measure';
-    m.innerHTML = `<div class="isl-c ${stack ? 'stack' : ''}" style="position:static;display:inline-flex;max-width:${Math.min(360, innerWidth - 60)}px">${html}</div>`;
+    const m = document.createElement('div'); m.className = 'isl-measure' + (G.dockW ? ' dockm' : '');
+    const maxW = G.dockW ? Math.min(540, innerWidth - G.dockL - 32) : Math.min(360, innerWidth - 60);   // in the sidebar it can reach further into the page
+    m.innerHTML = `<div class="isl-c ${stack ? 'stack' : ''}" style="position:static;display:inline-flex;max-width:${maxW}px">${html}</div>`;
     document.body.appendChild(m); const r = m.firstChild.getBoundingClientRect(); m.remove();
     return { w: Math.ceil(r.width), h: Math.ceil(r.height) };
   }
   function morph(view) {
-    const p = G.pill, stack = !!view.stack;
+    const p = G.pill, stack = !!view.stack, docked = place();
     const size = view.size || measure(view.html, stack);
-    const w = Math.min(innerWidth - 40, Math.max(view.minW || 0, size.w)), h = Math.max(30, stack ? size.h : (view.h || 30));
+    // docked: never narrower than its slot (so at rest it fills it), and a notice grows it as wide as it needs
+    const w = docked ? Math.min(innerWidth - G.dockL - 24, Math.max(G.dockW, view.minW || 0, size.w)) : Math.min(innerWidth - 40, Math.max(view.minW || 0, size.w)), h = Math.max(30, stack ? size.h : (view.h || 30));
     p.style.setProperty('--w', w + 'px'); p.style.setProperty('--h', h + 'px');
     p.classList.toggle('big', h > 34 || stack); p.classList.toggle('click', !!view.onClick);
     p.onclick = view.onClick ? (e => { if (!e.target.closest('button')) view.onClick(); }) : null;

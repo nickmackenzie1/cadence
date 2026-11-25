@@ -654,3 +654,14 @@ checking the code.
   a secure context (iPhones only give motion to https pages) Tilt says so instead of asking; if no motion readings
   arrive within 2.5 s it points to Settings → Safari → Motion & Orientation Access. The user's phone showed
   mackenziebox.local as "not secure", so the https address (with the NAS certificate installed) may be needed.
+
+### The Island lives in the sidebar on computers (2026-11-24)
+- User: "the island should come from the sidebar and organically come out for notifications but keep the island
+  idea" → decided: gone completely from the top on computers, phones keep it; always shows the time; notices expand
+  to fit their size.
+  - island.js: a `.isl-slot` (30px) is made under the THING header in `#side-head`; while the window is wider than
+    900px the Island is pinned to it (`place()`, `.isl.dock`, fixed left/top from the slot). At rest it fills the
+    slot: sync dot and time (or a live activity). A notice grows it to the right, out over the page, as wide and
+    tall as the notice needs (up to 540px wide; `.isl-t` up to 480px), then it draws back in.
+  - The notification centre opens beside the docked pill instead of under it (notify.js).
+  - 900px and narrower (no sidebar): the top Island as before.
