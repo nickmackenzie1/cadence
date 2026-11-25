@@ -314,7 +314,12 @@ async function feedback(id, v) {
   const { store } = await load(); const state = store.loadState();
   if (!state.picks.some(p => p.id === id)) return false;
   if (v === 0) delete state.feedback[id]; else state.feedback[id] = v > 0 ? 1 : -1;
-  store.saveState(state); bust(); return true;
+  store.saveState(state);
+  // keep the cached page and just mark this pick (2026-11-24: throwing the cache away made the page's refresh rebuild
+  // everything on the NAS, and on a phone those requests failed with "Load failed")
+  const pk = dataMemo.v && Array.isArray(dataMemo.v.picks) && dataMemo.v.picks.find(p => p.id === id);
+  if (pk) pk.feedback = v === 0 ? 0 : v > 0 ? 1 : -1; else bust();
+  return true;
 }
 // community sources (Lemmy communities, Mastodon hashtags) and the mainstream filter
 async function community(input) {

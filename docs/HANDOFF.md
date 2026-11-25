@@ -687,3 +687,13 @@ checking the code.
   - Switching between Physics and Elements is still done on the Mac.
 - Idea (user): Desk mode (tasks as lightly physical cards: flick to tomorrow, drop on a client, crumple when done),
   as a mode you switch on, off by default. Backlog.
+
+### Music Radar on phones; thumbs that work (2026-11-24)
+- User (iPhone screenshots + "Load failed" ×3 from #view-radar): "Layout issues on phone. Can't click like or don't like".
+  - Thumbs: a vote used to throw away Radar's whole cached page (`bust()`) and reload it, so the NAS rebuilt
+    everything at once and the phone's requests failed. Now the server marks the pick in the cached copy, and the
+    page lights the thumb at once and saves in the background (no reload); if saving fails it flips back with a
+    calm message.
+  - Phones (≤ 900px): the section chips are one sideways-scrolling row that sticks below the top Island; For you is
+    one column with "Not for me" as its eye icon; picks' thumbs sit on their own row and are bigger; wide tables
+    scroll inside their card. Test: "on a phone" in `tests/radar.spec.mjs`.

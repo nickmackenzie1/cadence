@@ -101,3 +101,26 @@ test('Where it listens: Lemmy/Mastodon settings, and hiding an artist removes th
   await expect.poll(async () => (await (await fetch(B + '/api/radar/data')).json()).picks.some(p => p.artist === who)).toBe(false);
   expect((await (await fetch(B + '/api/radar/community')).json()).communities).toEqual(['indieheads@lemmy.ml', 'postpunk@lemmy.world']);
 });
+
+test.describe('on a phone', () => {
+  test.use({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+  test('Radar fits: the section chips are one row below the Island, nothing runs off the edge, thumbs light up at once', async ({ page }) => {
+    test.setTimeout(90000);
+    const errs = []; page.on('pageerror', e => errs.push(String(e)));
+    await page.addInitScript(() => { localStorage.setItem('cadence.reviewNudge', (d => { d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); })(new Date())); localStorage.setItem('cadence.space', 'life'); });
+    await page.goto(B + '/#view-radar');
+    await page.locator('.mr-sec[data-sec=all]').tap({ timeout: 20000 });
+    await expect(page.locator('.mr-tiles')).toBeVisible({ timeout: 15000 });
+    // one row of chips, starting below the Island
+    const tops = await page.locator('.mr-sec').evaluateAll(els => [...new Set(els.map(e => Math.round(e.getBoundingClientRect().top)))]);
+    expect(tops.length).toBe(1);
+    // nothing wider than the screen in the Radar page
+    const over = await page.evaluate(() => [...document.querySelectorAll('#view .mr-card *')].filter(e => { const r = e.getBoundingClientRect(); return r.width && r.right > innerWidth + 2 && getComputedStyle(e).position !== 'fixed' && !e.closest('.mr-secs,.mr-tiles,pre,.mr-scroll,table.mr-t'); }).map(e => e.className || e.tagName).slice(0, 5));
+    expect(over).toEqual([]);
+    const up = page.locator('[data-fb][data-v="1"]').first();
+    await up.scrollIntoViewIfNeeded(); await up.tap();
+    await expect(up).toHaveClass(/on/, { timeout: 1000 });
+    await page.screenshot({ path: test.info().outputPath('radar-phone.png') });
+    expect(errs).toEqual([]);
+  });
+});

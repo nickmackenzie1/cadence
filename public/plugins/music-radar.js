@@ -316,7 +316,14 @@
         $('#mr-scan').onclick = async () => { G.st = await post('api/radar/run', { what: 'scan' }); api.ui.toast('Scanning. It takes a few minutes; this page updates when it\'s done.'); load(); };
         $('#mr-digest').onclick = async () => { G.st = await post('api/radar/run', { what: 'digest' }); load(); };
         const lg = $('#mr-log'); if (lg) lg.onclick = () => { (window.__dbv = window.__dbv || {}).want = 'sql:radar_jobs'; };
-        el.querySelectorAll('[data-fb]').forEach(b => b.onclick = async () => { const v = +b.dataset.v, cur = +b.dataset.cur; await post('api/radar/feedback', { id: b.dataset.fb, v: cur === v ? 0 : v }); load(); });
+        // thumbs: they light up at once and save in the background; no reload (2026-11-24: on a phone the reload failed)
+        el.querySelectorAll('[data-fb]').forEach(b => b.onclick = async () => {
+          const box = b.parentElement, btns = [...box.querySelectorAll('[data-fb]')], v = +b.dataset.v, cur = +b.dataset.cur, next = cur === v ? 0 : v;
+          const paint = n => btns.forEach(x => { x.classList.toggle('on', +x.dataset.v === n); x.dataset.cur = n; x.setAttribute('aria-pressed', +x.dataset.v === n ? 'true' : 'false'); });
+          paint(next);
+          try { const r = await post('api/radar/feedback', { id: b.dataset.fb, v: next }); if (!r || r.error || r.ok === false) throw new Error('not saved'); }
+          catch (e) { paint(cur); api.ui.toast("Couldn't save that just now. Try again in a moment"); }
+        });
         // sections instead of one long page (user, 2026-11-17: "so long… needs to be presented better"): every card is
         // filed by its heading, chips at the top switch between them, and the choice is remembered
         {
@@ -410,6 +417,18 @@
         .mr-lad-d{font-variant-numeric:tabular-nums;text-align:right;color:var(--accent);font-size:14px}
         .mr-alb li{grid-template-columns:22px auto minmax(0,1fr) 40px} .mr-alb-t{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap} .mr-alb .mr-lad-s .ar-link{color:var(--muted)} .mr-alb .mr-lad-d{color:var(--muted)}
         @media (max-width:760px){.mr-lad li{grid-template-columns:22px auto minmax(0,1fr) 44px} .mr-spark,.mr-lad-b{display:none}}
+        /* phones (2026-11-24, user: "layout issues on phone"): the section chips are one row you can scroll sideways and
+           sit below the top Island; For you is one column with "Not for me" as its icon; picks' thumbs sit on their own row */
+        @media (max-width:900px){
+          .mr-secs{top:calc(48px + env(safe-area-inset-top));flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;margin-left:-18px;margin-right:-18px;padding:8px 18px;-webkit-mask-image:linear-gradient(90deg,transparent,#000 14px,#000 calc(100% - 14px),transparent)}
+          .mr-secs::-webkit-scrollbar{display:none}
+          .mr-sec{flex:none;padding:7px 13px}
+          .mr-fyl{grid-template-columns:minmax(0,1fr)}
+          .mr-nfm span{display:none} .mr-nfm{opacity:.75;padding:6px}
+          .mr-pick{flex-wrap:wrap} .mr-pick .mr-fb{flex-basis:100%;padding-left:0;margin-top:2px}
+          .mr-fb button{width:44px;height:38px}
+          table.mr-t{display:block;max-width:100%;overflow-x:auto}   /* wide tables scroll inside their card */
+        }
         .mr-fyl.mr-one{grid-template-columns:1fr} .mr-card h3 svg{width:16px;height:16px;vertical-align:-2px;margin-right:6px;color:var(--muted)}
         .mr-fyl{list-style:none;margin:6px 0 4px;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:8px 18px}
         .mr-fyl li{display:flex;align-items:center;gap:8px;min-width:0} .mr-fyt{flex:1;min-width:0;display:flex;flex-direction:column} .mr-fyt .ar-link{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
