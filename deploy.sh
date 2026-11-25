@@ -24,6 +24,15 @@ BRANCH="${BRANCH:-}"   # empty = follow `stable` (only commits that passed the t
 TOKEN="${TOKEN:-$(cat .deploy-token 2>/dev/null || true)}"
 LOG="$DIR/deploy.log"
 log(){ echo "$(date '+%F %T') $*" >> "$LOG"; }
+# the Downloads folders (docker-compose.yml mounts them): Synology's Docker won't start with a missing one, so make
+# them first, at the paths set in .env or next to the app (2026-11-25)
+mkdirs(){
+  for v in MUSIC_PATH:music SLSKD_DOWNLOADS_PATH:slskd-downloads USENET_COMPLETE_PATH:usenet-complete; do
+    d="$(grep -E "^${v%%:*}=" .env 2>/dev/null | tail -1 | cut -d= -f2- | tr -d "\"'")"
+    [ -n "$d" ] || d="$DIR/${v#*:}"
+    [ -d "$d" ] || { mkdir -p "$d" 2>/dev/null && log "made the folder $d" || log "couldn't make $d (Downloads)"; }
+  done
+}
 
 if command -v git >/dev/null 2>&1; then
   g(){ git -c safe.directory='*' "$@"; }
@@ -43,6 +52,7 @@ else dc(){ docker-compose -p cadence "$@"; }; dcb(){ $LOW docker-compose -p cade
 ensure_running(){
   if ! docker ps --format '{{.Names}}' 2>/dev/null | grep -qx cadence; then
     [ -f .env ] || cp .env.example .env
+    mkdirs
     mkdir -p data
     log "container not running: starting it"
     dc up -d --build --remove-orphans >> "$LOG" 2>&1 && log "start ok" || log "START FAILED — see above"
@@ -151,6 +161,7 @@ fi
 g reset -q --hard "$NEW"
 rm -f "$DIR/index.html"                    # leftover from the manual install
 [ -f .env ] || { cp .env.example .env; log "created .env from .env.example — set APP_PASSWORD"; }
+mkdirs
 mkdir -p data
 ensure_tls
 fix_owner
