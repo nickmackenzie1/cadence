@@ -596,6 +596,9 @@
         const o = list[k]; if (!o.alive || !o.body) continue;
         const t = m[k], b = o.body, p = b.position;
         if (o.stamped) { if (t === M_.FIRE || t === M_.EMBER || t === M_.LAVA || t === M_.ACID) o.pinned = true; continue; }
+        const was = o.inWater; o.inWater = t === M_.WATER;
+        // a word landing in a pool makes the fish jump (2026-11-20)
+        if (o.inWater && !was && !b.isStatic && fxw.splash && Math.hypot(b.velocity.x, b.velocity.y) > 2) fxw.splash(p.x, p.y);
         if (t === M_.WATER) {
           if (b.isStatic) release(o, rand(-0.4, 0.4), rand(-1.5, -0.4), rand(-0.05, 0.05));
           wet.push(o);

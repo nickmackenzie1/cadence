@@ -573,5 +573,17 @@ checking the code.
     Elements mode with its own toolbar, kelp and fish. Gone again: the Materials drawer and Weather row, lily pads,
     frogs, jumping fish and the coppery weed.
   - Kept: water finds its level (`levelStep`, without the lily-pad bit) and its U-tube test, plus `w.paint`.
+  - Same day, user: "I did like the fish and lily pads and stuff growing": the pond life is back on top of the
+    two-mode Havoc: elements-core.js is the e8b80bb version (lily pads, frogs, leaping fish, the coppery weed, water
+    levelling that lily pads don't block), with `w.splash` / `w.life` in elements-engine.js and the splash call in
+    havoc-engine.js `senses()`. The pool test is the full one again.
   - Not pushed and set aside in a local git stash on 2026-11-20: bombs, vacuum, fan and volcano, built on the newer
     Havoc. They'd need porting onto this version if wanted.
+
+### Ideas (user, 2026-11-24): Triple C (triplec.fm/developers), backlog
+- Free API for non-commercial use (key as `Authorization: Bearer`, 60/min, 10,000/day): shows, venues, artists,
+  festivals, now playing. User picked for the backlog:
+  1. Shows near you: a card or Daily item with gigs in your city this weekend, and how busy tonight looks.
+  2. Your artists on tour: match artists from your listening (Radar, KEXP history) against Triple C shows; flag ones
+     playing in Canada, especially nearby.
+  3. Triple C as a radio station, with now playing and the last ten songs.
