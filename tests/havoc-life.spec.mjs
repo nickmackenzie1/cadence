@@ -24,5 +24,5 @@ test('Havoc is switched on in Life, including a Life space that had it off from 
   expect(await page.evaluate(() => JSON.parse(localStorage.getItem('cadence.off.life') || '[]'))).toContain('haunted');
   // Shift+H unleashes it there
   await page.keyboard.press('Shift+H');
-  await expect.poll(() => page.evaluate(() => !!window.__havoc), { timeout: 8000 }).toBe(true);
+  await expect.poll(() => page.evaluate(() => !!(window.__havoc || window.__elements)), { timeout: 8000 }).toBe(true);
 });

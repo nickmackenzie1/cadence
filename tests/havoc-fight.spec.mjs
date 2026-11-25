@@ -199,8 +199,8 @@ test('the finish rewinds, a resize keeps the mess, and touch works: tap, long-pr
   expect(errs).toEqual([]);
 });
 
-test('a deep pool grows kelp, lily pads and fish that leap at a splash; drain it and the fish are gone', async ({ page }) => {
-  test.setTimeout(150e3);
+test('a deep pool grows kelp and gets fish; drain it and the fish are gone', async ({ page }) => {
+  test.setTimeout(90e3);
   const errs = []; page.on('pageerror', e => errs.push(String(e)));
   await page.setViewportSize({ width: 1400, height: 900 });
   await page.goto(B + '/?demo=1#today');
@@ -215,12 +215,8 @@ test('a deep pool grows kelp, lily pads and fish that leap at a splash; drain it
     for (let k = 0; k < 40; k++) { for (let x = 590; x < 980; x += 18) w.spawn(x, 560, w.M.WATER, 5, 1); await new Promise(r => setTimeout(r, 120)); } });
   const kelp = () => page.evaluate(async () => { const w = await window.CadenceFX.world(); return w.count({ left: 0, top: 0, right: innerWidth, bottom: innerHeight }, w.M.KELP); });
   const fish = () => page.evaluate(async () => (await window.CadenceFX.world()).fish());
-  await expect.poll(kelp, { timeout: 50000 }).toBeGreaterThan(10);
+  await expect.poll(kelp, { timeout: 30000 }).toBeGreaterThan(10);
   await expect.poll(fish, { timeout: 40000 }).toBeGreaterThan(0);
-  // lily pads on the surface, and a splash sends fish leaping
-  const life = () => page.evaluate(async () => (await window.CadenceFX.world()).life());
-  await expect.poll(async () => (await life()).pads, { timeout: 40000 }).toBeGreaterThan(0);
-  await expect.poll(async () => { await page.evaluate(async () => { const w = await window.CadenceFX.world(); for (let x = 600; x < 1000; x += 80) w.splash(x, 640); }); return (await life()).jumping; }, { timeout: 10000 }).toBeGreaterThan(0);
   await page.evaluate(async () => { const w = await window.CadenceFX.world(); w.clear(w.M.WATER); });
   await expect.poll(fish, { timeout: 5000 }).toBe(0);
   await page.keyboard.press('Escape');

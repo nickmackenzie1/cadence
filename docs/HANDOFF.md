@@ -564,3 +564,14 @@ checking the code.
   - Phones (or any screen without hover) get a "Next up" list under the timeline: the next three things today, in
     full, with their time ("Now" if under way). Tapping a task opens it, like the block does.
   - Test: `tests/schedule-blocks.spec.mjs`.
+
+### Havoc put back to two modes (2026-11-24)
+- User: "I feel like havok regressed, the effects are not there. Can we go back to what it was with the two menus and
+  everything else, the water sloshing is good but everything else now is terrible".
+  - Havoc's files (havoc-engine.js, elements-engine.js, elements-core.js, plugins/havoc.js, havoc-fight.js and their
+    tests) are back to how they were at 1227d67, just before "One Havoc": the Physics / Elements switch, the full
+    Elements mode with its own toolbar, kelp and fish. Gone again: the Materials drawer and Weather row, lily pads,
+    frogs, jumping fish and the coppery weed.
+  - Kept: water finds its level (`levelStep`, without the lily-pad bit) and its U-tube test, plus `w.paint`.
+  - Not pushed and set aside in a local git stash on 2026-11-20: bombs, vacuum, fan and volcano, built on the newer
+    Havoc. They'd need porting onto this version if wanted.

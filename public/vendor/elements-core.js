@@ -6,8 +6,7 @@ function ENGINE(env) {
   const E=0, SAND=1, WATER=2, ICE=3, FIRE=4, WOOD=5, STEAM=6, STONE=7, OIL=8, LAVA=9, EMBER=10, ASH=11, SMOKE=12, SNOW=13,
         PAGE=14, GLASS=15, WIRE=16, BULB=17, PLANT=18, ACID=19, FUME=20, POWDER=21, BOLT=22, SURF=23,   // SURF: Cadence, invisible ledge
         PIXEL=24, DRIP=25,   // Cadence (2026-11-19): a picture's own pixels, as grains that pour (PIXEL) and, melted, a coloured liquid (DRIP)
-        KELP=26,
-        PAD=27;    // Cadence (2026-11-20): a lily pad, floating on the surface of a deep pool   // Cadence (2026-11-19): weed that grows up from the floor of a deep pool   // Cadence (2026-11-19): a picture's own pixels, as grains that pour (PIXEL) and, melted, a coloured liquid (DRIP)
+        KELP=26;   // Cadence (2026-11-19): weed that grows up from the floor of a deep pool   // Cadence (2026-11-19): a picture's own pixels, as grains that pour (PIXEL) and, melted, a coloured liquid (DRIP)
   const FIREWORK=30, LIGHTNING=31;
   const fluid = new Uint8Array(32), gas = new Uint8Array(32), dens = new Uint8Array(32);
   fluid[WATER]=fluid[OIL]=fluid[LAVA]=fluid[ACID]=1; gas[STEAM]=gas[FIRE]=gas[SMOKE]=gas[FUME]=1;
@@ -139,14 +138,9 @@ function ENGINE(env) {
   // Cadence (2026-11-19, user: "if the water gets deep enough little ecosystems should pop up, fish, veg, etc"):
   // a pool that stays deep (about 14 cells of water over a solid floor) grows kelp up from its floor, then fish turn
   // up and swim in it. Drain the pool and the fish flop and are gone; fire, lava and acid get them; black holes too.
-  let fish = [], kelp = [], frogs = [], ecoT = 0;
-  // 2026-11-20 (user picked "more life in the pools"): fish nibble the weed, lily pads float on the surface (some
-  // flower), a frog turns up and hops between pads and the edge, fish jump when something splashes in, and a pool
-  // that has been there a while grows a second, coppery weed.
+  let fish = [], kelp = [], ecoT = 0;
   const FISH_COLS = [[240, 140, 50], [250, 200, 70], [170, 200, 225], [235, 105, 95], [120, 190, 175]];
   const isW = (x, y) => x >= 0 && x < W && y >= 0 && y < H && grid[y * W + x] === WATER;
-  const at = (x, y) => (x >= 0 && x < W && y >= 0 && y < H) ? grid[y * W + x] : STONE;
-  const firm = t => t !== E && t !== WATER && t !== FIRE && t !== SMOKE && t !== STEAM && t !== FUME && t !== ACID && t !== LAVA && t !== OIL;
   function poolAt(x, y) {   // water depth through (x, y), and the floor cell, or null if it isn't a deep pool
     let top = y, bot = y;
     while (top > 0 && grid[(top - 1) * W + x] === WATER && y - top < 60) top--;
@@ -157,68 +151,41 @@ function ENGINE(env) {
   }
   function ecoStep() {
     if (++ecoT % 45) return;
-    // weed grows a cell at a time while there's water above its tip; the coppery kind is short and bushy
+    // kelp grows a cell at a time while there's water above its tip
     for (const k of kelp) {
       if (grid[k.y * W + k.x] !== KELP) { k.dead = true; continue; }
       if (k.h >= k.max || R() > 0.5) continue;
       const ty = k.y - k.h - 1; if (ty < 0) continue;
-      const side = k.kind ? 0.55 : 0.25, tx = (k.x2 ?? k.x) + (R() < side ? (R() < 0.5 ? -1 : 1) : 0), j = ty * W + tx;
-      if (isW(tx, ty) && isW(tx, ty - 1)) { setI(j, KELP); shade[j] = ((R() * 64) | 0) | (k.kind ? 128 : 0); k.h++; k.x2 = tx; }
+      const tx = k.x + (R() < 0.25 ? (R() < 0.5 ? -1 : 1) : 0), j = ty * W + tx;
+      if (isW(tx, ty) && isW(tx, ty - 1)) { setI(j, KELP); shade[j] = (R() * 256) | 0; k.h++; k.x2 = tx; }
     }
     if (kelp.length) kelp = kelp.filter(k => !k.dead);
+    if (fish.length >= 30 && kelp.length >= 60) return;
     for (let n = 0; n < 300; n++) {
       const i = (R() * N) | 0; if (grid[i] !== WATER) continue;
       const x = i % W, y = (i / W) | 0, pool = poolAt(x, y); if (!pool) continue;
-      const here = kelp.filter(k => Math.abs(k.x - x) < 40 && k.y > pool.top && k.y <= pool.bot + 1);
-      const near = here.length, old = here.some(k => ecoT - k.born > 2700);   // about 45 seconds
-      const r = R();
-      if (near < 6 && kelp.length < 70 && r < 0.45) {
+      const near = kelp.filter(k => Math.abs(k.x - x) < 40 && k.y > pool.top && k.y <= pool.bot + 1).length;
+      if (near < 6 && kelp.length < 60 && R() < 0.6) {
         const fy = pool.bot; if (!isW(x, fy - 1)) break;
-        const kind = old && R() < 0.5 ? 1 : 0;
-        setI(fy * W + x, KELP); shade[fy * W + x] = ((R() * 64) | 0) | (kind ? 128 : 0);
-        kelp.push({ x, y: fy, h: 0, born: ecoT, kind, max: kind ? Math.max(3, ((pool.bot - pool.top) * (0.15 + R() * 0.2)) | 0) : Math.max(3, ((pool.bot - pool.top) * (0.3 + R() * 0.45)) | 0) });
-      } else if (near && r < 0.7) {
-        // a lily pad on the surface above, if there's open water there and not too many already
-        const sy = pool.top; let pads = 0;
-        for (let xx = Math.max(0, x - 30); xx < Math.min(W, x + 30); xx++) if (grid[sy * W + xx] === PAD) pads++;
-        if (pads < 14 && at(x, sy - 1) === E) {
-          const w = 3 + ((R() * 3) | 0), flower = R() < 0.35;
-          for (let k = 0; k < w; k++) { const xx = x + k - (w >> 1); if (isW(xx, sy) && at(xx, sy - 1) === E) { const j = sy * W + xx; setI(j, PAD); shade[j] = (flower && k === (w >> 1)) ? 255 : (R() * 64) | 0; } }
-        }
-      } else if (near && fish.length < 30 && fish.filter(f => Math.abs(f.x - x) < 50 && Math.abs(f.y - y) < 30).length < 4 && r < 0.9) {
+        setI(fy * W + x, KELP); shade[fy * W + x] = (R() * 256) | 0;
+        kelp.push({ x, y: fy, h: 0, max: Math.max(3, ((pool.bot - pool.top) * (0.3 + R() * 0.45)) | 0) });
+      } else if (near && fish.length < 30 && fish.filter(f => Math.abs(f.x - x) < 50 && Math.abs(f.y - y) < 30).length < 4 && R() < 0.5) {
         const fy = pool.top + 2 + ((R() * (pool.bot - pool.top - 3)) | 0);
-        if (isW(x, fy) && isW(x - 2, fy) && isW(x + 2, fy)) fish.push({ x: x + 0.5, y: fy + 0.5, dir: R() < 0.5 ? -1 : 1, sp: 0.12 + R() * 0.15, col: FISH_COLS[(R() * FISH_COLS.length) | 0], flop: 0, vy: 0, jump: false });
-      } else if (near && frogs.length < 3 && !frogs.some(f => Math.abs(f.x - x) < 60)) {
-        // a frog sits on a pad on this pool
-        for (let xx = Math.max(0, x - 30); xx < Math.min(W, x + 30); xx++) if (grid[pool.top * W + xx] === PAD && at(xx, pool.top - 1) === E && at(xx, pool.top - 2) === E) { frogs.push({ x: xx + 0.5, y: pool.top - 0.5, dir: R() < 0.5 ? -1 : 1, rest: 120 + R() * 240, hop: null, wet: 0 }); break; }
+        if (isW(x, fy) && isW(x - 2, fy) && isW(x + 2, fy)) fish.push({ x: x + 0.5, y: fy + 0.5, dir: R() < 0.5 ? -1 : 1, sp: 0.12 + R() * 0.15, col: FISH_COLS[(R() * FISH_COLS.length) | 0], flop: 0, born: tick });
       }
       break;
     }
   }
-  function puff(x, y) { for (let k = 0; k < 4; k++) spark(x, y, (R() - 0.5) * 1.5, -R() * 1.5, [200, 200, 210], rr(8, 16)); }
-  const hot = (x, y) => { for (const [dx, dy] of N8) { const t = at(x + dx, y + dy); if (t === FIRE || t === LAVA || t === ACID || t === BOLT) return true; } return false; };
   function fishStep() {
     if (!fish.length) return;
     const out = [];
     for (const f of fish) {
       const x = f.x | 0, y = f.y | 0;
       if (x < 0 || x >= W || y < 0 || y >= H) continue;
-      if (hot(x, y)) { puff(f.x, f.y); continue; }
-      if (f.dash) {   // racing up to the surface
-        f.y -= 0.9; f.x += f.dir * 0.3;
-        if (!isW(f.x | 0, (f.y | 0) - 2)) { f.dash = false; if (at(f.x | 0, (f.y | 0) - 2) === E || at(f.x | 0, (f.y | 0) - 1) === E) { f.jump = true; f.vy = -(1.3 + R() * 0.6); } }
-        out.push(f); continue;
-      }
-      if (f.jump) {   // a leap out of the water and back
-        // keep the arc over water: if there's no water below where it's heading, it turns back
-        const ax = (f.x + f.dir * 3) | 0; let over = false;
-        for (let yy = f.y | 0; yy < Math.min(H, (f.y | 0) + 30); yy++) { const t = at(ax, yy); if (t === WATER) { over = true; break; } if (firm(t) && t !== PAD) break; }
-        if (!over) f.dir = -f.dir;
-        f.x += f.dir * 0.3; f.y += f.vy; f.vy += 0.09;
-        if (f.vy > 0 && isW(f.x | 0, f.y | 0)) { f.jump = false; f.vy = 0; if (R() < 0.6) spark(f.x, f.y - 1, 0, -0.6, [200, 230, 255], rr(10, 20)); }
-        else if (f.vy > 3) f.jump = false;   // missed the water: it flops below
-        out.push(f); continue;
-      }
+      // fire, lava or acid next to it: gone in a little puff
+      let hurt = false;
+      for (const [dx, dy] of N8) { const xx = x + dx, yy = y + dy; if (xx < 0 || xx >= W || yy < 0 || yy >= H) continue; const t = grid[yy * W + xx]; if (t === FIRE || t === LAVA || t === ACID || t === BOLT) { hurt = true; break; } }
+      if (hurt) { for (let k = 0; k < 4; k++) spark(f.x, f.y, (R() - 0.5) * 1.5, -R() * 1.5, [200, 200, 210], rr(8, 16)); continue; }
       if (grid[y * W + x] !== WATER) {   // out of water: flop down, then gone
         f.flop++; if (f.flop > 180) continue;
         if (y + 1 < H && grid[(y + 1) * W + x] === E) f.y += 0.6; else if (R() < 0.08) f.dir = -f.dir;
@@ -229,55 +196,10 @@ function ENGINE(env) {
       if (!isW((nx + f.dir) | 0, y) || R() < 0.003) f.dir = -f.dir; else f.x = nx;
       if (R() < 0.02) { const ny = y + (R() < 0.5 ? -1 : 1); if (isW(x, ny) && isW(x, ny - 1)) f.y = ny + 0.5; }
       if (R() < 0.004) spark(f.x + f.dir, f.y - 1, 0, -0.35, [190, 225, 255], rr(20, 40));   // a little bubble
-      // a nibble of weed now and then (it grows back)
-      if (R() < 0.01) { const tx = x + f.dir; if (at(tx, y) === KELP) { setI(y * W + tx, WATER); spark(tx, y, f.dir * 0.2, -0.2, [120, 190, 120], rr(10, 20)); } }
       for (const h of sinks) { const dx = h.x - f.x, dy = h.y - f.y, d = Math.hypot(dx, dy) || 1; if (d < h.r) { f.x += dx / d * 1.2 - dy / d; f.y += dy / d * 1.2 + dx / d; if (d < 3) f.gone = true; } }
       if (!f.gone) out.push(f);
     }
     fish = out;
-  }
-  function splash(x, y) {
-    // fish nearby dart up to the surface and leap out
-    for (const f of fish) if (!f.jump && !f.dash && Math.abs(f.x - x) < 60 && Math.abs(f.y - y) < 50 && R() < 0.75) { f.dash = true; f.dir = f.x < x ? -1 : 1; }
-    for (const fr of frogs) if (!fr.hop && Math.abs(fr.x - x) < 40) fr.rest = 0;   // frogs startle too
-  }
-  function frogStep() {
-    if (!frogs.length) return;
-    const out = [];
-    for (const f of frogs) {
-      const x = f.x | 0, y = f.y | 0;
-      if (x < 0 || x >= W || y < 0 || y >= H) continue;
-      if (hot(x, y)) { puff(f.x, f.y); continue; }
-      let gone = false;
-      for (const h of sinks) { const dx = h.x - f.x, dy = h.y - f.y, d = Math.hypot(dx, dy) || 1; if (d < h.r) { f.hop = null; f.x += dx / d * 1.2 - dy / d; f.y += dy / d * 1.2 + dx / d; if (d < 3) gone = true; } }
-      if (gone) continue;
-      if (f.hop) {
-        const hp = f.hop; hp.t++; const k = Math.min(1, hp.t / hp.n);
-        f.x = hp.x0 + (hp.x1 - hp.x0) * k; f.y = hp.y0 + (hp.y1 - hp.y0) * k - Math.sin(k * Math.PI) * hp.h;
-        if (k >= 1) { f.hop = null; f.rest = 150 + R() * 300; }
-        out.push(f); continue;
-      }
-      const below = at(x, y + 1);
-      if (below === WATER) {   // in the water: paddle up and to an edge or pad, or give up after a while
-        f.wet++; if (f.wet > 600) continue;
-        if (isW(x, y - 1) || at(x, y - 1) === E) f.y -= 0.15;
-        f.x += f.dir * 0.1; if (firm(at((f.x + f.dir) | 0, y))) { f.y -= 1; }
-        out.push(f); continue;
-      }
-      f.wet = 0;
-      if (!firm(below)) { f.y += 0.8; out.push(f); continue; }   // nothing under it: drop
-      if (--f.rest > 0) { if (R() < 0.004) f.dir = -f.dir; out.push(f); continue; }
-      // hop: look for a pad or firm ground a little way off with room above it
-      let best = null;
-      for (let tries = 0; tries < 12 && !best; tries++) {
-        const tx = x + ((R() * 34) | 0) - 17; if (Math.abs(tx - x) < 4) continue;
-        for (let ty = y - 10; ty < y + 10; ty++) { const g = at(tx, ty + 1); if (at(tx, ty) === E && at(tx, ty - 1) === E && (g === PAD || (firm(g) && g !== PAGE))) { best = [tx, ty]; break; } }
-      }
-      if (best) { f.dir = best[0] > x ? 1 : -1; f.hop = { x0: f.x, y0: f.y, x1: best[0] + 0.5, y1: best[1] + 0.5, h: 5 + Math.abs(best[0] - x) * 0.25, t: 0, n: 22 + Math.abs(best[0] - x) }; }
-      else f.rest = 120;
-      out.push(f);
-    }
-    frogs = out;
   }
   function sinkStep() {
     for (const h of sinks) {
@@ -304,7 +226,8 @@ function ENGINE(env) {
       }
     }
     if (sinks.length) sinks = sinks.filter(h => h.t < h.life);
-  }  // Water finds its level (2026-11-20, user picked "water that slopes"): cells only spread along their own surface,
+  }
+  // Water finds its level (2026-11-20, user picked "water that slopes"): cells only spread along their own surface,
   // so a pool split by a word or a shelf but joined underneath stayed slanted. A few times a step, a cell on top of
   // some water looks through the water it's joined to (a small flood search) for the lowest open surface; if that's
   // at least two cells lower, the cell moves there. Over a few seconds both sides even out, and nothing is added or lost.
@@ -315,11 +238,11 @@ function ENGINE(env) {
     if (lvMiss > 6 && (lvSteps & 7)) return;
     if (!lvSeen || lvSeen.length !== N) { lvSeen = new Uint32Array(N); lvQ = new Int32Array(2048); lvGen = 0; }
     for (let tries = 0, found = 0; tries < 300 && found < 2; tries++) {
-      // a random cell; if it's water, climb to the top of that water (under a lily pad counts: the pad settles a little)
+      // a random cell; if it's water, climb to the top of that water
       const r0 = (R() * N) | 0; if (grid[r0] !== WATER) continue;
       const x0 = r0 % W; let y0 = (r0 / W) | 0;
       while (y0 > 1 && grid[(y0 - 1) * W + x0] === WATER) y0--;
-      const up = grid[(y0 - 1) * W + x0]; if (y0 < 1 || (up !== E && up !== PAD)) continue;
+      const up = grid[(y0 - 1) * W + x0]; if (y0 < 1 || up !== E) continue;
       found++;
       // flood through the water joined to this cell (up to 2048 cells) and find the lowest open surface
       if (++lvGen === 0xffffffff) { lvSeen.fill(0); lvGen = 1; }
@@ -346,7 +269,7 @@ function ENGINE(env) {
     const ltr = tick & 1;
     fireCount = 0;
     if (sinks.length) sinkStep();
-    ecoStep(); fishStep(); frogStep(); levelStep();
+    ecoStep(); fishStep(); levelStep();
     for (let y = H - 1; y >= 0; y--) {
       const rowC = (y >> CS) * CW;
       for (let kc = 0; kc < CW; kc++) {
@@ -513,11 +436,6 @@ function ENGINE(env) {
             case POWDER: { if (tAt(x, y) > 220 && R() < 0.3) { explode(x, y, 4); break; } powder(i, x, y, m); break; }
             // Cadence: a picture's pixels pour like sand; very hot ones melt into colour that runs, and set again as it cools
             case PIXEL: { if (tAt(x, y) > 420 && R() < 0.2) { grid[i] = DRIP; life[i] = rr(90, 220); wakeAt(i); break; } powder(i, x, y, m); break; }
-            case PAD: {   // Cadence: a lily pad rides the surface: it drops when the water goes, bobs up when it's covered
-              if (y + 1 < H && grid[i + W] === E) { swap(i, i + W); break; }
-              if (y > 0 && grid[i - W] === WATER) { swap(i, i - W); break; }
-              break;
-            }
             case DRIP: { if (life[i] > 0) life[i]--; if (life[i] === 0 && R() < 0.05) { grid[i] = PIXEL; wakeAt(i); break; } liquid(i, x, y, m, 2); break; }
             case BOLT: { heatTo(x, y, 3000, 0.3); if (life[i] <= 1) grid[i] = E; else life[i]--; break; }
             case LAVA: {
@@ -1164,9 +1082,8 @@ function ENGINE(env) {
       }
       // a glass jar, open at the top: [x0, y0, x1, y1]
       case 'jar': { const [, x0, y0, x1, y1] = ev; for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) { if (x < 0 || x >= W || y < 0 || y >= H) continue; if (x <= x0 + 1 || x >= x1 - 1 || y >= y1 - 1) { const i = y * W + x; grid[i] = GLASS; life[i] = 0; shade[i] = (R() * 16) | 0; owner[i] = 0; pristine[i] = 0; wakeAt(i); } } break; }
-      case 'clear': { const m = ev[1]; if (m < 0 || m === WATER) fish = []; if (m < 0) { kelp = []; frogs = []; } for (let i = 0; i < N; i++) { const g = grid[i]; if (g !== SURF && g !== WIRE && g !== BULB && (m < 0 || g === m)) { grid[i] = E; wakeAt(i); } } parts = []; break; }
+      case 'clear': { const m = ev[1]; if (m < 0 || m === WATER) fish = []; if (m < 0) kelp = []; for (let i = 0; i < N; i++) { const g = grid[i]; if (g !== SURF && g !== WIRE && g !== BULB && (m < 0 || g === m)) { grid[i] = E; wakeAt(i); } } parts = []; break; }
       // Cadence: a black hole at a cell, ['sink', x, y, maxR, steps]
-      case 'splash': splash(ev[1], ev[2]); break;
       case 'sink': sinks.push({ x: ev[1], y: ev[2], r: 2, max: ev[3], grow: ev[3] / 100, t: 0, life: ev[4], ate: 0 }); break;
       case 'clearAt': { const [, cx, cy, r] = ev; for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) { if (dx * dx + dy * dy > r * r) continue; const x = cx + dx, y = cy + dy; if (x < 0 || x >= W || y < 0 || y >= H) continue; const i = y * W + x, g = grid[i]; if (g !== SURF && g !== WIRE && g !== BULB && g !== E) { grid[i] = E; wakeAt(i); } } break; }
     }
@@ -1331,14 +1248,7 @@ function ENGINE(env) {
               }
               case KELP: {   // Cadence: olive-green, a slow shimmer moving up the stalk like it's swaying
                 const s = shade[i] & 15, sw = Math.sin((fc * 0.05) + y * 0.35 + x * 0.6) * 12;
-                if (shade[i] & 128) { r = 150 + s * 2 + sw; g = 88 + s + sw * 0.5; b = 52 + s; }   // the coppery weed of an old pool
-                else { r = 46 + s + sw * 0.4; g = 112 + s * 2 + sw; b = 62 + s; }
-                depth++; liq = 0; break;
-              }
-              case PAD: {   // lily pad: green, a darker vein, the odd pink flower
-                if (shade[i] === 255) { r = 238; g = 160; b = 196; }
-                else { const s = shade[i] & 15; r = 70 + s; g = 150 + s * 2; b = 78 + s; if ((shade[i] & 48) === 0) { r -= 14; g -= 22; b -= 12; } }
-                depth++; liq = 0; break;
+                r = 46 + s + sw * 0.4; g = 112 + s * 2 + sw; b = 62 + s; depth++; liq = 0; break;
               }
               case PLANT: {
                 const s = shade[i];
@@ -1393,17 +1303,6 @@ function ENGINE(env) {
         const xx = x - f.dir * k; if (xx < 0 || xx >= W) continue;
         const m = k === 0 ? 1.12 : k === 1 ? 1 : 0.68, i = y * W + xx;
         buf[i] = rgb(Math.min(255, f.col[0] * m), Math.min(255, f.col[1] * m), Math.min(255, f.col[2] * m)); lbuf[i] = 0; markDrawn(xx, y);
-      }
-    }
-    // Cadence: frogs, 3x2 cells: a green body, darker legs, a light belly-front and an eye
-    for (const f of frogs) {
-      const x = f.x | 0, y = f.y | 0, d = f.dir;
-      const px = [[0, 0, 1], [d, 0, 1], [-d, 0, 1], [0, -1, 2], [d, -1, 3], [-d, 1, 4], [d, 1, 4]];
-      for (const [dx, dy, c] of px) {
-        const xx = x + dx, yy = y + dy; if (xx < 0 || xx >= W || yy < 0 || yy >= H) continue;
-        const col = c === 1 ? rgb(92, 168, 72) : c === 2 ? rgb(110, 186, 86) : c === 3 ? rgb(30, 36, 30) : rgb(62, 120, 52);
-        if (c === 4 && f.hop == null) continue;   // legs only show mid-hop
-        const i = yy * W + xx; buf[i] = col; lbuf[i] = 0; markDrawn(xx, yy);
       }
     }
     // sparks and rockets
@@ -1584,7 +1483,6 @@ function ENGINE(env) {
           if (msg.key === 'snowing' || msg.key === 'sharp') { awake && awake.fill(1); }
           if (grid && (msg.key === 'lights' || msg.key === 'palette' || msg.key === 'compact')) { removeLights(); buildLights(); awake.fill(1); }
           break;
-        case 'life': { let pads = 0; for (let i = 0; i < N; i++) if (grid[i] === PAD) pads++; env.post({ t: 'count', id: msg.id, n: { fish: fish.length, frogs: frogs.length, pads, jumping: fish.filter(f => f.jump || f.dash).length, levelled: lvMoves, steps: lvSteps } }); break; }
         case 'fish': env.post({ t: 'count', id: msg.id, n: fish.length }); break;
         case 'count': { let n = 0; const [x0, y0, x1, y1] = msg.rect; for (let y = Math.max(0, y0); y < Math.min(H, y1); y++) for (let x = Math.max(0, x0); x < Math.min(W, x1); x++) if (grid[y * W + x] === msg.m) n++; env.post({ t: 'count', id: msg.id, n }); break; }
         // Cadence (2026-11-19): what's at each of these cells ([x, y, x, y, …]): Havoc's words float, burn and dissolve by it
