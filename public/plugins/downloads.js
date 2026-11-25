@@ -17,7 +17,9 @@
     if (G.d && G.d.jobs.some(j => ['waiting', 'looking', 'getting'].includes(j.status))) G.poll = setTimeout(async () => { await load(); changed(); }, 4000);
     return G.d;
   }
-  const changed = () => { clearTimeout(G.t); G.t = setTimeout(() => G.api && G.api.ui.refresh(), 80); };
+  // redraw for new button states, but never while you're typing in the page (a redraw would wipe what you typed)
+  const typing = () => { const a = document.activeElement; return !!(a && a.closest && a.closest('#view') && a.matches('input:not([type=checkbox]):not([type=radio]), textarea, [contenteditable]')); };
+  const changed = () => { clearTimeout(G.t); G.t = setTimeout(() => { if (typing()) return changed(); G.api && G.api.ui.refresh(); }, 80); };
   const job = (a, t, kind) => ((G.d && G.d.jobs) || []).find(j => j.kind === kind && key(j.artist, kind === 'album' ? j.album : j.title) === key(a, t));
   // what's already in the music folder: asked for in small batches, for the buttons on screen
   let askT = 0;
@@ -77,7 +79,7 @@
     description: 'A Get button beside every Play in Music Radar. The NAS looks on Soulseek, YouTube Music, YouTube, SoundCloud and Usenet, saves the song in your music folder (where Navidrome, Plex or Jellyfin see it too), and Play then plays the whole song. Later it swaps in a better copy when one turns up.',
     setup(api) {
       G.api = api;
-      if (api.system().mode === 'nas') load().then(changed);
+      if (api.system().mode === 'nas') load().then(d => { if (d && d.jobs && d.jobs.length) changed(); });   // nothing to show yet: no redraw
       api.views.add({ id: 'downloads', group: 'music', order: 42, title: 'Downloads', icon: '⬇️', subtitle: 'Songs and records, into your music folder', render: el => {
         if (api.system().mode !== 'nas') { el.innerHTML = '<p class="muted">Downloads run on your NAS. Open THING from the NAS to use them.</p>'; return; }
         if (!G.d) { el.innerHTML = api.ui.skeleton(3, 'Loading downloads'); load().then(changed); return; }
