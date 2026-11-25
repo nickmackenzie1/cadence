@@ -833,7 +833,7 @@
       addEventListener('pointermove', onMouse, { passive: true });
       addEventListener('resize', onResize);
       if (!AMBIENT) {
-        cv.addEventListener('pointerdown', e => { down = true; holdN = 1; cv.setPointerCapture(e.pointerId); [px, py] = toGrid(e); if (S.tool === FIREWORK) q(['launch', px, py]); else if (S.tool === LIGHTNING) q(['strike', px, py]); else q(['paint', px, py, px, py, S.tool, S.brush]); });
+        cv.addEventListener('pointerdown', e => { down = true; holdN = 1; try { cv.setPointerCapture(e.pointerId); } catch (_) {} [px, py] = toGrid(e); if (S.tool === FIREWORK) q(['launch', px, py]); else if (S.tool === LIGHTNING) q(['strike', px, py]); else q(['paint', px, py, px, py, S.tool, S.brush]); });
         cv.addEventListener('pointermove', e => { if (!down) return; const [x, y] = toGrid(e); if (S.tool !== FIREWORK && S.tool !== LIGHTNING) q(['paint', px, py, x, y, S.tool, S.brush]); px = x; py = y; });
         const up = () => { down = false; }; cv.addEventListener('pointerup', up); cv.addEventListener('pointercancel', up);
         cv.addEventListener('contextmenu', e => e.preventDefault());
@@ -927,6 +927,9 @@
       counts() { return api.stats_().then(s => (s && s.counts) || {}); },
       get options() { return { ...S }; }
     });
+    // Cadence: the tools, for the phone controller (havoc.js)
+    api.toolList = () => [...TOOLS.filter(t => t.key).map(t => ({ key: t.key, name: t.name, id: String(t.id), color: t.color })),
+      { key: 'i', name: 'Ignite', id: 'ignite', color: '#ff7a1f' }, { key: 's', name: 'Snowfall', id: 'snowfall', color: '#dfe8f7' }, { key: 't', name: 'Storm', id: 'storm', color: '#9fb4ff' }, { key: ' ', name: 'Pause', id: 'pause', color: '#ffffff' }];
     return api;
   }
   window.ElementsWorld = { create: createWorld, M };

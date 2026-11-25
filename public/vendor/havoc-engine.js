@@ -1339,6 +1339,7 @@
   }
   H.start = start; H.stop = stop;
   H.blast = (x, y) => { if (H.active) blast(x, y); };
+  H.toolList = () => TOOLS.map(t => ({ key: t.key, name: t.name, id: t.id, color: t.color }));   // for the phone controller (havoc.js)
   H.tools = () => ({ bombs: bombs.length, vents: vents.length, words: letters.filter(o => o.alive).length });   // tests
   H.melt = (x, y) => { if (H.active) melt(x, y); };
   // a smaller knock than a blast: the words nearby fly off, no boom

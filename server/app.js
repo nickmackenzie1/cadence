@@ -26,8 +26,9 @@ const routes = {
   radio: SEPARATE_MUSIC ? () => NEXT : require('./routes/radio'),
   daily: require('./routes/daily'),
   problems: require('./routes/problems'),
+  havoc: require('./routes/havoc'),   // the phone as a Havoc controller (a live relay, nothing stored)
 };
-const API = [routes.problems, routes.system, routes.sync, routes.lookup, routes.feeds, routes.push, routes.integrations, routes.files, routes.calendar, routes.radar, routes.podcasts, routes.radio, routes.daily];
+const API = [routes.havoc, routes.problems, routes.system, routes.sync, routes.lookup, routes.feeds, routes.push, routes.integrations, routes.files, routes.calendar, routes.radar, routes.podcasts, routes.radio, routes.daily];
 
 // Every request goes through here, top to bottom:
 //   1. the public CA download (so new devices can trust HTTPS before anything else)

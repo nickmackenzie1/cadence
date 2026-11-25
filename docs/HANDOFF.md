@@ -672,3 +672,18 @@ checking the code.
   fillets joining it to the edge above and below) which alone carries the hairline and shadow, so inside the sidebar
   there's no outline and the edge line disappears where it pours out. The notice's colour tint glows from the
   outer end only.
+
+### Your phone controls Havoc on the Mac (2026-11-24)
+- User picked "phone as a controller" from the push-the-limits list.
+  - server/routes/havoc.js: a live relay, nothing stored. The Mac with Havoc open (either mode) listens on
+    GET /api/havoc/remote/host (SSE) and says its mode, screen size and tools with PUT .../host. A phone asks
+    GET /api/havoc/remote whether one's open and POSTs { t: tilt | down | move | up | key | hello } (at most 80 a
+    second); each goes straight to the listening Mac. Signed in like everything else; only on the home network.
+  - plugins/havoc.js: the Mac acts it out: tilt goes to the CadenceTilt listeners, touches become pointer and mouse
+    events at the same spot (reaching into Havoc's shadow roots), a ring shows where; keys become key presses.
+    The phone: "Havoc is open on your Mac — Control it" appears on its Island (or the palette command "Havoc:
+    control it from this phone"): a touchpad shaped like the Mac's screen, the Mac's tools by name (they follow a
+    mode switch), Tilt and Done. It closes itself when Havoc closes on the Mac.
+  - Switching between Physics and Elements is still done on the Mac.
+- Idea (user): Desk mode (tasks as lightly physical cards: flick to tomorrow, drop on a client, crumple when done),
+  as a mode you switch on, off by default. Backlog.

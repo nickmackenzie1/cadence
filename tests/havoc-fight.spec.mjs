@@ -310,3 +310,25 @@ test('tilt to pour: off unless turned on; tilting leans sand and water to the lo
   await page.keyboard.press('Escape');
   expect(errs).toEqual([]);
 });
+
+test('the phone as a controller: the Mac with Havoc open says what it has; keys and taps sent to the NAS happen on it', async ({ page }) => {
+  test.setTimeout(60e3);
+  const errs = []; page.on('pageerror', e => errs.push(String(e)));
+  await page.setViewportSize({ width: 1400, height: 900 });
+  await page.goto(B + '/?demo=1#today');
+  await expect(page.locator('#view .task').first()).toBeVisible({ timeout: 15000 });
+  expect((await (await page.request.get(B + '/api/havoc/remote')).json()).open).toBe(false);
+  await page.locator('body').press('Shift+H');
+  await expect.poll(() => page.evaluate(() => !!(window.__havoc && window.__havoc.active)), { timeout: 10000 }).toBe(true);
+  await expect.poll(async () => (await (await page.request.get(B + '/api/havoc/remote')).json()).open, { timeout: 10000 }).toBe(true);
+  const info = await (await page.request.get(B + '/api/havoc/remote')).json();
+  expect(info.mode).toBe('physics'); expect(info.tools.some(t => t.name === 'Bomb')).toBe(true);
+  const send = b => page.request.post(B + '/api/havoc/remote', { data: b, headers: { Origin: B } });
+  await send({ t: 'key', key: 'b' });
+  await send({ t: 'down', x: 0.5, y: 0.25 }); await send({ t: 'up', x: 0.5, y: 0.25 });
+  await expect.poll(() => page.evaluate(() => window.__havoc.tools().bombs), { timeout: 5000 }).toBe(1);
+  expect((await send({ t: 'nonsense' })).status()).toBe(400);
+  await page.keyboard.press('Escape');
+  await expect.poll(async () => (await (await page.request.get(B + '/api/havoc/remote')).json()).open, { timeout: 10000 }).toBe(false);
+  expect(errs).toEqual([]);
+});
