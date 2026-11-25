@@ -118,8 +118,10 @@ test.describe('on a phone', () => {
     const over = await page.evaluate(() => [...document.querySelectorAll('#view .mr-card *')].filter(e => { const r = e.getBoundingClientRect(); return r.width && r.right > innerWidth + 2 && getComputedStyle(e).position !== 'fixed' && !e.closest('.mr-secs,.mr-tiles,pre,.mr-scroll,table.mr-t'); }).map(e => e.className || e.tagName).slice(0, 5));
     expect(over).toEqual([]);
     const up = page.locator('[data-fb][data-v="1"]').first();
-    await up.scrollIntoViewIfNeeded(); await up.tap();
-    await expect(up).toHaveClass(/on/, { timeout: 1000 });
+    await up.scrollIntoViewIfNeeded();
+    const was = /\bon\b/.test(await up.getAttribute('class') || '');   // other tests here may have voted on it already
+    await up.tap();
+    if (was) await expect(up).not.toHaveClass(/\bon\b/, { timeout: 1000 }); else await expect(up).toHaveClass(/\bon\b/, { timeout: 1000 });
     await page.screenshot({ path: test.info().outputPath('radar-phone.png') });
     expect(errs).toEqual([]);
   });
