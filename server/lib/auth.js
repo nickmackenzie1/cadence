@@ -8,7 +8,8 @@ const { DATA_DIR, PASSWORD, USERNAME } = require('../config');
 
 // ---- login: cookie sessions (stored hashed in data/sessions.json), Basic auth still accepted for scripts ----
 const SESSIONS_FILE = path.join(DATA_DIR, 'sessions.json');
-const COOKIE = 'cadence_session';
+// its own name per app (2026-11-25): browsers share cookies across ports, and CRATE DIGGER runs on the same NAS name
+const COOKIE = /^[a-z_]{3,40}$/.test(process.env.SESSION_COOKIE || '') ? process.env.SESSION_COOKIE : 'cadence_session';
 const LONG = 30 * 864e5, SHORT = 12 * 3600e3;
 const sha = s => crypto.createHash('sha256').update(s).digest('hex');
 const PW_TAG = sha('cadence:' + USERNAME + ':' + PASSWORD).slice(0, 16);   // changing the password signs everyone out
