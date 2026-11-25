@@ -665,3 +665,10 @@ checking the code.
     tall as the notice needs (up to 540px wide; `.isl-t` up to 480px), then it draws back in.
   - The notification centre opens beside the docked pill instead of under it (notify.js).
   - 900px and narrower (no sidebar): the top Island as before.
+- Same evening, user: "the pill should be built into the sidebar so it looks like liquid coming out with a
+  notification", "part of the sidebar and not sitting on top". Docked, the pill has the sidebar's colour and no
+  border: at rest it's just a sidebar row with the time. A notice keeps that colour and always flows out at least
+  56px past the sidebar's edge; the part outside is drawn by `.isl-out` (a shape from the edge plus two concave
+  fillets joining it to the edge above and below) which alone carries the hairline and shadow, so inside the sidebar
+  there's no outline and the edge line disappears where it pours out. The notice's colour tint glows from the
+  outer end only.

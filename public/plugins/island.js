@@ -15,8 +15,26 @@
       .isl-slot{height:30px;margin:0 0 12px}
       @media (max-width:900px){.isl-slot{display:none}}
       .isl.dock{transform:none}
-      .isl.dock .isl-pill{transform-origin:left center}
-      .isl.dock .isl-pill.up{transform:translateX(3px) scale(1.01)}
+      /* built into the sidebar (user: "it should look like a part of the sidebar, not sitting on top"): at rest it's a
+         sidebar row (its colour, no border); a notice swells it in the sidebar's colour and it flows out across the
+         sidebar's edge, which curves into it above and below (the fillets), so it reads as one liquid shape. The
+         hairline and shadow follow that whole shape (drop-shadow on the container). */
+      .isl.dock .isl-pill,[data-theme=dark] .isl.dock .isl-pill{background:transparent;box-shadow:none;-webkit-backdrop-filter:none;backdrop-filter:none;border-radius:12px;transform:none;transform-origin:left center}
+      .isl.dock .isl-pill.click:hover{background:var(--hover,rgba(0,0,0,.04))}
+      .isl.dock .isl-pill.up,[data-theme=dark] .isl.dock .isl-pill.up{background:var(--side,#f0eee9);box-shadow:none;transform:none;border-radius:16px}
+      .isl.dock .isl-pill.up::before{background:radial-gradient(70% 170% at 100% 50%,color-mix(in srgb,var(--glow) 14%,transparent),transparent 75%)}   /* tint from the outer end, none inside the sidebar */
+      .isl.dock .isl-pill.ping::after{animation:none}
+      .isl.dock .isl-pill{z-index:1}
+      .isl-out{position:absolute;left:0;top:0;pointer-events:none;opacity:0;transition:opacity .2s ease}
+      .isl.dock.out .isl-out{opacity:1;filter:drop-shadow(0 0 .6px color-mix(in srgb,var(--text,#000) 32%,transparent)) drop-shadow(0 10px 18px rgba(0,0,0,.12))}
+      [data-theme=dark] .isl.dock.out .isl-out{filter:drop-shadow(0 0 .6px rgba(255,255,255,.24)) drop-shadow(0 12px 22px rgba(0,0,0,.5))}
+      .isl-shape{position:absolute;left:var(--edge,256px);top:0;width:max(0px,calc(var(--w,0px) - var(--edge,256px)));height:var(--h,30px);background:var(--side,#f0eee9);border-radius:0 16px 16px 0;
+        transition:width .75s cubic-bezier(.32,1.22,.42,1),height .75s cubic-bezier(.32,1.22,.42,1)}
+      .isl.dock:not(.out) .isl-out{transition-delay:.35s}
+      .isl-fil{position:absolute;left:var(--edge,256px);width:16px;height:16px;pointer-events:none;opacity:0;transform:scale(0);transition:opacity .25s ease,transform .5s cubic-bezier(.32,1.4,.42,1)}
+      .isl-fil.t{top:-16px;transform-origin:0 100%;background:radial-gradient(circle at 100% 0,transparent 15.5px,var(--side,#f0eee9) 16px)}
+      .isl-fil.b{top:var(--h,30px);transform-origin:0 0;background:radial-gradient(circle at 100% 100%,transparent 15.5px,var(--side,#f0eee9) 16px)}
+      .isl.dock.out .isl-fil{opacity:1;transform:scale(1);transition-delay:.12s}
       .isl.dock .isl-c:not(.stack){padding:0 12px}
       .isl.dock .isl-t,.isl-measure.dockm .isl-t{max-width:480px}
       /* themed: at rest it is part of the UI (panel colour, hairline border); a notice makes it surface */
@@ -90,9 +108,9 @@
     `;
     document.head.appendChild(st);
     G.el = document.createElement('div'); G.el.className = 'isl';
-    G.el.innerHTML = '<div class="isl-pill"></div>';
+    G.el.innerHTML = '<div class="isl-out"><i class="isl-shape"></i><i class="isl-fil t"></i><i class="isl-fil b"></i></div><div class="isl-pill"></div>';
     document.body.appendChild(G.el);
-    G.pill = G.el.firstChild;
+    G.pill = G.el.querySelector('.isl-pill');
     G.queue = []; G.lives = new Map(); G.cur = null; G.sync = 'ok'; G.badge = 0;
   }
   // the sidebar slot: made under the THING header, and the Island pinned to it while there's a sidebar to sit in
@@ -106,7 +124,11 @@
     const s = dockQ.matches ? slot() : null, r = s && s.getBoundingClientRect();
     const on = !!(r && r.width > 40);
     G.el.classList.toggle('dock', on);
-    if (on) { G.el.style.left = r.left + 'px'; G.el.style.top = r.top + 'px'; G.dockW = Math.round(r.width); G.dockL = r.left; }
+    if (on) {
+      G.el.style.left = r.left + 'px'; G.el.style.top = r.top + 'px'; G.dockW = Math.round(r.width); G.dockL = r.left;
+      const side = document.getElementById('side'), sr = side && side.getBoundingClientRect();
+      G.edge = sr ? Math.round(sr.right - r.left) : G.dockW + 10; G.el.style.setProperty('--edge', G.edge + 'px');
+    }
     else { G.el.style.left = ''; G.el.style.top = ''; G.dockW = 0; }
     return on;
   }
@@ -126,9 +148,11 @@
   function morph(view) {
     const p = G.pill, stack = !!view.stack, docked = place();
     const size = view.size || measure(view.html, stack);
-    // docked: never narrower than its slot (so at rest it fills it), and a notice grows it as wide as it needs
-    const w = docked ? Math.min(innerWidth - G.dockL - 24, Math.max(G.dockW, view.minW || 0, size.w)) : Math.min(innerWidth - 40, Math.max(view.minW || 0, size.w)), h = Math.max(30, stack ? size.h : (view.h || 30));
+    // docked: never narrower than its slot (so at rest it fills it); a notice grows it as wide as it needs, and always
+    // at least a little past the sidebar edge so it shows
+    const w = docked ? Math.min(innerWidth - G.dockL - 24, Math.max(G.dockW, view.minW || 0, size.w, G.cur ? G.edge + 56 : 0)) : Math.min(innerWidth - 40, Math.max(view.minW || 0, size.w)), h = Math.max(30, stack ? size.h : (view.h || 30));
     p.style.setProperty('--w', w + 'px'); p.style.setProperty('--h', h + 'px');
+    if (docked) { G.el.style.setProperty('--h', h + 'px'); G.el.style.setProperty('--w', w + 'px'); G.el.classList.toggle('out', w > G.edge + 4 || h > 34); }   // flowing out past the sidebar's edge
     p.classList.toggle('big', h > 34 || stack); p.classList.toggle('click', !!view.onClick);
     p.onclick = view.onClick ? (e => { if (!e.target.closest('button')) view.onClick(); }) : null;
     const old = p.querySelector('.isl-c:not(.leaving)');
