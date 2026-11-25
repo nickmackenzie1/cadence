@@ -142,7 +142,12 @@
   });
   /* ---------- spaces: Work and Life are two complete Cadences (own tasks, areas/clients, plugins, theme, dashboards).
    The space you're in is per device; both sync through the same per-record sync. ---------- */
+  /* which app this core is (2026-11-25, music moving to its own app, CRATE DIGGER): index.html can set
+     window.CADENCE_APP = { name, home, tasks, tabs }. THING leaves it unset and gets these defaults. With tasks:false the
+     sidebar lists the views instead of tasks, areas and the Work/Life switch, and the space is always Life. */
+  const APP = Object.assign({ name: 'THING', home: 'today', tasks: true, tabs: null }, window.CADENCE_APP || {});
   let SPACE = (() => {
+    if (!APP.tasks) return 'life';
     try {
       return localStorage.getItem('cadence.space') === 'life' ? 'life' : 'work';
     } catch (e) {
@@ -2138,7 +2143,7 @@
     setTimeout(() => document.body.classList.remove('space-anim'), 700);
     selTask = null;
     rebuildPlugins();
-    if (location.hash && location.hash !== '#today') location.hash = 'today';
+    if (location.hash && location.hash !== '#' + APP.home) location.hash = APP.home;
     else render();
     emit('space', { space: to });
     if (!S.lifeSynced && to === 'life') {
@@ -2874,7 +2879,7 @@
    ========================================================= */
   let booted = false,
     selTask = null;
-  const route = () => (location.hash || '#today').slice(1);
+  const route = () => (location.hash || '#' + APP.home).slice(1);
   const go = r => {
     if (route() === r) render();
     else location.hash = r;
@@ -3024,6 +3029,13 @@
         .join('') || emptyState('⚙', 'Nothing with dev', 'Hand a task over from its owner chip, or type >dev in quick add.')
     }`;
   }
+  /* an app without tasks (CRATE DIGGER): the sidebar is its views, in their order; a group's views listed together */
+  function sideViews(r, nav) {
+    const vs = Reg.views.filter(v => !v.hidden).sort((a, b) => (a.order ?? 50) - (b.order ?? 50));
+    const groups = [...new Set(vs.map(v => v.group || ''))];
+    const name = g => (APP.groups && APP.groups[g]) || '';
+    return groups.map(g => `${name(g) ? `<div class="sect">${esc(name(g))}</div>` : ''}<nav class="nav">${vs.filter(v => (v.group || '') === g).map(v => nav('view-' + v.id, esc(v.icon || '◇'), esc(v.title))).join('')}</nav>`).join('');
+  }
   function renderSide() {
     const r = route(),
       c = counts(),
@@ -3039,13 +3051,13 @@
       paused = cl0.filter(x => x.status === 'paused');
     if (!$('#side-head').firstChild)
       $('#side-head').innerHTML =
-        `<div class="brand"><span class="logo"></span>THING<kbd title="Command palette">⌘K</kbd></div><div class="space-sw" role="tablist" aria-label="Space"><i></i><button data-act="space" data-s="work" role="tab">Work</button><button data-act="space" data-s="life" role="tab">Life</button></div>`;
+        `<div class="brand"><span class="logo"></span>${esc(APP.name)}<kbd title="Command palette">⌘K</kbd></div>${APP.tasks ? `<div class="space-sw" role="tablist" aria-label="Space"><i></i><button data-act="space" data-s="work" role="tab">Work</button><button data-act="space" data-s="life" role="tab">Life</button></div>` : ''}`;
     $$('#side-head .space-sw button').forEach(b => {
       b.classList.toggle('on', b.dataset.s === SPACE);
       b.setAttribute('aria-selected', b.dataset.s === SPACE);
     });
-    $('#side-head .space-sw').dataset.on = SPACE;
-    $('#side-main').innerHTML = `
+    if ($('#side-head .space-sw')) $('#side-head .space-sw').dataset.on = SPACE;
+    $('#side-main').innerHTML = !APP.tasks ? sideViews(r, nav) : `
     <nav class="ntiles ${LIFE() ? 'four' : ''}">
       ${ntile('today', NAV_ICONS.today, 'Today', c.today, c.over > 0)}
       ${ntile('upcoming', NAV_ICONS.upcoming, 'Upcoming', c.upcoming)}
@@ -4400,7 +4412,7 @@
       emit('reminder', clone(t));
     }
     const n = S.tasks.filter(t => !t.done && t.reminded && t.remindAt && now - t.remindAt < 36e5).length;
-    document.title = (counts().over ? `(${counts().over}) ` : '') + 'THING';
+    document.title = APP.tasks ? (counts().over ? `(${counts().over}) ` : '') + APP.name : APP.name;
   }
 
   /* ---------- toasts ---------- */
@@ -6682,13 +6694,13 @@
       '<svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/></svg>';
     const plus = '<svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>';
     const menu = '<svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></svg>';
-    bar.innerHTML = [
+    bar.innerHTML = (APP.tabs ? APP.tabs.map(([k, ic, label]) => [k, icon(ic), label]).concat([['search', glass, 'Search'], ['menu', menu, 'Menu']]) : [
       ['today', NAV_ICONS.today, 'Today'],
       ['upcoming', NAV_ICONS.upcoming, 'Upcoming'],
       ['add', plus, 'Add'],
       ['search', glass, 'Search'],
       ['menu', menu, 'Menu']
-    ]
+    ])
       .map(([k, ic, label]) => `<button type="button" data-tb="${k}" class="tb-${k}">${ic}<span>${label}</span></button>`)
       .join('');
     document.body.appendChild(bar);

@@ -721,3 +721,11 @@ radar (hours × rate, HST), Vacation and Camping planners (cost split per person
 - **yt-dlp:** the official standalone build for Alpine and the processor (no Python in the image), kept in data/bin. ffmpeg is in the image for the audio and tags.
 - **Keys:** SLSKD_URL/API_KEY, NEWZNAB_URL/API_KEY, SABNZBD_URL/API_KEY, NZBGET_URL/USER/PASS in Settings → Connections.
 - Ported from Aurral (MIT, credited in getmusic.js); ideas from MusicGrabber (Unlicense).
+
+## Plan: music becomes its own app, Crate Digger (2026-11-25)
+The user wants the music side separate. Decided: its own repo and container on the same NAS (own address like :8585, own
+home-screen icon, own push → CI → stable → NAS deploy task), built on THING's foundation (server core, sign-in, storage,
+app shell, themes, Island, rules). It takes Radar, Downloads, Radio, KEXP, artist pages, Want to hear, Shows, the player and
+Podcasts, with their tests; music data is copied across once. It reuses THING's mkcert CA so a phone that trusts one trusts
+both. THING keeps a small "Music" plugin: a link to Crate Digger and what's playing on the Island. THING stays untouched
+until Crate Digger works on the NAS. On screen it is written CRATE DIGGER (capitals, like THING). Waiting on: the user making an empty GitHub repo (crate-digger).
