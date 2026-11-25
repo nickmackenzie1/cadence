@@ -599,3 +599,8 @@ checking the code.
   - Volcano (U): a vent at the bottom of the page under the click. Lava wells up for about 14 s with eruptions that
     throw glowing lava bombs, which land as lava, and toss what's above the vent.
   - `__havoc.tools()` gives { bombs, vents, words } for tests. Test: the tools test in `tests/havoc-fight.spec.mjs`.
+
+### CI actions on Node 24 (2026-11-24)
+- GitHub warned that Node 20 actions are deprecated: checkout, setup-node, cache and upload-artifact are now v5 (Node 24).
+- Flaky tests (watch list, full storage, Wizard fight, new bosses, Follow, inline editor, keys): user doesn't want them
+  chased ("seems like a lot of work"); CI's retries cover them.
