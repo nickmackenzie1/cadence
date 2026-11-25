@@ -115,7 +115,7 @@
       .rs-tabs button.on{background:var(--panel);color:var(--text);box-shadow:0 1px 2px rgba(0,0,0,.08)}
       .rs-tl{position:relative;padding-left:22px}
       .rs-tl:before{content:"";position:absolute;left:6px;top:8px;bottom:8px;width:2px;background:var(--line);border-radius:2px}
-      .rs-day{position:sticky;top:0;z-index:2;font-size:12px;font-weight:600;color:var(--muted);padding:14px 0 8px;background:linear-gradient(var(--bg) 70%,transparent)}
+      .rs-day{position:sticky;top:var(--sticky-top,0px);z-index:2;font-size:12px;font-weight:600;color:var(--muted);padding:14px 0 8px;background:linear-gradient(var(--bg) 70%,transparent)}
       .rs-panel .rs-day{background:linear-gradient(var(--panel) 70%,transparent)}
       .rs-day:before{content:"";position:absolute;left:-20px;top:18px;width:10px;height:10px;border-radius:50%;background:var(--panel);border:2px solid var(--muted)}
       .rs-day.new:before{border-color:#e5484d;background:#e5484d}

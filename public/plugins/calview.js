@@ -114,7 +114,7 @@
         .cv-bar{display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap}
         .cv-bar .btn{padding:5px 10px}.cv-title{font-size:18px;margin:0 0 0 8px;font-weight:700}.cv-hint{font-size:12px;margin-left:auto}
         .cv-body{display:grid;grid-template-columns:minmax(0,1fr);gap:14px}.cv-body.has-side{grid-template-columns:minmax(0,1fr) 340px}
-        .cv-side{position:sticky;top:16px;align-self:start}.cv-side .task{margin:0}
+        .cv-side{position:sticky;top:calc(var(--sticky-top,0px) + 16px);align-self:start}.cv-side .task{margin:0}
         .cv-dow{display:grid;grid-template-columns:repeat(7,1fr);font-size:12px;color:var(--muted);font-weight:600;padding:0 2px 6px}
         .cv-dow span{padding-left:8px}
         .cv-month{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));grid-auto-rows:minmax(108px,auto);border:1px solid var(--line);border-radius:var(--r-l);overflow:hidden;background:var(--panel,var(--bg))}

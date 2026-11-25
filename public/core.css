@@ -840,3 +840,17 @@ input[type=checkbox],input[type=radio],input[type=range],progress{accent-color:v
 :where(#view) a:not([class]){color:var(--accent)}
 /* Havoc full screen on phones: the tab bar steps aside while it's open (2026-11-24) */
 html.havoc-open #tabbar{display:none!important}
+
+/* sticky headers clear the top Island on phones (2026-11-24): plugins use top:var(--sticky-top) */
+:root{--sticky-top:0px}
+@media (max-width:900px){:root{--sticky-top:calc(48px + env(safe-area-inset-top))}}
+/* bigger tap targets on touch screens (2026-11-24): same look, larger invisible touch area */
+@media (hover:none) and (pointer:coarse){
+  .task .check{position:relative}
+  .task .check::before{content:'';position:absolute;inset:-13px}
+  .t-moves{gap:8px}
+  .t-moves button{min-height:40px;padding:8px 14px}
+  .t-meta .chip{position:relative}
+  .t-meta .chip[data-act]::before,.t-meta button.chip::before{content:'';position:absolute;inset:-9px -4px}
+  .td-nx,.td-link{min-height:40px;display:inline-flex;align-items:center}
+}

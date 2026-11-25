@@ -697,3 +697,11 @@ checking the code.
   - Phones (≤ 900px): the section chips are one sideways-scrolling row that sticks below the top Island; For you is
     one column with "Not for me" as its eye icon; picks' thumbs sit on their own row and are bigger; wide tables
     scroll inside their card. Test: "on a phone" in `tests/radar.spec.mjs`.
+
+## App review, items 1–6 (2026-11-24)
+- **Phone pages fit the screen:** Invoices rows, Radio stations and the Tickets toolbar no longer run off the side (grid columns can shrink, the toolbar wraps).
+- **One sticky offset:** `--sticky-top` in core.css (0 on computers, 48px + safe area on phones up to 900px). Sticky headers use `top:var(--sticky-top,0px)` (DB viewer, RSS, Radar sections, calendar, kanban). Use it for any new sticky header.
+- **Bigger tap targets on touch screens:** the task circle has an invisible 44px touch area, the Tomorrow/Next week/Clear buttons are 40px tall, and date chips get a larger touch area. Same look.
+- **Secure address on phones:** plugins/secure-phone.js. A phone on http gets a calm Island note once a day; "Set up the secure address on this phone" in the palette opens the steps (download ca.crt, install the profile, turn on full trust, open https://host:8443). `/api/health` now has `httpsReady` and `httpsPort`; if the NAS has no certificate yet, the guide says so and points to deploy.log ("tls:" lines).
+- **Watch list "More like this" test:** it now adds its own Severance (a CI retry starts on an empty NAS, so it can't rely on earlier tests). The "watch Dune" test had a comment hiding two checks; they run again.
+- **Radar no longer rebuilds everything after small changes:** the route used to clear the page data on every POST. Now each change clears only what it affects. Background changes (listens, hometowns, similar artists) keep showing the current page and refresh quietly (`soften()`). A rebuild that started before a change is dropped (`dataGen`). "Not for me" on an artist removes it from the picks straight away.

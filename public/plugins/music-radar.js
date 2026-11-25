@@ -167,7 +167,12 @@
       const openSettings = () => { G.more.settings = true; api.storage.set('more', G.more); if (api.ui.currentRoute() === 'view-radar') api.ui.refresh(); };
       window.removeEventListener('cadence-radar-settings', window.__radarSettingsHook); window.__radarSettingsHook = openSettings;   // one listener, however often plugins rebuild
       window.addEventListener('cadence-radar-settings', openSettings);
-      window.addEventListener('cadence-radar-reload', () => load());
+      window.addEventListener('cadence-radar-reload', e => {
+        // Not for me on an artist: gone from the page now; the NAS's new picture follows quietly
+        const d = e && e.detail, k = d && d.on !== false && d.type === 'artist' && String(d.value || '').toLowerCase();
+        if (k && G.d) { for (const key of ['picks']) if (Array.isArray(G.d[key])) G.d[key] = G.d[key].filter(x => String(x.artist || '').toLowerCase() !== k); redraw(); }
+        load({ quiet: !!k });
+      });
       const get = async u => { const r = await fetch(u, { cache: 'no-store' }); if (!r.ok) throw new Error(r.status); return r.json(); };
       const post = async (u, b) => { const r = await fetch(u, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(b || {}) }); return r.json(); };
       // each piece draws when it lands (2026-11-19); this device's last copy draws first, so the page is never blank
@@ -402,7 +407,7 @@
         .mr-rise{table-layout:fixed;width:100%} .mr-rise td:first-child{overflow:hidden} .mr-rise th:not(:first-child),.mr-rise td:not(:first-child){width:4.2em}
         .mr-src .cx-logo,.mr-small .cx-logo,.mr-chip .cx-logo{margin-right:4px;vertical-align:-2px} .mr-tabs .cx-logo{margin-right:5px;vertical-align:-2px}
         .mr-home{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:18px} .mr-home h4{margin:4px 0 0}
-        .mr-secs{position:sticky;top:0;z-index:2;display:flex;gap:6px;flex-wrap:wrap;padding:8px 0;margin:4px 0 10px;background:color-mix(in srgb,var(--bg) 88%,transparent);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)}
+        .mr-secs{position:sticky;top:var(--sticky-top,0px);z-index:2;display:flex;gap:6px;flex-wrap:wrap;padding:8px 0;margin:4px 0 10px;background:color-mix(in srgb,var(--bg) 88%,transparent);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)}
         .mr-sec{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:var(--panel);color:var(--text);border-radius:999px;padding:6px 14px;font:inherit;font-size:13px;cursor:pointer}
         .mr-sec svg{width:14px;height:14px;color:var(--muted)} .mr-sec[aria-pressed=true]{background:var(--accent-soft);border-color:transparent;color:var(--accent)} .mr-sec[aria-pressed=true] svg{color:var(--accent)}
         .mr-card[hidden],.mr-more[hidden]{display:none!important}
@@ -420,7 +425,7 @@
         /* phones (2026-11-24, user: "layout issues on phone"): the section chips are one row you can scroll sideways and
            sit below the top Island; For you is one column with "Not for me" as its icon; picks' thumbs sit on their own row */
         @media (max-width:900px){
-          .mr-secs{top:calc(48px + env(safe-area-inset-top));flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;margin-left:-18px;margin-right:-18px;padding:8px 18px;-webkit-mask-image:linear-gradient(90deg,transparent,#000 14px,#000 calc(100% - 14px),transparent)}
+          .mr-secs{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;margin-left:-18px;margin-right:-18px;padding:8px 18px;-webkit-mask-image:linear-gradient(90deg,transparent,#000 14px,#000 calc(100% - 14px),transparent)}
           .mr-secs::-webkit-scrollbar{display:none}
           .mr-sec{flex:none;padding:7px 13px}
           .mr-fyl{grid-template-columns:minmax(0,1fr)}

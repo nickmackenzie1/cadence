@@ -152,7 +152,7 @@
         .ir-svg circle,.ir-svg line{fill:none;stroke:color-mix(in srgb,#16a34a 35%,var(--line))}.ir-svg{background:radial-gradient(circle,color-mix(in srgb,#16a34a 10%,transparent),transparent 70%);border-radius:50%}
         .ir-svg .sweep{fill:color-mix(in srgb,#16a34a 22%,transparent);transform-origin:50% 50%;animation:irSw 4s linear infinite}@keyframes irSw{to{transform:rotate(360deg)}}
         .ir-svg .blip circle{stroke:var(--bg);stroke-width:2}.ir-svg .blip.hot circle{stroke:#e5484d}.ir-svg text{font:600 9.5px Inter,system-ui;fill:var(--muted);text-anchor:middle}
-        .ir-row{display:grid;grid-template-columns:auto 1fr auto;gap:12px;align-items:center;padding:10px 0;border-bottom:1px solid var(--line)}.ir-row b{display:block}.ir-row > div > span{display:block;font-size:12px;color:var(--muted)}.ir-row .ir-t{font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:420px}
+        .ir-row{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:12px;align-items:center;padding:10px 0;border-bottom:1px solid var(--line)}.ir-row b{display:block}.ir-row > div > span{display:block;font-size:12px;color:var(--muted)}.ir-row .ir-t{font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:420px}
         .ir-mini{display:flex;gap:12px;align-items:center}.ir-m{display:flex;align-items:center;gap:6px;font-size:13px;padding:2px 0}.ir-m i{width:8px;height:8px;border-radius:50%}.ir-m em{margin-left:auto;font-style:normal;color:var(--muted);padding-left:10px}
         @media (prefers-reduced-motion:reduce){.ir-svg .sweep{animation:none}}`);
     },

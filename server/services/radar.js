@@ -120,12 +120,16 @@ async function raw(name, offset = 0, limit = 50) {
 // waits meanwhile. It's kept until something changes it (bust(): scans, follows, listening, Not for me, sources,
 // feedback), or 15 minutes at most (2026-11-18: it was 60 s, so browsing the music pages rebuilt it every minute).
 let dataMemo = { at: 0, v: null, p: null };
-function bust() { dataMemo = { at: 0, v: null, p: null }; }
+let dataGen = 0;   // a rebuild that started before a change doesn't get kept after it
+function bust() { dataGen++; dataMemo = { at: 0, v: null, p: null }; }
+// soften(): something changed in the background (a listen, hometowns or similar artists arriving). The page keeps the
+// copy it has and the NAS works out the new one quietly, so nobody waits for it (2026-11-24). bust() is for your own changes.
+function soften() { dataMemo.at = 0; }
 const DATA_KEEP = +process.env.RADAR_DATA_KEEP_MS || 15 * 60e3;
 async function data() {
   if (dataMemo.v && Date.now() - dataMemo.at < DATA_KEEP) return dataMemo.v;
-  if (dataMemo.p) return dataMemo.p;
-  dataMemo.p = dataFresh().then(v => { dataMemo = { at: Date.now(), v, p: null }; return v; }, e => { dataMemo.p = null; throw e; });
+  if (!dataMemo.p) { const g = dataGen, p = dataFresh().then(v => { if (g === dataGen) dataMemo = { at: Date.now(), v, p: null }; return v; }, e => { if (dataMemo.p === p) dataMemo.p = null; throw e; }); dataMemo.p = p; }
+  if (dataMemo.v) { dataMemo.p.catch(() => {}); return dataMemo.v; }   // old copy now, the new one is on its way
   return dataMemo.p;
 }
 async function dataFresh() { const { store, data } = await load(); return data.dashboardData(store.loadState()); }
@@ -137,7 +141,7 @@ async function listen(b = {}) {
   const secs = Math.max(0, Math.min(3 * 3600, Math.round(+b.secs || 0)));
   if (!artist || !kind || secs < 1) return { ok: false };
   const row = { ts: Math.floor(Date.now() / 1000), artist, artist_key: norm(artist), title: b.title ? String(b.title).slice(0, 200) : null, kind, station: b.station ? String(b.station).slice(0, 80) : null, secs, skipped: !!b.skipped };
-  store.addListen(row); bust();
+  store.addListen(row); soften();
   // and to ListenBrainz, when you've given Cadence your token (in the background: the page doesn't wait)
   if (process.env.LISTENBRAINZ_TOKEN || (process.env.KOITO_URL && process.env.KOITO_TOKEN)) import(pathToFileURL(path.join(__dirname, 'radar', 'lib', 'scrobble.mjs')).href).then(S => S.worthSending(row) && S.scrobble(row)).catch(() => {});
   return { ok: true };
@@ -203,7 +207,7 @@ if (!process.env.CI && process.env.RADAR_WIKIDATA !== '0') {
     if (!closeCandidates.length) await closeToHome().catch(() => {});
     const liked = [...F.tasteProfile(store.loadState()).artists.values()].filter(a => a.w > 0).map(a => ({ name: a.name, mbid: (store.getKv('mba:' + a.key) || {}).mbid })).filter(a => a.mbid);
     const n = await O.originWarm([...closeCandidates, ...liked]);
-    if (n) bust();
+    if (n) soften();
     return n ? { note: `Wikidata: hometowns for ${n} artists` } : undefined;
   }, { label: 'Wikidata: where artists are from (Close to home)', quiet: true, every: 12 * 3600e3, first: 8 * 60e3, retry: 3600e3 });
 }
@@ -334,6 +338,7 @@ async function community(input) {
     if (input.tags !== undefined) next.tags = [...new Set(lines(input.tags).map(F.parseTag).filter(Boolean).map(t => '#' + t.tag + (t.host === 'mastodon.social' ? '' : '@' + t.host)))].slice(0, 20);
     store.setKv('fediCfg', next);
     if (input.mainstream) M.saveMainstreamCfg(input.mainstream);
+    bust();   // the mainstream list hides picks
   }
   const f = store.getKv('fediCfg', {}) || {};
   return { communities: f.communities || F.DEFAULT_COMMUNITIES, tags: f.tags || F.DEFAULT_TAGS, mainstream: M.mainstreamCfg() };
@@ -374,7 +379,7 @@ if (!process.env.CI && process.env.RADAR_LB_SIMILAR !== '0') {
     const { store } = await load(), F = await fyLib(), Sim = await import(pathToFileURL(path.join(__dirname, 'radar', 'lib', 'similar.mjs')).href);
     const liked = [...F.tasteProfile(store.loadState()).artists.values()].filter(a => a.w > 0).sort((a, b) => b.w - a.w).map(a => a.name);
     const n = await Sim.lbWarm(liked);
-    if (n) bust();
+    if (n) soften();
     return n ? { note: `ListenBrainz: similar artists for ${n} of yours` } : undefined;
   }, { label: 'ListenBrainz: similar artists for the ones you like', quiet: true, every: 6 * 3600e3, first: 5 * 60e3, retry: 3600e3 });
 }
@@ -562,7 +567,7 @@ async function want(input) {
     if (!list.some(x => k(x) === k(it))) list = [it, ...list].slice(0, 300);
   }
   if (input && input.remove) { const r = input.remove, k = (r.artist + '|' + (r.title || '')).toLowerCase(); list = list.filter(x => (x.artist + '|' + (x.title || '')).toLowerCase() !== k); }
-  if (input) store.setKv('wantToHear', list);
+  if (input) { store.setKv('wantToHear', list); bust(); }   // feeds For you
   return list;
 }
 async function rss(base) { const { store, rss } = await load(); return rss.buildRss(store.loadState(), 80, base); }

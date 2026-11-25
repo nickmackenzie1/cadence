@@ -152,7 +152,7 @@ Cadence.registerPlugin({
         .chip.tkt.warn{box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--warn) 60%,transparent)}.chip.tkt.breach{background:var(--danger);color:#fff}
         .dk-head{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:16px}
         .dk-sum{display:flex;gap:16px;font-size:13px;color:var(--muted)}.dk-sum b{font-size:20px;color:var(--text);margin-right:3px}.dk-sum .breach,.dk-sum .breach b{color:var(--danger)}.dk-sum .ok b{color:var(--ok)}
-        .dk-tools{display:flex;gap:8px;align-items:center}.dk-tools select{width:auto;height:34px;padding:4px 10px}
+        .dk-tools{display:flex;gap:8px;align-items:center;flex-wrap:wrap;min-width:0} .dk-tools .seg{max-width:100%;overflow-x:auto}.dk-tools select{width:auto;height:34px;padding:4px 10px}
         .dk-board{display:grid;grid-template-columns:repeat(4,minmax(200px,1fr));gap:12px;align-items:start;overflow-x:auto;padding-bottom:6px}
         .dk-col{background:color-mix(in srgb,var(--text) 3.5%,transparent);border-radius:var(--r-l);padding:8px;min-height:120px;transition:background .15s}.dk-col.over{background:var(--accent-soft)}
         .dk-ch{display:flex;justify-content:space-between;font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);padding:4px 6px 8px}.dk-ch span{font-weight:600}

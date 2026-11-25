@@ -27,7 +27,7 @@
       .dbv-split.insp{grid-template-columns:minmax(0,1fr) minmax(280px,38%)}
       .dbv-tw{overflow:auto;border:1px solid var(--line);border-radius:var(--r-l);background:var(--panel);max-height:68vh}
       .dbv table{border-collapse:collapse;width:100%;font:12px/1.4 var(--mono)}
-      .dbv th{position:sticky;top:0;background:var(--panel);text-align:left;font-weight:600;color:var(--muted);padding:8px 10px;border-bottom:1px solid var(--line);white-space:nowrap;cursor:pointer;user-select:none}
+      .dbv th{position:sticky;top:var(--sticky-top,0px);background:var(--panel);text-align:left;font-weight:600;color:var(--muted);padding:8px 10px;border-bottom:1px solid var(--line);white-space:nowrap;cursor:pointer;user-select:none}
       .dbv th:hover{color:var(--text)}
       .dbv td{padding:6px 10px;border-bottom:1px solid color-mix(in srgb,var(--line) 60%,transparent);white-space:nowrap;max-width:280px;overflow:hidden;text-overflow:ellipsis}
       .dbv tr:hover td{background:var(--hover)}
@@ -35,7 +35,7 @@
       .dbv td.n{color:#0090ff}.dbv td.b{color:#d6409f}.dbv td.nl{color:var(--muted);opacity:.8}.dbv td.o{color:var(--muted)}
       .dbv td a{color:var(--accent);cursor:pointer;text-decoration:none}
       .dbv-insp{border:1px solid var(--line);border-radius:var(--r-l);background:#151513;color:#e9e6dd;overflow:auto;max-height:68vh;position:relative}
-      .dbv-insp .ih{position:sticky;top:0;display:flex;gap:6px;align-items:center;padding:8px 10px;background:#1d1d1a;border-bottom:1px solid #2c2b27;font:12px var(--mono);color:#a7a397}
+      .dbv-insp .ih{position:sticky;top:var(--sticky-top,0px);display:flex;gap:6px;align-items:center;padding:8px 10px;background:#1d1d1a;border-bottom:1px solid #2c2b27;font:12px var(--mono);color:#a7a397}
       .dbv-insp .ih button{color:#e9e6dd;background:#2c2b27;border-radius:var(--r-s);padding:2px 8px;font-size:12px}
       .dbv-insp .ih button:first-of-type{margin-left:auto}
       .dbv-insp pre{margin:0;padding:12px 14px;font:12px/1.55 var(--mono);white-space:pre-wrap;word-break:break-word}

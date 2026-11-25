@@ -412,7 +412,7 @@
     .rd-h{margin:14px 0 2px;font-size:15px}
     .kx-dj{width:36px;height:36px;border-radius:50%;object-fit:cover;flex:none} .kx-yr{color:var(--accent)}
     .kx-dec{display:flex;align-items:flex-end;gap:8px;margin:6px 0 10px;min-height:76px}.kx-dec span{display:flex;flex-direction:column;align-items:center;gap:4px;font-size:11px;color:var(--muted)}.kx-dec i{display:block;width:22px;border-radius:4px 4px 0 0;background:var(--accent);opacity:.7}
-    .rd-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:8px}
+    .rd-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(300px,100%),1fr));gap:8px} .rd-st{min-width:0}
     .rd-st{display:flex;align-items:center;gap:10px;padding:8px 10px;border:1px solid var(--line);border-radius:var(--radius,10px);background:var(--card)}
     .rd-st.on{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent) inset}
     .rd-soma summary{display:flex;align-items:baseline;gap:10px;cursor:pointer;list-style:none} .rd-soma summary::-webkit-details-marker{display:none} .rd-soma summary .rd-h{margin:0} .rd-soma[open] summary{margin-bottom:8px}
@@ -463,6 +463,6 @@
     .kx-full{display:inline-flex;gap:6px;align-items:center;margin-top:6px;font-size:13px}
     .kx-show{font-size:12px} .kx-two{display:grid;grid-template-columns:1fr 1fr;gap:16px} @media (max-width:800px){.kx-two{grid-template-columns:1fr}}
     @media (max-width:640px){.kx-when{width:92px;white-space:normal}}
-    @media (max-width:640px){.rd-list{grid-template-columns:1fr}}`;
+    @media (max-width:640px){.rd-list{grid-template-columns:minmax(0,1fr)}}`;
   document.head.appendChild(css);
 })();

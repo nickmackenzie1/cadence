@@ -166,7 +166,7 @@
     list: null,
     async set(type, value, on) {
       const r = await fetch('api/radar/nfm', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type, value, on }) });
-      this.list = await r.json(); window.dispatchEvent(new Event('cadence-radar-reload')); return this.list;
+      this.list = await r.json(); window.dispatchEvent(new CustomEvent('cadence-radar-reload', { detail: { type, value, on } })); return this.list;
     },
     has(type, v) { const l = this.list && this.list[type + 's']; return !!l && l.some(x => x.toLowerCase() === String(v).toLowerCase()); },
     async load() { try { this.list = await (await fetch('api/radar/nfm')).json(); } catch (e) {} return this.list; }

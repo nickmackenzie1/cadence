@@ -12,7 +12,8 @@ module.exports = async function radarRoutes(req, res, { url, p }) {
   if (!p.startsWith('/api/radar')) return NEXT;
   const body = async () => { try { return JSON.parse(await readBody(req, 64 * 1024) || '{}'); } catch { return {}; } };
 
-  if (req.method === 'POST' && p.startsWith('/api/radar/')) radar.bust();   // a change: the kept page data starts fresh
+  // (no blanket refresh on every POST: each change refreshes only what it touches, in services/radar.js. Clearing it all on a
+  // thumbs or a Not for me made the NAS rebuild the whole page, and on a phone that showed as "Load failed".)
   if (p === '/api/radar/find' && req.method === 'GET') return send(res, 200, await radar.find(url.searchParams.get('q')));   // artist suggestions as you type
   if (p === '/api/radar/jobs' && req.method === 'GET') return send(res, 200, require('../lib/scheduler').list('music'));
   if (p.startsWith('/api/radar/jobs/')) {

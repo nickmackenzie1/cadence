@@ -62,7 +62,7 @@ test('"watch Dune" in Life quick add: poster, year, runtime, the Watch list area
   const row = page.locator('#view .task', { hasText: 'Dune' }).first();
   await expect(row.locator('.wq-chip')).toContainText('Film · 2021 · 2h 35m', { timeout: 8000 });
   const t = await page.evaluate(() => { const s = JSON.parse(localStorage.getItem('cadence.life.v1')); const t = s.tasks.find(x => x.media); return { t, area: s.clients.find(c => c.id === t.clientId) }; });
-  expect(t.t.title).toBe('Dune'); expect(t.t.dueDate).toBeFalsy(); // not due today just because it was typed on Today expect(t.area.name).toBe('Watch list'); expect(t.t.media.alts.map(a => a.year)).toEqual(['1984']);
+  expect(t.t.title).toBe('Dune'); expect(t.t.dueDate).toBeFalsy(); /* not due today just because it was typed on Today */ expect(t.area.name).toBe('Watch list'); expect(t.t.media.alts.map(a => a.year)).toEqual(['1984']);
   // the other Dune, from the task's card
   await page.locator('#view .task', { hasText: 'Dune' }).first().locator('.t-title').click();
   await page.click('.wq-alt');
@@ -71,13 +71,14 @@ test('"watch Dune" in Life quick add: poster, year, runtime, the Watch list area
   // the page: add a show and a game from its search box
   await page.goto(B + '/#view-watch');
   await page.fill('#wq-q', 'Severance');
-  await page.locator('[data-wq-add]').first().click();
+  await page.locator('[data-wq-add]', { hasText: 'Severance' }).first().click();
+  await expect(page.locator('.wq-it', { hasText: 'Severance' })).toHaveCount(1);
   await page.click('[data-wq-kind=game]');
   await page.fill('#wq-q', 'Hades');
   await expect(page.locator('[data-wq-add]')).toHaveCount(2);
   await page.press('#wq-q', 'Enter'); // the exact name, not Hades II
   await expect(page.locator('.wq-it')).toHaveCount(3);
-  await expect(page.locator('.wq-it', { hasText: 'Severance' })).toContainText('2022 · 2 seasons');
+  await expect(page.locator('.wq-it', { hasText: 'Severance' })).toContainText('2022 · 2 seasons', { timeout: 15000 });
   await expect(page.locator('.wq-it', { hasText: 'Hades' })).toContainText('2020 · PC');
   await expect(page.locator('.wq-it img')).toHaveCount(3);
   // watched: onto the shelf
@@ -129,13 +130,14 @@ test('More like this: because you watched one, suggestions from TasteDive add wi
   const r = await (await fetch(B + '/api/similar?q=Severance&type=show')).json();
   expect(r.results.map(x => x.name)).toEqual(['Mr. Robot', 'Severance']);
   const n = asked.length; await fetch(B + '/api/similar?q=Severance&type=show'); expect(asked.length).toBe(n);   // kept
+  // its own Severance, watched just now (a retry starts on an empty NAS, so nothing earlier can be relied on)
+  await page.goto(B + '/#today');
+  await expect(page.locator('#qa')).toBeVisible({ timeout: 15000 });
+  await page.click('[data-act=space][data-s=life]');
+  await page.fill('#qa', 'watch severance'); await page.press('#qa', 'Enter');
+  await expect.poll(() => page.evaluate(() => (JSON.parse(localStorage.getItem('cadence.life.v1')).tasks.filter(t => t.media && t.media.id === 95396 && !t.done)).length), { timeout: 10000 }).toBeGreaterThan(0);
   await page.goto(B + '/#view-watch');
-  await page.click('[data-act=space][data-s=life]').catch(() => {});
-  await page.goto(B + '/#view-watch');
-  // watched (again, here: each test starts with what the NAS kept)
-  const sev = page.locator('.wq-it', { hasText: 'Severance' }).locator('[data-wq-done]');
-  await expect(page.locator('.wq-it').first()).toBeVisible({ timeout: 15000 });
-  if (await sev.count()) await sev.click();
+  await page.locator('.wq-it', { hasText: 'Severance' }).first().locator('[data-wq-done]').click();
   const box = page.locator('.wq-simpage');
   await expect(box).toContainText('Because you watched', { timeout: 15000 });
   await expect(box).toContainText('Mr. Robot');
