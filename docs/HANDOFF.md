@@ -643,3 +643,9 @@ checking the code.
     surface, besides startling the fish and frogs.
   - Elements mode: water painted with a quick stroke flies off along it as droplets and arcs down (`line`).
   - `w.life()` also reports `drops` in flight.
+
+### Havoc: smoke that curls (2026-11-24)
+- User picked "smoke that curls". elements-core.js `swirl(x, y)`: a slow, smooth field of sideways currents (three
+  sine waves over place, height and time). In `gasMove`, smoke, steam and fumes are carried left or right by it
+  (up to 60% of the time where it's strongest), so plumes bend, spread and curl, and the curls drift. Subtle on a
+  light page, clearer in dark mode.

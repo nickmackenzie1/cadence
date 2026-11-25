@@ -149,7 +149,13 @@ function ENGINE(env) {
     if (t === E || (t === SMOKE && m !== SMOKE && R() < 0.5) || (m === STEAM && fluid[t] && R() < 0.3)) { swap(i, j); return true; }
     return false;
   }
+  // Smoke that curls (2026-11-24, user picked it): a slow, smooth field of sideways currents that changes with height,
+  // place and time; smoke, steam and fumes climbing through it get carried left and right, so plumes bend and curl.
+  let swT = 0;
+  const swirl = (x, y) => (Math.sin(x * 0.09 + swT * 0.013) + Math.sin(y * 0.11 - swT * 0.017 + x * 0.03) + Math.sin((x - y) * 0.05 + swT * 0.009)) / 3;
   function gasMove(i, x, y, m, up) {
+    const c = swirl(x, y);
+    if (R() < Math.abs(c) * 0.6 && rise(i, m, x + (c > 0 ? 1 : -1), y - (R() < 0.5 ? 1 : 0))) return;
     const d = windSide();
     if (Math.abs(wind) > 0.15 && R() < Math.abs(wind) * 0.25 && rise(i, m, x + (wind > 0 ? 1 : -1), y)) return;
     if (R() < up) { if (rise(i, m, x, y - 1)) return; if (rise(i, m, x + d, y - 1)) return; }
@@ -405,7 +411,7 @@ function ENGINE(env) {
     if (gusts.length) gusts = gusts.filter(g => g.t < g.life);
   }
   function step() {
-    tick = (tick % 255) + 1;
+    tick = (tick % 255) + 1; swT++;
     const ltr = tick & 1;
     fireCount = 0;
     if (sinks.length) sinkStep();
