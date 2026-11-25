@@ -98,6 +98,22 @@ function ENGINE(env) {
   }
   // Tilt to pour (2026-11-24, a setting, off by default): opts.tilt (-1 left … 1 right) leans which way grains and
   // liquids prefer to go, and a steep tilt lets them slide sideways on their own, so the low side fills up.
+  // Splashes (2026-11-24, user picked "splashes and arcs"): falling water remembers how far it has fallen (fv); landing
+  // hard, it and a little of the surface around it jump up as droplets (kind 6 sparks) that come down as water again.
+  let fv = null;
+  function drop(x, y, vx, vy) { return spark(x + 0.5, y + 0.5, vx, vy, [92, 150, 235], 240, 6); }
+  function splashAt(i, x, y, v) {
+    if (R() > 0.4) return;
+    const k = Math.min(1, (v - 6) / 18), n = 1 + ((k * 3) | 0);
+    grid[i] = E; life[i] = 0; wakeAt(i);
+    drop(x, y - 1, (R() - 0.5) * 1.4, -(0.6 + k * 1.6 + R() * 0.6));
+    for (let c = 0; c < n; c++) {   // a little of the surface goes up too
+      const sx = x + (R() < 0.5 ? -1 : 1) * (1 + ((R() * 3) | 0)); if (sx < 0 || sx >= W) continue;
+      let sy = y; while (sy > 0 && grid[(sy - 1) * W + sx] === WATER) sy--;
+      const j = sy * W + sx; if (grid[j] !== WATER || sy < 1 || grid[j - W] !== E) continue;
+      grid[j] = E; wakeAt(j); drop(sx, sy - 1, (sx - x) * 0.25 + (R() - 0.5) * 0.6, -(0.5 + k * 1.3 + R() * 0.5));
+    }
+  }
   const leanDir = () => { const t = opts.tilt || 0; return R() < 0.5 + t * 0.45 ? 1 : -1; };
   function powder(i, x, y, m) {
     if (fall(i, m, x, y + 1)) return;
@@ -107,7 +123,8 @@ function ENGINE(env) {
     const t = opts.tilt || 0; if (Math.abs(t) > 0.35 && R() < Math.abs(t) - 0.3) fall(i, m, x + (t > 0 ? 1 : -1), y);
   }
   function liquid(i, x, y, m, spread) {
-    if (fall(i, m, x, y + 1)) return;
+    if (fall(i, m, x, y + 1)) { if (m === WATER && fv) { const j = i + W; if (grid[j] === WATER) { fv[j] = fv[i] < 250 ? fv[i] + 1 : 250; fv[i] = 0; } } return; }
+    if (m === WATER && fv && fv[i]) { const v = fv[i]; fv[i] = 0; if (v > 7) { splashAt(i, x, y, v); if (grid[i] !== WATER) return; } }
     // tilted: water on top climbs toward the low side, so the surface leans and the pool piles up there
     const tl = opts.tilt || 0;
     if (Math.abs(tl) > 0.15 && y > 0 && grid[i - W] === E && R() < (Math.abs(tl) - 0.1) * 0.6) {
@@ -247,6 +264,13 @@ function ENGINE(env) {
     fish = out;
   }
   function splash(x, y) {
+    // a crown of droplets from the surface where it went in
+    for (let c = 0; c < 10; c++) {
+      const sx = x + ((R() - 0.5) * 14) | 0; if (sx < 0 || sx >= W) continue;
+      let sy = Math.max(1, y - 8); while (sy < H - 1 && grid[sy * W + sx] !== WATER) sy++; if (sy >= H - 1 || sy > y + 10) continue;
+      const j = sy * W + sx; if (grid[j - W] !== E) continue;
+      grid[j] = E; wakeAt(j); drop(sx, sy - 1, (sx - x) * 0.18 + (R() - 0.5) * 0.5, -(1.2 + R() * 1.4));
+    }
     // fish nearby dart up to the surface and leap out
     for (const f of fish) if (!f.jump && !f.dash && Math.abs(f.x - x) < 60 && Math.abs(f.y - y) < 50 && R() < 0.75) { f.dash = true; f.dir = f.x < x ? -1 : 1; }
     for (const fr of frogs) if (!fr.hop && Math.abs(fr.x - x) < 40) fr.rest = 0;   // frogs startle too
@@ -628,7 +652,7 @@ function ENGINE(env) {
     for (let n = 0; n < 10; n++) spark(cx, cy, (R() - 0.5) * 4, -R() * 3.5, [255, 170 + R() * 60, 60], rr(15, 35));
   }
   const FW_COLS = [[255, 70, 60], [80, 255, 120], [90, 150, 255], [255, 210, 70], [255, 110, 230], [240, 245, 255]];
-  function spark(x, y, vx, vy, col, lf, kind = 0) { if (parts.length < (kind === 5 ? 6000 : 2500)) { const p = { x, y, vx, vy, col, life: lf, max: lf, kind }; parts.push(p); return p; } return null; }
+  function spark(x, y, vx, vy, col, lf, kind = 0) { if (parts.length < (kind >= 5 ? 6000 : 2500)) { const p = { x, y, vx, vy, col, life: lf, max: lf, kind }; parts.push(p); return p; } return null; }
   function launch(x, y) {
     const p = spark(x, y, (R() - 0.5) * 0.6, -3.2 - R() * 1.2, FW_COLS[(R() * FW_COLS.length) | 0], rr(28, 50), 1);
     if (p) { p.c2 = FW_COLS[(R() * FW_COLS.length) | 0]; events.push(['launch']); }
@@ -648,16 +672,17 @@ function ENGINE(env) {
       const p = parts[n];
       p.life--;
       if (p.kind === 1) { spark(p.x, p.y + 1, (R() - 0.5) * 0.4, 0.3 + R() * 0.5, [255, 190, 90], rr(6, 14)); p.vx += wind * 0.01; }
-      else if (p.kind === 5) { p.vy += 0.09; p.vx *= 0.99; }
+      else if (p.kind === 5 || p.kind === 6) { p.vy += 0.09; p.vx *= 0.99; }
       else { p.vy += p.kind === 2 ? 0.03 : 0.05; p.vx *= 0.985; p.vy *= 0.985; p.vx += wind * 0.004; }
       const nx = p.x + p.vx, ny = p.y + p.vy, x = nx | 0, y = ny | 0;
       if (nx < 0 || x >= W || y >= H) continue;
-      if (p.kind === 5 && ny < 0) { p.x = nx; p.y = ny; out.push(p); continue; }   // flung above the top: still coming down
+      if ((p.kind === 5 || p.kind === 6) && ny < 0) { p.x = nx; p.y = ny; out.push(p); continue; }   // flung above the top: still coming down
       if (ny < 0) continue;
       const i = y * W + x, m = grid[i];
       if (m !== E && !gas[m]) {
         if (p.kind === 1) { burst(p); continue; }
         if (p.kind === 5) { landPixel(p); continue; }
+        if (p.kind === 6) { landDrop(p); continue; }
         if (m === SNOW && R() < 0.5) set(x, y, WATER);
         else if (m === WATER && R() < 0.2) set(x, y, STEAM, rr(60, 120));
         else if (m === PAGE || m === WOOD) { char(i, p.kind === 2 ? 4 : 12); pristine[i] = 0; wakeAt(i); if (R() < (p.kind === 2 ? 0.003 : 0.006)) set(x, y, EMBER, rr(30, 70)); }
@@ -666,10 +691,13 @@ function ENGINE(env) {
         continue;
       }
       p.x = nx; p.y = ny;
-      if (p.life <= 0) { if (p.kind === 1) burst(p); else if (p.kind === 5) landPixel(p); continue; }
+      if (p.life <= 0) { if (p.kind === 1) burst(p); else if (p.kind === 5) landPixel(p); else if (p.kind === 6) landDrop(p); continue; }
       out.push(p);
     }
     parts = out;
+  }
+  function landDrop(p) {
+    for (let k = 0; k < 4; k++) { const x = p.x | 0, y = (p.y | 0) - k; if (x < 0 || x >= W || y < 0 || y >= H) return; const i = y * W + x; if (grid[i] === E) { set(x, y, WATER); return; } }
   }
   // Cadence: a pixel in flight comes to rest as a grain of its own colour where it was (or just above, if that's taken)
   function landPixel(p) {
@@ -1114,6 +1142,13 @@ function ENGINE(env) {
   }
   function line(x0, y0, x1, y1, tool, brush) {
     const steps = Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0), 1);
+    // flinging water: some of it flies off along the stroke and arcs down (2026-11-24)
+    if (tool === WATER && steps >= 3) {
+      const vx = Math.max(-3.5, Math.min(3.5, (x1 - x0) * 0.22)), vy = Math.max(-3, Math.min(2, (y1 - y0) * 0.22)) - 0.6;
+      for (let s = 0; s <= steps; s++) { const x = Math.round(x0 + (x1 - x0) * s / steps), y = Math.round(y0 + (y1 - y0) * s / steps);
+        for (let k = 0; k < Math.max(1, brush >> 1); k++) { const dx = x + (((R() - 0.5) * brush) | 0), dy = y + (((R() - 0.5) * brush) | 0); if (dx >= 0 && dx < W && dy >= 0 && dy < H && grid[dy * W + dx] === E && R() < 0.6) drop(dx, dy, vx + (R() - 0.5) * 0.6, vy + (R() - 0.5) * 0.6); } }
+      return;
+    }
     for (let s = 0; s <= steps; s++) paint(Math.round(x0 + (x1 - x0) * s / steps), Math.round(y0 + (y1 - y0) * s / steps), tool, brush);
   }
   function ignite() {
@@ -1451,7 +1486,7 @@ function ENGINE(env) {
     // sparks and rockets
     for (const p of parts) {
       const x = p.x | 0, y = p.y | 0; if (x < 0 || x >= W || y < 0 || y >= H) continue;
-      if (p.kind === 5) { const i = y * W + x; buf[i] = rgb(p.col[0], p.col[1], p.col[2]); lbuf[i] = 0; markDrawn(x, y); continue; }   // a pixel in flight: its own colour, no glow
+      if (p.kind === 5 || p.kind === 6) { const i = y * W + x; buf[i] = rgb(p.col[0], p.col[1], p.col[2]); lbuf[i] = 0; markDrawn(x, y); continue; }   // a pixel in flight: its own colour, no glow
       const i = y * W + x, f = Math.max(0.15, p.life / p.max), tw = p.kind === 2 && R() < 0.15 ? 0.3 : 1;
       const c = rgb(p.col[0] * f * tw + 40 * f, p.col[1] * f * tw + 40 * f, p.col[2] * f * tw + 40 * f);
       buf[i] = c; lbuf[i] = LB(c); markDrawn(x, y);
@@ -1497,7 +1532,7 @@ function ENGINE(env) {
     gen = msg.gen; W = msg.W; H = msg.H; N = W * H;
     grid = msg.grid; colR = msg.colR; colG = msg.colG; colB = msg.colB; owner = msg.owner; layer = msg.layer; boxOf = msg.boxOf;
     boxCol = msg.boxCol; bodyBg = msg.bodyBg;
-    life = new Uint8Array(N); shade = new Uint8Array(N); stamp = new Uint8Array(N); pristine = new Uint8Array(N);
+    life = new Uint8Array(N); shade = new Uint8Array(N); stamp = new Uint8Array(N); pristine = new Uint8Array(N); fv = new Uint8Array(N);
     for (let i = 0; i < N; i++) { shade[i] = (R() * 256) | 0; if (grid[i] === PAGE) pristine[i] = 1; }
     initGrid = grid.slice();
     els = [null];
@@ -1626,7 +1661,7 @@ function ENGINE(env) {
           if (msg.key === 'snowing' || msg.key === 'sharp') { awake && awake.fill(1); }
           if (grid && (msg.key === 'lights' || msg.key === 'palette' || msg.key === 'compact')) { removeLights(); buildLights(); awake.fill(1); }
           break;
-        case 'life': { let pads = 0; for (let i = 0; i < N; i++) if (grid[i] === PAD) pads++; env.post({ t: 'count', id: msg.id, n: { fish: fish.length, frogs: frogs.length, pads, jumping: fish.filter(f => f.jump || f.dash).length, levelled: lvMoves, steps: lvSteps } }); break; }
+        case 'life': { let pads = 0; for (let i = 0; i < N; i++) if (grid[i] === PAD) pads++; env.post({ t: 'count', id: msg.id, n: { fish: fish.length, frogs: frogs.length, pads, jumping: fish.filter(f => f.jump || f.dash).length, drops: parts.reduce((n, p) => n + (p.kind === 6 ? 1 : 0), 0), levelled: lvMoves, steps: lvSteps } }); break; }
         case 'fish': env.post({ t: 'count', id: msg.id, n: fish.length }); break;
         case 'count': { let n = 0; const [x0, y0, x1, y1] = msg.rect; for (let y = Math.max(0, y0); y < Math.min(H, y1); y++) for (let x = Math.max(0, x0); x < Math.min(W, x1); x++) if (grid[y * W + x] === msg.m) n++; env.post({ t: 'count', id: msg.id, n }); break; }
         // Cadence (2026-11-19): what's at each of these cells ([x, y, x, y, …]): Havoc's words float, burn and dissolve by it

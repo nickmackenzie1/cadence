@@ -634,3 +634,12 @@ checking the code.
 - Only while Havoc is open (`lit`: the sandbox always, the ambient layer only with `html.havoc-open`), so the
   everyday page's snow and lights don't cast haze. Shadows weren't done.
 - Tests: `window.__forceGL = true` before the engine loads makes it use WebGL even on a software renderer.
+
+### Havoc: splashes and arcs (2026-11-24)
+- User picked "splashes and arcs". In elements-core.js:
+  - Falling water counts how far it has fallen (`fv`). Landing after 8+ cells, sometimes (40%) it and a little of the
+    surface around it jump up as droplets: kind-6 sparks that fly with gravity and land as water again (`landDrop`).
+  - `w.splash(x, y)` (a word landing in a pool in Physics mode) now also throws a crown of up to 10 droplets from the
+    surface, besides startling the fish and frogs.
+  - Elements mode: water painted with a quick stroke flies off along it as droplets and arcs down (`line`).
+  - `w.life()` also reports `drops` in flight.
