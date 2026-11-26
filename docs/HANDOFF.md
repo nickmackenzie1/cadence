@@ -746,3 +746,24 @@ user's music data was copied there once (scripts/import-from-thing.sh in that re
   tasks, tabs, groups, music); THING leaves it unset. A fix to the shared files belongs in both repos.
 - Sign-in cookies: THING's is `cadence_session`, CRATE DIGGER's `cratedigger_session` (SESSION_COOKIE), because browsers
   share cookies across ports on the same name.
+
+## Foil (2026-11-25, holospot: github.com/dmitrykurash/holospot, MIT)
+The user picked, for THING: the foil logo, a Foil theme, and holo in Havoc. (CRATE DIGGER's foil ideas are on its backlog.)
+- Kit: public/vendor/holo (dist/holo.js unchanged except its imports of "three", pointed at ../../three/three.module.js;
+  assets/bumps and logos only) and public/vendor/three (three.js 0.187.0, unminified, served gzipped). Both load only when
+  foil is first used. plugins/foil.js: window.CadenceFoil { logo, logoInto, sheet, ok, kit }.
+- Real foil only with a real graphics chip: on a software renderer (no GPU, VMs, test browsers) `ok()` is false and the
+  plain look stays (window.__forceGL in tests). This mattered: software WebGL on every page slowed the whole suite.
+- Logo: THING's ring-and-dot as a Foil Emboss stamp (concentric foil) on dark paper; sidebar (wider than 900px) and the
+  sign-in page (the server lets plugins/foil.js and vendor/three|holo through before sign-in: code only). It leans toward
+  the pointer and only draws while it moves. Kit quirks: emboss positions are on the standard 63×88 mm face (centre
+  31.5, 44) whatever the card size; the stamp draws a frame or two after its artwork loads; tiny cards don't show it.
+- Foil theme: the kit renders a Prism sheet once; the theme crops and brightens it and uses it as a picture on the active
+  page in the sidebar, the Today tiles, the Work/Life switch, tabs, primary buttons and a ticked task, drifting with the
+  pointer (still with reduced motion). Without WebGL it uses a soft rainbow gradient.
+- Havoc: Elements has a Holo material (HOLO=28): grains that pile like sand, coloured from the foil sheet at a spot that
+  drifts with time and tilt, with glints. Physics has a Holo pane (key p): a foil pane; a hard knock (speed > 15), a click
+  on it, or a blast breaks it into 24 triangle shards (at most 240 kept). Careful: havoc-engine already had a shatter()
+  (words into letters); the pane's is shatterPane().
+- Also fixed: `.btn.pri` had no style outside one toolbar although ~40 plugins use it for main buttons; it now matches
+  `.btn.primary` (core.css, both apps).

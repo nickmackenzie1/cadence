@@ -52,7 +52,8 @@ async function handle(req, res) {
     if (await routes.auth(req, res, ctx) !== NEXT) return;
 
     if (!authorized(req)) {
-      if (OPEN.has(leaf) || iconish) { /* public asset */ }
+      // public assets; the foil logo on the sign-in page needs its plugin, three.js and the foil kit (code only, no data)
+      if (OPEN.has(leaf) || iconish || (!url.pathname.includes('..') && /\/(plugins\/foil\.js|vendor\/(three|holo)\/[\w./-]+)$/.test(url.pathname))) { /* public asset */ }
       else if (p.startsWith('/api/')) return send(res, 401, { error: 'Sign in required' });
       else {
         const next = url.pathname + url.search;

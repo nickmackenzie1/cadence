@@ -15,8 +15,8 @@
   if (window.ElementsWorld) return;
   const R = Math.random;
   const M = { E: 0, SAND: 1, WATER: 2, ICE: 3, FIRE: 4, WOOD: 5, STEAM: 6, STONE: 7, OIL: 8, LAVA: 9, EMBER: 10, ASH: 11, SMOKE: 12, SNOW: 13,
-    PAGE: 14, GLASS: 15, WIRE: 16, BULB: 17, PLANT: 18, ACID: 19, FUME: 20, POWDER: 21, BOLT: 22, SURF: 23, PIXEL: 24, DRIP: 25, KELP: 26, PAD: 27, FIREWORK: 30, LIGHTNING: 31 };
-  const { E, SAND, WATER, ICE, FIRE, WOOD, STEAM, STONE, OIL, LAVA, SNOW, PLANT, ACID, POWDER, FIREWORK, LIGHTNING } = M;
+    PAGE: 14, GLASS: 15, WIRE: 16, BULB: 17, PLANT: 18, ACID: 19, FUME: 20, POWDER: 21, BOLT: 22, SURF: 23, PIXEL: 24, DRIP: 25, KELP: 26, PAD: 27, HOLO: 28, FIREWORK: 30, LIGHTNING: 31 };
+  const { E, SAND, WATER, ICE, FIRE, WOOD, STEAM, STONE, OIL, LAVA, SNOW, PLANT, ACID, POWDER, FIREWORK, LIGHTNING, HOLO } = M;
   const here = (document.currentScript && document.currentScript.src) || new URL('vendor/elements-engine.js', location.href).href;
   const CORE = here.replace(/elements-engine\.js(\?.*)?$/, 'elements-core.js$1');
 
@@ -245,6 +245,19 @@
         } catch (err) { onPage(); }
       });
     }
+    // Cadence (2026-11-25): the Holo material's colours, from a Prism foil sheet holospot renders once (plugins/foil.js)
+    async function holoSheet() {
+      const F = window.CadenceFoil; if (!F || !port) return;
+      try {
+        const d = await F.sheet({ material: 'prism', lean: 14, size: 256 }); if (!d || !port) return;
+        const im = new Image(); im.src = d; await im.decode();
+        const S2 = 128, c = document.createElement('canvas'); c.width = c.height = S2; const g = c.getContext('2d');
+        g.filter = 'brightness(1.5) saturate(1.3)'; g.drawImage(im, 32, 32, 192, 192, 0, 0, S2, S2);
+        const px = g.getImageData(0, 0, S2, S2).data, rgb = new Uint8Array(S2 * S2 * 3);
+        for (let i = 0, j = 0; i < px.length; i += 4) { rgb[j++] = px[i]; rgb[j++] = px[i + 1]; rgb[j++] = px[i + 2]; }
+        port.post({ t: 'holo', rgb: rgb.buffer, size: S2 }, [rgb.buffer]);
+      } catch {}
+    }
     const setOpt = (key, value) => { S[key] = value; if (port) port.post({ t: 'opt', key, value }); wake(); };
 
     /* ---------------- read the screen into cells (havoc), or an empty world (ambient) ---------------- */
@@ -347,7 +360,7 @@
       };
       const pics = []; pictures = 0; foreign = 0;
       for (const el of document.body.querySelectorAll('img, canvas, svg')) {
-        if (ours(el) || (el.tagName === 'svg' && el.ownerSVGElement)) continue;
+        if (ours(el) || el.classList.contains('foil-cv') || (el.tagName === 'svg' && el.ownerSVGElement)) continue;
         const r = el.getBoundingClientRect();
         if (r.width < 3 || r.height < 3 || r.bottom < 0 || r.top > innerHeight || r.right < 0 || r.left > innerWidth || !seen(el)) continue;
         if (el.tagName === 'IMG') {
@@ -490,6 +503,7 @@
       // every option first, so the lights are built the way this world wants them
       for (const [k, v] of Object.entries({ snowing: S.snowing, storm: S.storm, heatView: S.heatView, sharp: S.sharp, paused: S.paused, snowEverywhere: S.snowEverywhere, lightMode: S.lightMode, windBase: S.windBase, reduced, lights: S.lights, palette: S.palette, compact: S.compact, rain: S.rain, floor: S.floor })) port.post({ t: 'opt', key: k, value: v });
       port.post(msg, [L.grid.buffer, L.colR.buffer, L.colG.buffer, L.colB.buffer, L.owner.buffer, L.layer.buffer, L.boxOf.buffer]);
+      holoSheet();
       allocBufs(); sizeCanvas(); busy = false; ready = true; lastFrame = null;
       api.stats = { pieces: L.els.length, pictures, foreign, cells: W * H, worker: port.worker, compositor: comp.kind };
       if (AMBIENT) { ledgesDirty = true; ledges(); watchLedges(true); }
@@ -628,6 +642,7 @@
       T_(PLANT, '9', 'Holly', 'Drinks water and snow, climbs, grows berries', '#2f9e55', '<path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z"/><path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"/>'),
       T_(ACID, '0', 'Acid', 'Eats through the page, gives off fumes', '#7be040', '<path d="M10 2v7.31M14 9.3V1.99M8.5 2h7M14 9.3a6.5 6.5 0 1 1-4 0M5.52 16h12.96"/>'),
       T_(POWDER, '-', 'Gunpowder', 'Explodes when it gets hot', '#8a8580', '<circle cx="11" cy="13" r="8"/><path d="m16.5 7.5 3-3M19 2l1 1"/>'),
+      T_(HOLO, '', 'Holo', 'Glitter in real foil: it shimmers as it moves and as you tilt', '#c9a8ff', '<path d="M9.94 15.5A2 2 0 0 0 8.5 14.06l-6.14-1.58a.5.5 0 0 1 0-.96L8.5 9.94A2 2 0 0 0 9.94 8.5l1.58-6.14a.5.5 0 0 1 .96 0L14.06 8.5A2 2 0 0 0 15.5 9.94l6.14 1.58a.5.5 0 0 1 0 .96L15.5 14.06a2 2 0 0 0-1.44 1.44l-1.58 6.14a.5.5 0 0 1-.96 0z"/>'),
       T_(OIL, '', 'Oil', 'Floats on water, catches fire easily', '#a07a4a', '<path d="M3 22h12M4 9h10M14 22V4a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v18M14 13h2a2 2 0 0 1 2 2v2a2 2 0 0 0 4 0V9.83a2 2 0 0 0-.59-1.42L18 5"/>'),
       T_(WOOD, '', 'Wood', 'Chars, then burns as embers', '#9a6a40', '<path d="m17 14 3 3.3a1 1 0 0 1-.7 1.7H4.7a1 1 0 0 1-.7-1.7L7 14h-.3a1 1 0 0 1-.7-1.7L9 9h-.2A1 1 0 0 1 8 7.3L12 3l4 4.3a1 1 0 0 1-.8 1.7H15l3 3.3a1 1 0 0 1-.7 1.7H17ZM12 22v-3"/>'),
       T_(STEAM, '', 'Steam', 'Rises, then comes back down as rain', '#c9ced8', '<path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/>'),

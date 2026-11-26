@@ -116,5 +116,22 @@ input:focus{border-color:var(--accent);box-shadow:0 0 0 3px color-mix(in srgb,va
   };
 })();
 </script>
+<script src="plugins/foil.js"></script>
+<script>
+/* the logo in foil (plugins/foil.js), swapped in once its stamp has loaded; the plain logo stays without WebGL */
+(async () => {
+  const F = window.CadenceFoil, img = document.querySelector('#card .logo');
+  if (!F || !img || !F.ok()) return;
+  const cv = document.createElement('canvas'); cv.className = 'logo'; cv.width = cv.height = 52; cv.setAttribute('aria-hidden', 'true');
+  try {
+    const s = await F.logoInto(cv, { tilt: 18 });
+    for (const ms of [250, 700]) setTimeout(() => s.draw(), ms);
+    setTimeout(() => {
+      s.draw(); img.replaceWith(cv);
+      addEventListener('pointermove', e => { const b = cv.getBoundingClientRect(), dx = e.clientX - (b.left + 26), dy = e.clientY - (b.top + 26), d = Math.hypot(dx, dy) || 1, k = Math.min(1, 300 / d) * 0.9 + 0.1; s.aim(dy / d * 18 * k, -dx / d * 18 * k); }, { passive: true });
+    }, 1500);
+  } catch {}
+})();
+</script>
 </body>
 </html>

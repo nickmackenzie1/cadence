@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+<defs><mask id="m" maskUnits="userSpaceOnUse" x="0" y="0" width="200" height="200">
+<path fill="#fff" d="M100,8 C148,38 172,108 100,186 C28,108 52,38 100,8 Z"/>
+<path fill="#000" d="M98,30 L102,30 L103,178 L97,178 Z"/>
+<path d="M100,56 Q84.7,50 66,34" fill="none" stroke="#000" stroke-width="3.6" stroke-linecap="round"/>
+<path d="M100,56 Q115.3,50 134,34" fill="none" stroke="#000" stroke-width="3.6" stroke-linecap="round"/>
+<path d="M100,78 Q81,72 57.77,56" fill="none" stroke="#000" stroke-width="3.35" stroke-linecap="round"/>
+<path d="M100,78 Q119,72 142.23,56" fill="none" stroke="#000" stroke-width="3.35" stroke-linecap="round"/>
+<path d="M100,100 Q78.71,94 52.69,78" fill="none" stroke="#000" stroke-width="3.1" stroke-linecap="round"/>
+<path d="M100,100 Q121.29,94 147.31,78" fill="none" stroke="#000" stroke-width="3.1" stroke-linecap="round"/>
+<path d="M100,122 Q78.71,116 52.69,100" fill="none" stroke="#000" stroke-width="2.85" stroke-linecap="round"/>
+<path d="M100,122 Q121.29,116 147.31,100" fill="none" stroke="#000" stroke-width="2.85" stroke-linecap="round"/>
+<path d="M100,144 Q81,138 57.77,122" fill="none" stroke="#000" stroke-width="2.6" stroke-linecap="round"/>
+<path d="M100,144 Q119,138 142.23,122" fill="none" stroke="#000" stroke-width="2.6" stroke-linecap="round"/>
+<path d="M100,166 Q84.7,160 66,144" fill="none" stroke="#000" stroke-width="2.35" stroke-linecap="round"/>
+<path d="M100,166 Q115.3,160 134,144" fill="none" stroke="#000" stroke-width="2.35" stroke-linecap="round"/>
+</mask></defs>
+<path fill="#000" d="M100,8 C148,38 172,108 100,186 C28,108 52,38 100,8 Z" mask="url(#m)"/>
+<path fill="#000" d="M97.5,180 L102.5,180 L104,198 L96,198 Z"/>
+</svg>

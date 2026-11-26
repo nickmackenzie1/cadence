@@ -161,8 +161,8 @@ input,textarea,select{font:inherit;color:inherit}
 .head .actions{margin-left:auto;display:flex;gap:8px}
 .btn{display:inline-flex;align-items:center;gap:6px;padding:7px 12px;border-radius:var(--r-m);border:1px solid var(--line);background:var(--panel);font-weight:500;font-size:13px;white-space:nowrap}
 .btn:hover{border-color:var(--faint)}
-.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--on-accent,var(--on-accent-auto,#fff))}
-.btn.primary:hover{filter:brightness(1.07)}
+.btn.primary,.btn.pri{background:var(--accent);border-color:var(--accent);color:var(--on-accent,var(--on-accent-auto,#fff))}
+.btn.primary:hover,.btn.pri:hover{filter:brightness(1.07)}
 .btn.ghost{border-color:transparent;background:none}
 .btn.ghost:hover{background:var(--hover)}
 .btn.danger{color:var(--danger)}
@@ -755,7 +755,7 @@ svg.lu{width:1.1em;height:1.1em;display:inline-block;vertical-align:-.17em;fill:
 
 /* buttons that are links look like buttons */
 a.btn{color:var(--text);text-decoration:none}
-a.btn.primary{color:var(--on-accent,var(--on-accent-auto,#fff))}
+a.btn.primary,a.btn.pri{color:var(--on-accent,var(--on-accent-auto,#fff))}
 /* Music pages (Radar, Radio, KEXP history, Want to hear, Shows, Said the Gramophone, Artists): one width, one heading
    style, one chip, one link colour, so the pages read as one place and switching tabs moves nothing (design pass,
    2026-11-16). Cards on the Radar page keep their own smaller headings. */

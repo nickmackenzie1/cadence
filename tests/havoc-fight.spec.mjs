@@ -332,3 +332,33 @@ test('the phone as a controller: the Mac with Havoc open says what it has; keys 
   await expect.poll(async () => (await (await page.request.get(B + '/api/havoc/remote')).json()).open, { timeout: 10000 }).toBe(false);
   expect(errs).toEqual([]);
 });
+
+test('holo: a foil pane shatters into shards when clicked or blasted; holo grains pour like sand', async ({ page }) => {
+  test.setTimeout(90e3);
+  const errs = []; page.on('pageerror', e => errs.push(String(e)));
+  await page.setViewportSize({ width: 1400, height: 900 });
+  await page.goto(B + '/?demo=1#today');
+  await expect(page.locator('#view .task').first()).toBeVisible({ timeout: 15000 });
+  await page.locator('body').press('Shift+H');
+  await expect.poll(() => page.evaluate(() => !!(window.__havoc && window.__havoc.active)), { timeout: 10000 }).toBe(true);
+  await expect.poll(() => page.evaluate(async () => !!(await window.CadenceFX.world())), { timeout: 10000 }).toBe(true);
+  const tools = () => page.evaluate(() => window.__havoc.tools());
+  // a pane: dropped, then clicked again, it breaks into triangle shards
+  await page.keyboard.press('p'); await page.mouse.click(700, 260);
+  expect((await tools()).panes).toBe(1);
+  await page.mouse.click(700, 262);   // straight away, before it falls
+  await expect.poll(async () => (await tools()).shards, { timeout: 5000 }).toBeGreaterThan(12);
+  expect((await tools()).panes).toBe(0);
+  // another, blown apart by a bomb next to it
+  await page.mouse.click(400, 200); expect((await tools()).panes).toBe(1);
+  await page.keyboard.press('b'); await page.mouse.click(400, 120);
+  await expect.poll(async () => (await tools()).panes, { timeout: 6000 }).toBe(0);
+  // holo grains (Elements): poured, they pile up like sand
+  const holo = () => page.evaluate(async () => { const w = await window.CadenceFX.world(); return w.count({ left: 0, top: 0, right: innerWidth, bottom: innerHeight }, w.M.HOLO); });
+  await page.evaluate(async () => { const w = await window.CadenceFX.world(); for (let i = 0; i < 6; i++) w.spawn(980 + i * 20, 300, w.M.HOLO, 4, 1); });
+  await expect.poll(holo, { timeout: 5000 }).toBeGreaterThan(20);
+  // Esc puts the page back: no panes or shards left
+  await page.keyboard.press('Escape');
+  await expect.poll(() => page.evaluate(() => !!(window.__havoc && window.__havoc.active)), { timeout: 15000 }).toBe(false);
+  expect(errs).toEqual([]);
+});

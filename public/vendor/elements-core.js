@@ -7,12 +7,15 @@ function ENGINE(env) {
         PAGE=14, GLASS=15, WIRE=16, BULB=17, PLANT=18, ACID=19, FUME=20, POWDER=21, BOLT=22, SURF=23,   // SURF: Cadence, invisible ledge
         PIXEL=24, DRIP=25,   // Cadence (2026-11-19): a picture's own pixels, as grains that pour (PIXEL) and, melted, a coloured liquid (DRIP)
         KELP=26,
-        PAD=27;    // Cadence (2026-11-20): a lily pad, floating on the surface of a deep pool   // Cadence (2026-11-19): weed that grows up from the floor of a deep pool   // Cadence (2026-11-19): a picture's own pixels, as grains that pour (PIXEL) and, melted, a coloured liquid (DRIP)
+        PAD=27, HOLO=28;    // Cadence (2026-11-20): a lily pad, floating on the surface of a deep pool   // Cadence (2026-11-19): weed that grows up from the floor of a deep pool   // Cadence (2026-11-19): a picture's own pixels, as grains that pour (PIXEL) and, melted, a coloured liquid (DRIP)
   const FIREWORK=30, LIGHTNING=31;
   const fluid = new Uint8Array(32), gas = new Uint8Array(32), dens = new Uint8Array(32);
   fluid[WATER]=fluid[OIL]=fluid[LAVA]=fluid[ACID]=1; gas[STEAM]=gas[FIRE]=gas[SMOKE]=gas[FUME]=1;
   dens[OIL]=1; dens[WATER]=2; dens[ACID]=2; dens[LAVA]=3; dens[SAND]=4; dens[ASH]=4; dens[POWDER]=4; dens[SNOW]=1;
   fluid[DRIP]=1; dens[PIXEL]=4; dens[DRIP]=3;
+  // Cadence (2026-11-25): holo glitter. Grains that pile like sand; each frame their colour is read from a foil sheet that
+  // holospot rendered (msg 'holo'), at a spot that drifts with time and with tilt, so the pile shimmers
+  dens[HOLO]=4; let holoSheet = null, holoSize = 0, holoShift = 0;
   const R = Math.random, rr = (a, b) => a + ((R() * (b - a)) | 0);
   const N8 = [[-1,-1],[0,-1],[1,-1],[-1,0],[1,0],[-1,1],[0,1],[1,1]];
   const UP5 = [[-1,-1],[0,-1],[1,-1],[-1,0],[1,0]];
@@ -583,6 +586,7 @@ function ENGINE(env) {
             case POWDER: { if (tAt(x, y) > 220 && R() < 0.3) { explode(x, y, 4); break; } powder(i, x, y, m); break; }
             // Cadence: a picture's pixels pour like sand; very hot ones melt into colour that runs, and set again as it cools
             case PIXEL: { if (tAt(x, y) > 420 && R() < 0.2) { grid[i] = DRIP; life[i] = rr(90, 220); wakeAt(i); break; } powder(i, x, y, m); break; }
+            case HOLO: { powder(i, x, y, m); if (R() < 0.02) wakeAt(i); break; }   // stays awake a little, so it keeps catching the light
             case PAD: {   // Cadence: a lily pad rides the surface: it drops when the water goes, bobs up when it's covered
               if (y + 1 < H && grid[i + W] === E) { swap(i, i + W); break; }
               if (y > 0 && grid[i - W] === WATER) { swap(i, i - W); break; }
@@ -813,6 +817,7 @@ function ENGINE(env) {
 
   // ---------- light that casts shadows ----------
   const OPQ = new Float32Array(32);
+  OPQ[HOLO] = 1;
   OPQ[PAGE] = OPQ[STONE] = OPQ[WOOD] = OPQ[SAND] = OPQ[POWDER] = OPQ[PIXEL] = OPQ[DRIP] = 1; OPQ[ASH] = 0.9; OPQ[SNOW] = 0.85; OPQ[PLANT] = 0.75; OPQ[OIL] = 0.6;
   OPQ[WIRE] = 0.5; OPQ[SMOKE] = 0.4; OPQ[ICE] = 0.35; OPQ[WATER] = OPQ[ACID] = 0.3; OPQ[GLASS] = OPQ[STEAM] = OPQ[FUME] = 0.12;
   const EMS = new Float32Array(32 * 3);
@@ -1389,6 +1394,13 @@ function ENGINE(env) {
                 const a = 1 - Math.min(depth, 30) / 30 * 0.28; r *= a; g *= a; b *= a;
                 depth++; liq = 0; break;
               }
+              case HOLO: {
+                const sh = shade[i] & 31, sp = holoShift;
+                if (holoSheet) { const S = holoSize, u = ((x + sp + (sh >> 3)) % S + S) % S, v = ((y + (sp >> 1)) % S + S) % S, q = (v * S + u) * 3; r = 70 + holoSheet[q] * 0.75; g = 70 + holoSheet[q + 1] * 0.75; b = 70 + holoSheet[q + 2] * 0.75; }
+                else { const h = ((x * 2 + y + sp * 3 + (sh >> 2)) % 360 + 360) % 360 / 60, c = 200, k = c * (1 - Math.abs(h % 2 - 1)); [r, g, b] = h < 1 ? [c, k, 60] : h < 2 ? [k, c, 60] : h < 3 ? [60, c, k] : h < 4 ? [60, k, c] : h < 5 ? [k, 60, c] : [c, 60, k]; }
+                if (((shade[i] + (holoShift >> 2)) & 63) === 0) { r = g = b = 255; }   // a glint
+                depth++; liq = 0; break;
+              }
               case PIXEL: { r = colR[i]; g = colG[i]; b = colB[i]; const sh = ((shade[i] & 15) - 7) * 1.5; r += sh; g += sh; b += sh; scorch(r, g, b, life[i]); r = SR; g = SG; b = SB; depth++; liq = 0; break; }
               case DRIP: { const gl = (shade[i] & 31) > 27 ? 40 : 10; r = Math.min(255, colR[i] * 1.08 + gl); g = Math.min(255, colG[i] * 1.08 + gl); b = Math.min(255, colB[i] * 1.08 + gl); depth++; break; }
               case WOOD: case PAGE: {
@@ -1632,6 +1644,7 @@ function ENGINE(env) {
 
   // ---------- frame ----------
   function frame(msg) {
+    holoShift = (gen * 0.6 + (opts.tilt || 0) * 48) | 0;   // Cadence: holo drifts with time and tilt
     const b = msg.bufs;
     if (msg.gen !== gen || b.buf.byteLength !== N * 4) { env.post({ t: 'frame', gen: msg.gen, stale: true, bufs: b }, [b.buf, b.lbuf, b.ov, b.heat, b.solid]); return; }
     buf = new Uint32Array(b.buf); lbuf = new Uint32Array(b.lbuf); ovb = new Uint32Array(b.ov); heatb = new Uint32Array(b.heat); solid = new Uint8Array(b.solid);
@@ -1672,6 +1685,7 @@ function ENGINE(env) {
         case 'count': { let n = 0; const [x0, y0, x1, y1] = msg.rect; for (let y = Math.max(0, y0); y < Math.min(H, y1); y++) for (let x = Math.max(0, x0); x < Math.min(W, x1); x++) if (grid[y * W + x] === msg.m) n++; env.post({ t: 'count', id: msg.id, n }); break; }
         // Cadence (2026-11-19): what's at each of these cells ([x, y, x, y, …]): Havoc's words float, burn and dissolve by it
         case 'probe': { const pts = msg.pts, out = new Uint8Array(pts.length >> 1); for (let k = 0, n = 0; k + 1 < pts.length; k += 2, n++) { const x = pts[k], y = pts[k + 1]; out[n] = x >= 0 && x < W && y >= 0 && y < H ? grid[y * W + x] : 0; } env.post({ t: 'probe', id: msg.id, m: out }, [out.buffer]); break; }
+        case 'holo': holoSheet = msg.rgb ? new Uint8Array(msg.rgb) : null; holoSize = msg.size | 0; awake && awake.fill(1); break;   // Cadence: the foil sheet for HOLO
         case 'frame': frame(msg); break;
         case 'save': { const ab = encodeSave(); env.post({ t: 'saved', gen, data: ab }, [ab]); break; }
         case 'stats': env.post({ t: 'stats', id: msg.id, data: stats() }); break;

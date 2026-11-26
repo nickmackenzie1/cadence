@@ -26,6 +26,8 @@
     { id: 'bomb',   key: 'b', name: 'Bomb',       hint: 'Click to drop a bomb: it fizzes, flashes faster, then goes off. Click one to pick it up and throw it', color: '#ffb347' },
     { id: 'vac',    key: 'v', name: 'Vacuum',     hint: 'Hold and drag: sucks up words, fire, water, sand, everything', color: '#9ad1ff' },
     { id: 'fan',    key: 'f', name: 'Fan',        hint: 'Press where the fan goes, drag to aim, hold to blow', color: '#b8f2e6' },
+    // 2026-11-25 (user picked holo for Havoc): a pane of real foil (holospot, via plugins/foil.js) that shatters into shards
+    { id: 'holo',   key: 'p', name: 'Holo pane',  hint: 'Click to drop a pane of holo foil. Hit it hard (or blast it) and it shatters into glittering shards', color: '#c9a8ff' },
     { id: 'volcano', key: 'u', name: 'Volcano',   hint: 'Click: lava wells up from the bottom of the page and erupts', color: '#ff6b3d' },
   ];
   const ICONS = {
@@ -39,6 +41,7 @@
     hole:  '<circle cx="12" cy="12" r="3.2"/><path d="M12 3a9 9 0 0 1 9 9M21 12a9 9 0 0 1-9 9M12 21a9 9 0 0 1-9-9M3 12a9 9 0 0 1 9-9" opacity=".55"/><path d="M12 6.5a5.5 5.5 0 0 1 5.5 5.5M6.5 12A5.5 5.5 0 0 0 12 17.5"/>',
     zerog: '<circle cx="12" cy="12" r="4"/><ellipse cx="12" cy="12" rx="10" ry="3.6" transform="rotate(-20 12 12)"/>',
     quake: '<path d="M3 21h18M5 21V9l4-3 4 3v12M13 21V12l3-2 3 2v9"/><path d="M8 11l1.5 2-1 2 1 2M16 14l-1 1.5 1 1.5"/>',
+    holo:  '<path d="M9.94 15.5A2 2 0 0 0 8.5 14.06l-6.14-1.58a.5.5 0 0 1 0-.96L8.5 9.94A2 2 0 0 0 9.94 8.5l1.58-6.14a.5.5 0 0 1 .96 0L14.06 8.5A2 2 0 0 0 15.5 9.94l6.14 1.58a.5.5 0 0 1 0 .96L15.5 14.06a2 2 0 0 0-1.44 1.44l-1.58 6.14a.5.5 0 0 1-.96 0z"/>',
     bomb:  '<circle cx="11" cy="14" r="7"/><path d="M15.5 8.5 17 7"/><path d="M17 7c1-1 2.5-1 3.2-2.2M19 3v1.2M21.5 5.5h-1.2"/>',
     vac:   '<path d="M4 20h6l2-5"/><path d="M12 15 18 4"/><path d="M16.5 3.2 20 5.2"/><path d="M3 20.5c0-1.4 1-2.5 2.5-2.5"/><circle cx="8" cy="20" r="1.2"/>',
     fan:   '<circle cx="12" cy="12" r="1.6"/><path d="M12 10.4C12 6 14 3.5 16.5 4.5c2 .8 1 4-4.5 5.9"/><path d="M13.4 12.8c3.8 2.2 5 5.2 3 6.8-1.7 1.3-4.2-1-3.5-6.7"/><path d="M10.6 12.8c-3.8 2.2-7 1.7-7.3-.9-.3-2.1 3-2.9 7.3.9"/>',
@@ -176,7 +179,7 @@
     const out = [];
     const els = document.querySelectorAll('img, video, canvas, picture > source + img');
     for (const el of els) {
-      if (el.closest('#havoc-host, #havoc-scorch')) continue;
+      if (el.closest('#havoc-host, #havoc-scorch, .foil-cv')) continue;   // (the foil logo stays put, as the plain logo did)
       const r = el.getBoundingClientRect(); if (!inView(r) || r.width < 24 || r.height < 24) continue;
       const c = getComputedStyle(el); if (c.visibility === 'hidden' || +c.opacity === 0 || c.display === 'none') continue;
       if (el.tagName === 'IMG' && !(el.complete && el.naturalWidth)) continue;
@@ -187,7 +190,7 @@
     let count = 0;
     for (const el of all) {
       if (count > 40) break;
-      if (el.closest('#havoc-host, #havoc-scorch')) continue;
+      if (el.closest('#havoc-host, #havoc-scorch, .foil-cv')) continue;   // (the foil logo stays put, as the plain logo did)
       const c = getComputedStyle(el); if (!c.backgroundImage || c.backgroundImage === 'none' || !/url\(/.test(c.backgroundImage)) continue;
       const r = el.getBoundingClientRect(); if (!inView(r) || r.width * r.height < 6000) continue;
       const url = (c.backgroundImage.match(/url\(["']?([^"')]+)["']?\)/) || [])[1]; if (!url || /^data:image\/svg/.test(url)) continue;
@@ -410,6 +413,7 @@
   function blast(x, y) {
     tellFx('blast', x, y);
     const R = 170;
+    for (const pn of panes) { const p = pn.body.position, d = Math.hypot(p.x - x, p.y - y); if (d < R) holoQ.push([pn, { x: (p.x - x) / Math.max(d, 8) * 12, y: (p.y - y) / Math.max(d, 8) * 12 - 4 }]); }
     if (canPixels()) for (const o of images) {
       if (!o.alive || o.melt || !o.ready) continue; const bb = o.body.bounds;
       if (Math.hypot(clamp(x, bb.min.x, bb.max.x) - x, clamp(y, bb.min.y, bb.max.y) - y) < R * 0.45) burstImage(o, x, y);
@@ -694,6 +698,51 @@
   // Bombs: a round bomb drops where you click, its fuse fizzing; it flashes faster and faster and goes off about 2.6 s
   // later with a full blast. Click one with the Bomb tool to pick it up and throw it. A blast nearby sets it off early.
   let bombs = [], vents = [], fanAt = null, bombHeld = false, vacT = 0, fanT = 0;
+  // ---- holo panes (2026-11-25): foil from holospot; a hard knock or a blast breaks one into triangle shards ----
+  let panes = [], shards = [], holoQ = [], holoImg = null, holoAsked = false;
+  function holoSheet() {
+    if (holoAsked || !window.CadenceFoil) return; holoAsked = true;
+    window.CadenceFoil.sheet({ material: 'prism', lean: 14, size: 256 }).then(d => { if (!d) return; const im = new Image(); im.onload = () => { holoImg = im; }; im.src = d; }).catch(() => {});
+  }
+  function dropPane(x, y) {
+    holoSheet();
+    const w = 150, h = 96, body = Bodies.rectangle(x, y, w, h, { chamfer: { radius: 7 }, restitution: 0.18, friction: 0.45, frictionAir: 0.006, density: 0.0016 });
+    Composite.add(engine.world, body); panes.push({ body, w, h }); sfx.click();
+  }
+  function shatterPane(pn, v) {   // (not shatter(): that one breaks words into letters)
+    if (pn.broken) return; pn.broken = true; Composite.remove(engine.world, pn.body);
+    const b = pn.body, cx = b.position.x, cy = b.position.y, ca = Math.cos(b.angle), sa = Math.sin(b.angle), n = 4, m = 3;
+    // a jittered grid over the pane, each cell cut into two triangles
+    const pt = (i, j) => { const ex = i === 0 || i === n, ey = j === 0 || j === m; const lx = -pn.w / 2 + pn.w * i / n + (ex ? 0 : rand(-pn.w / n / 3, pn.w / n / 3)), ly = -pn.h / 2 + pn.h * j / m + (ey ? 0 : rand(-pn.h / m / 3, pn.h / m / 3)); return { x: cx + lx * ca - ly * sa, y: cy + lx * sa + ly * ca }; };
+    const P = []; for (let j = 0; j <= m; j++) for (let i = 0; i <= n; i++) P.push(pt(i, j));
+    const at = (i, j) => P[j * (n + 1) + i];
+    for (let j = 0; j < m; j++) for (let i = 0; i < n; i++) for (const tri of (Math.random() < 0.5 ? [[at(i, j), at(i + 1, j), at(i + 1, j + 1)], [at(i, j), at(i + 1, j + 1), at(i, j + 1)]] : [[at(i, j), at(i + 1, j), at(i, j + 1)], [at(i + 1, j), at(i + 1, j + 1), at(i, j + 1)]])) {
+      const gx = (tri[0].x + tri[1].x + tri[2].x) / 3, gy = (tri[0].y + tri[1].y + tri[2].y) / 3;
+      const sb = Bodies.fromVertices(gx, gy, [tri], { restitution: 0.25, friction: 0.3, frictionAir: 0.01, density: 0.0016 }); if (!sb) continue;
+      const dx = gx - cx, dy = gy - cy, d = Math.hypot(dx, dy) || 1;
+      Body.setVelocity(sb, { x: (v ? v.x * 0.5 : 0) + dx / d * rand(2, 6), y: (v ? v.y * 0.5 : 0) + dy / d * rand(2, 6) - rand(1, 4) });
+      Body.setAngularVelocity(sb, rand(-0.25, 0.25));
+      Composite.add(engine.world, sb); shards.push({ body: sb, born: performance.now() });
+    }
+    for (let k = 0; k < 46; k++) particles.push({ x: cx + rand(-pn.w / 2, pn.w / 2), y: cy + rand(-pn.h / 2, pn.h / 2), vx: rand(-3, 3), vy: rand(-4, 1), life: rand(0.4, 1.1), size: rand(0.8, 2.2), color: ['255,255,255', '255,170,230', '160,220,255', '200,255,190', '255,230,150'][k % 5] });
+    noise(0.35, { freq: 5200, type: 'highpass', gain: 0.16, attack: 0.002 }); noise(0.6, { freq: 9000, type: 'highpass', gain: 0.06, attack: 0.02 });
+    while (shards.length > 240) { const o = shards.shift(); Composite.remove(engine.world, o.body); }
+  }
+  function holoStep() {
+    for (const [pn, v] of holoQ.splice(0)) shatterPane(pn, v);
+    if (panes.some(p => p.broken)) panes = panes.filter(p => !p.broken);
+  }
+  function drawHolo(c, now) {
+    if (!panes.length && !shards.length) return;
+    const pat = holoImg ? c.createPattern(holoImg, 'repeat') : null;
+    const paint = (body, big) => {
+      const v = body.vertices; c.beginPath(); c.moveTo(v[0].x, v[0].y); for (let i = 1; i < v.length; i++) c.lineTo(v[i].x, v[i].y); c.closePath();
+      if (pat) { const p = body.position; pat.setTransform(new DOMMatrix().translate(p.x * 0.35 + body.angle * 140 + now * 0.012, p.y * 0.2 - body.angle * 60).scale(big ? 1.1 : 0.7)); c.fillStyle = pat; }
+      else { const g = c.createLinearGradient(body.bounds.min.x, body.bounds.min.y, body.bounds.max.x, body.bounds.max.y); ['#ffb3dc', '#ffe7a3', '#b5ffc4', '#a6e4ff', '#d0b3ff'].forEach((col, i, a) => g.addColorStop(((((i / (a.length - 1)) + now * 0.0002 + body.angle * 0.2) % 1) + 1) % 1, col)); c.fillStyle = g; }
+      c.globalAlpha = 0.94; c.fill(); c.globalAlpha = 1; c.lineWidth = 1; c.strokeStyle = 'rgba(255,255,255,.6)'; c.stroke();
+    };
+    c.save(); for (const pn of panes) paint(pn.body, true); for (const sh of shards) paint(sh.body, false); c.restore();
+  }
   const BOMB_R = 11;
   function dropBomb(x, y) {
     const body = Bodies.circle(x, y, BOMB_R, { restitution: 0.35, friction: 0.5, frictionAir: 0.004, density: 0.004 });
@@ -825,7 +874,7 @@
       }
     }
     holes = holes.filter(h => h.t < h.life);
-    bombsStep(dt); vacStep(dt); fanStep(dt); ventsStep(dt);
+    bombsStep(dt); vacStep(dt); fanStep(dt); ventsStep(dt); holoStep();
     // rain
     if (raining) {
       rainAcc += dt * 70;
@@ -952,7 +1001,7 @@
       c.strokeStyle = `rgba(255,220,180,${0.8 * fade})`; c.lineWidth = 1.5; c.beginPath(); c.arc(h.x, h.y, core + 1.5, 0, Math.PI * 2); c.stroke();
       if (h.r < h.max) { c.strokeStyle = `rgba(178,140,255,${0.25 * (1 - h.r / h.max)})`; c.lineWidth = 1; c.beginPath(); c.arc(h.x, h.y, h.r, 0, Math.PI * 2); c.stroke(); }
     }
-    drawBombs(c, performance.now()); drawFan(c, performance.now());
+    drawBombs(c, performance.now()); drawFan(c, performance.now()); drawHolo(c, performance.now());
     // shockwave rings
     for (const r of rings) { r.r += (r.max - r.r) * 0.16; r.life -= dt * 2.2; c.strokeStyle = `rgba(${r.color},${Math.max(0, r.life)})`; c.lineWidth = r.w * Math.max(0, r.life); c.beginPath(); c.arc(r.x, r.y, r.r, 0, Math.PI * 2); c.stroke(); }
     rings = rings.filter(r => r.life > 0);
@@ -1039,6 +1088,7 @@
     else if (tool === 'rain') setRain(!raining);
     else if (tool === 'quake') collapse();
     else if (tool === 'zerog') toggleZeroG();
+    else if (tool === 'holo') { const hit = panes.find(pn => M.Bounds.contains(pn.body.bounds, { x, y }) && M.Vertices.contains(pn.body.vertices, { x, y })); if (hit) holoQ.push([hit, null]); else dropPane(x, y); }
     else if (tool === 'bomb') { if (bombAt(x, y)) { bombHeld = true; mcon.collisionFilter.mask = 0xFFFFFFFF; } else dropBomb(x, y); }
     else if (tool === 'fan') fanAt = { x, y, dx: fanAt ? fanAt.dx : 0, dy: fanAt ? fanAt.dy : -1 };
     else if (tool === 'volcano') openVent(x);
@@ -1200,7 +1250,7 @@
     document.documentElement.classList.add('havoc-open');   // full screen: Cadence hides its tab bar (2026-11-24)
     H.active = true; W = innerWidth; Hh = innerHeight; DPR = Math.min(2, devicePixelRatio || 1);
     calmMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
-    letters = []; images = []; bodyMap = new Map(); restore = []; particles = []; rings = []; holes = []; drops = []; shake = 0; raining = false; bombs = []; vents = []; fanAt = null; bombHeld = false; zeroG = false; tool = 'blast';
+    letters = []; images = []; bodyMap = new Map(); restore = []; particles = []; rings = []; holes = []; drops = []; shake = 0; raining = false; bombs = []; panes = []; shards = []; holoQ = []; vents = []; fanAt = null; bombHeld = false; zeroG = false; tool = 'blast';
     host = document.createElement('div'); host.id = 'havoc-host';
     host.style.cssText = 'position:fixed!important;inset:0!important;z-index:2147483647!important;pointer-events:none!important;display:block!important;margin:0!important;padding:0!important;border:0!important;background:none!important;transform:none!important;filter:none!important';
     root = host.attachShadow({ mode: 'open' });
@@ -1227,6 +1277,8 @@
     // a word that slams into something (the floor, a wall, another piece) hard enough breaks into its letters
     Events.on(engine, 'collisionStart', e => {
       for (const pr of e.pairs) for (const [a, b] of [[pr.bodyA, pr.bodyB], [pr.bodyB, pr.bodyA]]) {
+        const pn = panes.length && panes.find(q => q.body === a);
+        if (pn && !pn.broken && Math.hypot(a.velocity.x - (b.velocity ? b.velocity.x : 0), a.velocity.y - (b.velocity ? b.velocity.y : 0)) > 15) { holoQ.push([pn, { x: a.velocity.x, y: a.velocity.y }]); continue; }
         const o = bodyMap.get(a.id); if (!o || !o.alive || (o.kind !== 'W' && o.kind !== 'L')) continue;
         const rv = Math.hypot(a.velocity.x - (b.velocity ? b.velocity.x : 0), a.velocity.y - (b.velocity ? b.velocity.y : 0));
         if (rv > 2.2 && !muted) landed(o, rv);
@@ -1286,7 +1338,7 @@
   function rewind(then) {
     if (!H.active || H.rewinding) return;
     if (matchMedia('(prefers-reduced-motion: reduce)').matches) { stop(); if (then) then(); return; }
-    H.rewinding = true; cancelAnimationFrame(raf); raining = false; holes = []; drops = []; bombs = []; vents = []; fanAt = null;
+    H.rewinding = true; cancelAnimationFrame(raf); raining = false; holes = []; drops = []; bombs = []; panes = []; shards = []; holoQ = []; vents = []; fanAt = null;
     if (hud) hud.style.display = 'none'; if (tipEl) tipEl.remove(); hit.style.pointerEvents = 'none';
     tellFx('stop', 0, 0);
     let longest = 0;
@@ -1340,7 +1392,7 @@
   H.start = start; H.stop = stop;
   H.blast = (x, y) => { if (H.active) blast(x, y); };
   H.toolList = () => TOOLS.map(t => ({ key: t.key, name: t.name, id: t.id, color: t.color }));   // for the phone controller (havoc.js)
-  H.tools = () => ({ bombs: bombs.length, vents: vents.length, words: letters.filter(o => o.alive).length });   // tests
+  H.tools = () => ({ bombs: bombs.length, vents: vents.length, words: letters.filter(o => o.alive).length, panes: panes.length, shards: shards.length });   // tests
   H.melt = (x, y) => { if (H.active) melt(x, y); };
   // a smaller knock than a blast: the words nearby fly off, no boom
   H.knock = (x, y, r = 90, pow = 12) => {
