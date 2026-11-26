@@ -108,7 +108,7 @@ test('the new bosses: the big baby is calmed with milk, zombies climb out of the
   // the graveyard: a zombie comes up when the wizard goes near; the round ends when they're all down
   await page.evaluate(() => window.HavocFight.debug.boss('graves'));
   await expect.poll(async () => (await st()).boss, { timeout: 8000 }).toBe('graves');
-  await expect.poll(async () => (await st()).graves.some(g => g !== 'shut'), { timeout: 20000 }).toBe(true);
+  await expect.poll(async () => ((await st()).graves || []).some(g => g !== 'shut'), { timeout: 20000 }).toBe(true);   // (no graves yet on a slow machine)
   for (let i = 0; i < 10 && (await st()).boss === 'graves'; i++) await page.evaluate(() => window.HavocFight.debug.hit(1));
   await expect.poll(async () => (await st()).boss, { timeout: 8000 }).not.toBe('graves');
   // Old Clinker: fire barely touches him, Frostbite puts him out bit by bit (he shrinks)
