@@ -3034,7 +3034,7 @@
     const vs = Reg.views.filter(v => !v.hidden).sort((a, b) => (a.order ?? 50) - (b.order ?? 50));
     const groups = [...new Set(vs.map(v => v.group || ''))];
     const name = g => (APP.groups && APP.groups[g]) || '';
-    return groups.map(g => `${name(g) ? `<div class="sect">${esc(name(g))}</div>` : ''}<nav class="nav">${vs.filter(v => (v.group || '') === g).map(v => nav('view-' + v.id, esc(v.icon || '◇'), esc(v.title))).join('')}</nav>`).join('');
+    return groups.map(g => `${name(g) ? `<div class="sect">${esc(name(g))}</div>` : ''}<nav class="nav">${vs.filter(v => (v.group || '') === g).map(v => nav('view-' + v.id, v.site ? logoHtml(v.site, { size: 16 }) || esc(v.icon || '◇') : esc(v.icon || '◇'), esc(v.title))).join('')}</nav>`).join('');
   }
   function renderSide() {
     const r = route(),
@@ -3079,9 +3079,9 @@
           .filter(v => pins.includes(v.id) || r === 'view-' + v.id)
           .sort((x, y) => (pins.indexOf(x.id) + 1 || 99) - (pins.indexOf(y.id) + 1 || 99));
       const items = (ins.length ? [tile('insights', '✦', 'Insights')] : [])
-        .concat(mus.length ? [tile(onMusic ? r : 'music', '🎧', 'Music').replace('href="#' + r + '"', 'href="#music"')] : [])
+        .concat(mus.length ? [tile(onMusic ? r : 'music', esc(mus.length === 1 && mus[0].icon || '🎧'), 'Music').replace('href="#' + r + '"', 'href="#music"')] : [])
         .concat(
-        shown.map(v => tile('view-' + v.id, esc(v.icon || '◇'), esc(v.title)))
+        shown.map(v => tile('view-' + v.id, v.site ? logoHtml(v.site, { size: 18 }) || esc(v.icon || '◇') : esc(v.icon || '◇'), esc(v.title)))
       );
       if (loose.length > shown.length)
         items.push(

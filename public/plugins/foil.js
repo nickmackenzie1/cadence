@@ -138,11 +138,14 @@
       css.textContent = `.brand .logo .foil-cv{position:absolute;inset:0;width:100%;height:100%;border-radius:inherit;z-index:2;pointer-events:none}
         .brand .logo.foil-on{background:none;box-shadow:none}.brand .logo.foil-on:before,.brand .logo.foil-on:after{display:none}`;
       document.head.appendChild(css);
-      // after things settle, and only where the sidebar shows (not on a phone's narrow layout)
-      const go = () => { const el = document.querySelector('#side-head .brand .logo'); if (el && innerWidth > 900) logo(el); };
-      (window.requestIdleCallback || setTimeout)(go, { timeout: 4000 });
+      // once the logo is actually on screen: straight away on a computer, the first time the menu opens on a phone
+      const start = () => {
+        const el = document.querySelector('#side-head .brand .logo'); if (!el) return;
+        const io = new IntersectionObserver(es => { if (es.some(e => e.isIntersecting && e.boundingClientRect.width > 8)) { io.disconnect(); logo(el); } });
+        io.observe(el);
+      };
+      (window.requestIdleCallback || setTimeout)(start, { timeout: 4000 });
       theme(api);
-      addEventListener('resize', () => { if (!logoOn) go(); });
     }
   });
 })();

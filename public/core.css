@@ -854,3 +854,7 @@ html.havoc-open #tabbar{display:none!important}
   .t-meta .chip[data-act]::before,.t-meta button.chip::before{content:'';position:absolute;inset:-9px -4px}
   .td-nx,.td-link{min-height:40px;display:inline-flex;align-items:center}
 }
+
+/* counts on the Today / Upcoming / Waiting tiles (2026-11-25): a quiet number, not a badge (calm UI: no badge counts) */
+.ntile .n,.ntile .n.hot,.ntile.on .n:not(.hot){background:none;color:var(--faint);font-weight:500;box-shadow:none}
+.ntile.on .n,.ntile.on .n.hot{color:var(--muted)}

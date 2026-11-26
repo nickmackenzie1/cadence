@@ -24,7 +24,7 @@
     id: 'music-link', name: 'Music (CRATE DIGGER)', version: '1.0.0', category: 'Media', spaces: ['work', 'life'],
     description: 'Music lives in its own app now, CRATE DIGGER. This puts it in the sidebar and shows what it is playing on the Island.',
     setup(api) {
-      api.views.add({ id: 'music', group: 'music', title: 'Music', icon: '🎧', subtitle: 'Music Radar, Downloads, Radio, KEXP and Podcasts, in CRATE DIGGER', render: el => {
+      api.views.add({ id: 'music', group: 'music', title: 'Music', icon: '💿', subtitle: 'Music Radar, Downloads, Radio, KEXP and Podcasts, in CRATE DIGGER', render: el => {
         el.innerHTML = `<div class="ml">
           ${now && now.playing ? `<p class="ml-now">${api.ui.icon('audio-lines')} Playing in CRATE DIGGER: <b>${E(now.title)}</b>${now.artist ? ` · ${E(now.artist)}` : ''}</p>` : ''}
           <p>Music has its own app now: <b>CRATE DIGGER</b>, on your NAS next to THING. Your Radar, Want to hear, KEXP history, downloads and podcasts are there.</p>

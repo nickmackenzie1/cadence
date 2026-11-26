@@ -7,6 +7,8 @@
   if (!G.el) {
     const st = document.createElement('style');
     st.textContent = `
+      /* the phone menu open: the Island steps aside so it doesn't cover the menu (2026-11-25) */
+      body.nav-open .isl{opacity:0;pointer-events:none;transition:opacity .2s}
       .isl{position:fixed;top:calc(10px + env(safe-area-inset-top));left:calc(276px + (100vw - 276px) / 2);transform:translateX(-50%);z-index:80;pointer-events:none}
       @media (max-width:900px){.isl{left:50%}}
       /* in the sidebar (2026-11-24, user: "the island should come from the sidebar … keep the island idea"; computers
